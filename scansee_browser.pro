@@ -18,7 +18,7 @@ PRO scansee_browser_Event, Event
 	scanSee_overlay,GROUP=Event.top
       END
   'ASSIGN_SCANSEE': BEGIN
-	spawn,'scanSee &'
+	spawn,'scanSee -D &'
       END
   'ASSIGN_VW2D': BEGIN
 	spawn,'vw2d &'
@@ -31,6 +31,7 @@ PRO scansee_browser_Event, Event
       END
   'ASSIGN_DONE': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY
+	exit
       END
   'ASSIGN_HELP1': BEGIN
       str = [ $
