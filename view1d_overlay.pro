@@ -163,8 +163,10 @@ COMMON  MULTI_BLOCK, multi_ids
 	
 	temp= 'Detector '+strtrim(iy+1,2)  
 	comment = [comment, temp, 'File: '+ filename]
+	if ix eq 0 then xtitle = 'Step #' else begin
 	xtitle = x_descs(ix-1) 
 	if strlen(x_engus(ix-1)) gt 0 then xtitle=xtitle+' (' +x_engus(ix-1)+')'
+	end
 	ytitle = y_descs(iy)
 	if strlen(y_engus(iy)) gt 0 then ytitle=ytitle+' ('+y_engus(iy)+')'
 	symbol = multi_ids.symbol
