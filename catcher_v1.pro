@@ -1,4 +1,4 @@
-; $Id: catcher_v1.pro,v 1.43 2000/02/28 19:05:16 cha Exp $
+; $Id: catcher_v1.pro,v 1.44 2000/07/17 20:24:39 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -801,7 +801,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
-; $Id: catcher_v1.pro,v 1.43 2000/02/28 19:05:16 cha Exp $
+; $Id: catcher_v1.pro,v 1.44 2000/07/17 20:24:39 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -3012,9 +3012,9 @@ win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
    ;extract valid data from global arrays
 
    ; If plotting before p1 was read ...
-   IF num_pts le 1 then begin
+   IF num_pts lt 1 then begin
 	w_warningtext,'Error: You have to open input file first !'
-	return
+;	return
    END
 
    catch1d_check_xaxis,num_pts,p1,xmin,xmax
@@ -8430,7 +8430,7 @@ if scanData.pvfound eq -1 then return
 
 	 if scanData.y_scan eq 0 then  set_sensitive_on
 
-	if scanData.act_npts le 1 then begin 
+	if scanData.act_npts lt 1 then begin
 ;	w_warningtext,'No data detected in scan record: ' + scanData.pv
 	return
 	end
@@ -8764,13 +8764,14 @@ px_name = [ scanData.pv+'.R1PV', scanData.pv+'.R2PV', $
 		scanData.pv+'.R3PV', scanData.pv+'.R4PV' ]
 ln = cagetArray(px_name,tname,/string)
 
+num_pts = 1 > (scanData.act_npts - 1) 
 	for i=0,3 do begin
 		if strlen(pname(i)) gt 1 or strlen(tname(i)) gt 1 then begin
 		npts = scanData.act_npts + 1
 		type = wave_types(i)
 		ln = cagetArray(p_name(i), pd, max=npts,/double)
 		if ln eq 0 then $
-		scanData.pa(0:scanData.act_npts,i) = pd(0:scanData.act_npts)
+		scanData.pa(0:num_pts,i) = pd(0:num_pts)
 		end
 	end
 
@@ -8794,7 +8795,7 @@ ln = cagetArray(px_name,pname,/string)
 		type = wave_types(i+4)
 		ln = cagetArray(d_name(i), pd, max=npts,type=type)
 		if ln eq 0 then $
-		scanData.da(0:scanData.act_npts,i) = pd(0:scanData.act_npts)
+		scanData.da(0:num_pts,i) = pd(0:num_pts)
 	   end
 	end
 
@@ -9786,10 +9787,10 @@ end
 		if id lt 0 then begin
 			st = ['NOTICE: ','', $
 				scanData.trashcan,'', $
-			'Illegal scanData.trashcan file detected.', '', $
-			'You have to modify the configuration file first.']
+			'Illegal input file detected.', '', $
+			'You have to pick a new input file first.']
 			mes = dialog_message(st,/Error,dialog_parent=widget_ids.base)
-			exit
+			return      
 		end
 
 	found = findfile(scanData.trashcan)
@@ -10107,6 +10108,12 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;                        Increase X,Y vector array to 2001 in view2D
 ;       01-27-00 bkc   - R2.2.2c7+
 ;                        View2d R2.3g+ with set new 2D positions
+;       05-15-00 bkc   - R2.2.2c8
+;                        Fix the plot broblem if the request NPTS is set to 2 
+;                        by the user. If NPTS is set to 1, data is duplicate 
+;                        once to get around the oplot problem.
+;                        Change the dialog info if configuration error is
+;                        detected, it allows the user re-enter the File menu.
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10136,7 +10143,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R2.2.2c7+)', $
+      TITLE='Scan Data Catcher (R2.2.2c8)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10386,7 +10393,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R2.2.2c7+)'
+scanData.release = '(R2.2.2c8)'
 
 ; get start home work directory
 
