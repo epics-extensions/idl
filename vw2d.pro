@@ -51,7 +51,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.7 2000/04/20 19:10:23 cha Exp $
+; $Id: vw2d.pro,v 1.8 2000/08/18 20:20:10 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -704,7 +704,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.7 2000/04/20 19:10:23 cha Exp $
+; $Id: vw2d.pro,v 1.8 2000/08/18 20:20:10 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2303,6 +2303,7 @@ end
 		if id_def(i+4) gt 0 then begin
 		t_image = da2D(*,*,i)
 		image_array(*,*,i) = t_image
+		def(i) = 1
 		end
 	end
 
