@@ -6,10 +6,30 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.55 2003/10/29 23:50:33 cha Exp $
-
+; $Id: catcher_v1.pro,v 1.56 2004/01/29 23:50:18 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
+
+PRO WC,filename,nline,ncol
+; simulate unix command WC to read an ASCII file
+; nline - return the total # of lines in file
+; ncol  - returns the totol # of data elements in a line
+        openr,1,filename
+        line=''
+        nline=0
+        while NOT EOF(1) do begin
+        on_ioerror,close1
+        readf,1,line
+        nline=nline+1
+        if nline eq 1 then begin
+                y = strsplit(line,' ',/extract)
+                ncol = n_elements(y)
+        end
+        end
+close1:
+        close,1
+END
+
 PRO XDispFile_evt, event
 
 
@@ -158,7 +178,7 @@ filebase = WIDGET_BASE(TITLE = TITLE, /MODAL, $		;create the base
 filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
 		GROUP=ourGROUP,/COLUMN ) 
 
-label=WIDGET_LABEL(filebase,value=TITLE)
+label=WIDGET_LABEL(filebase,value=TITLE(0))
 rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
 fileprint = WIDGET_BUTTON(rowbtn, $			;create a Print Button
 		VALUE = "Print", $
@@ -473,7 +493,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.55 2003/10/29 23:50:33 cha Exp $
+; $Id: catcher_v1.pro,v 1.56 2004/01/29 23:50:18 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1658,6 +1678,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       	WIDGET_CONTROL,catcher_setup_ids.pv,SET_VALUE=newpv
 	scanData.pv = newpv
 	scanData.pvconfig = newpv
+	set_scan_field_init
 	pventry_event
 	endif else begin
 		w_warningtext,'Error: invalid SCAN 1D Pvname',40,2
@@ -1972,10 +1993,13 @@ PRO scan_field_init,pv,print=print
 COMMON field_block, field_max, field_name, field_name_array, field_value, field_label_array, w_scanfield_ids
 
 if n_elements(pv) ne 0 then begin
-	s = size(field_name)
-	no = s(1)
+  no = n_elements(field_name)
+  if no lt 1 then begin
+	set_scan_field_init
+	no = n_elements(field_name)
+  end
 
-field_name_array = make_array(no,/string,value=string(replicate(32b,30)))
+  field_name_array = make_array(no,/string,value=string(replicate(32b,30)))
 
 	for i=0, no-1  do begin 
 		 field_name_array(i)  = pv + field_name(i)
@@ -2039,6 +2063,95 @@ XMANAGER, 'w_scanfield',w_scanfield_base, GROUP_LEADER = GROUP
 
 END
 
+
+
+PRO set_scan_field_init
+COMMON CATCH1D_COM, widget_ids, scanData
+COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
+COMMON field_block, field_max, field_name, field_name_array, field_value, field_label_array, w_scanfield_ids
+
+; check for 5.19 or newer version
+	if scanData.pv eq '' then return
+	r = cagetarray(scanData.pv+'.VERS',pd)
+	if pd(0) gt 5.18 then scanData.new=1 else scanData.new=0
+print,scanData.pv,'.VERS',pd
+;	r = cagetarray(scanData.pv+'.D1PV',pd)
+;	if r eq -1 then scanData.new = 1 else scanData.new=0
+
+; scan field init
+; if n_elements(field_name) eq 0 then begin
+
+pvdc = [ $
+        'Number of Points               : ', $
+        'Positioner # 1 PV Name         : ', $
+        'Readback   # 1 PV Name         : ', $
+        'Positioner # 1 Step Mode       : ', $
+        'Positioner # 2 PV Name         : ', $
+        'Readback   # 2 PV Name         : ', $
+        'Positioner # 2 Step Mode       : ', $
+        'Positioner # 3 PV Name         : ', $
+        'Readback   # 3 PV Name         : ', $
+        'Positioner # 3 Step Mode       : ', $
+        'Positioner # 4 PV Name         : ', $
+        'Readback   # 4 PV Name         : ', $
+        'Positioner # 4 Step Mode       : ', $
+        'Data Detector # 1 PV Name      : ', $
+        'Data Detector # 2 PV Name      : ', $
+        'Data Detector # 3 PV Name      : ', $
+        'Data Detector # 4 PV Name      : ', $
+        'Data Detector # 5 PV Name      : ', $
+        'Data Detector # 6 PV Name      : ', $
+        'Data Detector # 7 PV Name      : ', $
+        'Data Detector # 8 PV Name      : ', $
+        'Data Detector # 9 PV Name      : ', $
+        'Data Detector # A PV Name      : ', $
+        'Data Detector # B PV Name      : ', $
+        'Data Detector # C PV Name      : ', $
+        'Data Detector # D PV Name      : ', $
+        'Data Detector # E PV Name      : ', $
+        'Data Detector # F PV Name      : ', $
+        'Trigger # 1 PV Name            : ', $
+        'Trigger # 1 Command            : ', $
+        'Trigger # 2 PV Name            : ', $
+        'Trigger # 2 Command            : ' $
+	]
+
+   pvnf = [ $
+        'NPTS', $
+        'P1PV', 'R1PV', 'P1SM', $
+        'P2PV', 'R2PV', 'P2SM', $
+        'P3PV', 'R3PV', 'P3SM', $
+        'P4PV', 'R4PV', 'P4SM', $
+        'D1PV', 'D2PV', 'D3PV', 'D4PV', 'D5PV', 'D6PV', 'D7PV', $
+        'D8PV', 'D9PV', 'DAPV', 'DBPV', 'DCPV', 'DDPV', 'DEPV', $
+        'DFPV', 'T1PV', 'T1CD', 'T2PV', 'T2CD' $
+        ]
+
+    if scanData.new then pvnf(13:27) = [ $
+	'D01PV', 'D02PV', 'D03PV', 'D04PV', 'D05PV', 'D06PV', $
+	'D07PV', 'D08PV', 'D09PV', 'D10PV', 'D11PV', 'D12PV', $
+	'D13PV', 'D14PV', 'D15PV']
+;   print,pvnf
+
+y1 = '.' + pvnf
+
+field_name = y1
+field_max = n_elements(field_name)
+field_label_array = pvnf +' '+ pvdc
+ 
+field_name_array = make_array(field_max,/string,value=string(replicate(32b,30)))
+field_value = make_array(field_max,/string,value=string(replicate(32b,40)))
+; end
+
+
+	scanData.DI = ['D1','D2','D3','D4','D5','D6','D7','D8','D9', $
+        'DA', 'DB','DC','DD','DE','DF']
+
+	if scanData.new then $
+	scanData.DI = ['D01','D02','D03','D04','D05','D06','D07','D08',	$
+	'D09','D10','D11','D12','D13','D14','D15']	
+
+END
 
 
 PRO readDBDescs,pvnames,descs,print=print,help=help
@@ -2492,6 +2605,8 @@ end
 
 END
 
+
+
 PRO addScanFieldToEnvList
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON env_field_block,env_field
@@ -2499,7 +2614,9 @@ COMMON field_block, field_max, field_name, field_name_array, field_value, field_
 
 ; add the scan record field to the env list
 
+
 	scan_field_get,scanData.pv
+
 	no = field_max
 	n1 = env_field.no
 	env_field.noenv = n1
@@ -3245,7 +3362,6 @@ win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
 
    num_pts = 1 > (scanData.act_npts-1)
 
-
    ;extract valid data from global arrays
 
    ; If plotting before p1 was read ...
@@ -3288,7 +3404,6 @@ for i=0,14 do begin
      IF (wf_sel(i) EQ 1) THEN  BEGIN
 
 	d1 = scanData.da(0:num_pts,i)
-
          IF (MIN(d1) LT ymin) THEN ymin = MIN(d1)
          IF (MAX(d1) GT ymax) THEN ymax = MAX(d1)
 	 if w_plotspec_id.log eq 1 and ymin le 0. then begin
@@ -3950,25 +4065,8 @@ if keyword_set(file) then begin
 endif else begin
 	scanData.nonames = 19 
 	realtime_pvnames = make_array(19,/string,value=string(replicate(32b,5)))
-	realtime_pvnames(0)=scanData.pv+'.R1CV'
-	realtime_pvnames(1)=scanData.pv+'.R2CV'
-	realtime_pvnames(2)=scanData.pv+'.R3CV'
-	realtime_pvnames(3)=scanData.pv+'.R4CV'
-	realtime_pvnames(4)=scanData.pv+'.D1CV'
-	realtime_pvnames(5)=scanData.pv+'.D2CV'
-	realtime_pvnames(6)=scanData.pv+'.D3CV'
-	realtime_pvnames(7)=scanData.pv+'.D4CV'
-	realtime_pvnames(8)=scanData.pv+'.D5CV'
-	realtime_pvnames(9)=scanData.pv+'.D6CV'
-	realtime_pvnames(10)=scanData.pv+'.D7CV'
-	realtime_pvnames(11)=scanData.pv+'.D8CV'
-	realtime_pvnames(12)=scanData.pv+'.D9CV'
-	realtime_pvnames(13)=scanData.pv+'.DACV'
-	realtime_pvnames(14)=scanData.pv+'.DBCV'
-	realtime_pvnames(15)=scanData.pv+'.DCCV'
-	realtime_pvnames(16)=scanData.pv+'.DDCV'
-	realtime_pvnames(17)=scanData.pv+'.DECV'
-	realtime_pvnames(18)=scanData.pv+'.DFCV'
+
+	realtime_pvnames = scanData.pv + '.' +['R1','R2','R3','R4',scanData.DI] + 'CV'
 	end
 
 ;print,'pvnames',realtime_pvnames
@@ -4384,7 +4482,7 @@ if realtime_id.axis eq 1 then begin
 		catch1d_get_pvtcolor,color,t_color
 		color = t_color
 		end
-		oplot,scanData.px(0:n1), scanData.da(0:n1,i),LINE=ln_style(i), $
+		oplot,scanData.px(1:n1), scanData.da(1:n1,i),LINE=ln_style(i), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -4398,7 +4496,7 @@ if realtime_id.axis eq 1 then begin
 		catch1d_get_pvtcolor,color,t_color
 		color = t_color
 		end
-	oplot,scanData.px(0:n1), scanData.pa(0:n1,i),LINE=ln_style(i+15), $
+	oplot,scanData.px(1:n1), scanData.pa(1:n1,i),LINE=ln_style(i+15), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -4866,22 +4964,8 @@ for i=0,3 do begin
 	if strlen(p1(i)) eq 0 then p1(i) = p2(i)
 end
  
-x_dn = [ scanData.pv+'.D1PV', $
-	scanData.pv+'.D2PV', $
-	scanData.pv+'.D3PV', $
-	scanData.pv+'.D4PV', $
-	scanData.pv+'.D5PV', $
-	scanData.pv+'.D6PV', $
-	scanData.pv+'.D7PV', $
-	scanData.pv+'.D8PV', $
-	scanData.pv+'.D9PV', $
-	scanData.pv+'.DAPV', $
-	scanData.pv+'.DBPV', $
-	scanData.pv+'.DCPV', $
-	scanData.pv+'.DDPV', $
-	scanData.pv+'.DEPV', $
-	scanData.pv+'.DFPV' $
-	]
+x_dn = scanData.pv + '.'+ scanData.DI + 'PV'
+
 ln = cagetArray(x_dn,pd,/string)
 x_dv = strtrim(pd,2)
 names(0:3) = p1
@@ -4908,26 +4992,8 @@ if strlen(names(i)) gt 1 then begin
         end
 end
 
-x_dn = [ scanData.pv+'.P1EU', $
-	scanData.pv+'.P2EU', $
-	scanData.pv+'.P3EU', $
-	scanData.pv+'.P4EU', $
-	scanData.pv+'.D1EU', $
-	scanData.pv+'.D2EU', $
-	scanData.pv+'.D3EU', $
-	scanData.pv+'.D4EU', $
-	scanData.pv+'.D5EU', $
-	scanData.pv+'.D6EU', $
-	scanData.pv+'.D7EU', $
-	scanData.pv+'.D8EU', $
-	scanData.pv+'.D9EU', $
-	scanData.pv+'.DAEU', $
-	scanData.pv+'.DBEU', $
-	scanData.pv+'.DCEU', $
-	scanData.pv+'.DDEU', $
-	scanData.pv+'.DEEU', $
-	scanData.pv+'.DFEU' $
-	]
+ x_dn = scanData.pv + '.' + ['P1','P2','P3','P4',scanData.DI] + 'EU'
+
 	ln = cagetArray(x_dn,pd,/string)
 	x_dv = pd
 	for i=0,18 do begin
@@ -5855,6 +5921,7 @@ printf,unit,';  REFERENCE ENVIRONMENT VARIABLES SAVED IN SCAN #',scanData.refno
 printf,unit,';  ENVIRONMENT VARIABLES SAVED FOR SCAN #:', scanData.scanno
 printf,unit,'; '
 twd = 18*total(realtime_id.def) + 10
+if twd lt 110 then twd = 110
 s0 = string(replicate(32b,twd))
 st = s0
 strput,st,'; ',0
@@ -6496,6 +6563,7 @@ printf,unit,';  ENVIRONMENT VARIABLES SAVED FOR SCAN #:', scanData.scanno
 printf,unit,'; '
 ;s0 = string(replicate(32b,340))
 twd = 18*total(realtime_id.def) + 10
+if twd lt 110 then twd=110
 s0 = string(replicate(32b,twd))
 st = s0
 strput,st,'; ',0
@@ -7564,7 +7632,7 @@ if y_seqno lt 0 then return
 		for i=0,14 do begin
 		xi=(i mod 8)*width+width/2 - 5
 		yi=height/2+(15-i)/8*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+		xyouts, xi,yi,scanData.DI(i),/device
 		end
         plots,[0,8*width],[height,height],/device
         for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
@@ -7580,7 +7648,7 @@ if error_status lt 0 then begin
 		for i=0,14 do begin
 		xi=(i mod 8)*width+width/2 - 5
 		yi=height/2+(15-i)/8*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+		xyouts, xi,yi,scanData.DI(i),/device
 		end
         plots,[0,8*width],[height,height],/device
         for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
@@ -7589,6 +7657,7 @@ if error_status lt 0 then begin
 end
 
 	wset,new_win
+	if !d.name eq 'WIN' then device,decompose=0
 
 ;	erase
 	for sel=0,14 do begin
@@ -7615,6 +7684,7 @@ end
 	end
 	end
 
+	if !d.name eq 'WIN' then device,decompose=1
 	wset,old_win
 END
 
@@ -8663,7 +8733,6 @@ if scanData.pvfound eq -1 then return
 	getPositionDetectorData
 
 	realtime_id.ind = -1
-
 ;
 ; automatic save scan data
 ;
@@ -8958,15 +9027,7 @@ if n_elements(realtime_pvnames) gt 0 then begin
 	p_name = [ scanData.pv+'.P1RA', + scanData.pv+'.P2RA', $
 		scanData.pv+'.P3RA', + scanData.pv+'.P4RA']
 
-	d_name = [ scanData.pv+'.D1DA', + scanData.pv+'.D2DA', $
-		scanData.pv+'.D3DA', + scanData.pv+'.D4DA', $
-		scanData.pv+'.D5DA', + scanData.pv+'.D6DA', $
-		scanData.pv+'.D7DA', + scanData.pv+'.D8DA', $
-		scanData.pv+'.D9DA', + scanData.pv+'.DADA', $
-		scanData.pv+'.DBDA', + scanData.pv+'.DCDA', $
-		scanData.pv+'.DDDA', + scanData.pv+'.DEDA', $
-		scanData.pv+'.DFDA'   $
-		]
+	d_name = scanData.pv + '.'+scanData.DI+'DA'
 
 	scanData.pa = make_array(1000,4,/double)
 	scanData.da = make_array(1000,15,/float)
@@ -8988,6 +9049,7 @@ px_name = [ scanData.pv+'.R1PV', scanData.pv+'.R2PV', $
 ln = cagetArray(px_name,tname,/string)
 
 num_pts = 1 > (scanData.act_npts - 1) 
+	scanData.x_dpt(0:14) = num_pts  ;counts(4:18)
 	for i=0,3 do begin
 		if strlen(pname(i)) gt 1 or strlen(tname(i)) gt 1 then begin
 		npts = scanData.act_npts + 1
@@ -9000,15 +9062,7 @@ num_pts = 1 > (scanData.act_npts - 1)
 
 	; fill detector array
 
-px_name = [ scanData.pv+'.D1PV', scanData.pv+'.D2PV', $
-		scanData.pv+'.D3PV', scanData.pv+'.D4PV', $
-		scanData.pv+'.D5PV', scanData.pv+'.D6PV', $
-		scanData.pv+'.D7PV', scanData.pv+'.D8PV', $
-		scanData.pv+'.D9PV', scanData.pv+'.DAPV', $
-		scanData.pv+'.DBPV', scanData.pv+'.DCPV', $
-		scanData.pv+'.DDPV', scanData.pv+'.DEPV', $
-		scanData.pv+'.DFPV' $
-	]
+px_name = scanData.pv +'.' + scanData.DI +'PV'
 
 ln = cagetArray(px_name,pname,/string)
 
@@ -9158,7 +9212,6 @@ PRO catch1d_Stop_yScan
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 
-print,'ENTER catch1d_Stop_yScan'
 if scanData.pvfound eq -1 then return
 
         if strlen(scanData.y_pv) lt 1 then return
@@ -9820,22 +9873,7 @@ scanData.pvfound = res
 
         ; get type and count for  positioner & detector
 
-        pvnames = [ scanData.pv+'.D1CV', $
-        	scanData.pv+'.D2CV', $
-	        scanData.pv+'.D3CV', $
-       	 	scanData.pv+'.D4CV', $
-       	 	scanData.pv+'.D5CV', $
-       	 	scanData.pv+'.D6CV', $
-       	 	scanData.pv+'.D7CV', $
-        	scanData.pv+'.D8CV', $
-        	scanData.pv+'.D9CV', $
-        	scanData.pv+'.DACV', $
-        	scanData.pv+'.DBCV', $
-        	scanData.pv+'.DCCV', $
-        	scanData.pv+'.DDCV', $
-        	scanData.pv+'.DECV', $
-        	scanData.pv+'.DFCV' $
-		]
+	pvnames = scanData.pv + '.'+scanData.DI + 'CV'
 
         ln = caGetTypeCount(pvnames,types,counts,wave_types)
         scanData.x_dpt = counts
@@ -9905,22 +9943,8 @@ x_dn = [ scanData.pv+'.R1PV', $
         scanData.pv+'.P2PV', $
         scanData.pv+'.P3PV', $
         scanData.pv+'.P4PV', $
-        scanData.pv+'.D1PV', $
-        scanData.pv+'.D2PV', $
-        scanData.pv+'.D3PV', $
-        scanData.pv+'.D4PV', $
-        scanData.pv+'.D5PV', $
-        scanData.pv+'.D6PV', $
-        scanData.pv+'.D7PV', $
-        scanData.pv+'.D8PV', $
-        scanData.pv+'.D9PV', $
-        scanData.pv+'.DAPV', $
-        scanData.pv+'.DBPV', $
-        scanData.pv+'.DCPV', $
-        scanData.pv+'.DDPV', $
-        scanData.pv+'.DEPV', $
-        scanData.pv+'.DFPV' $
-        ]
+	scanData.pv + '.' +scanData.DI + 'PV']
+
 
 if keyword_set(check) eq 1 then begin
 	ln = caMonitor(x_dn,ret,/check)
@@ -9979,6 +10003,8 @@ env_field = { $
 
 found = findfile('catch1d.config.tmp')
 if found(0) ne '' then read_config,'catch1d.config.tmp' else read_config
+
+set_scan_field_init
 
 ; read in go_catcher2 for runtime version
 
@@ -10363,6 +10389,7 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;       10-24-03 bkc   - R2.2.2c10  Ported to IDLVM for window
 ;     			 Fix problem encountered in WIN save file
 ;			 spawn,/noshell,rm,wc,index file etc...
+;       12-03-03 bkc   - R3.0  Support old/new scan record
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10392,7 +10419,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R2.2.2c10)', $
+      TITLE='Scan Data Catcher (R3.0)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10654,7 +10681,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R2.2.2c10)'
+scanData.release = '(R3.0)'
 
 ; get start home work directory
 
