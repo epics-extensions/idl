@@ -410,13 +410,33 @@ mk_html_help,'multiroi_pick.pro','html/multiroi_pickRef.html', $
 	descript=descript
 END
 
+PRO vw2dRef
+descript=[ '<H1>vw2d.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application VW2D ', $
+'to load a 2D scan scan file saved by the IOC and obtaining various display features of the 2D data.']
+
+mk_html_help,'vw2d.pro','html/vw2dRef.html', $
+	descript=descript
+END
+
+PRO pick2dRef
+descript=[ '<H1>pick2d.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application PICK2D to flexiblely', $
+'pick a 2D scan detector and obtaining various display features of the 2D data.']
+
+mk_html_help,'pick2d.pro','html/pick2dRef.html', $
+	descript=descript
+END
+
 PRO pick3dRef
 descript=[ '<H1>pick3d.pro</H1> ', $
 'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
 'This program provides IDL users a widget application PICK3D to flexiblely', $
 'pick a 3D scan detector and obtaining various display features of the 3D data.']
 
-mk_html_help,'pick3d.pro','html/pick3d.html', $
+mk_html_help,'pick3d.pro','html/pick3dRef.html', $
 	descript=descript
 END
 
@@ -527,6 +547,10 @@ PRO makeIDLRef
 	panImageRef
 ; multiROI_pickRef
 	multiROI_pickRef
+; vw2dRef
+	vw2dRef
+; pick2dRef
+	pick2dRef
 ; pick3dRef
 	pick3dRef
 ; view3d_2dsumRef
