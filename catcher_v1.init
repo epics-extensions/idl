@@ -81,6 +81,8 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       req_npts    : 100,          $
       act_npts    : 0,          $
       readin_npts    : 0,          $
+	im_eof	: 0L, $      ; image file length
+	p_def	: [0,0,0,0], $     ; id_def for positioner
       	px         : FLTARR(4000), $
 	pa : Make_array(4000,4,/double), $
 	da : FLTARR(4000,15), $	
