@@ -437,7 +437,10 @@ step_init:
 	
     END
   'File.Close': BEGIN
-    PRINT, 'Event for File.Close'
+	view3d_free,state.Scan
+      WIDGET_CONTROL,Event.top,BAD=bad,/DESTROY
+	heap_gc
+	state.base = 0L
     END
   ENDCASE
 END
@@ -487,6 +490,7 @@ PRO VIEW3D_Event, Event
 	view3d_free,state.Scan
       WIDGET_CONTROL,Event.top,BAD=bad,/DESTROY
 	heap_gc
+	state.base = 0L
 	return
       END
   'VIEW3D_DETECTOR': BEGIN
@@ -523,6 +527,7 @@ PRO VIEW3D_Event, Event
       END
   ENDCASE
 
+  if state.base gt 0 then $
   WIDGET_CONTROL,Event.top,SET_UVALUE=state
 
 END
