@@ -489,7 +489,8 @@ PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypo
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Mar 29, 2000.
 ;       10-02-2001 bkc  Add window position keywords
-;	xx-xx-xxxx bkc  comment
+;	05-05-2003 bkc  Use slide_image window, add di/row button,
+;			add ascii report button etc..
 ;-
 
 error=0
