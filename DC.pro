@@ -339,7 +339,7 @@ DONE:
   return, res
 END
 
-; $Id: DC.pro,v 1.5 1999/07/07 15:35:49 cha Exp $
+; $Id: DC.pro,v 1.6 1999/09/22 19:24:27 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1833,13 +1833,6 @@ w_warningtext,tx,40,5,'Zoom to box'
 IF scanData.lastPlot eq -1 then return 
 ;        WIDGET_CONTROL, widget_ids.plot_area, SENSITIVE = 0
 
-save_limits = make_array(4,/float)
-
-save_limits(0) = w_plotspec_limits(0)
-save_limits(1) = w_plotspec_limits(1)
-save_limits(2) = w_plotspec_limits(2)
-save_limits(3) = w_plotspec_limits(3)
-
 WSET, widget_ids.plot_area
 
         MY_BOX_CURSOR,x,y,xs,ys
@@ -1854,11 +1847,6 @@ w_plotspec_limits(3) = d(1,1)
 ;        WIDGET_CONTROL,widget_ids.plot_area , SENSITIVE = 1
         UPDATE_PLOT, 0
 
-w_plotspec_limits(0) = save_limits(0)
-w_plotspec_limits(1) = save_limits(1)
-w_plotspec_limits(2) = save_limits(2)
-w_plotspec_limits(3) = save_limits(3)
-
 END
 
 PRO zoom_box,x1,y1,x2,y2
@@ -1866,13 +1854,6 @@ PRO zoom_box,x1,y1,x2,y2
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 
 IF scanData.lastPlot eq -1 then return 
-
-save_limits = make_array(4,/float)
-
-save_limits(0) = w_plotspec_limits(0)
-save_limits(1) = w_plotspec_limits(1)
-save_limits(2) = w_plotspec_limits(2)
-save_limits(3) = w_plotspec_limits(3)
 
 WSET, widget_ids.plot_area
 
@@ -1884,10 +1865,6 @@ w_plotspec_limits(3) = y2
 ;        WIDGET_CONTROL,widget_ids.plot_area , SENSITIVE = 1
         UPDATE_PLOT, 0
 
-w_plotspec_limits(0) = save_limits(0)
-w_plotspec_limits(1) = save_limits(1)
-w_plotspec_limits(2) = save_limits(2)
-w_plotspec_limits(3) = save_limits(3)
 END
 
 
@@ -4124,7 +4101,7 @@ row0 = WIDGET_BASE(w_plotspec_base, /ROW)
 seqno_lb = WIDGET_LABEL(row0, VALUE='Scan #: ' + $
 	 strcompress(w_plotspec_id.seqno))
 
-;limits_lb = WIDGET_BUTTON(row0, VALUE='Set User Scale ...', $
+;limits_lb = WIDGET_BUTTON(row0, VALUE='Plot Ranges ...', $
 ;		UVALUE= 'PLOT_RANGES')
 
 
@@ -5455,7 +5432,7 @@ w_viewscan_id.seqno = seq_no
 	w_plotspec_array(1) = x_descs(ix)
 	if w_plotspec_array(1) eq '' then w_plotspec_array(1) = x_names(ix) 
 	if x_engus(ix) ne '' then w_plotspec_array(1) = w_plotspec_array(1)+'('+x_engus(ix)+')'
-	UPDATE_PLOT, 1
+	UPDATE_PLOT,scanData.lastPlot
 	id = next_seq_no
 
 ; reset for scan mode 
@@ -5610,6 +5587,112 @@ printf,unit,' '
 
 END
 
+PRO view1d_summary_generate_DCreport
+COMMON SYSTEM_BLOCK,OS_SYSTEM
+COMMON CATCH1D_COM, widget_ids, scanData 
+COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
+COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array, w_plotspec_id, w_plotspec_limits , w_plotspec_saved
+COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
+
+	WIDGET_CONTROL, view1d_summary_ids.format, GET_VALUE=format
+	format = strcompress(format(0),/remove_all)
+	scanData.code = strmid(format,0,1)
+	scanData.format = strmid(format,1,10)
+
+	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 0 
+	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 0 
+	WIDGET_CONTROL,view1d_summary_ids.start, GET_VALUE=i_start
+	WIDGET_CONTROL,view1d_summary_ids.stop, GET_VALUE=i_stop
+	if i_stop lt i_start then i_stop=i_start
+	view1d_summary_id.start = i_start
+	view1d_summary_id.stop = i_stop
+
+	WIDGET_CONTROL,view1d_summary_ids.file, GET_VALUE=file
+	filename=strcompress(file(0),/remove_all)
+	found = findfile(filename)
+if found(0) ne '' then  begin	
+	view1d_summary_id.file = filename
+	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
+	view1d_summary_id.outfile=strcompress(file(0),/remove_all)
+
+	;  use the data directory first if failed then home directory
+
+	report_path = scandata.path
+	save_outfile = scandata.path+view1d_summary_id.outfile
+
+; quard trashcan
+	if save_outfile eq scandata.trashcan then begin
+		res = widget_message('Error: illigal file name entered!!',/error)
+		return
+	end
+
+; quard existing file 
+	found = findfile(save_outfile)
+	if found(0) ne '' then begin
+
+		st = ['Warning!  Warning!  Warning!  ' , save_outfile, '     already existed.', $
+		     ' Is it ok to rename as ', $
+		     save_outfile+ '.bk','???']
+		res = widget_message(st,/Question)
+		if res eq 'No' then goto,view_print
+		move_file = save_outfile + '.bk'
+deepmove:
+		found1 = findfile(move_file)
+		if found1(0) ne '' then begin
+			st = [' Warning!  Warning!', $
+				move_file, $
+				'also already existed !!']
+			res = widget_message(st,/Question)
+			if res eq 'No' then goto,view_print 
+			move_file = move_file + '.bk'
+			goto,deepmove
+		end
+		spawn,[OS_SYSTEM.mv, save_outfile, move_file],/noshell 
+	end
+
+	CATCH,error_status
+	if error_status ne 0 then begin
+		print,error_status,!err_string
+		report_path = scandata.home + '/'
+		save_outfile = report_path+view1d_summary_id.outfile
+		goto, RESETSENSE
+	end
+	openw,unit,save_outfile,/get_lun
+	free_lun,unit
+RESETSENSE:
+
+; save as one big file
+    if view1d_summary_id.separate eq 0 then begin
+		w_plotspec_id.mode = 1
+		summary_report_dump,filename,save_outfile,i_start,i_stop,view1d_summary_id.header
+		w_plotspec_id.mode = 0
+
+	if scanData.debug eq 1 then $
+		print, 'Report file: ', save_outfile,' created!'
+; save as separate files
+     endif else begin
+	str = '0000'
+	len0 = 4 
+	w_plotspec_id.mode = 1
+	for i=i_start,i_stop do begin
+	sss = str
+	st = strtrim(i,2)
+	len = strlen(st)
+	strput,sss,st,len0-len
+		save_outfile=report_path+w_plotspec_array(3)+'.'+sss
+		summary_report_dump,filename,save_outfile,i,i,view1d_summary_id.header
+	if scanData.debug eq 1 then print,save_outfile
+	w_plotspec_id.mode = 0
+	end
+     end
+
+endif else w_warningtext,'Error:  Data file " '+filename+' " not found!'
+;	WIDGET_CONTROL, view1d_summary_ids.base , /DESTROY
+view_print:
+	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 1 
+	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 1 
+
+END
 
 PRO view1d_summary_setup_Event, Event
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -5685,107 +5768,12 @@ end
 	end
       END
   'summary_separate': BEGIN
-	view1d_summary_ids.separate = Event.Index
+	view1d_summary_id.separate = Event.Index
+	report_setup
+	WIDGET_CONTROL, view1d_summary_ids.outfile, SET_VALUE= view1d_summary_id.outfile
 	END
   'summary_ok': BEGIN
-	WIDGET_CONTROL, view1d_summary_ids.format, GET_VALUE=format
-	format = strcompress(format(0),/remove_all)
-	scanData.code = strmid(format,0,1)
-	scanData.format = strmid(format,1,10)
-
-	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 0 
-	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 0 
-	WIDGET_CONTROL,view1d_summary_ids.start, GET_VALUE=i_start
-	WIDGET_CONTROL,view1d_summary_ids.stop, GET_VALUE=i_stop
-	if i_stop lt i_start then i_stop=i_start
-	view1d_summary_id.start = i_start
-	view1d_summary_id.stop = i_stop
-
-	WIDGET_CONTROL,view1d_summary_ids.file, GET_VALUE=file
-	filename=strcompress(file(0),/remove_all)
-	found = findfile(filename)
-if found(0) ne '' then  begin	
-	view1d_summary_id.file = filename
-	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
-	view1d_summary_id.outfile=strcompress(file(0),/remove_all)
-
-	;  use the data directory first if failed then home directory
-
-	report_path = scandata.path
-	save_outfile = scandata.path+view1d_summary_id.outfile
-
-; quard trashcan
-	if save_outfile eq scandata.trashcan then begin
-		res = widget_message('Error: illigal file name entered!!',/error)
-		return
-	end
-
-; quard existing file 
-	found = findfile(save_outfile)
-	if found(0) ne '' then begin
-
-		st = ['Warning!  Warning!  Warning!  ' , save_outfile, '     already existed.', $
-		     ' Is it ok to rename as ', $
-		     save_outfile+ '.bk','???']
-		res = widget_message(st,/Question)
-		if res eq 'No' then goto,view_print
-		move_file = save_outfile + '.bk'
-deepmove:
-		found1 = findfile(move_file)
-		if found1(0) ne '' then begin
-			st = [' Warning!  Warning!', $
-				move_file, $
-				'also already existed !!']
-			res = widget_message(st,/Question)
-			if res eq 'No' then goto,view_print 
-			move_file = move_file + '.bk'
-			goto,deepmove
-		end
-		spawn,[OS_SYSTEM.mv, save_outfile, move_file],/noshell 
-	end
-
-	CATCH,error_status
-	if error_status ne 0 then begin
-		print,error_status,!err_string
-		report_path = scandata.home + '/'
-		save_outfile = report_path+view1d_summary_id.outfile
-		goto, RESETSENSE
-	end
-	openw,unit,save_outfile,/get_lun
-	free_lun,unit
-RESETSENSE:
-
-; save as one big file
-    if view1d_summary_ids.separate eq 0 then begin
-		w_plotspec_id.mode = 1
-		summary_report_dump,filename,save_outfile,i_start,i_stop,view1d_summary_id.header
-		w_plotspec_id.mode = 0
-
-	if scanData.debug eq 1 then $
-		print, 'Report file: ', save_outfile,' created!'
-; save as separate files
-     endif else begin
-	str = '0000'
-	len0 = 4 
-	w_plotspec_id.mode = 1
-	for i=i_start,i_stop do begin
-	sss = str
-	st = strtrim(i,2)
-	len = strlen(st)
-	strput,sss,st,len0-len
-		save_outfile=report_path+w_plotspec_array(3)+'.'+sss
-		summary_report_dump,filename,save_outfile,i,i,view1d_summary_id.header
-	if scanData.debug eq 1 then print,save_outfile
-	w_plotspec_id.mode = 0
-	end
-     end
-
-endif else w_warningtext,'Error:  Data file " '+filename+' " not found!'
-;	WIDGET_CONTROL, view1d_summary_ids.base , /DESTROY
-view_print:
-	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 1 
-	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 1 
-
+	view1d_summary_generate_DCreport
       END
   'summary_view': BEGIN
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
@@ -5804,8 +5792,10 @@ view_print:
 
 	found = findfile(filename)
 	if found(0) ne '' then 	$
-        xdisplayfile,filename,width=110,GROUP=event.top else $
-	w_warningtext,['Error:','    '+filename+ '  not found!']
+        xdisplayfile,filename,width=110,GROUP=event.top else begin
+		view1d_summary_generate_DCreport
+;	  	xdisplayfile,view1d_summary_id.outfile,width=110,GROUP=event.top
+	end
 	END
 
   'summary_print': BEGIN
@@ -5853,6 +5843,7 @@ strput,sss,st,len0-len
 filenamepath, view1d_summary_id.file, file, path
 view1d_summary_id.outfile = file+'.'+sss
 
+if view1d_summary_id.separate then return
 if view1d_summary_id.stop gt view1d_summary_id.start then begin
 eee = str
 st = strtrim(view1d_summary_id.stop,2)
@@ -5884,6 +5875,7 @@ view1d_summary_id = { $
 	start: 1, $
 	stop: 1, $
 	header: 0, $
+	separate: 0, $
 	outfile: w_plotspec_array(3)+'.rep',  $
 	file: scanData.trashcan  $
 	}
@@ -6003,7 +5995,6 @@ view1d_summary_ids = { $
 	outfile: summary_outfile, $
 	view: summary_view, $
 	print: summary_print, $
-	separate: 0, $
 	start: summary_start, $
 	stop: summary_end $
 	}
@@ -7211,7 +7202,7 @@ scanData.act_npts = scanData.readin_npts
   'Zoom.Calc Slopes': BEGIN
 	draw_dragLine
  	END
-  'Zoom.Auto Scale (Refresh)': BEGIN
+  'Zoom.Zoom Off (AutoScale)': BEGIN
 	scanData.lastPlot = 1
 	UPDATE_PLOT, 1
  	END
@@ -8205,6 +8196,9 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;       06-09-1999      Fix the problem associated with if IOC is not on
 ;                       Fix the problem associated with the data file is not found
 ;       06-14-1999      Fix the problem with a bad scan file in DC.config file 
+;       08-30-1999      R1.2d
+;                       Validate the PS plot of zoom result. 
+;       09-20-1999      View Report automatically generates it if file not found
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8228,7 +8222,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R1.2c )', $
+      TITLE='scanSee ( R1.2d )', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -8281,7 +8275,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
         { CW_PDMENU_S,       0, 'Zoom To Box' }, $ ;    1   
         { CW_PDMENU_S,       0, 'Zoom In/Out' }, $ ;        2
         { CW_PDMENU_S,       0, 'Calc Slopes' }, $ ;       3
-        { CW_PDMENU_S,       0, 'Auto Scale (Refresh)' }, $ ;       4
+        { CW_PDMENU_S,       0, 'Zoom Off (AutoScale)' }, $ ;       4
         { CW_PDMENU_S,       2, 'User Scale ...' } $ ;       5
   ]
   PDMENU_zoom = CW_PDMENU( BASE68, MenuZoom, /RETURN_FULL_NAME, $
