@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.31 2000/12/06 19:57:28 cha Exp $
+; $Id: view2d.pro,v 1.32 2001/03/30 23:23:45 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1558,12 +1558,18 @@ update:
 	endif else begin
 
 	if statistic_2dids.back eq 0 then begin
-	u_openr,unit,filename,/XDR
-	u_read,unit,x
-	u_close,unit
+	xdr_open,unit,filename
+	xdr_read,unit,x
+	xdr_close,unit
 	xrange=fix([x(0)/x(4),x(1)/x(4)])
 	yrange=fix([x(2)/x(5),x(3)/x(5)])
-	endif else statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr
+	end
+	if statistic_2dids.back eq 1 then begin
+		lower_b = statistic_2dids.backave
+		upper_b = statistic_2dids.backave2
+	end
+	if statistic_2dids.back eq 2 then begin
+		 statistic_2dReadPolyROI,statistic_2dids,xverts,yverts,xv,yv,arr
 	end
 
 	if xrange(1) ge xdim then xrange(1) = xdim -1
@@ -1572,6 +1578,7 @@ update:
 	if statistic_2dids.refresh eq 1 then begin
 		xrange= statistic_2dids.xrange
 		yrange= statistic_2dids.yrange
+	end
 	end
 
 	if keyword_set(append) then $
@@ -1687,54 +1694,34 @@ end
 		view_option.roifile = catch2d_file.home+!os.file_sep+'ROI'+!os.file_sep+$
 			catch2d_file.name+'_roi.xdr'
 
+	if n_elements(statistic_2dids) eq 0 then $
 	scan2d_roi,im,x,y,GROUP=Event.Top,header=header,comment=comment, $
 		mode=mode,rptfile=view_option.rptfile, $
-		roifile=view_option.roifile
+		roifile=view_option.roifile,roi_data=statistic_2dids
 
-	if statistic_2dids.back eq 1 then begin
-		st=[ $
-		'2D-ROI report for all detectors is not available yet for this mode.', $
-		'You have to use the AppendRpt...  button in', $
-		'the "2D Statistic ROI" window to add current report', $
-		'for each detector for          ROI Mode: FilterROI ' $
-		]
-		res=dialog_message(st,/info)
-		return
-	end 
+;	if statistic_2dids.back eq 1 then begin
+;		st=[ $
+;		'2D-ROI report for all detectors is not available yet for this mode.', $
+;		'You have to use the AppendRpt...  button in', $
+;		'the "2D Statistic ROI" window to add current report', $
+;		'for each detector for          ROI Mode: FilterROI ' $
+;		]
+;		res=dialog_message(st,/info)
+;		return
+;	end 
 
   CASE Event.Value OF
-
-  '2D-ROI.ROIs...': BEGIN
-	x = catch2d_file.xarr(0:catch2d_file.width-1)
-	y = catch2d_file.yarr(0:catch2d_file.height-1)
-	im=image(0:catch2d_file.width-1, 0:catch2d_file.height-1)	
-	scan2d_roi,im,x,y,GROUP=Event.Top,header=header,comment=comment,mode=mode ;,/report
+  '2D-ROI.Type.RectROI': BEGIN
+	statistic_2dids.back = 0
+	return
         END
-  '2D-ROI.ReplaceRpt...': BEGIN
-	F = view_option.rptfile
-;	f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='Replace ROI Rpt File',/READ)
-	if f eq '' then return
-	found = findfile(f)
-	if found(0) eq '' then begin
-		res = dialog_message(['Filename:',f, 'not found will be created!'],/info)
-	endif else begin
-	st = ['Are you sure you want to overwrite this file ?', $
-		'If you enter Yes, then all the old text contents', $
-		'in this file will be lost.', $
-		'','Replacing ',F , ' ???']
-	res = dialog_message(st,/question)
-	if res eq 'No' then return
-	end
-
-;	view_option.rptfile = f
-	if statistic_2dids.comment ne '' then comment=statistic_2dids.comment
-	if view_option.fullcolor eq 2 then $
-	scan2dROIRpt,catch2d_file.scanno_current, $
-		header=header, comment=statistic_2dids.comment, $
-		Ref=view_option.pick_ref else $
-	scan2dROIRpt,catch2d_file.scanno_current, $
-		header=header, comment=statistic_2dids.comment
-	
+  '2D-ROI.Type.FilterROI': BEGIN
+	statistic_2dids.back = 1
+	return
+        END
+  '2D-ROI.Type.PolyROI': BEGIN
+	statistic_2dids.back = 2
+	return
         END
   '2D-ROI.AppendRpt...': BEGIN
 	F = view_option.rptfile
@@ -1760,6 +1747,31 @@ end
 		header=header, comment=statistic_2dids.comment
 
         END
+  '2D-ROI.ReplaceRpt...': BEGIN
+        F = view_option.rptfile
+;       f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='Replace ROI Rpt File',/READ)
+        if f eq '' then return
+        found = findfile(f)
+        if found(0) eq '' then begin
+                res = dialog_message(['Filename:',f, 'not found will be created!'],/info)
+        endif else begin
+        st = ['Are you sure you want to overwrite this file ?', $
+                'If you enter Yes, then all the old text contents', $
+                'in this file will be lost.', $
+                '','Replacing ',F , ' ???']
+        res = dialog_message(st,/question)
+        if res eq 'No' then return
+        end
+
+;       view_option.rptfile = f
+        if statistic_2dids.comment ne '' then comment=statistic_2dids.comment
+        if view_option.fullcolor eq 2 then $
+        scan2dROIRpt,catch2d_file.scanno_current, $
+                header=header, comment=statistic_2dids.comment, $
+                Ref=view_option.pick_ref else $
+        scan2dROIRpt,catch2d_file.scanno_current, $
+                header=header, comment=statistic_2dids.comment
+        END
   '2D-ROI.ViewRpt...': BEGIN
 	f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='View ROI Rpt File',/READ)
 	if f eq '' then return
@@ -1775,26 +1787,43 @@ end
 	old = view_option.rptfile
 	rename_dialog,catch2d_file.home+!os.file_sep+'ROI',old,'',GROUP=Event.top
         END
+  '2D-ROI.ROI...': BEGIN
+        scan2d_roi,im,x,y,GROUP=Event.Top,header=header,comment=comment, $
+                mode=mode,rptfile=view_option.rptfile, $
+                roifile=view_option.roifile,roi_data=statistic_2dids
+        END
   '2D-ROI.Help...': BEGIN
-	st = [ $
-		'For file management simplicity the 2D ROI statistic report ', $
-		'should end with roi.rpt and the region of interest file ',$
-		'should end with roi.xdr ', $
-		'',$
-		'The report button in "2D Statistic ROI" window is only', $
-		'for the specific image displayed. For the selected ROI file,', $
-		'the report generated by 2D-ROI menu in View2d is for all ',$
-		'detectors defined in a given 2D scan.', $
-		'',$
-		'           Options of 2D-ROI Menu', $
-		'2D-ROI.ViewRpt...    - Select and view any 2D statistic report', $
-		'2D-ROI.AppendRpt...  - Append 2D statistic reports for all detectors', $
-		'                       for a given 2D scan ROI',$
-		'2D-ROI.ReplaceRpt... - Replace 2D statistic reports for all detectors', $
-		'                       for a given 2D scan ROI',$
-		'2D-ROI.RenameRpt...  - Rename a given file to a new name'$
-		]
-	xdisplayfile,text=st,title='View2d Help on 2D-ROI'
+        st = [ $
+                'In general the 2D ROI reports generated by 2D-ROI menu',$
+                'in vw2d consist of all detectors defined in a given 2D scan.',$
+                '',$
+                '           Options of 2D-ROI Menu', '', $
+                'Help...           - Show this help info ', $
+                'ROI...            - Pops up 2D Statistic ROI program', $
+                'Type->RectROI     - Set the type of ROI used in the summary report', $
+                '       FilterROI', $
+                '        PolyROI', $
+                'AppendRpt...      - Append 2D statistic summary report of all',$
+                '                       detectors to the report file', $
+                '                       for a given 2D scan ROI',$
+                'ReplaceRpt...     - Overwrite 2D statistic report file', $
+                '                       with the summary of all the detectors',$
+                '                       with ROI as show in 2D Statistic ROI window',$
+                'ViewRpt...        - Select and view any 2D statistic report', $
+                'RenameRpt...      - Rename the rpt file to a new name', '',$
+                '',$
+                'If the detailed 2D ROI reports for a specified detector, or', $
+                'refining of the ROI are desired, a user should run the ',$
+                '"2D Statistic ROI" program first which can be brought up by ',$
+                '','          2D-ROI->ROI...   ', '', $
+                'The AppendRep... button in "2D Statistic ROI" window generates', $
+                'detail report for the displayed image.', '', $
+                'For file management simplicity the 2D ROI statistic report ', $
+                'should end with roi.rpt and the region of interest file ',$
+                'for rectangle or polygon ROI should end with roi.xdr ' $
+                ]
+        xdisplayfile,text=st,title='Vw2d Help on 2D-ROI'
+
 	END
   ENDCASE
 
@@ -3806,10 +3835,14 @@ end
   MenuROI = [ $
       { CW_PDMENU_S,       3, '2D-ROI' }, $ ;        0
         { CW_PDMENU_S,       0, 'Help...' }, $ ;        1
-;        { CW_PDMENU_S,       0, 'ROIs...' }, $ ;        1
-        { CW_PDMENU_S,       0, 'ViewRpt...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'ROI...' }, $ ;        1
+        { CW_PDMENU_S,       1, 'Type' }, $ ;        1
+        { CW_PDMENU_S,        0, 'RectROI' }, $ ;        1
+        { CW_PDMENU_S,        0, 'FilterROI' }, $ ;        1
+        { CW_PDMENU_S,        2, 'PolyROI' }, $ ;        1
         { CW_PDMENU_S,       0, 'AppendRpt...' }, $ ;        1
         { CW_PDMENU_S,       0, 'ReplaceRpt...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'ViewRpt...' }, $ ;        1
         { CW_PDMENU_S,       2, 'RenameRpt...' } $ ;        1
         ]
   PDMENU2D_fitting = CW_PDMENU( BASE129_1, MenuROI, /RETURN_FULL_NAME, $
