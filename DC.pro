@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.33 2004/03/03 18:21:48 cha Exp $
+; $Id: DC.pro,v 1.34 2004/04/13 20:10:02 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -431,7 +431,7 @@ PRO catch1d_save_pvtct
 	save,red,green,blue,file='catch1d.tbl'
 END
 
-PRO catch1d_get_pvtct
+PRO catch1d_get_pvtct,red,green,blue
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
 ; 8 bit visual
@@ -444,10 +444,10 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	file = 'catch1d.tbl'
 	found = findfile(file)
 	if found(0) eq '' then begin
-		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
+		file =getenv('EPICS_EXTENSIONS_PVT')+'/idllib/catch1d.tbl'
 		found1 = findfile(file)
 		if found1(0) eq '' then $
-		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
+		file =getenv('EPICS_EXTENSIONS')+'/idllib/catch1d.tbl'
 		end
 	restore,file
 	tvlct,red,green,blue
@@ -588,7 +588,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 COMMON w_statistic_block,w_statistic_ids
 
-if !d.name eq 'WIN' then device,decomposed=1
+if !d.name eq 'WIN' or !d.n_colors gt !d.table_size then device,decomposed=1
 
     WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
     scanData.wf_sel = wf_sel(0:scanData.npd-1)
@@ -655,6 +655,7 @@ for i=0,scanData.lastDet(0) - 1 do begin
 end
 
 ; add the support postioner as Y
+
 npd = scanData.nd
 for i=npd,npd-1+4 do begin
      IF (scanData.wf_sel(i) EQ 1) THEN  BEGIN
@@ -720,7 +721,11 @@ ENDELSE
 	end
 
    ;Now draw the axis and plot the selected waveforms
-
+if !d.n_colors le !d.table_size then begin
+TVLCT,o_red,o_green,o_blue,/get
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+TVLCT,red,green,blue
+end
 
 if !d.name ne 'PS' then WSET, widget_ids.plot_area
 ;   ERASE
@@ -840,7 +845,7 @@ if n_elements(statis_value) gt 0 then $
 	is = is + 1
         end
 end
-
+npd = scanData.nd
 for i=npd,npd-1+4 do begin
    IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(i-npd) gt 0) THEN begin
         d1 = scanData.pa(0:num_pts,i-npd)
@@ -904,6 +909,8 @@ if auto eq 1 and n_elements(st) gt 0  and widget_ids.statistic gt 1 then begin
 	ydis = 0.1*!d.y_ch_size
 	xyouts,xdis,ydis,footer_note,/device
 
+if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue
+if !d.name eq 'WIN' or !d.n_colors gt !d.table_size then device,decomposed=0
 END
 
 
@@ -1051,11 +1058,9 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
 	color = w_plotspec_id.colorI(id)   ; use fix detector color
+	if w_plotspec_id.color eq 0 then color= !d.n_colors-1
+
 	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
 	if !d.name eq 'PS' then color = 0
 
 	line = id1
@@ -1689,24 +1694,7 @@ if n_params() eq 4 then return
 END
 
 
-PRO plotoption_setcolor
-COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 
-  if w_plotspec_id.color eq 1 then begin
-;        LOADCT, 39
-	dcl = !d.table_size - 2
-	ncv = 7 ;4
-        colorlevel = dcl / ncv
-        for i=0,n_elements(w_plotspec_id.colorI)-1 do begin
-        ii = i / ncv
-        im = i mod ncv
-        w_plotspec_id.colorI(i) = dcl - ii - im * colorlevel
-	if w_plotspec_id.colorI(i) le 2 then $
-		 w_plotspec_id.colorI(i)= dcl + w_plotspec_id.colorI(i) 
-        end
-  end
-
-END
 
 PRO plotoptionsmenu_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
@@ -1726,14 +1714,10 @@ if w_plotspec_id.scan eq 0 and realtime_id.ind eq -1 then $
     2: begin
 	plotoptionsmenu_set_string,2,3
 	w_plotspec_id.color = 1
-	plotoption_setcolor
 	end
     3: begin
 	plotoptionsmenu_set_string,3,2
 	w_plotspec_id.color = 0
-        for i=0,n_elements(w_plotspec_id.colorI)-1 do begin
-       	w_plotspec_id.colorI(i) = !d.table_size - 1 
-	end
 	end
 ; solid / dotted/ dashed
       5: begin
@@ -1979,6 +1963,14 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	catcher_setup,GROUP=event.top
 	end
       17: begin
+	found = findfile('pvtcolors.dat')
+        if found(0) eq '' then begin
+        str = 'Error: Private color table never been saved before'
+        r = dialog_message(str,/error)
+        endif else begin
+        restore,'pvtcolors.dat'
+        TVLCT,red,green,blue
+        end
 	xloadct, GROUP= event.top
 	end
    ELSE:
@@ -4568,13 +4560,13 @@ IF seq_no LE 0 THEN BEGIN
 
 	; check for existence of scanH
 
-	if scanH and dim eq 2  then begin
-	   realtime_id.def = id_def[0:scanData.npd-1,1]
-	   label = labels[*,1]
-           scanData.req_npts = num_pts[1]
-           scanData.act_npts = cpt[1]
-	   scanData.pv = pv[1]
-	end
+;	if scanH and dim eq 2  then begin
+;	   realtime_id.def = id_def[0:scanData.npd-1,1]
+;	   label = labels[*,1]
+;           scanData.req_npts = num_pts[1]
+;           scanData.act_npts = cpt[1]
+;	   scanData.pv = pv[1]
+;	end
 	if scanH and dim eq 3 then begin
 	   realtime_id.def = id_def[0:scanData.npd-1,1]
 	   label = labels[*,1]
@@ -4603,9 +4595,10 @@ IF seq_no LE 0 THEN BEGIN
 
 	if dim ge 2 and n_elements(da2D) gt 3 then begin
 ; reset to whole panimage 
-widget_control,widget_ids.pickimin,set_slider_max=scanData.req_npts-1
-widget_control,widget_ids.pickimin,set_value=0
-scanData.imin=0
+ widget_control,widget_ids.pickimin,set_slider_max=scanData.req_npts-1
+ if scanData.imin gt scanData.req_npts-1 then $
+	scanData.imin = scanData.req_npts-1
+ widget_control,widget_ids.pickimin,set_value=scanData.imin
 
 	scanData.scanno_2d = scanno
 ;	if dim eq 2 then $
@@ -4662,7 +4655,7 @@ ndet = scanData.nd 	; ndet = ceil( total(id_def(4:npd-1,0)) )
 	end
 
 ndet=scanData.lastDet(0)
-if scanH then ndet = scanData.lastDet(1)
+; if scanH then ndet = scanData.lastDet(1)
 if dim eq 3 then ndet = scanData.lastDet(1)
 
 ; sz3 = size(da3D)
@@ -4736,19 +4729,18 @@ w_viewscan_id.seqno = seq_no
 	if dim ge 2 then w_plotspec_array(0) = w_plotspec_array(0) +' @ y('+strtrim(scanData.y_seqno+1,2)+')' +'='+strtrim(yvalue,2)
 
 	; x positional axis picked
-
 	ix = w_plotspec_id.xcord
 	w_plotspec_array(1) = x_descs(ix)
 	if w_plotspec_array(1) eq '' then w_plotspec_array(1) = x_names(ix) 
 	if x_engus(ix) ne '' then w_plotspec_array(1) = w_plotspec_array(1)+'('+x_engus(ix)+')'
 
         if dim eq 3 then begin
-	
         ix = npd+w_plotspec_id.xcord
         xdescs = labels(ix,dim-2)
         if labels(ix+npd,dim-2) ne '' then xdescs = xdescs +' ('+labels(ix+npd,dim-2)+')'
 	w_plotspec_array(1) = xdescs
 	end
+
 
 ;	if dim eq 1 and total(da1D) eq 0. then return
 
@@ -4775,6 +4767,7 @@ print,scanData.lastDet
 ;	return
 	end
 
+widget_control,/clear_events
 
 END
 
@@ -6794,6 +6787,7 @@ END
 ;  DC.pro
 ;
 
+@colorbar.pro
 @sscan.pro
 
 PRO DC_3DscanMessage,filename
@@ -7051,6 +7045,7 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 	image_array = da2d(scanData.imin:sz(1)-1,*,*)
 	xarr = xarr(scanData.imin:sz(1)-1)
 	IMAGE2D,image_array,xarr,yarr,id_def=det_def,xdescs=xdescs,ydescs=ydescs, $
+		title=scanData.trashcan, $
 		zdescs=zdescs, scanno=scanno,pv=pv,group=Event.top, $
 		VERS=scanData.svers
 	end
@@ -7686,7 +7681,7 @@ set_sensitive_off   ; when realtime is going on don't let user change
 		realtime_read,scanData.req_npts
 		WIDGET_CONTROL,widget_ids.base, timer=w_plotspec_id.dtime
 		endif else begin
-;		WIDGET_CONTROL,widget_ids.base, /clear_events
+		WIDGET_CONTROL,widget_ids.base, /clear_events
 		empty
 		end
 end
@@ -7874,6 +7869,14 @@ end ;     end of if scanData.option = 1
 	scanData.svers = Event.Index
 	DC_pickDetVersion,vers=Event.Index
 	end
+	END
+  'PICK_IPLOT1D': BEGIN
+	pa = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord)	
+	da = scanData.da(0:scanData.act_npts-1,0:scanData.num_det-1)
+	WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
+	iplot1d_drv,pa,da,detname=scanData.DI, $
+		sel=wf_sel(0:scanData.num_det-1), $
+		title=scanData.trashcan,group=Event.top
 	END
   'PICK_PS': BEGIN
         ratio = .5 ^ Event.Index
@@ -8425,6 +8428,9 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ; 	Written by:	Ben-chin Cha, Oct 30, 2003.
 ;       10-31-2003 bkc  R3.1
 ; 			Support Database 5.19 drop the first 15 detectors
+;       03-17-2004 bkc  R3.2
+;                       fix 1D line plot color use from the 'catch1d.tbl'
+;			fix image2d normalization color scheme
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8447,8 +8453,9 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
   MAIN13_1 = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
+	/KBRD_FOCUS_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R3.1)', $
+      TITLE='scanSee ( R3.2)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -8603,7 +8610,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       UVALUE='BASE144')
 
   BASE144_0 = WIDGET_BASE(BASE144, $
-      ROW=1, X_SCROLL_SIZE=500, $
+      ROW=1, X_SCROLL_SIZE=520, $
       MAP=1, $
       TITLE='DET Selector', $
       UVALUE='BASE144_0')
@@ -8616,7 +8623,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
   BGROUP145 = CW_BGROUP( BASE144_0, Btns1994, $
       ROW=9, $
       NONEXCLUSIVE=1, $
-      LABEL_LEFT='Y', $
+;      LABEL_LEFT='Y', $
       UVALUE='BGROUP145')
 
   BGROUP145_1 = CW_BGROUP( BASE144_0, Btns1994(15:88), $
@@ -8666,6 +8673,7 @@ l123_1 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70',
 	UVALUE='PICK_IMIN',xsize=100)
    pick_imin_r = WIDGET_BUTTON(BASE144_4,value='>',UVALUE='PICK_IMINR')
 
+  pick_iplot1d = WIDGET_BUTTON(BASE144_2, VALUE='IPLOT_1D',UVALUE='PICK_IPLOT1D')
   pick_PS = WIDGET_DROPLIST(BASE144_2, VALUE=['1','1/2','1/4'], $
         UVALUE='PICK_PS',TITLE='PS ratio')
   WIDGET_CONTROL,pick_PS,set_droplist_select = 1
