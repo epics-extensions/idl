@@ -29,6 +29,7 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def
 	tiffname : '', $
 	savemode : 0, $
 	reverse : 1, $
+	labelon : 0, $
 	sel_list: intarr(85), $
 	factor_id : 0L, $		;pan_factor, $
 	tiff_id : 0L, $			;pan_tiffname, $
@@ -47,6 +48,7 @@ PRO PANIMAGE_SEL_accept,ret,title,panimageinfo
 ;  title - specifies5 the panwindow title text
 ;  panimageinfo - structure defined in panimage_sel
 ;
+
 	sz = size(panimageinfo.image_array)
 
 	num = n_elements(ret)
@@ -64,15 +66,8 @@ detname = [panimageinfo.detname(70:84),panimageinfo.detname(0:69)]
 ; database ordering
 
 if num eq 85 then id_def = [panimageinfo.id_def(15:84), panimageinfo.id_def(0:14)]
-	if num ge sz(3) and num lt 85 then begin   ; all but lt 85
-		image_subarray = panimageinfo.image_array
-		id_def = panimageinfo.id_def
-		detname = panimageinfo.detname(70:84)
-		if num gt 15 then detname=[detname,panimageinfo.detname(0:num-16)]		
-	end
 
 id_def = intarr(num)
-if num le sz(3) then begin
 	ret_conv = ret - 15
 	for i=0,num-1 do begin
 	if ret(i) lt 15 then ret_conv(i) = ret(i) + 70
@@ -80,37 +75,37 @@ if num le sz(3) then begin
 	id_def(i) = panimageinfo.id_def(ret(i))	
 	end
 	detname = panimageinfo.detname(ret_conv)
-end
 
 	def = panimageinfo.id_def(ret)
 
 	if panimageinfo.tiffname ne '' and panimageinfo.savemode  then begin
 	if panimageinfo.outtype eq 0 then $
 		panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret, $
+		isel=ret,labelon=panimageinfo.labelon, $
 		new_win=new_win, TIFF =panimageinfo.tiffname, $
 		REVERSE=panimageinfo.reverse, $
 		DETNM=detname,title=title,numd=10
 	if panimageinfo.outtype eq 1 then $
 		panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret, $
+		isel=ret,labelon=panimageinfo.labelon, $
 		new_win=new_win, PNG =panimageinfo.tiffname, $
 		DETNM=detname,title=title,numd=10
 	if panimageinfo.outtype eq 2 then $
 		panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret, $
+		isel=ret,labelon=panimageinfo.labelon, $
 		new_win=new_win, PICT =panimageinfo.tiffname, $
 		DETNM=detname,title=title,numd=10
 	if panimageinfo.outtype eq 3 then $
 		panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret, $
+		isel=ret,labelon=panimageinfo.labelon, $
 		new_win=new_win, XDR =panimageinfo.tiffname, $
 		DETNM=detname,title=title,numd=10
 	endif else $
 	panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret, $
+		isel=ret,labelon=panimageinfo.labelon, $
 		new_win=new_win, $
 		DETNM=detname,title=title,numd=10
+
 	panimageinfo.new_win = new_win
 END
 
@@ -215,6 +210,9 @@ PRO PANIMAGE_SEL_Event, Event
   'PANIMAGE_REVERSE': BEGIN
         panimageinfo.reverse = Event.Select
       END
+  'PANIMAGE_LABELON': BEGIN
+        panimageinfo.labelon = Event.Select
+      END
 
   ENDCASE
 
@@ -285,12 +283,24 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 	XSIZE=10, YSIZE=1, VALUE=1, $
 	UVALUE = "PANIMAGE_FACTOR")
 
-  BASE2_20 = WIDGET_BASE(BASE2, $
+  BASE2_3 = WIDGET_BASE(BASE2, $
+      ROW=1, /FRAME, $
+      MAP=1, $
+      UVALUE='BASE2_3')
+
+  BASE2_3_1 = WIDGET_BASE(BASE2_3, $
+      COLUMN=1, /FRAME, $
+      MAP=1, $
+      UVALUE='BASE2_3_1')
+
+  lebel2 = WIDGET_LABEL(BASE2_3_1,Value='Select Detectors:')
+  pan_labelon = CW_BGROUP( BASE2_3_1, ['Di Show/Hide'], $
+      ROW=1, NONEXCLUSIVE=1, UVALUE='PANIMAGE_LABELON')
+
+  BASE2_20 = WIDGET_BASE(BASE2_3, $
       ROW=1, /FRAME, $
       MAP=1, $
       UVALUE='BASE2_20')
-
-  lebel2 = WIDGET_LABEL(BASE2_20,Value='Select Detectors:')
 
   LIST6 = WIDGET_LIST( BASE2_20,VALUE=panimageinfo.detname, /MULTIPLE,  $
       UVALUE='PANIMAGE_LIST', XSIZE=10, $
@@ -360,7 +370,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 END
 
 
-PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypos=ypos,tiff=tiff,reverse=reverse,png=png,pict=pict,xdr=xdr,error=error,ISEL=ISEL,NUMD=NUMD,DETNM=DETNM
+PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypos=ypos,tiff=tiff,reverse=reverse,labelon=labelon,png=png,pict=pict,xdr=xdr,error=error,ISEL=ISEL,NUMD=NUMD,DETNM=DETNM
 ;+
 ; NAME:
 ;	panImage
@@ -395,6 +405,7 @@ PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypo
 ;     XDR:     Specifies the output XDR filename. If specified, 
 ;              an XDR image_array will be saved.
 ;     REVERSE: Specifies whether the reverse tiff should be saved.
+;     LABELON: Specifies whether to label the image.
 ;     NEW_WIN: Returns the new window number of the panImages
 ;     ISEL:    Specifies the image_array is an extracted subarray from the
 ;              original array
@@ -511,6 +522,15 @@ new_win =!d.window
 		end
 	end
 
+	;labelon
+	if keyword_set(labelon) then begin
+		for i=0,ND-1 do begin
+		ii = NL-i
+		xi=(i mod NC)*width+5 
+		yi=ii/NC*height+5
+		xyouts, xi,yi,detname(i),/device
+		end
+	end
 
 	for i=1,NR-1 do plots,[0,NC*width],[i*height,i*height],/device
 	for i=1,NC-1 do plots,[i*width,i*width],[0,NR*height],/device
