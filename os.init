@@ -1,0 +1,38 @@
+COMMON SYSTEM_BLOCK,OS_SYSTEM
+
+;  os.init (R1.0)
+ 
+if n_elements(OS_SYSTEM) eq 0 then $
+OS_SYSTEM = { $
+	arch 	: !VERSION.ARCH, $
+	os	: !VERSION.OS, $
+	os_family: !VERSION.OS_FAMILY, $
+	release	: !VERSION.RELEASE, $
+;	build_date: !VERSION.BUILD_DATE, $
+;	font	: '-adobe-helvetica-bold-r-normal--24-240-75-75-p-138-iso8859-1', $
+	font	: '-adobe-helvetica-bold-r-normal--24-*', $
+	device  : !d.name, $
+	file_sep: '/', $
+	chmod   : 'chmod', $     ; command change file mode
+	mv  	: 'mv', $       	; command rename file
+	cp      : 'cp', $        ; command copy file 
+	rm 	: 'rm', $  	; command remove
+	lpr 	: 'lpr', $  	; command lpr
+	prt 	: 'enscript', $ ; command enscript
+	printer : '', $		; default printer
+	wc	: 'wc' $       ; command wc find lines
+	}
+
+if !d.name eq 'WIN' then OS_SYSTEM.file_sep = '\'
+if !d.name eq 'WIN' then OS_SYSTEM.mv = 'rename'
+if !d.name eq 'WIN' then OS_SYSTEM.cp = 'copy'
+if !d.name eq 'WIN' then OS_SYSTEM.lpr = 'copy'
+if !d.name eq 'WIN' then OS_SYSTEM.prt = 'copy'
+if !d.name eq 'WIN' then OS_SYSTEM.printer = 'pnt:'
+
+defsysv,'!os',os_system
+
+if !d.name eq 'WIN' then CD,'\idl'
+
+!QUIET = 1
+
