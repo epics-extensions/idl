@@ -57,7 +57,10 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	scanno_2d : 0, $  	; current readin 2d scan #
 	scanno_current : 0, $  	; current viewed 2d scan #
 	scanno_2d_last : 0, $  	; last 2d scan # from opened file
-	image_no  : make_array(1000,/int), $ ; detector 1 image no for scanno_2d #
+;	image_no  : make_array(1000,/int), $ ; detector 1 image no for scanno_2d #
+	image_begin : 0, $  ; first detector image number 
+	image_end : 84, $    ; last detector image number
+	last    : 85, $         ; last detector loaded in
 	scanno  : 0, $  	; current image at the end 1d scan #
 	width   : 100, $  	; current image width 
 	height  : 100, $  	; current image height
@@ -82,12 +85,15 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	yzline_yo : [0.,0.],$
 	yzline_zo : [0.,0.],$
 	s_wid   : -1, $       ; window id for saved pixmap
-	xarr	: make_array(1001), $
-	yarr	: make_array(1001), $
-	image	: make_array(1001,1001,/float) $
+	xarr	: make_array(2001), $
+	yarr	: make_array(501), $
+	image	: make_array(1001,1001,/float), $
 ;	xarr	: make_array(512), $
 ;	yarr	: make_array(512), $
 ;	image	: make_array(512,512,/float) $
+	panwin  : -1, $
+	id_def	: make_array(85,/int), $
+	DPVS	: make_array(85,/string) $
         }
   
   device,bypass_translation=0,retain=2
@@ -99,6 +105,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
         ncolors : !d.table_size-1, $   max color index 
 	pick_ref : 1, $   ; normalized against detector # 1
 	fullcolor : 0, $   0-auto 1-user 2-normalize
+	CA : 0, $   ; realtime set this to 1
 	user	: 1, $  ; if 1 use user set range
 	versus  : 1, $  ; 0 - step # or 1 - values 
 	width	: 100, $  	; default x set range 

@@ -1,4 +1,549 @@
 
+
+PRO readScanFile,filename,gD,scanno
+;+
+; NAME:
+;       READSCANFILE
+;
+; PURPOSE:
+;	This procedure reads the scan file which was automatically created 
+;       by the IOC and returns a pointer structure to point to the scan 
+;       data components.  
+;
+; CALLING SEQUENCE:
+;       READSCANFILE, Filename, Gp, Scanno
+;
+; INPUTS:
+;	Filename:    Specifies the IOC saved scan file name to be read.
+;
+; KEYWORD PARAMETERS:
+;       None.
+;
+; OUTPUTS:
+;       Gp:          Parameter used to return the pointer of scan
+;                    structure which consists of the scan data pointers to 
+;                    scan data components 
+;
+;       Scanno:      Optional output, it returns the scan number of the file.
+;
+; RESTRICTIONS:
+;       The directory /usr/local/epics/extensions/bin/solaris must be
+;       in your IDL search path.
+;
+;       The scan data is saved in XDR format by the IOC scan save data 
+;       software.
+;
+; EXAMPLE:
+;       In the following example it read a 2D scan file 'cha:_0000.scan' from
+;       the directory /home/sricat/CHA/rix directory and the pointer gD is
+;       used to store the scan data structure. 
+;
+;       Then the image of detector 2 is selected and plotted and the 2D
+;       image is returned as Im varaible (15 detectors supported). 
+;
+;       Then for 1D scan # 5, a 1D plot is desired, the positioner 1 is
+;       selected as X axis, the detecor 1,2,3 are selected for Y array.
+;
+;       file = '/home/sricat/CHA/rix/cha:_0000.scan'
+;       ReadScanFile, file, gD
+;       scan2Ddata, gD, 2, /view, xarr=xarr, yarr=yarr, im=im
+;       scan1Ddata, gD, 5, /plot, xarr=x, yarr=y, xsel=0, ysel='0,1,2'
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, Sept 4, 1998.
+;	xx-xx-xxxx	comment
+;-
+
+	if n_params() lt 2 then begin
+		print,'Usage: ReadScanFile, filename, gD [,scanno]'
+	print,''
+	print,'   filename   -  speicifes the scan file created by the IOC savedata software'
+	print,'   gD         -  returns the structure pointer for scan data '
+	print,'   scanno     -  returns scanno '
+		return
+
+	end
+	if n_elements(gD) then begin
+
+;	scanno = read_scan(filename,dim,num_pts,cpt,pv,labels,id_def,pa1D,da1d,pa2D,da2D)
+
+;	help,dim,num_pts,pv,labels,id_def,pa1D,da1D,pa2D,da2D
+
+	gData = *gD
+	scanno = read_scan(filename,Scan)
+	*gData.scanno = scanno
+
+	if scanno lt 0 then return
+
+	rix2DC, Scan, gData
+
+;scanimage_print,gD,/test
+
+	endif else begin
+		scanimage_alloc,filename,gD,scanno
+	end
+
+	if scanno lt 0 then begin
+		print,'Error: readScanFile failed on ',filename
+		return
+	end
+END
+
+
+PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=height,scanno=scanno,xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv,plot=plot,group=group,dname=dname
+;+
+; NAME:
+;       SCAN2DDATA
+;
+; PURPOSE:
+;	This procedure extracts various 2D scan data components and returns
+;       as IDL varibles from the given scan structure pointer. 
+;
+; CALLING SEQUENCE:
+;       SCAN2DDATA, gD, dN, /VIEW, Im=Im, Xarr=Xarr, Yarr=Yarr, ... 
+;
+; INPUTS:
+;       gD:          Parameter to specify the pointer of scan data structure
+;                    returned by the procedure READSCANFILE
+;       dN:          Speicifies the desired image number, i.e. detector number.
+;
+; KEYWORD PARAMETERS:
+;       Dname:       If specified, overrides the detector name
+;       View:        If specified, the TVSCL of the 2D image is plotted.
+;       Plot:        If specified, the 2D image plot program is called.
+;       Xarr:        Returns the positioner 1 vector of X scan
+;       Yarr:        Returns the positioner 1 vector of Y scan
+;       Im:          Returns the 2D image of the selected detector
+;       Width:       Returns the X width of the 2D image
+;       Height:      Returns the Y height of the 2D image
+;       Xdesc:       Returns the X positioner desc string
+;       Ydesc:       Returns the Y positioner desc string
+;       Xpv:         Returns the X scan record pvname
+;       Ypv:         Returns the Y scan record pvname
+;       Scanno:      Returns the 2D scan number
+;
+; RESTRICTIONS:
+;       Same as READSCANFILE.
+;
+; EXAMPLE:
+;
+;       In the following example it read a 2D scan file 'cha:_0000.scan' from
+;       the directory /home/sricat/CHA/rix directory and the pointer gD is
+;       used to store the scan data structure.
+;
+;       Then the image of detector 2 is selected and plotted and the 2D
+;       image is returned as Im varaible (15 detectors supported).
+;       Then for 1D scan # 5, a 1D plot is desired, the positioner 1 is
+;       selected as X axis, the detecor 1,2,3 are selected for Y array.
+;
+;       file = '/home/sricat/CHA/rix/cha:_0000.scan'
+;       ReadScanFile, file, gD
+;       scan2Ddata, gD, 2, /view, xarr=xarr, yarr=yarr, im=im
+;       scan1Ddata, gD, 5, /plot, xarr=x, yarr=y, xsel=0, ysel='0,1,2'
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, Sept 4, 1998.
+;	xx-xx-xxxx	comment
+;-
+	if n_params() eq 0 then begin
+		print,'Usage: scan2Ddata,gD,seq#,view=view,xarr=xarr,yarr=yarr,'
+		print,'              im=im,width=width,height=height,scanno=scanno,'
+		print,'              xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv'
+
+	print,'INPUT'
+	print,' gD      - specifies the scan data pointer created by scanReadFile'
+	print,' seq#    - specifies the detector seq # [1-15]'
+	print,'KEYWORDS'
+	print,'  VIEW   - if specified, show the 2D image'
+	print,'  xarr   - returns x positioner vector'
+	print,'  yarr   - returns y positioner vector'
+	print,'   im    - returns 2D image of the detector'
+	print,'  width  - returns im  width'
+	print,'  height - returns im  height'
+	print,'  ydesc  - returns y description'
+	print,'  xpv    - returns x pvname'
+	print,'  ypv    - returns y pvname'
+	print,'  scanno - returns 2D scan #'
+		return
+	end
+
+	scanno = *(*gD).scanno
+	if scanno lt 0 then begin
+		print,'Error: scan2Ddata,gD,seq#'
+		print,!err_string+!err
+		return
+	end
+
+        dim = *(*gD).dim
+        num_pts = *(*gD).num_pts
+        cpt = *(*gD).cpt
+        pv = *(*gD).pv
+        labels = *(*gD).labels
+        id_def = *(*gD).id_def
+        pa1D = *(*gD).pa1D
+        da1D = *(*gD).da1D
+
+	if dim eq 2 then begin
+        pa2D = *(*gD).pa2D
+        da2D = *(*gD).da2D
+
+	if (seq-1) lt 0 or seq gt 84 then begin
+		print,'Error: invalid image number - ' ,seq
+		return
+	end
+
+	xarr = pa2d(*,0,0)
+	yarr = pa1d(*,0)
+	sz = size(da2d)
+	if seq gt sz(3) then seq = sz(3)
+	im = da2d(*,*,seq-1)
+	max_pidi = n_elements(id_def)/2
+	xdesc = labels(max_pidi,0)
+	if xdesc eq '' then xdesc = labels(0,0)
+	ydesc = labels(max_pidi,1)
+	if ydesc eq '' then ydesc = labels(0,1)
+	xpv = pv(0)
+	ypv = pv(1)
+	w = cpt(0)
+	h = cpt(1)
+	if h eq 0 then h=num_pts(1)
+
+	if dim eq 2 then w = num_pts(0)
+	width = w
+	height = h
+
+        header_note1 = '2D Scan # '+string(scanno) + $
+                ',    Image seqno ' + string(seq)
+        header_note = 'Image( '+strtrim(w,2)+' , '+  strtrim(h,2)+') '
+
+	if keyword_set(view) then begin
+	loadct,39
+	window,0,xsize=500,ysize=500,title='scan2d Object'
+ 
+        ncolors = !d.table_size
+
+          xdis = 0.001 * !d.x_size
+          ydis = !d.y_size - 1.2 * !d.y_ch_size
+          xyouts,xdis,ydis,header_note1,/device,color=ncolors-1
+ 
+          ydis = !d.y_size - 2.2 * !d.y_ch_size
+          xyouts,xdis,ydis,header_note,/device,color=ncolors-1
+ 
+	if max(im) eq min(im) then begin
+		TV,congrid(!d.table_size*im,!d.x_size -100,!d.y_size-100),50,50
+	endif else $
+        TVSCL,congrid(im,!d.x_size -100,!d.y_size-100),50,50
+ 
+	xrange=[xarr(0),xarr(w-1)]
+	yrange=[yarr(0),yarr(h-1)]
+;	xrange=[min(xarr),max(xarr)]
+;	yrange=[min(yarr),max(yarr)]
+	xstyle = 1
+	ystyle = 1
+	if yrange(0) eq yrange(1) then ystyle = 4
+	if xrange(0) eq xrange(1) then xstyle = 4
+
+	if keyword_set(dname) then title = xpv + dname else $
+	title=xpv + 'D'+ strtrim(seq,2)
+        plot,xrange=xrange,yrange=yrange,[-1+yrange(0),-1+yrange(0)],/noerase, $
+                pos=[50./!d.x_size, 50./!d.y_size, $
+                 (!d.x_size-50.)/!d.x_size, (!d.y_size-50.)/!d.y_size], $
+                xstyle=xstyle, ystyle=ystyle, xtitle=xdesc, ytitle=ydesc, $
+                title=title
+ 
+	end
+
+	if keyword_set(plot) then $
+        plot2d,im, xarr=xarr, yarr=yarr, $
+                comment=[header_note1,header_note], $
+                xtitle=xdesc, ytitle=ydesc, $
+                title=title, group=group
+
+	endif else begin
+		res = dialog_message('Error: not a 2D scan!',/Error)
+	end
+END
+
+
+PRO parse_num0,instring,ids,sep=sep
+Keysepar = '-'
+if keyword_set(sep) then Keysepar = sep
+res = strpos(instring,keysepar)
+if res ne -1 then begin
+        str = str_sep(instring,keysepar,/trim)
+        no = fix(str(1)) - fix(str(0)) + 1
+        ids = indgen(no) + fix(str(0))
+endif else begin
+        com = strpos(instring,',')
+        if com ne -1 then begin
+                str = str_sep(instring,',')
+                ids = fix(str)
+        endif else begin
+                str = str_sep(instring,' ')
+                ids = fix(str)
+        end
+ 
+end
+END
+ 
+; parse by sep1 first then by sep2
+; default sep1=',' sep2='-'
+;       instring = '1,2:5,7'
+;       instring = '1,2-5,7'
+PRO parse_num,instring,res,sep1=sep1,sep2=sep2
+        d_sep1 = ','
+        d_sep2 = '-'
+        if keyword_set(sep1) then d_sep1 = sep1
+        if keyword_set(sep2) then d_sep2 = sep2
+        str = str_sep(instring,d_sep1,/trim)
+        res = fix(str(0))
+        for i=0,n_elements(str)-1 do begin
+        newstr =  strtrim(str(i),2)
+        if strlen(newstr) gt 0 then begin
+        parse_num0,newstr,ids,sep=d_sep2
+        if i eq 0 then begin
+                if n_elements(ids) gt 1 then res = ids
+                end
+        if i gt 0 then  res = [res,ids]
+        end
+        end
+END
+
+PRO scan1Ddata,gD,seq,plot=plot,pa=pa,da=da,npts=npts,$
+xsel=xsel,ysel=ysel,xarr=xarr,yarr=yarr, $
+xdesc=xdesc,ydesc=ydesc,xengu=xengu,yengu=yengu, $
+id_def=id_def,scanno_2d=scanno_2d,title=title,group=group
+;+
+; NAME:
+;       SCAN1DDATA
+;
+; PURPOSE:
+;	This procedure extracts scan data and returns as IDL varibles 
+;       from the given scan structure pointer. It is able to extracts
+;       data from either 1D or 2D scan data. 
+;
+; CALLING SEQUENCE:
+;       SCAN1DDATA, gD, sN, /PLOT, Pa=Pa, Da=Da, Xarr=Xarr, Yarr=Yarr, ... 
+;
+; INPUTS:
+;       gD:          Parameter to specify the pointer of scan data structure
+;                    returned by the procedure READSCANFILE
+;       sN:          Speicifies the desired 1D scan number.
+;
+; KEYWORD PARAMETERS:
+;       Plot:        If specified, the selected detector data will be plotted
+;                    by PLOT1D program.
+;       Xsel:        Specifies the desired positioner as X aixs, default 0
+;       Ysel:        Specifies a string of desired detectors, default to all 
+;                    defined detectors in the Da array
+;       Xarr:        Returns the X vector of the selected  positioner
+;       Yarr:        Returns the Y array of the selected detectors
+;       Xdesc:       Returns the X positioner desc string
+;       Ydesc:       Returns the Y positioner desc string
+;       Xengu:       Returns the X positioner engu string
+;       Yengu:       Returns the Y positioner engu string
+;       Npts:        Returns the data points in the X vector
+;       Title:       Returns the inner scan record pvname
+;       Pa:          Returns the original positioner array of inner scan
+;       Da:          Returns the original detecotr array of inner scan
+;       id_def:      Returns the vector of monitored positioners and detectors
+;                    of inner scan record 
+;       Scanno_2d:   Returns the 2D scan number 
+;
+; RESTRICTIONS:
+;       Same as READSCANFILE.
+;
+; EXAMPLE:
+;       In the following example it read a 2D scan file 'cha:_0000.scan' from
+;       the directory /home/sricat/CHA/rix directory and the pointer gD is
+;       used to store the scan data structure.
+;
+;       Then the image of detector 2 is selected and plotted and the 2D
+;       image is returned as Im varaible (15 detectors supported).
+;
+;       Then for 1D scan # 5, a 1D plot is desired, the positioner 1 is
+;       selected as X axis, the detecor 1,2,3 are selected for Y array.
+;
+;       file = '/home/sricat/CHA/rix/cha:_0000.scan'
+;       ReadScanFile, file, gD
+;       scan2Ddata, gD, 2, /view, xarr=xarr, yarr=yarr, im=im
+;       scan1Ddata, gD, 5, /plot, xarr=x, yarr=y, xsel=0, ysel='0,1,2'
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, Sept 4, 1998.
+;	xx-xx-xxxx	comment
+;-
+	if n_params() eq 0 then begin
+		print,'Usage: scan1Ddata,gD,seq#,plot=plot,xarr=x,yarr=y,'
+		print,'              npts=npts,xdesc=xdesc,ydesc=ydesc,...'
+		print,'              pa=pa,da=da,id_def=id_def'
+
+	print,'INPUT'
+	print,' gD      - specifies the scan data pointer created by scanReadFile'
+	print,' seq#    - specifies the scan seq # within 2D scan'
+	print,'KEYWORDS'
+	print,' plot    - 1D plot of yarr if set to 1'
+	print,' xarr    - returns the X axis vector'
+	print,' yarr    - returns the Y array'
+	print,' xsel    - specifies positioner # as x-axis (default 0) '
+	print,' ysel    - a string to specifies a list of detectors, default all monitored detectors'
+	print,' xdesc   - returns x labels for xarr'
+	print,' ydesc   - returns y labels for yarr'
+	print,' npts    - returns number of scan data points'
+	print,' pa      - returns original scan positioner array'
+	print,' da      - returns original scan detector array'
+	print,' id_def  - returns indicators for monitored positoner and detector '
+		return
+	end
+
+	scanno = *(*gD).scanno
+	if scanno lt 0 then begin
+		print,'Error: scan1Ddata,gD,seq#'
+		print,!err_string+ string(!err)
+		return
+	end
+
+        dim = *(*gD).dim
+        num_pts = *(*gD).num_pts
+        cpt = *(*gD).cpt
+        pv = *(*gD).pv
+        labels = *(*gD).labels
+        id_def = *(*gD).id_def
+        pa1D = *(*gD).pa1D
+        da1D = *(*gD).da1D
+
+IF dim EQ 2 THEN BEGIN
+	 print,'**2D scan**'
+        pa2D = *(*gD).pa2D
+        da2D = *(*gD).da2D
+
+	if (seq-1) lt 0 or seq gt cpt(1) then begin
+		str = ['Error: Invalid scan line number'+string(seq), $
+		  '       Valid scan range: [1-' + strtrim(cpt(1),2) + ']']
+		res = dialog_message(str,/error)
+		return
+	end
+
+	title = pv(0)
+	seqno = seq - 1
+	scanno_2d = scanno
+	npts = cpt(0)
+
+	ndim = n_elements(id_def)/2
+	pa = make_array(npts,4,/double)
+	da = make_array(npts,ndim-4)
+	pa[*,*] = pa2D[*,seqno,*]
+	da[*,*] = da2D[*,seqno,*]
+
+	max_pidi = n_elements(id_def)/2
+	desc1 = labels(max_pidi:2*max_pidi-1,0)
+	desc2 = labels(max_pidi:2*max_pidi-1,1)
+	for i=0,max_pidi-1 do begin
+	if id_def(i,0) gt 0 then $
+	if desc1(i) eq '' then desc1(i) = labels(i,0)
+	if id_def(i,1) gt 0 then $
+	if desc2(i) eq '' then desc2(i) = labels(i,1)
+	end
+
+ENDIF ELSE begin
+	 print,'**1D scan**'
+	IF dim EQ 1 THEN BEGIN
+		max_pidi = n_elements(id_def)
+		npts = cpt(0)
+		desc1 = labels(max_pidi:2*max_pidi-1)
+		for i=0,max_pidi-1 do begin
+		if id_def(i) gt 0 then begin
+		if desc1(i) eq '' then desc1(i) = labels(i)
+		end
+		end
+		pa = pa1D(0:npts-1,*)
+		da = da1D(0:npts-1,*)	
+	END
+end
+
+	isel = 0
+	xarr = pa(*,isel)
+	yarr = da
+
+	; set defualt ysel if not set by user
+	if n_elements(ysel) eq 0 then begin
+		st='0'
+		for i=5,max_pidi-1 do begin
+		if id_def(i) gt 0 then  st=st+','+strtrim(i-4,2)
+		end
+		ysel = st
+	end
+	IF keyword_set(xsel) EQ 0 AND keyword_set(ysel) EQ 0 THEN BEGIN
+		xdesc = desc1(0:3)
+		ydesc = desc1(4:max_pidi-1)
+		xengu = labels(2*max_pidi:2*max_pidi+3,0)
+		yengu = labels(2*max_pidi+4:3*max_pidi-1,0)
+	END
+	if keyword_set(xsel) then begin
+		if xsel gt 0 and xsel lt 4 then isel = xsel
+	end
+	xdesc = desc1(isel)
+	xengu = labels(isel,0)
+
+	res=0
+	if keyword_set(ysel) then begin
+	 parse_num,string(ysel),res
+	end
+	no = n_elements(res)
+	yarr = make_array(npts(0),no)
+	ydesc = make_array(no,/string)
+	yengu = make_array(no,/string)
+	for i=0,no-1 do begin
+	yarr(*,i) = da(*,res(i))
+	ydesc(i) = desc1(4+res(i))
+	yengu(i) = labels(max_pidi*2+4+res(i),0)
+	end
+
+	if keyword_set(plot) then begin
+		if n_elements(res) eq 1 then $
+		plot1d,xarr,yarr,title=title, $
+		xtitle=xdesc(0), $
+		ytitle=ydesc(0) else $
+		plot1d,xarr,yarr,title=title, $
+		xtitle=xdesc(0), group=group
+	end
+ 
+END
+
+PRO get_1DLines,im,textfile,title,ydesc
+; this function returns columns of 2D im array
+; to get rows  just pass in transpose(im) to this routine
+;
+file='tmp.txt'
+if n_elements(textfile) then file=textfile
+
+s = size(im)
+if n_elements(s) ne 5 then return
+
+	f1="(" + strtrim(s(2),2) + "f14.5" + ")" 
+	openw,1,file
+	if n_elements(title) then printf,1,'; ** '+ title
+	printf,1,'; ** This ASCII file contains a 2D Array'
+	printf,1,'; ** # of fields per line represents total # of Y variables ' 
+	printf,1,'; ** # of values per column represents dim of X.'
+
+	st = ';  YDESC:    '
+
+	ny = n_elements(ydesc)
+	if ny gt 0 then begin
+	for i=0,ny-1 do begin
+		st = st + ydesc(i) + ' : '
+	end
+	end
+	printf,1,st
+ 
+	for i=0,s(1)-1 do begin
+		vect = im(i,*)
+	printf,1,string(vect),format=f1
+	end
+	close,1
+END
+
 PRO catch1d_get_pvtcolor,i,color
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 ; 24 bits
@@ -51,7 +596,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.8 2000/08/18 20:20:10 cha Exp $
+; $Id: vw2d.pro,v 1.9 2001/04/04 21:22:05 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -704,7 +1249,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.8 2000/08/18 20:20:10 cha Exp $
+; $Id: vw2d.pro,v 1.9 2001/04/04 21:22:05 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -780,7 +1325,7 @@ pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 ;-
 
 device, get_graphics = old, set_graphics = 6  ;Set xor
-col = !d.n_colors - 2
+col = !d.table_size - 2
 
 if keyword_set(message) then begin
 	st = [$,
@@ -1207,7 +1752,7 @@ close,fw
 ;
 ; rename filename
 ;
-       ino = catch2d_file.image_no(catch2d_file.scanno_current-1) $
+       ino = catch2d_file.image_begin  $ ;image_no(catch2d_file.scanno_current-1) $
                 + catch2d_file.detector
         suf0 = '0000'
         suf = strtrim(ino,2)
@@ -1239,15 +1784,15 @@ s1 = s1 + ')'
 
 st = ['; ' + T1 + T2 + s1 ]
 
-se = catch2d_file.image_no(catch2d_file.scanno_current-1) $
+se = catch2d_file.image_begin $  ;image_no(catch2d_file.scanno_current-1) $
 	+ catch2d_file.detector
  
 
+str='; 2D SCAN #  '
 openw,fw,dir+filename,/get_lun
 
-printf,fw,'; 2D SCAN #  ',strtrim(catch2d_file.scanno_current,2) + $
-                ',    Image seqno = ' + strtrim(se,2) + ',    Detector = '+ $
-                strtrim(catch2d_file.detector,2)
+printf,fw,str,strtrim(catch2d_file.scanno_current,2) + $
+                ',    Detector seqno = ' + strtrim(se,2)+ '  Detector = '+catch2d_file.DPVS(catch2d_file.detector-1) 
 printf,fw,st
 printf,fw, '; ------------------------------'
 
@@ -1732,7 +2277,7 @@ wshow,catch2d_file.xzdraw
 dline = (!y.crange(1)-!y.crange(0)) *.2
 hline = (!x.crange(1)-!x.crange(0)) *.1
 clr1 = 0
-clr2 = !d.n_colors - 1
+clr2 = !d.table_size - 1
 
 while !ERR eq 1 do begin
 cursor,x,y,1,/normal
@@ -1788,7 +2333,7 @@ wshow,catch2d_file.yzdraw
 dline = (!y.crange(1)-!y.crange(0)) *.2
 hline = (!x.crange(1)-!x.crange(0)) *.1
 clr1 = 0
-clr2 = !d.n_colors - 1
+clr2 = !d.table_size - 1
 while !ERR eq 1 do begin
 cursor,x,y,1,/normal
 
@@ -2052,7 +2597,7 @@ PRO scanimage_cleanup
 	heap_gc
 END
 
-PRO scanimage_alloc,filename,gD,scanno
+PRO scanimage_alloc,filename,gD,scanno  ;,lastDet=lastDet
 
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
@@ -2072,11 +2617,10 @@ gData = { $
 	gD = ptr_new(/allocate_heap)
 	*gD = gData
 
-;	scanno = read_scan(filename,dim,num_pts,cpt,pv,labels,id_def,pa1D,da1D,pa2D,da2D)
 
 ; help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,pa2d,da1d,da2d
 
-	scanno = read_scan(filename, Scan)
+	scanno = read_scan(filename, Scan)   ;, lastDet=lastDet)
 	*gData.scanno = scanno
 
 	if scanno lt 0 then return
@@ -2086,6 +2630,9 @@ gData = { $
 ;	scanimage_print,gD
 
 END
+;
+; DCV2D_read.pro
+;
 PRO scanimage_readall,filename,maxno,gD
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
@@ -2094,7 +2641,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	catch2d_file.seqno = 0
         catch2d_file.scanno_2d_last = 0 
 
-	scanimage_alloc,filename,gD
+	scanimage_alloc,filename,gD    ;,lastDet=catch2d_file.last
 
 	scanno = *(*gD).scanno
 	dim = *(*gD).dim
@@ -2110,8 +2657,10 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	da2D = *(*gD).da2D
 
 	catch2d_file.scanno_2d = scanno
+	catch2d_file.scanno_current = scanno
+	catch2d_file.id_def = id_def(4:89-1,0) 
 
-	max_pidi = n_elements(id_def) / 2
+	max_pidi = catch2d_file.last -1  
 	pv1_desc = labels(max_pidi,0)
 	if pv1_desc eq '' then pv1_desc = labels(0,0)
 	pv2_desc = labels(max_pidi,1)
@@ -2147,9 +2696,10 @@ if scanno eq 0 then scanno = 1
 	catch2d_file.scanno = scanno	
 	if catch2d_file.scanno_2d_last le 0 then $
 		catch2d_file.scanno_2d_last = scanno	
-	catch2d_file.image_no(catch2d_file.scanno_2d_last) = maxno 
-	catch2d_file.image_no(catch2d_file.scanno_2d_last - 1) = 0
-
+;	catch2d_file.image_no(catch2d_file.scanno_2d_last) = maxno 
+;	catch2d_file.image_no(catch2d_file.scanno_2d_last - 1) = 0
+	catch2d_file.image_begin = 0
+	catch2d_file.image_end = maxno
 
 END
 
@@ -2205,7 +2755,7 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 	catch2d_file.y_desc = pvs(4)
 	catch2d_file.scanno = scanno
 	catch2d_file.width = num_pts(0)
-	catch2d_file.height = cpt(1)
+	catch2d_file.height = num_pts(1)  ;cpt(1)
 	catch2d_file.detector = detector
 	catch2d_file.scanno_current = scanno
 	if scanno le 0 then catch2d_file.scanno_current = 1
@@ -2268,118 +2818,13 @@ PRO fileSeqString,no,suf0
 END
 
 
-PRO view2d_pan_images_on,Event,tiff=tiff,gif=gif,rtiff=rtiff,def=def,image_array=image_array
-COMMON CATCH2D_FILE_BLOCK,catch2d_file
-COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
-COMMON CATCH1D_2D_COM,data_2d, gD
-
-if !d.name eq 'WIN' then device,decomposed=0
-
-seq = catch2d_file.scanno_current
-last = catch2d_file.scanno_2d_last
-
-if catch2d_file.maxno le 0 then begin
-	res=WIDGET_MESSAGE('Error: no image file loaded in')
-	return
-end
-if seq lt 1 or seq ne catch2d_file.scanno_2d_last then begin
-	res=WIDGET_MESSAGE('Error: outside range seq entered')
-	return
-end
-
-	seqno = catch2d_file.image_no(seq-1)
-
-	da2D = *(*gD).da2D
-	id_def = *(*gD).id_def
-
-	def = make_array(15,value=0)
-
-	xdim = catch2d_file.width 
-	ydim = catch2d_file.y_req_npts
-	image_array  = make_array(xdim,ydim,15,/float)
-
-	scanno_2d = seq
-	for i=0,14 do begin
-		if id_def(i+4) gt 0 then begin
-		t_image = da2D(*,*,i)
-		image_array(*,*,i) = t_image
-		def(i) = 1
-		end
-	end
-
-; update the image plot
-
-update:
-
-	width = 60
-	height = 60
-	old_win = !D.window
-	if catch2d_file.win lt 0 then begin
-		window, xsize = 8*width, ysize=2*height, $
-			title='PanImages 2D SCAN # '+strtrim(catch2d_file.scanno_current,2)
-		for i=0,14 do begin
-		xi=(i mod 8)*width+width/2 - 5 
-		yi=height/2+(15-i)/8*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
-		end
-	end
-
-	new_win = !D.window
-	wset,new_win
-	for sel=0,14 do begin
-	if id_def(sel+4) gt 0 then begin
-	v_max = max(image_array(*,*,sel),min=v_min)
-	if v_max eq v_min then begin 
-		temp = view_option.ncolors * image_array(*,*,sel) 
-		TV,congrid(temp,width,height),sel
-	endif else begin
-		temp = congrid(image_array(*,*,sel), width, height)
-		TVSCL, temp, sel
-	end
-	end
-	end
-
-
-	plots,[0,8*width],[height,height],/device
-	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
-
-        if keyword_set(TIFF) then begin
-        tvlct,R,G,B,/get
-        WRITE_TIFF,'view2d.tiff',TVRD(),red=R,green=G,blue=B
-        fileSeqString,catch2d_file.scanno_current,suf0
-        outname=catch2d_file.name+'.pan'+suf0+'.tiff'
-        dir = catch2d_file.outpath+'TIFF'+!os.file_sep
-        rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
-        end
-
-        if keyword_set(RTIFF) then begin
-        tvlct,R,G,B,/get
-        WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
-        fileSeqString,catch2d_file.scanno_current,suf0
-        outname=catch2d_file.name+'.pan'+suf0+'.rtiff'
-        dir = catch2d_file.outpath+'TIFF'+!os.file_sep
-        rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
-        end
-
-        if keyword_set(GIF) then begin
-        tvlct,R,G,B,/get
-        WRITE_GIF,'view2d.gif',TVRD(),R,G,B
-        WRITE_GIF,'view2d.gif',/close
-        fileSeqString,catch2d_file.scanno_current,suf0
-        outname=catch2d_file.name+'.pan'+suf0+'.gif'
-        dir = catch2d_file.outpath+'GIF'+!os.file_sep
-        rename_dialog,dir,'view2d.gif',outname,GROUP=Event.Top
-        end
-
-	wset,old_win
-;	viewscanimage_current
-
-END
 
 PRO viewscanimage_init,file
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH1D_2D_COM,data_2d,gD
+
+WIDGET_CONTROL,/HOURGLASS
 
 scanimage_readall,file,maxno,gD
 ;scanimage_print,gD
@@ -2395,7 +2840,7 @@ print,'Total Number of Images     : ', catch2d_file.maxno
 
 view_option.fullcolor = 0 ; initialize to auto scaled image
 
-	catch2d_file.seqno = 0 ; maxno - 1
+	catch2d_file.seqno = 15  ; maxno - 1
 	if catch2d_file.scanno_2d_last gt 0 then viewscanimage_current
 
 
@@ -2417,8 +2862,8 @@ COMMON CATCH1D_2D_COM,data_2d, gD
                 w_warningtext,st, 60,3,title='VIEW2D Messages'
                 return
                 end
-        begin_seqno = catch2d_file.image_no(scanno-1)
-        end_seqno = catch2d_file.image_no(scanno)
+        begin_seqno = catch2d_file.image_begin    ;image_no(scanno-1)
+        end_seqno = catch2d_file.image_end        ;image_no(scanno)
         seqno = begin_seqno + view_option.pick_ref - 1
         if seqno lt end_seqno and seqno ge begin_seqno then begin
                 catch2d_file.seqno = seqno
@@ -2636,6 +3081,8 @@ COMMON CATCH2d_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH1D_2D_COM,data_2d, gD
 COMMON STATISTIC_2DBLOCK, statistic_2dids
 
+print,'statistic_2dids.back=',statistic_2dids.back
+
 seq = catch2d_file.scanno_current
 last = catch2d_file.scanno_2d_last
 
@@ -2648,31 +3095,27 @@ if seq lt 1 or seq ne catch2d_file.scanno_2d_last then begin
 	return
 end
 
-	seqno = catch2d_file.image_no(seq-1)
+	seqno = catch2d_file.image_begin     ;image_no(seq-1)
 
 	da2D = *(*gD).da2D
 	id_def = *(*gD).id_def
 
-	def = make_array(15,value=0)
+	sz = size(da2D)
+	nodet = sz(3)
+
+	def = id_def(4:4+nodet-1,0)
 
 	xdim = catch2d_file.width 
 	ydim = catch2d_file.y_req_npts
-	image_array  = make_array(xdim,ydim,15,/float)
+	image_array  =  da2D
 
 	scanno_2d = seq
 
-	for i=0,14 do begin
-		if id_def(i+4) gt 0 then begin
-		def(i) = 1
-		t_image = da2D(*,*,i)
-		image_array(*,*,i) = t_image
-		end
-	end
+;	panimage,da2d,def
 
 ; pops up roi images
 
 update:
-	nodet = 15
 	header_ass = ''
 	comment_ass = ''
 	if keyword_set(header) then header_ass=header
@@ -2712,16 +3155,23 @@ update:
 	found = findfile(filename)
 	if found(0) eq '' then begin
 		res = dialog_message(['ROI filename',filename, 'not found.', $
-			'','The whole range is assumed'],/info)
+			'','The whole 2D region is assumed'],/info)
 	endif else begin
 
 	if statistic_2dids.back eq 0 then begin
-	u_openr,unit,filename,/XDR
-	u_read,unit,x
-	u_close,unit
+	xdr_open,unit,filename 
+	xdr_read,unit,x
+	xdr_close,unit
 	xrange=fix([x(0)/x(4),x(1)/x(4)])
 	yrange=fix([x(2)/x(5),x(3)/x(5)])
-	endif else statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr
+	end
+	if statistic_2dids.back eq 1 then begin
+		lower_b = statistic_2dids.backave
+		upper_b = statistic_2dids.backave2
+	end
+	if statistic_2dids.back eq 2 then begin
+		statistic_2dReadPolyROI,statistic_2dids,xverts,yverts,xv,yv,arr
+	end
 	end
 
 	if xrange(1) ge xdim then xrange(1) = xdim -1
@@ -2758,6 +3208,11 @@ update:
 		if keyword_set(ref) then im = image_array(*,*,i)/im_ref	
 		if statistic_2dids.back eq 2 then begin
 			nelem = n_elements(arr)
+		if nelem eq 0 then begin
+		r = dialog_message('You have to define the polygon ROI first',/info)
+		close,1
+		return
+		end
 			temp = make_array(nelem)
 			for ij=0,nelem-1 do begin
 			j = arr(ij) / xdim
@@ -2819,7 +3274,8 @@ end
 	header=[ catch2d_file.path+catch2d_file.name, $ 
 	   'Image Seq # '+strtrim(catch2d_file.seqno+1,2)+ ',  2D Scan # '+ $
 		strtrim(catch2d_file.scanno_current,2) + ',  Detector # '+ $
-		strtrim(catch2d_file.detector,2) ]
+		strtrim(catch2d_file.detector,2) + '  ('+ $
+		catch2d_file.DPVS(catch2d_file.detector-1)+')']
 	comment=''
 	if view_option.fullcolor eq 2 then $
 	comment='Normalized against detecor '+strtrim(view_option.pick_ref,2)
@@ -2846,29 +3302,36 @@ end
 		view_option.roifile = catch2d_file.home+!os.file_sep+'ROI'+!os.file_sep+$
 			catch2d_file.name+'_roi.xdr'
 
+	if n_elements(statistic_2dids) eq 0 then $
 	scan2d_roi,im,x,y,GROUP=Event.Top,header=header,comment=comment, $
 		mode=mode,rptfile=view_option.rptfile, $
-		roifile=view_option.roifile
+		roifile=view_option.roifile,roi_data=statistic_2dids
 
-	if statistic_2dids.back eq 1 then begin
-		st=[ $
-		'2D-ROI report for all detectors is not available yet for this mode.', $
-		'You have to use the AppendRpt...  button in', $
-		'the "2D Statistic ROI" window to add current report', $
-		'for each detector for          ROI Mode: FilterROI ' $
-		]
-		res=dialog_message(st,/info)
-		return
-	end 
 
   CASE Event.Value OF
+  '2D-ROI.Type.RectROI': BEGIN
+	statistic_2dids.back = 0
+	return
+	END
+  '2D-ROI.Type.FilterROI': BEGIN
+	statistic_2dids.back = 1
+	return
+	END
+  '2D-ROI.Type.PolyROI': BEGIN
+	statistic_2dids.back = 2
+	return
+	END
 
-  '2D-ROI.ROIs...': BEGIN
-	x = catch2d_file.xarr(0:catch2d_file.width-1)
-	y = catch2d_file.yarr(0:catch2d_file.height-1)
-	im=image(0:catch2d_file.width-1, 0:catch2d_file.height-1)	
-	scan2d_roi,im,x,y,GROUP=Event.Top,header=header,comment=comment,mode=mode ;,/report
-        END
+  '2D-ROI.AppendRpt...': BEGIN
+;	view_option.rptfile = f
+	if statistic_2dids.comment ne '' then comment=statistic_2dids.comment
+	if view_option.fullcolor eq 2 then $
+	scan2dROIRpt,catch2d_file.scanno_current, $
+		header=header, comment=statistic_2dids.comment, $
+		Ref=view_option.pick_ref, /append else $
+	scan2dROIRpt,catch2d_file.scanno_current, $
+		header=header, comment=statistic_2dids.comment, /append
+	END
   '2D-ROI.ReplaceRpt...': BEGIN
 	F = view_option.rptfile
 ;	f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='Replace ROI Rpt File',/READ)
@@ -2895,30 +3358,6 @@ end
 		header=header, comment=statistic_2dids.comment
 	
         END
-  '2D-ROI.AppendRpt...': BEGIN
-	F = view_option.rptfile
-;	f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='Append ROI Rpt File',/READ)
-	if f eq '' then return
-	found = findfile(f)
-	if found(0) eq '' then begin
-		res = dialog_message(['Filename:',f, 'not found will be created!'],/info)
-	end
-
-	st = ['New 2D-ROI statistic report will be calculated.', $
-		'If you enter Yes, then the new results will be appended.', $
-		'','Appending ',F , ' ???']
-	res = dialog_message(st,/question)
-	if res eq 'No' then return
-
-;	view_option.rptfile = f
-	if view_option.fullcolor eq 2 then $
-	scan2dROIRpt,catch2d_file.scanno_current, $
-		header=header, comment=statistic_2dids.comment, $
-		Ref=view_option.pick_ref,/append else $
-	scan2dROIRpt,catch2d_file.scanno_current,/append , $
-		header=header, comment=statistic_2dids.comment
-
-        END
   '2D-ROI.ViewRpt...': BEGIN
 	f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='View ROI Rpt File',/READ)
 	if f eq '' then return
@@ -2934,26 +3373,43 @@ end
 	old = view_option.rptfile
 	rename_dialog,catch2d_file.home+!os.file_sep+'ROI',old,'',GROUP=Event.top
         END
+  '2D-ROI.ROI...': BEGIN
+	scan2d_roi,im,x,y,GROUP=Event.Top,header=header,comment=comment, $
+		mode=mode,rptfile=view_option.rptfile, $
+		roifile=view_option.roifile,roi_data=statistic_2dids
+        END
   '2D-ROI.Help...': BEGIN
 	st = [ $
+		'In general the 2D ROI reports generated by 2D-ROI menu',$
+		'in vw2d consist of all detectors defined in a given 2D scan.', $
+		'',$
+		'           Options of 2D-ROI Menu', '', $
+		'Help...           - Show this help info ', $
+		'ROI...            - Pops up  2D Statistic ROI program', $
+		'Type->RectROI     - Set the type of ROI used in the summary report', $
+		'       FilterROI', $
+		'        PolyROI', $
+		'AppendRpt...      - Append 2D statistic summary report of all', $
+		'                       detectors to the report file', $
+		'                       for a given 2D scan ROI',$
+		'ReplaceRpt...     - Overwrite 2D statistic report file', $
+		'                       with the summary of all the detectors', $
+		'                       with ROI as show in 2D Statistic ROI window',$
+		'ViewRpt...        - Select and view any 2D statistic report', $
+		'RenameRpt...      - Rename the rpt file to a new name', '',$
+		'',$
+		'If the detailed 2D ROI reports for a specified detector, or', $
+		'refining of the ROI are desired, a user should run the ',$
+		'"2D Statistic ROI" program first which can be brought up by ', $
+		'','          2D-ROI->ROI...   ', '', $
+		'The AppendRep... button in "2D Statistic ROI" window generates ', $
+		'detail report for the displayed image.', '', $
 		'For file management simplicity the 2D ROI statistic report ', $
 		'should end with roi.rpt and the region of interest file ',$
-		'should end with roi.xdr ', $
-		'',$
-		'The report button in "2D Statistic ROI" window is only', $
-		'for the specific image displayed. For the selected ROI file,', $
-		'the report generated by 2D-ROI menu in View2d is for all ',$
-		'detectors defined in a given 2D scan.', $
-		'',$
-		'           Options of 2D-ROI Menu', $
-		'2D-ROI.ViewRpt...    - Select and view any 2D statistic report', $
-		'2D-ROI.AppendRpt...  - Append 2D statistic reports for all detectors', $
-		'                       for a given 2D scan ROI',$
-		'2D-ROI.ReplaceRpt... - Replace 2D statistic reports for all detectors', $
-		'                       for a given 2D scan ROI',$
-		'2D-ROI.RenameRpt...  - Rename a given file to a new name'$
+		'for rectangle or polygon ROI should end with roi.xdr ' $
 		]
-	xdisplayfile,text=st,title='View2d Help on 2D-ROI'
+	xdisplayfile,text=st,title='Vw2d Help on 2D-ROI'
+
 	END
   ENDCASE
 
@@ -2964,6 +3420,22 @@ END
 @PS_open.pro
 @u_read.pro
 
+PRO VW2D_writeConfig,catch2d_file
+        openw,unit,'vw2d.config',/get_lun
+        printf,unit,catch2d_file.path
+        printf,unit,''
+        free_lun,unit
+END
+
+PRO VW2D_readConfig,path
+        filename=''
+        path=''
+        openr,unit,'vw2d.config',/get_lun
+        readf,unit,path
+        free_lun,unit
+
+END
+
 PRO REPLOT
 COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
@@ -2972,6 +3444,8 @@ COMMON PRINTER_BLOCK,printer_info
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 if catch2d_file.scanno_current lt 0 then return
+
+if !d.name eq 'WIN' then device,decomposed=0
 
 ; update the info block
 
@@ -2995,8 +3469,8 @@ str = ['Selected Image File        : '+ catch2d_file.name]
 str = [str,'Total Number of 2D Scans   : '+ string(catch2d_file.scanno_2d_last)]
 str = [str,'Total Number of Images     : '+ string(catch2d_file.maxno)]
 	str = [ str,'2D SCAN # ='+strtrim(catch2d_file.scanno_current)+ $
-		',   DETECTOR='+strtrim(catch2d_file.detector,2) + $
-		',   IMAGE # ='+strtrim(catch2d_file.seqno+1,2) + $
+		',   DETECTOR='+catch2d_file.DPVS(catch2d_file.detector-1) + $
+		',   DETECTOR # ='+strtrim(catch2d_file.seqno+1,2) + $
 	', ('+catch2d_file.x_desc +', '+ catch2d_file.y_desc+', '+ $
 		catch2d_file.z_desc + ')']
 	str = [str, '1D scan #=(0-'$
@@ -3006,7 +3480,9 @@ str = [str,'Total Number of Images     : '+ string(catch2d_file.maxno)]
 	str = [str, 'x_pv = '+catch2d_file.x_pv+',   y_pv = '+catch2d_file.y_pv]
 	str = [str, 'catch1d filename = '+ catch2d_file.file_1d]
 	WIDGET_CONTROL, widget_ids.info, SET_VALUE= str
-	WIDGET_CONTROL, widget_ids.sel_image, SET_VALUE= catch2d_file.detector-1
+;	if catch2d_file.detector lt 16 then $
+;	WIDGET_CONTROL,widget_ids.sel_image,SET_VALUE= catch2d_file.detector-1
+
 	str = strtrim(view_option.z_min,2) + ' @ (' + $
 		strtrim(view_option.i_min,2) + ',' + $
 		strtrim(view_option.j_min,2) + ')'
@@ -3272,7 +3748,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 	if strtrim(catch2d_file.z_desc,2) ne '' then $
 	title = catch2d_file.z_desc + ' - ' + title else $
-	title = 'D'+strtrim(catch2d_file.detector,2) + ' - '+title
+	title = catch2d_file.DPVS(catch2d_file.detector-1) + title
 
 		if !d.name eq 'PS' then begin
 		    xo = !d.x_size * view_option.ps_l
@@ -3310,7 +3786,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 		end
 
-		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=100 else $
+		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=50,x=390 else $
 		colorbar,[v_min,v_max], y=10
 
                 ; save pixmap
@@ -3405,7 +3881,11 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	ytitle = catch2d_file.y_desc
 	if strtrim(catch2d_file.z_desc,2) ne '' then $
 	title = catch2d_file.z_desc + ' - ' + title else $
-	title = 'D'+strtrim(catch2d_file.detector,2) + ' - '+title
+	title = 'D'+strtrim(catch2d_file.detector,2) + ') '+title
+id = catch2d_file.detector - 1 - 15
+if id ge 0 then $
+title = catch2d_file.DPVS(id) + ' ('+title else $
+title = catch2d_file.DPVS(70+catch2d_file.detector)
 
 		if !d.name eq 'PS' then begin
 		    xo = !d.x_size * view_option.ps_l
@@ -3484,17 +3964,19 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	catch,error_status
 	if error_status ne 0 then begin
 ;		r = dialog_message(!err_string,/error)
-		outpath = catch2d_file.home + !os.file_sep
+		temp_outpath = catch2d_file.home + !os.file_sep
+		if temp_outpath eq outpath then return
+		outpath = temp_outpath
 	end
 	
 	dir = outpath+'TIFF' + !os.file_sep
+	catch2d_file.outpath = outpath
 	found = findfile(dir,count=ct)
 	if ct eq 0 then spawn,!os.mkdir + ' '+dir
 	openw,fw,dir+'.tmp',/get_lun
 	free_lun,fw
 	close,fw
 
-	catch2d_file.outpath = outpath
 	
 END
 
@@ -3541,16 +4023,16 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
         save,filename='dc2aim.sav',/XDR,ncol,nrow,xarr,yarr,imarr
     END
 
-  'File.Save as GIF': BEGIN
-        tvlct,R,G,B,/get
-        WRITE_GIF,'vw2d.gif',TVRD(),R,G,B
-        WRITE_GIF,'vw2d.gif',/close
+  'File.Save as XDR': BEGIN
+	xdr_open,unit,'vw2d.xdr',/write
+	xdr_write,unit,image
+	xdr_close,unit
 	suf0 = 'im00'
         st = strtrim(catch2d_file.seqno+1,2)
 	strput,suf0,st,4-strlen(st)
-        outname=catch2d_file.name+'.'+suf0+'.gif'
-	outpath = catch2d_file.outpath+'GIF'+!os.file_sep
-        rename_dialog,outpath,'vw2d.gif',outname,GROUP=Event.Top
+        outname=catch2d_file.name+'.'+suf0+'.xdr'
+	outpath = catch2d_file.outpath+'XDR'+!os.file_sep
+        rename_dialog,outpath,'vw2d.xdr',outname,GROUP=Event.Top
     END
 
   'File.Save as R-TIFF': BEGIN
@@ -3592,6 +4074,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
   'File.Quit': BEGIN
     PRINT, 'Event for File.Quit'
+    VW2D_writeConfig,catch2d_file
     WIDGET_CONTROL, event.top, /DESTROY
     if widget_ids.xsurface then begin 
 	WIDGET_CONTROL, widget_ids.xsurface,BAD=bad, /DESTROY
@@ -3704,31 +4187,35 @@ END
 
 PRO PDMENU2D_PanImage_Event, Event
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
+COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
+COMMON CATCH1D_2D_COM,data_2d, gD
+
+	image_array = *(*gD).da2D
+	sz = size(image_array)
+	
+	id_def = *(*gD).id_Def
+	det_def =  id_def(4:4+sz(3)-1,0)
+	title = 'VW2D :  SCAN # '+ strtrim(catch2d_file.scanno_current,2)
+	new_win = catch2d_file.panwin
 
   CASE Event.Value OF
-  'PanImage.PanImages.PanImages...': begin
-        view2d_pan_images_on,Event
-        end
-  'PanImage.PanImages.PanImages+TIFF': begin
-        view2d_pan_images_on,Event,/tiff
-        end
-  'PanImage.PanImages.PanImages+RTIFF': begin
-        view2d_pan_images_on,Event,/rtiff
-        end
-  'PanImage.PanImages.PanImages+GIF': begin
-        view2d_pan_images_on,Event,/gif
-        end
+  'PanImage.PanImages...': begin
+	panimage_sel,image_array,det_def,title=title,new_win=new_win, $
+		tiff='TIFF'+!os.file_sep+catch2d_file.name+'.tiff',Group=Event.top
+	catch2d_file.panwin = new_win
+	end
   'PanImage.Calibration...': begin
-        title=':  SCAN # '+ strtrim(catch2d_file.scanno_current,2)
-        view2d_pan_images_on,Event,image_array=image_array,def=def
+	panimage,image_array,det_def,title=title,new_win=new_win
+	catch2d_file.panwin = new_win
         xv = catch2d_file.xarr(0:catch2d_file.width-1)
         yv = catch2d_file.yarr(0:catch2d_file.height-1)
         im_array=image_array(0:catch2d_file.width-1,0:catch2d_file.height-1,*)
-        calibration_factor,im_array,def,title=title, $
+        calibration_factor,im_array,det_def,title=title, $
                 inpath=catch2d_file.path,classname=catch2d_file.name, $
                 xv=xv,yv=yv,GROUP=Event.top
         end
   ENDCASE
+
 END
 
 
@@ -3844,13 +4331,13 @@ COMMON w_warningtext_block,w_warningtext_ids
 
   'REFRESH_DATA': BEGIN
         WIDGET_CONTROL, widget_ids.x_min, SET_VALUE = 0 
-        WIDGET_CONTROL, widget_ids.x_max, SET_VALUE = view_option.width
+        WIDGET_CONTROL, widget_ids.x_max, SET_VALUE = catch2d_file.width
         WIDGET_CONTROL, widget_ids.y_min, SET_VALUE = 0
-        WIDGET_CONTROL, widget_ids.y_max, SET_VALUE = view_option.height
+        WIDGET_CONTROL, widget_ids.y_max, SET_VALUE = catch2d_file.height
 		view_option.x_min = 0
 		view_option.y_min = 0
-		view_option.x_max = view_option.width
-		view_option.y_max = view_option.height
+		view_option.x_max = catch2d_file.width
+		view_option.y_max = catch2d_file.height
 	REPLOT
 	END
   'FIELD246': BEGIN
@@ -3897,8 +4384,27 @@ COMMON w_warningtext_block,w_warningtext_ids
 	view_option.k_min = z_min
         if view_option.user eq 1 then REPLOT
       END
-  'IMAGE_PAN': BEGIN
-	view2d_pan_images_on
+  'VIEW2D_SELECTLASTD': BEGIN
+	r = widget_info(Event.id,/LIST_SELECT)	
+		catch2d_file.last = 16 + r
+      END
+  'VIEW2D_SELECTIMAGE': BEGIN
+	scanno = catch2d_file.scanno_current
+	if scanno le 0 then begin
+		st = 'You have to load the scan # in first'
+		w_warningtext,st, 60,3,title='VW2D Messages'
+		return
+		end
+	r = widget_info(Event.id,/LIST_SELECT)	
+		if r lt 70 then  catch2d_file.seqno = 15 + r else begin
+			catch2d_file.seqno = r-70
+		end
+		if XRegistered('w_warningtext') then $
+		WIDGET_CONTROL,w_warningtext_ids.base,BAD=bad,/DESTROY
+		str = 'Error: detector '+strtrim(catch2d_file.seqno+1,2)+'('+ catch2d_file.DPVS(catch2d_file.seqno) + ') not defined!'
+		if catch2d_file.id_def(catch2d_file.seqno) gt 0 then $
+		viewscanimage_current else $
+		w_warningtext,str,60,3,title='VW2D Messages'
       END
   'IMAGE186': BEGIN
 	scanno = catch2d_file.scanno_current
@@ -3912,7 +4418,10 @@ COMMON w_warningtext_block,w_warningtext_ids
 		catch2d_file.seqno = seqno
 		if XRegistered('w_warningtext') then $
 		WIDGET_CONTROL,w_warningtext_ids.base,BAD=bad,/DESTROY
-		viewscanimage_current
+		str = 'Error: detector '+ strtrim(seqno+1,2)+' ('+ catch2d_file.DPVS(seqno) + ') not defined!'
+		if catch2d_file.id_def(seqno) gt 0 then $
+		viewscanimage_current else $
+		w_warningtext,str,60,3,title='VW2D Messages'
 	END
   'CURSOR62_X': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=x
@@ -3957,48 +4466,10 @@ COMMON w_warningtext_block,w_warningtext_ids
       Print, 'Event for Information Block'
       END
   'CURSOR62_CAPUT0': BEGIN
-catch,error_status
-if error_status ne 0 then begin
-        print,!err,!err_string
-        return
-end
-        if view_option.versus eq 1 then begin
-        y = [catch2d_file.x_pv+'.P1PV',catch2d_file.y_pv+'.P1PV']
-        r = cagetArray(y,nm,/string)
-        WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
-        WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
-        vl = make_array(1,2,/double)
-        vl(0) = double(x)
-        vl(0,1)= double(y)
-        str = ['To Set New Positions:','', $
-                nm(0)+'  (x)'+string(vl(0)),nm(1)+'  (y)'+string(vl(1))]
-        res = dialog_message(str,/question)
-        if res eq 'No' then return
-        r = caputArray(nm,vl)
-        endif else begin
-                str = ['Only available for Plot vs Values Option!', $
-                        'But Plot vs Step # is set.']
-                res = dialog_message(str,/error)
-        end
+	if view_option.CA then cursor62_caput,1
         END
   'CURSOR62_CAPUT': BEGIN
-        if view_option.versus eq 1 then begin
-        nm = [catch2d_file.x_pv+'.P1CP',catch2d_file.y_pv+'.P1CP']
-        WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
-        WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
-        vl = make_array(1,2,/double)
-        vl(0) = double(x)
-        vl(0,1)= double(y)
-        str = ['To Set New Center Positions:','' $
-                ,nm(0)+'  (x)'+string(vl(0)),nm(1)+'  (y)'+string(vl(1))]
-        res = dialog_message(str,/question)
-        if res eq 'No' then return
-        r = caputArray(nm,vl)
-        endif else begin
-                str = ['Only available for Plot vs Values Option!', $
-                        'But Plot vs Step # is set.']
-                res = dialog_message(str,/error)
-        end
+	if view_option.CA then cursor62_caput,2
         END
   ELSE:     ;don't stop of no matches
   ENDCASE
@@ -4018,7 +4489,7 @@ END
 
 
 
-PRO VW2D, GROUP=Group, file=file,CA=CA
+PRO VW2D, GROUP=Group, file=file,CA=CA,lastDet=lastDet,DATA=Data
 ;
 ;+
 ; NAME:
@@ -4050,6 +4521,8 @@ PRO VW2D, GROUP=Group, file=file,CA=CA
 ;              file should contain the image data must be in the data catcher
 ;              created format. 
 ;     CA:      If this keyword is specified, reset 2D positioners is possible
+;     DATA:    If this keyword is specified,the input 2D sata array for all 
+;              detector must be supplied 
 ;
 ; OUTPUTS:
 ;       It provides option of postscript plot of drawing area.
@@ -4088,6 +4561,18 @@ PRO VW2D, GROUP=Group, file=file,CA=CA
 ;        	       Add submenu FWHM on Y, FWHM on DY/DX
 ;       04-20-00 bkc   R1.2e
 ;                      Strip out read_scan.pro readScan.pro
+;       06-29-00 bkc   R2.0
+;                      Support 85 detectors
+;       08-19-00 bkc   R2.0.1
+;                      Detector name default to database definition
+;       11-19-00 bkc   R2.1
+;                      Support various sublist of panImage strips
+;                      Dynamic picking the sublist of panImage
+;                      The GIF is replaced by XDR, IDL 5.4 does not support GIF 
+;       02-09-01 bkc   R2.2
+;                      Created with new version of read_scan.pro.R2
+;		       Fix the renew image region
+;                      
 ;-
 ;
 @os.init
@@ -4098,7 +4583,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VW2D (R1.2e)'
+  version = 'VW2D (R2.2)'
 
   VW2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -4126,7 +4611,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as R-TIFF' }, $ ;        2
-        { CW_PDMENU_S,       0, 'Save as GIF' }, $ ;        2
+        { CW_PDMENU_S,       0, 'Save as XDR' }, $ ;        2
         { CW_PDMENU_S,       0, 'Printer ...' }, $ ;        2
         { CW_PDMENU_S,       0, 'Print' }, $ ;        2
         { CW_PDMENU_S,       0, 'PS_close' }, $ ;        2
@@ -4192,6 +4677,21 @@ if XRegistered('VW2D_BASE') ne 0 then return
   refresh_data = WIDGET_BUTTON( BASE185, VALUE='ReNew', $
       UVALUE='REFRESH_DATA')
 
+  LABEL30 = WIDGET_LABEL( BASE185, VALUE='Additional Detectors:')
+
+  detname = 'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+        '01','02','03','04','05','06','07','08','09', $
+        strtrim(indgen(61)+10,2)]
+  lis = [detname(15:84),detname(0:14)]
+
+  LISTSIM = WIDGET_LIST( BASE185,VALUE=lis, $
+      UVALUE='VIEW2D_SELECTIMAGE', XSIZE=7, $
+      YSIZE=3)
+
+;  LABEL31 = WIDGET_LABEL( BASE185, VALUE='Set Last Detector:')
+;  LISTLASTD = WIDGET_LIST( BASE185,VALUE=lis(0:69), $
+;      UVALUE='VIEW2D_SELECTLASTD', XSIZE=4, $
+;      YSIZE=3)
 
 ; add detectors
 
@@ -4210,16 +4710,17 @@ if XRegistered('VW2D_BASE') ne 0 then return
     '7', $
     '8', $
     '9', $
-    '10', $
-    '11', $
-    '12', $
-    '13', $
-    '14', $
-    '15' $
+    'A', $
+    'B', $
+    'C', $
+    'D', $
+    'E', $
+    'F' $
          ]
   IMAGE186 = CW_BGROUP( BASE186, Btns_detector, $
       ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
       UVALUE='IMAGE186')
+
 
   BASE62 = WIDGET_BASE(VW2D_BASE, $
       COLUMN=2, $
@@ -4390,17 +4891,10 @@ end
   BASE129_1 = WIDGET_BASE(BASE129, $
       COL=1, MAP=1)
 
-;  image_pan = WIDGET_BUTTOn(BASE129_1, VALUE='PanImages...', $
-;        UVALUE='IMAGE_PAN')
-
   MenuPANImage = [ $
       { CW_PDMENU_S,       3, 'PanImage' }, $ ;        0
-      { CW_PDMENU_S,       1, 'PanImages' }, $ ;        0
-        { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages+RTIFF' }, $ ;        1
-        { CW_PDMENU_S,       2, 'PanImages+GIF' }, $ ;        1
-      { CW_PDMENU_S,       2, 'Calibration...' } $ ;        0
+      { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        0
+      { CW_PDMENU_S,       0, 'Calibration...' } $ ;        0
         ]
   PDMENU2D_panimage = CW_PDMENU( BASE129_1, MenuPANImage, /RETURN_FULL_NAME, $
       UVALUE='PDMENU2D_PANIMAGE')
@@ -4408,11 +4902,16 @@ end
   MenuROI = [ $
       { CW_PDMENU_S,       3, '2D-ROI' }, $ ;        0
         { CW_PDMENU_S,       0, 'Help...' }, $ ;        1
-;        { CW_PDMENU_S,       0, 'ROIs...' }, $ ;        1
-        { CW_PDMENU_S,       0, 'ViewRpt...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'ROI...' }, $ ;        1
+     { CW_PDMENU_S,       1, 'Type' }, $ ;        0
+        { CW_PDMENU_S,       0, 'RectROI' }, $ ;        1
+        { CW_PDMENU_S,       0, 'FilterROI' }, $ ;        2
+        { CW_PDMENU_S,       2, 'PolyROI' }, $  ;      3
         { CW_PDMENU_S,       0, 'AppendRpt...' }, $ ;        1
         { CW_PDMENU_S,       0, 'ReplaceRpt...' }, $ ;        1
-        { CW_PDMENU_S,       2, 'RenameRpt...' } $ ;        1
+        { CW_PDMENU_S,       0, 'ViewRpt...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'RenameRpt...' } $ ;        1
+
         ]
   PDMENU2D_fitting = CW_PDMENU( BASE129_1, MenuROI, /RETURN_FULL_NAME, $
       UVALUE='PDMENU2D_ROI')
@@ -4440,13 +4939,30 @@ end
   COMMON DRAW62_Comm, DRAW62_Id
   WIDGET_CONTROL, DRAW62, GET_VALUE=DRAW62_Id
 
-@vw2d.init
+@vw2d.init.R2.2
 
   WIDGET_CONTROL, surface_plot, SET_DROPLIST_SELECT=view_option.surface
   WIDGET_CONTROL, BGROUP184, SET_DROPLIST_SELECT=view_option.user
   WIDGET_CONTROL, plot_versus, SET_DROPLIST_SELECT=view_option.versus
+  WIDGET_CONTROL, LISTSIM, SET_LIST_SELECT=0
+  if keyword_set(lastDet) then catch2d_file.last = lastDet-1
+;  WIDGET_CONTROL, LISTLASTD, SET_LIST_SELECT=catch2d_file.last-15
 
 catch2d_file.version = version
+catch2d_file.DPVS = detname
+
+; read config 
+
+  ; read config file if it exists
+  found = findfile('vw2d.config',count=ct)
+  if ct gt 0 then begin
+        VW2D_readConfig,path
+        if path ne '' then catch2d_file.path = path
+        out= catch2d_file.path + '.tmp'
+        openw,1,out,error=error
+        if error eq 0 then catch2d_file.outpath = catch2d_file.path
+        close,1
+  end
 
 ; get path if file defined
   if keyword_set(file) then begin
