@@ -5,24 +5,32 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;	scan2d::Overlay
 ;
 ; PURPOSE:
+;       Using overlay composite image reveals information about the 
+;       superposition of the image of selected detectors. It provides 
+;       another way of data interpretation.
+;
 ;       This method constructs a composite image based on user selected
-;       detectors for a given 2D scanno. Each composite element area 
-;       consists of ColxRow of squares. Each square represents a value
-;       from the selected detector. Each data point of the selected 
-;       detectors are overlaied in this composite area. Detectors are 
-;       filled by rows in this composite area. The values is filled in
+;       detectors for a given 2D scanno. The composite image is composed
+;       of the basic composite element area. Each composite element area 
+;       consists of ColxRow of squares. In each composite area a single
+;       vaule from each selected image (or detector) is filled in. 
+;       Each colored square in the element area represents a value from the 
+;       selected detector. 
+;
+;       For each detector the values is filled into composite image area 
 ;       by columns then by rows.
 ;
-;       This overlaied image reveals information about the superposition 
-;       of the image of selected detectors. It provides another way of data
-;       interpretation.
+;       In the basic element area all selected detectors are filled in row
+;       order until the area is full then it re-starts from the first row 
+;       again, i.e. if more detectors than the available squares are 
+;       selected then the overlay of colored squares may be resulted.
 ;
-;       Default 2x2 squares are used for composite area which can hold 
+;       Default 2x2 squares are used for basic element area which can hold 
 ;       4 detects without overlapping. Each square has width of 2 pixels.
 ;
 ;       Each detector has a fixed color associated with it, it is linearly
 ;       devided into 16 levels. The detector value is linearly interpreted 
-;       by these colors.
+;       by these colors (see restriction).
 ;
 ; CATEGORY:
 ;       Widgets.
