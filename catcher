@@ -124,7 +124,7 @@ echo ".run catch1d_user" >>! go_catcher
 echo $xyz >>! go_catcher
 
 #if `isainfo -b` == 64 then
-#	source /usr/local/rsi/idl_5.5/bin/idl_setup
+	source /usr/local/rsi/idl_5.5/bin/idl_setup
 	idl -32 $exe go_catcher
 #else
 #	source /usr/local/rsi/idl_5.3/bin/idl_setup
