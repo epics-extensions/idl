@@ -1,4 +1,149 @@
 
+                        CATCHER 1.5 RELEASE NOTE 
+                        ========================
+
+Both the script file 'catcher' and the IDL program 'catcher_v1.pro' have
+been modified. New features are listed below.
+
+CATCHER
+=======
+
+Two new command line options have been added to the catcher script. 
+They are '-n' for no save option, and '-v' for view only option. 
+
+Example 1: 
+
+	catcher  
+
+	This will start the data catcher with complete default features. 
+	It includes realtime plot, data acquisition, saving acquired data,  
+	realtime text window, viewing old data option, listening to new data,
+	etc.
+
+Example 2: 
+
+	catcher -n 
+
+	This will start the data catcher as an old and live data displayer 
+	but it will not save the acquired data. 
+	It is assumed that there is another version of data catcher is 
+	running and the acquired data is saved by that run. 
+
+Example 3: 
+
+	catcher -v
+
+	This will start the data catcher as a data browser/viewer, no data
+	acquistion will be done. It will only access the viewing features 
+        of the data catcher, no data acquistion is performed by this option.	
+
+
+CATCHER_V1
+==========
+
+- Index file
+
+  Add the feature of using a background index file for the saved
+  scan data, this speeds up the access of the scan data greatly.
+  The index file contains filename, filesize, no of scans, and
+  byte offsets array for the scans. The index file is composed of
+  the data file name suffixed with '.index'.
+
+- Configuration and Environment Files
+
+  The data catcher now assumed that both the configuration and
+  environment files are stored in the starting up directory where
+  the data catcher is invoked.  That is the configuration file will 
+  be created or updated in the direcotory where the data catcher was 
+  invoked.
+
+  Note: if a 'catch1d.env' file is found in the current data direcotory, 
+  it will be used instead of the one existing in the startup directory.
+
+  Two new parameters scanData.path and scanData.hmoe are saved in 
+  the configuration file for release 1.5. The scanData.home gives the
+  starting directory and the scanData.path gives the final data directory
+  when last time the data catcher was run. In case the user want to go back 
+  to the earlier release, the reference of these two parameters in the 
+  configuration file must be removed.
+ 
+  The command line file specification override the default file names. 
+  And the configuration file specification overrides the command line file
+  specification.
+
+- 'No Save' or 'View Only'
+
+  A large font of 'No Save' label is drawn on the upper right hand 
+  corner of the data catcher main window when '-n' option is used.
+  A large font of 'View Only' label is drawn on the upper right hand 
+  corner of the data catcher main window when '-v' option is used.
+  The configuration file will not be updated at the end of these 
+  two operation modes.
+
+- cagetArray is used in getting the environment descriptions this 
+  speeds up the preparation of enviroments data.
+
+- Statistic Menu
+
+  Three entries on Statistic Menu: 'None', 'Peak/Cntr/FWHM on plot'
+  and 'Peak/Cntr/FWHM ...'.  The default is no statistic will be done.
+  If the 'Peak/Cntr/FWHM on plot' is selected, only the location of the 
+  global peak is shown on the plot. If the 'Peak/Cntr/FWHM ...' is 
+  selected then an additional window pops up giving the detail of all 
+  local peaks and locations for each detector picked. 
+
+- FWHM value
+
+  A value of 0 is returned for FWHM when the scan was done in the 
+  negative positioner direction.  This problem is fixed such that
+  correct FWHM value is returned for positioner either moving in
+  positive or nagative direction.
+
+- YLOG Plot
+
+  YLOG plot has been thoroughly implemented for data catcher.
+  Both user scale and auto scale are working for YLOG plot. The
+  Peak/Cntr/FWHM on the log plot is also available.  Print plot 
+  now is working fine for the log plot.
+
+- Color Curves
+
+  A new option Color Curves is added to the plot option menus. A
+  user can turn on the color curve plot on/off if desired.
+
+- Plot ...  (User Scale ...)
+ 
+  The plot specification dialog has been broken down into two smaller
+  windows: a window just specifies the title, x-label, y-label, and 
+  comment, and a window just specifies the XRanges, and YRanges for user 
+  scale. The slider bars are provided for easy entry of rough ranges
+  for user scale.  The carriage return of any text fields will accept 
+  the text value and cause plot update immediately.  This new change 
+  makes the plot setup more intuitively.
+ 
+- GoTo ... 
+
+  Click the drawing area will pop up XY coordinate window which gives
+  the cross cursor location and provides the option of setting new
+  motor positions.  The 'GoTo ...' button will pop up a window which
+  display all the positioner values corresponding to the X coordinates.
+  It will let the user decide whether to set the new position or not.
+
+- Scan ...
+
+  Drag and drop on the 1D and 2D scan pvname is supported in the scan
+  setup window. If the field value is included in the scan pvname 
+  text field, it will be automatically trancated when the carriage 
+  return is entered. If the pvname entered is not a scan record then
+  an error message window pops up to tell the user. 
+
+  In the scan setup window there are two entry boxes (text enter fields)
+  intended to contain scan-record names (e.g. "xxx:scan1"). You can
+  use the Motif drag and drop to put any scan-record field in these
+  boxes, and the catcher will silently delete the dot and the field
+  suffix. For example, "xxx:scan1.PROC" becomes "xxx:scan1"
+
+
 			CATCHER 1.4 RELEASE NOTE 
 		        ========================
 
