@@ -360,7 +360,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 END
 
 
-PRO panImage,image_array,id_def,factor,title=title,new_win=new_win, tiff=tiff,reverse=reverse,png=png,pict=pict,xdr=xdr,error=error,ISEL=ISEL,NUMD=NUMD,DETNM=DETNM
+PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypos=ypos,tiff=tiff,reverse=reverse,png=png,pict=pict,xdr=xdr,error=error,ISEL=ISEL,NUMD=NUMD,DETNM=DETNM
 ;+
 ; NAME:
 ;	panImage
@@ -407,6 +407,7 @@ PRO panImage,image_array,id_def,factor,title=title,new_win=new_win, tiff=tiff,re
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Mar 29, 2000.
+;       10-02-2001 bkc  Add window position keywords
 ;	xx-xx-xxxx bkc  comment
 ;-
 
@@ -474,7 +475,10 @@ end
 if o_win ne -1 then wdelete,o_win
 o_win = -1
 	if o_win lt 0 then begin
+	if keyword_set(xpos) then $
 		window,/free, xsize = NC*width, ysize=NR*height, $
+			xpos=xpos,ypos=ypos,title=title,RETAIN=2 $
+	else	window,/free, xsize = NC*width, ysize=NR*height, $
 			title=title,RETAIN=2
 		if n_elements(isel) gt 0 then begin
 		for i=0,ND-1 do begin
@@ -486,7 +490,7 @@ o_win = -1
 		end
 	end
 
-new_win = !D.window
+new_win =!d.window 
 
 	wset,new_win
 	for sel=0,ND-1 do begin
