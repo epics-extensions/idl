@@ -135,15 +135,27 @@ end
 	dname = 'D'+strtrim(indgen(ndim)+1,2)
 	end
 
+	xmin= min(x(0))
+	xmax = max(x(no-1))
+	dx = (xmax-xmin)*.1
+	if dx eq 0 then dx = .5
+	xrange=[xmin-dx,xmax+dx]
+
+	ymin= min(y)
+	ymax = max(y)
+	dy = (ymax-ymin)*.1
+	if dy eq 0 then dy = .5
+	yrange=[ymin-dy,ymax+dy]
+
 	tvlct,r,g,b,/get
 	iplot,x,y(*,0),identifier=ID1,name=dname(0), $
-		title=title,xtitle=xtitle, $
+		title=title,xtitle=xtitle,xrange=xrange,yrange=yrange, $
 		sym_index=1,sym_size=.25,sym_increment=sym_increment
 	if ndim gt 1 then begin
 	for i=1,ndim-1 do begin
 	sym = i mod 9 + 1
 	iplot,/overplot,x,y(*,i),identifier=ID1,name=dname(i), $
-		sym_thick=2, $
+		sym_thick=2, xrange=xrange,yrange=yrange, $
 		sym_index=sym,sym_size=.25,sym_increment=sym_increment
 	end
 	end
