@@ -1,0 +1,30 @@
+.run ~cha/epics/extensions/src/idl/readScan
+
+;  required var:  file, img_no 
+
+st = [ $
+ 'The variables "File" and "seq" must be defined first.  ', $
+ 'For example :  ', $
+ '               file = "/home/oxygen9/BOUCHER/idl/data/rix:_0004.scan"' ,$
+ '               file = "/home/sricat/CHA/data/rix/cha:_0001.scan"' ,$
+ '               img_no= 2' ,$
+ '               @dc2ins_2d' ,$
+ '' ]
+  
+
+if n_elements(file) eq 0 then xdisplayfile,text=st,title='dc2ins_2d'
+if n_elements(file) eq 0 then stop
+ 
+delvar,st
+readScanFile,file,gD,scanno
+if n_elements(img_no) eq 0 then img_no = 1
+scan2Ddata,gD,img_no,xarr=x,yarr=y,im=im,xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv
+get_1DLines,im,'tmp.txt'
+
+scanimage_free,gD
+delvar,gD
+delvar,os_system
+;scanimage_cleanup
+
+insight,/indexed_color
+
