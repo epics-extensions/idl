@@ -823,8 +823,8 @@ PRO SS_VIEWSPEC_Event, Event
 	WIDGET_CONTROL,state.filenoWID,SET_VALUE=seqno
 	DC_view_init,filename,state
 	WIDGET_CONTROL,state.filenameWID,SET_VALUE=filename
-	WIDGET_CONTROL,state.sliderWID,SET_SLIDER_MAX=seqno
-	WIDGET_CONTROL,state.sliderWID,SET_VALUE=seqno
+	WIDGET_CONTROL,state.sliderWID,SET_SLIDER_MAX=seqno,bad_id=bad
+	WIDGET_CONTROL,state.sliderWID,SET_VALUE=seqno,bad_id=bad
       END
   'VIEWSPEC_LINE_SEQNO': BEGIN
       WIDGET_CONTROL,event.ID,GET_VALUE=n
