@@ -71,6 +71,7 @@ if n_elements (printer_info) eq 0 then $
   printer_info = { $
 	name: '', $
 	color: 1, $
+	reverse: 0, $
 	base: 0L, $
 	ptr_field:0L }
 if n_elements(r_curr) eq 0 then begin
@@ -134,9 +135,15 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	; change to reverse video  for TV image
 
+	if printer_info.reverse then begin
 	r_curr = reverse(r_orig)
 	g_curr = reverse(g_orig)
 	b_curr = reverse(b_orig)
+	endif else begin
+	r_curr = r_orig
+	g_curr = g_orig
+	b_curr = b_orig
+	end
 	TVLCT,r_curr,g_curr,b_curr
 
 	    if printer_info.color gt 0 then $
@@ -330,6 +337,11 @@ COMMON PRINTER_BLOCK,printer_info
 
   CASE Ev OF 
 
+  'PS_REVERSE': BEGIN
+	printer_info.reverse = Event.Index
+help,printer_info.reverse
+      END
+
   'BGROUP3': BEGIN
       CASE Event.Value OF
       0: begin
@@ -372,7 +384,7 @@ END
 
 
 
-PRO PS_printer,  GROUP=Group
+PRO PS_printer,psfile=psfile,  GROUP=Group
 ;+
 ; NAME:
 ;	PS_PRINTER
@@ -418,7 +430,8 @@ PRO PS_printer,  GROUP=Group
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin K. Cha, 6-01-97.
-;       xx-xx-xx bkc  - comment
+;       10-15-97 bkc  - Add droplist Y/N for reverse color option
+;                       Now it defaults to non reverse color option.
 ;-
 
 COMMON PRINTER_BLOCK,printer_info
@@ -456,6 +469,11 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='BGROUP3')
   WIDGET_CONTROL,BGROUP3,SET_VALUE= printer_info.color
 
+  Btn168 = ['N','Y']
+  ps_reverse = WIDGET_DROPLIST(BASE2, VALUE=Btn168, $
+        UVALUE='PS_REVERSE',TITLE='Reverse Color')
+  WIDGET_CONTROL,ps_reverse,SET_DROPLIST_SELECT=printer_info.reverse
+
   FieldVal269 = [ $
     '' ]
   FIELD5 = CW_FIELD( BASE2,VALUE=FieldVal269, $
@@ -468,9 +486,7 @@ COMMON PRINTER_BLOCK,printer_info
   if strtrim(printer_info.name,2) ne '' then $
   WIDGET_CONTROL,FIELD5,SET_VALUE=printer_info.name
 
-  Btns342 = [ $
-    'Accept', $
-    'Cancel' ]
+  Btns342 = [ 'Accept', 'Cancel' ] 
   BGROUP7 = CW_BGROUP( BASE2, Btns342, $
       ROW=1, $
       UVALUE='BGROUP7')
