@@ -14,7 +14,7 @@ DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt \
 	DC_help.txt \
 	scanSee.README vw2d_help.txt pick3d_help.txt
 
-IDLS = ezcaidl_startup.pro \
+IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 	os.init PS_open.pro u_read.pro cw_term.pro plot1d.pro plot2d.pro \
 	colorbar.pro rename_dialog.pro scan2d_roi.pro xdisplayfile.pro \
 	fit_statistic.pro calibration_factor.pro calibra_pick1d.pro \
