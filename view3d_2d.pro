@@ -72,20 +72,20 @@ PRO view3d_2Dpick1D,da3D,rank,k,xa=xa,ya=ya,group=group
 
 	CASE rank OF 
 	0: BEGIN    ; x axis picked
-	if n_elements(xa) eq 0 then xa = indgen(sz(2),/double)
-	if n_elements(ya) eq 0 then ya = indgen(sz(3),/double)
+	if n_elements(xa) eq 0 then xa = dindgen(sz(2))
+	if n_elements(ya) eq 0 then ya = dindgen(sz(3))
 	za = reform(xyz(k,*,*))
 	title = ' X slice @: '+strtrim(k,2)
 	END
 	1: BEGIN    ; y axis picked
-	if n_elements(xa) eq 0 then xa = indgen(sz(1),/double)
-	if n_elements(ya) eq 0 then ya = indgen(sz(3),/double)
+	if n_elements(xa) eq 0 then xa = dindgen(sz(1))
+	if n_elements(ya) eq 0 then ya = dindgen(sz(3))
 	za = reform(xyz(*,k,*))
 	title = ' Y slice @: '+strtrim(k,2)
 	END
 	2: BEGIN    ; z axis picked
-	if n_elements(xa) eq 0 then xa = indgen(sz(1),/double)
-	if n_elements(ya) eq 0 then ya = indgen(sz(2),/double)
+	if n_elements(xa) eq 0 then xa = dindgen(sz(1))
+	if n_elements(ya) eq 0 then ya = dindgen(sz(2))
 	za = xyz(*,*,k)
 	title = ' Z slice @: '+strtrim(k,2)
 	END
