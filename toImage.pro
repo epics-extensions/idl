@@ -257,7 +257,7 @@ COMMON TOIMAGE_BLOCK,widget_ids
 		
 END
 
-PRO PDMENU3_Event, Event
+PRO TOIMAGE_PDMENU3_Event, Event
 
 
   CASE Event.Value OF 
@@ -282,8 +282,8 @@ COMMON TOIMAGE_BLOCK,widget_ids
 
   CASE Ev OF 
 
-  ; Event for PDMENU3
-  'PDMENU3': PDMENU3_Event, Event
+  ; Event for TOIMAGE_PDMENU3
+  'TOIMAGE_PDMENU3': TOIMAGE_PDMENU3_Event, Event
   'TOIMAGE_INFILE': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=infile
 	widget_ids.in = infile(0)
@@ -440,8 +440,8 @@ COMMON TOIMAGE_BLOCK,widget_ids
   ]
 
 
-  PDMENU3 = CW_PDMENU( BASE2, MenuDesc167, /RETURN_FULL_NAME, $
-      UVALUE='PDMENU3')
+  TOIMAGE_PDMENU3 = CW_PDMENU( BASE2, MenuDesc167, /RETURN_FULL_NAME, $
+      UVALUE='TOIMAGE_PDMENU3')
 
   BASE7 = WIDGET_BASE(BASE2, $
       COLUMN=1, $
