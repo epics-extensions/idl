@@ -1,5 +1,5 @@
+FORWARD_FUNCTION REVERSE
 
-;++++++++++++++++++++++++++++++++++++++++++++++++++++++
 function rgbTo16, r, g, b
   nRBits = 5
   nGBits = 6
@@ -121,9 +121,7 @@ pro calc_image,wd,ht,image=image,vmax=vmax,vmin=vmin
         plot2d,val,ncolors=cmax+1
 end
 
-;++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-;++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 PRO obj_cleanup
         ot = obj_valid()
@@ -405,7 +403,12 @@ PRO image_read,filename,image=image,ranges=ranges,show=show,red=r,green=g,blue=b
                    ENDIF
                 end
         'jpg': begin
-                read_jpeg,file,im2   ;,CT
+                read_jpeg,file,im2
+		sz = size(im2)
+		if sz(0) eq 2 then begin
+		loadct,39
+		tvlct,r,g,b,/get
+		end
               end
         ELSE: begin
                 print,'File type "',ftype, '" not supported'
@@ -441,8 +444,8 @@ PRO image_write,owindow,wid=wid,image=image,filename=filename,show=show,png=png,
 ; model=0   - true color mode, tvrd(ture=1) return 3 dim array
 ;             tv,image,/true
 ; 
+        TVLCT,R,G,B,/GET
         if !d.n_colors le 256 then begin
-                TVLCT,R,G,B,/GET
         model=1
         end
 
@@ -453,7 +456,7 @@ PRO image_write,owindow,wid=wid,image=image,filename=filename,show=show,png=png,
                 wset,id
                 if keyword_set(model) then image=tvrd() else $
                 image = tvrd(true=1)
-                if keyword_set(jpg) then image=tvrd(true=1)  ; only true works for jpg
+;                if keyword_set(jpg) then image=tvrd(true=1)  ; only true works for jpg
         endif else begin
                 ; object graphic
                 if obj_valid(owindow) then begin
@@ -462,14 +465,16 @@ PRO image_write,owindow,wid=wid,image=image,filename=filename,show=show,png=png,
                 end
         end
 
-; help,image
+;help,image,model
 ; print,max(image),min(image)
         sz = size(image)
 
         if keyword_set(show) then begin
         if sz(0) eq 3 and sz(1) eq 3 then begin
                 window,0,xsize=sz(2),ysize=sz(3)
+		device,decomposed=1
                 tv,image,/true
+		device,decomposed=0
                 end
         if sz(0) eq 2 then begin
                 window,0,xsize=sz(1),ysize=sz(2)
@@ -492,7 +497,11 @@ PRO image_write,owindow,wid=wid,image=image,filename=filename,show=show,png=png,
         if keyword_set(png) then begin
         file = 'myfile.png'
         if keyword_set(filename) then file=filename
-        if sz(0) eq 3 then write_png,file,image else $
+        if sz(0) eq 3 then begin
+		device,decomposed=1
+		write_png,file,image 
+		device,decomposed=0
+	endif else $
                 write_png,file,image,R,G,B 
         return
         end
@@ -501,12 +510,17 @@ PRO image_write,owindow,wid=wid,image=image,filename=filename,show=show,png=png,
         file = 'myfile.tif'
         if keyword_set(filename) then file=filename
 	if keyword_set(reverse) then begin
-        if sz(0) eq 3 then write_tiff,file,reverse(image,2) else $
-                write_tiff,file,reverse(image,2),red=R,green=G,blue=B ;,1
+        	if sz(0) eq 3 then $
+			write_tiff,file,reverse(image,3) else $
+			write_tiff,file,reverse(image,2),red=R,green=G,blue=B
 	endif else begin
-        if sz(0) eq 3 then write_tiff,file,image else $
+        if sz(0) eq 3 then begin
+		device,decomposed=1
+		write_tiff,file,image,1,red=R,green=G,blue=B 
+		device,decomposed=0
+	endif else $ 
                 write_tiff,file,image,red=R,green=G,blue=B ;,1
-	end
+        end
         end
 
 END
@@ -589,7 +603,13 @@ end
 
 ;-----------------------------------------------------------------
 pro OnPrint, Event
-        WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
+
+	TVLCT,red,green,blue,/get
+	r_orig = red
+	g_orig = green
+	b_orig = blue
+
            ; Find the draw widget, which is named Draw.
            wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0');
 
@@ -665,16 +685,27 @@ end
 ;-----------------------------------------------------------------
 pro OnExit, Event
      WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
-	openw,1,'img.config'
-	printf,1,img_state.vmax,img_state.vmin,img_state.xmin,img_state.xmax,img_state.ymin,img_state.ymax
-	close,1
+	vmin = img_state.vmin
+	vmax = img_state.vmax
+	xmin = img_state.xmin
+	xmax = img_state.xmax
+	ymin = img_state.ymin
+	ymax = img_state.ymax
+	path = img_state.path
      WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+
+	catch,error_status
+	if error_status ne 0 then goto,close_config
+	openw,2,'img.config'
+	printf,2,vmax,vmin,xmin,xmax,ymin,ymax
+	printf,2,path
+close_config:
+	close,2
         WIDGET_CONTROL, Event.top, /DESTROY
 end
 ;-----------------------------------------------------------------
 pro OnColor, Event
-XLOADCT, /BLOCK
-return
+	XLOADCT,GROUP=Event.top
 end
 ;
 ; Empty stub procedure used for autoloading.
@@ -683,7 +714,10 @@ pro img_eventcb
 end
 ;-----------------------------------------------------------------
 PRO OnOverlay, Event
-	scan2d_overlay
+	WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+	path = img_state.path
+	WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+	scan2d_overlay,path=path
 END
 ;-----------------------------------------------------------------
 PRO OnDrawCursor, Event
@@ -809,7 +843,6 @@ if error_status ne 0 then reg = '*.*'
 		g=0
               ; Read in the image.
               image_read,sFile,image=im,ranges=ranges,red=r,green=g,blue=b,ftype=ftype  ;,/show
-
 	if img_state.file eq '' then begin
 	WIDGET_CONTROL,img_state.menu1WID,SENSITIVE=1
 	WIDGET_CONTROL,img_state.menu2WID,SENSITIVE=1
@@ -855,6 +888,7 @@ end
               DEVICE, DECOMPOSED=0
               ; Load color table, if one exists:
               IF (n_elements(r) GT 0) THEN TVLCT, r, g, b
+
               ; Display the image.
 	if ftype eq 'txt'  or ftype eq 'xdr' then tvscl,im else $
               TV, im
@@ -871,8 +905,11 @@ end
 
 ;-----------------------------------------------------------------
 pro OnSavePNG, Event, original=original
-
-sFile = DIALOG_PICKFILE(FILTER='*.png',/write)
+        WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+	path = img_state.path
+        WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+sFile = DIALOG_PICKFILE(FILTER='*.png',/write,path=path,get_path=p)
+	if sFile eq p then return
 
 ; Find the draw widget, which is named Draw:
         wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
@@ -887,7 +924,11 @@ end
 
 pro OnSaveJPEG, Event, original=original
 
-sFile = DIALOG_PICKFILE(FILTER='*.jpg',/write)
+        WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+	path = img_state.path
+        WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+sFile = DIALOG_PICKFILE(FILTER='*.jpg',/write,path=path,get_path=p)
+	if sFile eq p then return
 
 ; Find the draw widget, which is named Draw:
         wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
@@ -901,8 +942,11 @@ end
 ;-----------------------------------------------------------------
 pro OnSaveTIFF, Event, original=original,reverse=reverse
 
-sFile = DIALOG_PICKFILE(FILTER='*.tif*',/write,get_path=p)
-	if sFile eq p  then return
+        WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+	path = img_state.path
+        WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+sFile = DIALOG_PICKFILE(FILTER='*.tif*',/write,path=path,get_path=p)
+	if sFile eq p then return
 
 ; Find the draw widget, which is named Draw:
         wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
@@ -916,8 +960,11 @@ end
 ;-----------------------------------------------------------------
 pro OnSaveXDR, Event, original=original,reverse=reverse
 ; save raw image only
-sFile = DIALOG_PICKFILE(FILTER='*.xdr*',/write,get_path=p)
-	if sFile eq p  then return
+        WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+	path = img_state.path
+        WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+sFile = DIALOG_PICKFILE(FILTER='*.xdr*',/write,path=path,get_path=p)
+	if sFile eq p then return
 
 ; Find the draw widget, which is named Draw:
         wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
@@ -926,9 +973,9 @@ sFile = DIALOG_PICKFILE(FILTER='*.xdr*',/write,get_path=p)
            WIDGET_CONTROL, wDraw, GET_VALUE=idDraw
 
         WIDGET_CONTROL,Event.Top,GET_UVALUE=img_state,/NO_COPY
-	im = *img_state.im
 	ranges=[img_state.xmin,img_state.xmax,img_state.ymin,img_state.ymax, $
 		img_state.vmin,img_state.vmax]
+	im = *img_state.im
         WIDGET_CONTROL,Event.Top,SET_UVALUE=img_state,/NO_COPY
 	xdr_open,unit,sFile,/write
 	xdr_write,unit,im
@@ -950,19 +997,37 @@ PRO OnReadTVScreen, Event
 END
 ;-----------------------------------------------------------------
 pro OnExportJPG, Event
+; there is problem with write_jpeg on 2D image data
+; only works true image byte data array
         WIDGET_CONTROL,Event.Top,GET_UVALUE=img_state,/NO_COPY
         image = *img_state.im
         R = img_state.R
         G = img_state.G
         B = img_state.B
+	path = img_state.path
+	MODEL = img_state.MODEL
+        WIDGET_CONTROL,Event.Top,SET_UVALUE=img_state,/NO_COPY
         sz = size(image)
-        sFile = DIALOG_PICKFILE(FILTER='*.jpg',/write,get_path=p)
+	if MODEL eq 0 then begin
+	ret = dialog_message('Error: SaveRawData in JPEG only works for 2D data',/error)
+	return
+	end
+        sFile = DIALOG_PICKFILE(FILTER='*.jpg',/write,path=path,get_path=p)
 	if sFile eq p  then return
+
+	; scale the 2D data with color table
+	type = sz[n_elements(sz)-2]
+	if sz(0) eq 2 and type ne 1 then begin
+	vmin = min(image)
+	vmax = max(image)
+	image = byte((!d.table_size-1)*(image-vmin)/(vmax-vmin))
+	end
+
         if strpos(sFile,'.jpg') gt 0 then begin
         if sz(0) eq 3 then write_jpeg,sFile,image,/true else $
-        print,'write_jpeg has color problem with 2D image' ; write_jpeg,sFile,image 
+        write_jpeg,sFile,image, /progressive 
         end
-        WIDGET_CONTROL,Event.Top,SET_UVALUE=img_state,/NO_COPY
+
 end
 ;-----------------------------------------------------------------
 pro OnExportPNG, Event
@@ -971,14 +1036,24 @@ pro OnExportPNG, Event
         R = img_state.R
         G = img_state.G
         B = img_state.B
+	path = img_state.path
+        WIDGET_CONTROL,Event.Top,SET_UVALUE=img_state,/NO_COPY
         sz = size(image)
-        sFile = DIALOG_PICKFILE(FILTER='*.png',/write,get_path=p)
+        sFile = DIALOG_PICKFILE(FILTER='*.png',/write,path=path,get_path=p)
 	if sFile eq p  then return
+
+	; scale the 2D data with color table
+	type = sz[n_elements(sz)-2]
+	if sz(0) eq 2 and type ne 1 then begin
+	vmin = min(image)
+	vmax = max(image)
+	image = ceil((!d.table_size-1)*(image-vmin)/(vmax-vmin))
+	end
+
         if strpos(sFile,'.png') gt 0 then begin
         if sz(0) eq 3 then write_png,sFile,image else $
                 write_png,sFile,image,R,G,B
         end
-        WIDGET_CONTROL,Event.Top,SET_UVALUE=img_state,/NO_COPY
 
 end
 ;-----------------------------------------------------------------
@@ -990,23 +1065,41 @@ pro OnExportTIF, Event, reverse=reverse
         R = img_state.R
         G = img_state.G
         B = img_state.B
+	path = img_state.path
+        WIDGET_CONTROL,Event.Top,SET_UVALUE=img_state,/NO_COPY
         sz = size(image)
-        sFile = DIALOG_PICKFILE(FILTER='*.tif*',/write,get_path=p)
+        sFile = DIALOG_PICKFILE(FILTER='*.tif*',/write,path=path,get_path=p)
 	if sFile eq p  then return
         if strpos(sFile,'.tif') gt 0 then begin
+
+	; scale the 2D data with color table
+	type = sz[n_elements(sz)-2]
+	if sz(0) eq 2 and type ne 1 then begin
+	vmin = min(image)
+	vmax = max(image)
+	image = ceil((!d.table_size-1)*(image-vmin)/(vmax-vmin))
+	end
+
 	if keyword_set(reverse) then begin
-          if sz(0) eq 3 then write_tiff,sFile,reverse(image,2) else $
-                write_tiff,sFile,reverse(image,2),red=R,green=G,blue=B  ;,1
+	  if sz(0) eq 3 then write_tiff,sFile,reverse(image,3) else $
+                write_tiff,sFile,reverse(image,2),red=R,green=G,blue=B  
 	endif else begin
-          if sz(0) eq 3 then write_tiff,sFile,image else $
+          if sz(0) eq 3 then begin
+		write_tiff,sFile,image,1 
+		device,decompose=0
+		endif else $
                 write_tiff,sFile,image,red=R,green=G,blue=B  
 	end
 	end
-        WIDGET_CONTROL,Event.Top,SET_UVALUE=img_state,/NO_COPY
 
 end
 ;-----------------------------------------------------------------
 pro OnTVImageROI,Event
+	if !d.n_colors gt 256 then begin
+		OnScaleTVImage,Event
+	return
+	end
+
 	imgReadScreen,im	
 	sz = size(im)
      WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
@@ -1018,18 +1111,16 @@ pro OnTVImageROI,Event
         wd = img_state.xsize
         ht = img_state.ysize
 	wid = img_state.WID
+        original = img_state.original
+     WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
 
-	if img_state.original then begin
 	wd = xr-xl+1
 	ht = yr-yl+1
-	wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0');
-;	WIDGET_CONTROL,wDraw,DRAW_XSIZE=wd,DRAW_YSIZE=ht
-	WIDGET_CONTROL,wDraw,SCR_XSIZE=wd,SCR_YSIZE=ht
-	end
-     WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
-	if xr gt sz(1) or yr gt sz(2) or wd lt (xr-xl) or ht lt (yr-yl) then return
+	if wd lt 2 or ht lt 2 then return
 	if xr gt sz(1) then xr = sz(1)-1
 	if yr gt sz(2) then yr = sz(2)-1
+	wDraw = WIDGET_INFO(Event.top,FIND_BY_UNAME='WID_DRAW_0')
+	widget_control,wDraw,scr_xsize=wd,scr_ysize=ht
 	WSET,wid
 	erase
 	im = im(xl:xr,yl:yr)
@@ -1099,12 +1190,12 @@ pro OnScaleTVImage, Event
         wd = img_state.xsize
         ht = img_state.ysize
 	ftype = img_state.ftype
-img_state.original = 0
-wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
-;WIDGET_CONTROL,wDraw,DRAW_XSIZE=wd,DRAW_YSIZE=ht
-WIDGET_CONTROL,wDraw,SCR_XSIZE=wd,SCR_YSIZE=ht
-WSET,img_state.WID
+	WID = img_state.WID
+	img_state.original = 0
      WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
+WIDGET_CONTROL,wDraw,SCR_XSIZE=wd,SCR_YSIZE=ht
+WSET,WID
       IF (SIZE(im, /N_DIM) EQ 3) THEN $
               im = COLOR_QUAN(im, 1, r, g, b)
               ; Size the image to fill the draw area.
@@ -1130,6 +1221,23 @@ pro OnMirrorTVImage, Event
         TV, reverse(im)
 end
 ;-----------------------------------------------------------------
+pro OnTransposeTVImage, Event
+	imgReadScreen,im
+	sz = size(im)
+	wd = sz(1)
+	ht = sz(2)
+	wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
+	WIDGET_CONTROL,wDraw,SCR_XSIZE=ht,SCR_YSIZE=wd
+     WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+        img_state.xsize = ht
+        img_state.ysize = wd
+	wid = img_state.wid
+     WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+	im1 = transpose(im)
+	WSET,WID
+        TV, im1
+end
+;-----------------------------------------------------------------
 pro imgReadScreen,im,r,g,b
 	if !d.n_colors eq 16777216 then begin
               ; Handle TrueColor displays:
@@ -1138,6 +1246,28 @@ pro imgReadScreen,im,r,g,b
 		im = color_quan(im0,1,r,g,b)
 		tvlct,r,g,b
 	endif else im = tvrd()
+end
+;-----------------------------------------------------------------
+pro OnReduceTVImage0, Event
+	imgReadScreen,im
+	sz = size(im)
+	wd = sz(1)/4 * 3
+	ht = sz(2)/4 * 3
+	wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
+	WIDGET_CONTROL,wDraw,SCR_XSIZE=wd,SCR_YSIZE=ht
+     WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+        img_state.xsize = wd
+        img_state.ysize = ht
+	ftype = img_state.ftype
+	WSET,img_state.WID
+     WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+
+              ; Size the image to fill the draw area.
+              im = CONGRID(im, wd, ht)
+              ; Load color table, if one exists:
+	erase
+	if ftype eq 'xdr' or ftype eq 'txt' then tvscl,im else $
+              TV, im
 end
 ;-----------------------------------------------------------------
 pro OnReduceTVImage, Event
@@ -1167,6 +1297,27 @@ pro OnExpandTVImage, Event
 	sz = size(im)
 	wd = sz(1) * 2
 	ht = sz(2) * 2
+	wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
+;	WIDGET_CONTROL,wDraw,DRAW_XSIZE=wd,DRAW_YSIZE=ht
+	WIDGET_CONTROL,wDraw,SCR_XSIZE=wd,SCR_YSIZE=ht
+     WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
+	img_state.xsize = wd
+	img_state.ysize = ht 
+	ftype = img_state.ftype
+	WSET,img_state.WID
+     WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+              ; Size the image to fill the draw area.
+              im = CONGRID(im, wd, ht)
+              ; Display the image.
+	if ftype eq 'xdr' or ftype eq 'txt' then tvscl,im else $
+              TV, im
+end
+;-----------------------------------------------------------------
+pro OnExpandTVImage0, Event
+	imgReadScreen,im
+	sz = size(im)
+	wd = sz(1) * 5/4 
+	ht = sz(2) * 5/4 
 	wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0')
 ;	WIDGET_CONTROL,wDraw,DRAW_XSIZE=wd,DRAW_YSIZE=ht
 	WIDGET_CONTROL,wDraw,SCR_XSIZE=wd,SCR_YSIZE=ht
@@ -1221,8 +1372,9 @@ pro OnHelpImg, Event
 	'  Expand Image by Two      - Image Expand by two ', $
 	'  Extract Image (Scaled)    - Original image data scaled to window size', $
 	'  Extract Image (Original)  - Original read in raw data image', $
-	'  Extracted ROI Only        - Display extracted ROI only', $
-	'                       (Extract 2D ROI from the drawing area', $
+	'  Show Extracted ROI Only   - Display extracted ROI only', $
+	'                       (Before select this item, the ', $
+	'                        ROI must be first defined by:', $
 	'                        Use LMB to pick lower left corner',$
 	'                        Use RMB to pick upper right corner )',$
 	'  Color Table...      - Call IDL xloadct program', $
@@ -1262,9 +1414,10 @@ pro OnHelpFileName, Event
 	'       Each line is terminated by a carriage return', $
 	'       The file itself should contain a total of W lines','', $
 	'For XDR data file it should be preprared by the xdr_open program', $
-	'       For examaple save the Image(W,H) array in plot2d.txt file ',$
-	'       xdr_open,unit,"plot2d.txt"', $
+	'       For examaple save the Image(W,H) array in plot2d.xdr file ',$
+	'       xdr_open,unit,"plot2d.xdr"', $
 	'       xdr_write,unit,Image', $
+	'       xdr_write,unit,[Xmin,Xmax,Ymin,Ymax,Vmin,Vmax]', $
 	'       xdr_close,unit''']
 	xdisplayfile,text=str,title='HELP ON File Name'
 end
@@ -1626,10 +1779,10 @@ END
 ;
 pro WID_BASE_0_event, Event
 
-  WIDGET_CONTROL, Event.top, GET_UVALUE=img_state,/NO_COPY
-  wid = img_state.WID
-  wset,wid
-  WIDGET_CONTROL, Event.top, SET_UVALUE=img_state,/NO_COPY
+;  WIDGET_CONTROL, Event.top, GET_UVALUE=img_state,/NO_COPY
+;  wid = img_state.WID
+;  wset,wid
+;  WIDGET_CONTROL, Event.top, SET_UVALUE=img_state,/NO_COPY
   wWidget =  Event.top
 
   case Event.id of
@@ -1666,6 +1819,14 @@ pro WID_BASE_0_event, Event
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
         OnMirrorTVImage, Event
     end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_4_1'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnTransposeTVImage, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_30'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnReduceTVImage0, Event
+    end
     Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_31'): begin
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
         OnReduceTVImage, Event
@@ -1675,6 +1836,10 @@ pro WID_BASE_0_event, Event
         OnExpandTVImage, Event
     end
     Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_33'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnExpandTVImage0, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_35'): begin
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
         OnTVImageROI, Event
     end
@@ -1793,11 +1958,20 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
   W_MENU_4 = Widget_Button(W_MENU_7, UNAME='W_MENU_4'  $
       ,VALUE='Left-Right Mirror Image')
 
-  W_MENU_31 = Widget_Button(W_MENU_7, UNAME='W_MENU_31',/SEPARATOR  $
+  W_MENU_4_1 = Widget_Button(W_MENU_7, UNAME='W_MENU_4_1'  $
+      ,VALUE='Transpose Image')
+
+  W_MENU_30 = Widget_Button(W_MENU_7, UNAME='W_MENU_30',/SEPARATOR  $
+      ,VALUE='Reduce Image by 1/4')
+
+  W_MENU_31 = Widget_Button(W_MENU_7, UNAME='W_MENU_31'  $
       ,VALUE='Reduce Image by half')
 
   W_MENU_32 = Widget_Button(W_MENU_7, UNAME='W_MENU_32'  $
       ,VALUE='Expand Image by two')
+
+  W_MENU_33 = Widget_Button(W_MENU_7, UNAME='W_MENU_33'  $
+      ,VALUE='Expand Image by 1/4')
 
   W_MENU_5 = Widget_Button(W_MENU_7, UNAME='W_MENU_5',/SEPARATOR  $
       ,VALUE='Extract Image (Scaled)...')
@@ -1805,7 +1979,7 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
   W_MENU_9 = Widget_Button(W_MENU_7, UNAME='W_MENU_9'  $
       ,VALUE='Extract Image (Original)...')
 
-  W_MENU_33 = Widget_Button(W_MENU_7, UNAME='W_MENU_33'  $
+  W_MENU_35 = Widget_Button(W_MENU_7, UNAME='W_MENU_35'  $
       ,VALUE='Extracted ROI Only')
 
 ;  W_MENU_11 = Widget_Button(W_MENU_7, UNAME='W_MENU_11'  $
@@ -1913,8 +2087,13 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
   if keyword_set(config) then fconfig = config
   fn = findfile(fconfig,count=ct)
   if ct eq 1 then begin
+  p=''
+	catch,error_status
+	if error_status ne 0 then goto,close_config
 	openr,1,fconfig
 	readf,1,vmax,vmin,xmin,xmax,ymin,ymax
+	readf,1,p
+close_config:
 	close,1
 	img_state.vmax = vmax
 	img_state.vmin = vmin
@@ -1922,6 +2101,7 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
 	img_state.xmin = xmin
 	img_state.ymax = ymax
 	img_state.ymin = ymin
+	img_state.path = p
   end
 
   Widget_Control, W_MENU_7, SENSITIVE=0 
@@ -1949,14 +2129,17 @@ pro img, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,_EXTRA=_VWBExtra_
 ; PURPOSE:
 ;	This program provides a simple IDL image processing program.
 ;	It accepts any 8 bits or 24 bits TIF, JPG, or PNG files as input.
-;       The image displayed is automatically reajusted to fit  the
-;       window size.
+;	The image displayed is automatically reajusted to fit  the
+;	window size.
 ;
 ; 	The window size of this program is adjustable by the window
 ;	manager.
 ; 
 ;	Depress the 'Print' button will generate a postscript copy of 
 ;	of the graph.
+;
+;	This program also support the XDR 2D image files generated by
+;	any of the following IDL programs: view2d, vw2d, image2d, plot2d.
 ;
 ; CATEGORY:
 ;	Widgets.
