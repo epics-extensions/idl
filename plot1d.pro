@@ -926,7 +926,12 @@ CASE B_ev OF
 		printf,1,'; Data column vectors: X,Y1,Y2,Y3, ...'
 
 	if sz(0) eq 1 then $
-	for i=0,nel-1 do printf,1,state.x(i),state.y(i)
+	for i=0,nel-1 do printf,1,state.x(i),state.y(i) 
+	if sz(0) eq 2 then begin
+	str = ';YIndex          '
+	for j=0L,sz(2)-1 do str = str + string(j) + '  '
+	printf,1,str
+	end
 
 	if sz(0) eq 2 then $
 	for i=0,nel-1 do begin
