@@ -1681,6 +1681,11 @@ update:
 	end
 
 catch,error_status
+if error_status ne 0 and !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
+        r = dialog_message([!error_state.msg,!error_state.sys_msg,$
+                string(!error_state.code)],/error)
+        return
+end
 if error_status then self.win=-1
 if self.win ne -1 then wdelete,self.win
 self.win = -1
