@@ -6,6 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
+
 FORWARD_FUNCTION REVERSE
 
 function rgbTo16, r, g, b
@@ -455,7 +456,14 @@ PRO image_write,owindow,wid=wid,image=image,filename=filename,show=show,png=png,
         TVLCT,R,G,B,/GET
         if !d.n_colors le 256 then begin
         model=1
-        end
+        endif else model=0
+
+	; only true colors  works for jpg
+   	if keyword_set(jpg) and model eq 1 then begin
+	r = dialog_message(['Write JPEG for TVRD only works for true color devices.','You may write as PNG, or TIFF file for this device.'],/info)
+	return
+	end
+
 
         if n_params() eq 0 then begin
                 ; direct graphic
@@ -464,7 +472,6 @@ PRO image_write,owindow,wid=wid,image=image,filename=filename,show=show,png=png,
                 wset,id
                 if keyword_set(model) then image=tvrd() else $
                 image = tvrd(true=1)
-;                if keyword_set(jpg) then image=tvrd(true=1)  ; only true works for jpg
         endif else begin
                 ; object graphic
                 if obj_valid(owindow) then begin
@@ -473,7 +480,7 @@ PRO image_write,owindow,wid=wid,image=image,filename=filename,show=show,png=png,
                 end
         end
 
-;help,image,model
+; help,image,model
 ; print,max(image),min(image)
         sz = size(image)
 
@@ -725,6 +732,7 @@ PRO OnOverlay, Event
 	WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
 	path = img_state.path
 	WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+	if !d.n_colors gt 256 then device,decompose=0
 	scan2d_overlay,path=path
 END
 ;-----------------------------------------------------------------
@@ -821,6 +829,87 @@ end
       WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
 END
 ;-----------------------------------------------------------------
+
+PRO img_init_filelist,filename,img_state
+
+	fpath=''
+	l = strpos(filename,!os.file_sep,/reverse_search)
+	if l ge 0 then fpath = strmid(filename,0,l+1)
+	name = strmid(filename,l+1,strlen(filename)-l-1)
+
+	l = strpos(filename,'.',/reverse_search)
+	ftype = strmid(filename,l,strlen(filename)-l)
+
+	s_str = '*'+ftype
+	if fpath ne '' then s_str = fpath+s_str
+	found = findfile(s_str,count=ct)
+	if ct le 1 then return
+
+	fname = filename
+	if !d.name eq 'WIN' then fname = fpath+strupcase(name)
+	for i=0,ct-1 do begin
+	if fname eq found(i) or filename eq found(i) then begin
+		id = i
+	goto,pickid
+	end
+	end
+pickid:
+	img_state.ifile = id
+	img_state.nfile = ct
+	img_state.file = found(id)
+	*img_state.files = found
+;	img_state.path = fpath
+;	img_state.ftype = ftype
+END
+
+PRO OnImgFirst,Event
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	if img_state.nfile gt 1 then begin
+	img_state.ifile = 0
+	found = *img_state.files
+	sfile = found(img_state.ifile)
+	path = img_state.path
+	img_displayImage,sfile,path,img_state,Event
+	end
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
+END
+PRO OnImgLast,Event
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	if img_state.nfile gt 1 then begin
+	img_state.ifile = img_state.nfile-1
+	found = *img_state.files
+	sfile = found(img_state.ifile)
+	path = img_state.path
+	img_displayImage,sfile,path,img_state,Event
+	end
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
+END
+PRO OnImgPrev,Event
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	if img_state.nfile gt 1 then begin
+	img_state.ifile = img_state.ifile-1
+	if img_state.ifile lt 0 then img_state.ifile = img_state.nfile-1
+	found = *img_state.files
+	sfile = found(img_state.ifile)
+	path = img_state.path
+	img_displayImage,sfile,path,img_state,Event
+	end
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
+END
+
+PRO OnImgNext,Event
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	if img_state.nfile gt 1 then begin
+	img_state.ifile = img_state.ifile+1
+	if img_state.ifile ge img_state.nfile then img_state.ifile = 0
+	found = *img_state.files
+	sfile = found(img_state.ifile)
+	path = img_state.path
+	img_displayImage,sfile,path,img_state,Event
+	end
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
+END
+;-----------------------------------------------------------------
 pro OnOpen, Event
 ; If there is a file, draw it to the draw widget.
 
@@ -828,13 +917,28 @@ ftype=''
 WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
 
 reg = ['*.jpg','*.tif*','*.png','*.xdr','*.txt']
-catch,error_status
-if error_status ne 0 then reg = '*.*'
+;catch,error_status
+;if error_status ne 0 then reg = '*.*'
 
 	sFile = DIALOG_PICKFILE(FILTER=reg, $
 		PATH=img_state.path,GET_PATH=path)
 
         IF sFile eq path THEN GOTO,NOPICKFILE 
+
+	img_displayImage, sfile, path, img_state,Event
+
+	img_init_filelist, sFile, img_state
+
+NOPICKFILE:
+; Save the image in the uvalue of the top-level base.
+        WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
+
+	if XRegistered('image_extract') then image_extract_destroy
+
+end
+
+;-----------------------------------------------------------------
+PRO img_displayImage,sfile,path,img_state,Event
 
            ; Find the draw widget, which is named Draw.
            wDraw = WIDGET_INFO(Event.top, FIND_BY_UNAME='WID_DRAW_0');
@@ -881,6 +985,7 @@ end
         img_state.HT = sz(2)
         img_state.MODEL = 1
         end
+        *img_state.IM_RAW = im
       IF (SIZE(im, /N_DIM) EQ 3) THEN $
               im = COLOR_QUAN(im, 1, r, g, b)
         *img_state.IM = im
@@ -901,16 +1006,11 @@ end
 	if ftype eq 'txt'  or ftype eq 'xdr' then tvscl,im else $
               TV, im
 
+
+	widget_control,img_state.fileWID,set_value="Filename: "+sFile
    ENDIF
 
-NOPICKFILE:
-; Save the image in the uvalue of the top-level base.
-        WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
-
-	if XRegistered('image_extract') then image_extract_destroy
-
-end
-
+END
 ;-----------------------------------------------------------------
 pro OnSavePNG, Event, original=original
         WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
@@ -1008,6 +1108,7 @@ pro OnExportJPG, Event
 ; there is problem with write_jpeg on 2D image data
 ; only works true image byte data array
         WIDGET_CONTROL,Event.Top,GET_UVALUE=img_state,/NO_COPY
+        raw_image = *img_state.im_raw
         image = *img_state.im
         R = img_state.R
         G = img_state.G
@@ -1015,24 +1116,13 @@ pro OnExportJPG, Event
 	path = img_state.path
 	MODEL = img_state.MODEL
         WIDGET_CONTROL,Event.Top,SET_UVALUE=img_state,/NO_COPY
-        sz = size(image)
-	if MODEL eq 0 then begin
-	ret = dialog_message('Error: SaveRawData in JPEG only works for 2D data',/error)
-	return
-	end
+
+        sz = size(raw_image)
         sFile = DIALOG_PICKFILE(FILTER='*.jpg',/write,path=path,get_path=p)
 	if sFile eq p  then return
 
-	; scale the 2D data with color table
-	type = sz[n_elements(sz)-2]
-	if sz(0) eq 2 and type ne 1 then begin
-	vmin = min(image)
-	vmax = max(image)
-	image = byte((!d.table_size-1)*(image-vmin)/(vmax-vmin))
-	end
-
         if strpos(sFile,'.jpg') gt 0 then begin
-        if sz(0) eq 3 then write_jpeg,sFile,image,/true else $
+        if sz(0) eq 3 then write_jpeg,sFile,raw_image,/true else $
         write_jpeg,sFile,image, /progressive 
         end
 
@@ -1103,13 +1193,6 @@ pro OnExportTIF, Event, reverse=reverse
 end
 ;-----------------------------------------------------------------
 pro OnTVImageROI,Event
-	if !d.n_colors gt 256 then begin
-		OnScaleTVImage,Event
-	return
-	end
-
-	imgReadScreen,im	
-	sz = size(im)
      WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
 	ftype = img_state.ftype
 	xl = img_state.xl
@@ -1122,11 +1205,20 @@ pro OnTVImageROI,Event
         original = img_state.original
      WIDGET_CONTROL, event.top, SET_UVALUE=img_state, /NO_COPY
 
+	if !d.n_colors gt 256 then begin
+		im0 = tvrd(/true)
+		im = color_quan(im0,1,r,g,b)
+		tvlct,r,g,b	
+	endif else begin
+		imgReadScreen,im	
+	end
+	sz = size(im)
 	wd = xr-xl+1
 	ht = yr-yl+1
 	if wd lt 2 or ht lt 2 then return
 	if xr gt sz(1) then xr = sz(1)-1
 	if yr gt sz(2) then yr = sz(2)-1
+
 	wDraw = WIDGET_INFO(Event.top,FIND_BY_UNAME='WID_DRAW_0')
 	widget_control,wDraw,scr_xsize=wd,scr_ysize=ht
 	WSET,wid
@@ -1194,7 +1286,7 @@ end
 ;-----------------------------------------------------------------
 pro OnScaleTVImage, Event
      WIDGET_CONTROL, event.top, GET_UVALUE=img_state, /NO_COPY
-        im = *img_state.im
+        im = *img_state.im_raw
         wd = img_state.xsize
         ht = img_state.ysize
 	ftype = img_state.ftype
@@ -1787,6 +1879,7 @@ END
 ;
 pro WID_BASE_0_event, Event
 
+
 ;  WIDGET_CONTROL, Event.top, GET_UVALUE=img_state,/NO_COPY
 ;  wid = img_state.WID
 ;  wset,wid
@@ -1923,8 +2016,25 @@ pro WID_BASE_0_event, Event
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_DRAW' )then $
         OnDrawCursor, Event
     end
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_PREV'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnImgPrev, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_NEXT'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnImgNext, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_FIRST'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnImgFirst, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_LAST'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnImgLast, Event
+    end
     else:
   endcase
+
 
 end
 
@@ -2048,8 +2158,31 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
   W_MENU_53 = Widget_Button(W_MENU_50, UNAME='W_MENU_53'  $
       ,VALUE='File Name...')
 
-  WD = 400
-  HT = 300
+
+ ; add prev/next button
+  BASE2 = widget_base(WID_BASE_0,uname='BASE2',/row)
+
+@vw2d.bm
+
+  BMPBTN14 = WIDGET_BUTTON( BASE2,VALUE=BMP767, $
+      UNAME='IMG_FIRST')
+
+  BMPBTN11 = WIDGET_BUTTON( BASE2,VALUE=BMP686, $
+      UNAME='IMG_PREV')
+
+  BMPBTN12 = WIDGET_BUTTON( BASE2,VALUE=BMP688, $
+      UNAME='IMG_NEXT')
+
+  BMPBTN15 = WIDGET_BUTTON( BASE2,VALUE=BMP809, $
+      UNAME='IMG_LAST')
+
+  file_LABEL3 = WIDGET_LABEL( BASE2, $
+      UNAME='IMG_OPEN_FILENAME', xsize=600, /align_left, $
+      VALUE='Filename:')
+
+ 
+  WD = 800
+  HT = 600
   if keyword_set(xsize) then WD=xsize
   if keyword_set(ysize) then HT=ysize
 
@@ -2061,10 +2194,15 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
 	menu1WID: W_MENU_7,$
 	menu2WID: W_MENU_14,$
 	menu3WID: W_MENU_40,$
+	fileWID: file_LABEL3, $
         file    : '', $
 	path    : '', $
 	ftype	: '', $
+        im_raw  : ptr_new(/ALLOCATE_HEAP),  $
         im      : ptr_new(/ALLOCATE_HEAP),  $
+        files   : ptr_new(/ALLOCATE_HEAP),  $        ; list of found files
+	ifile   : -1, $      ; current file index 
+	nfile   : 0, $      ; total same file type
 	color_low : 0, $
 	color_high : !d.n_colors, $
         original : 0, $    ;  1 - actual read in size , 0 - current screen size
