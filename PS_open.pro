@@ -80,81 +80,6 @@ if n_elements (printer_info) eq 0 then $
 ;	end
 END
 
-PRO PS_open,psfile,TV=TV
-;+
-; NAME:
-;       PS_OPEN
-;
-; PURPOSE:
-;       This routine sets the current graphics device to PostScript.
-;       and saves plot in a user specified PostScript file.
-;
-; CALLING SEQUENCE:
-;       PS_OPEN, 'myfile.ps' [,/TV]
-;
-; INPUTS:
-;       myfile.ps:  Specifies the PostScript filename to be saved.
-;
-; OUTPUTS:
-;       The PostScript graphic output is saved which can be sent to
-;       any PostScript printer or viewer. 
-;
-; KEYWORD PARAMETERS:
-;       TV:       Specifies whether reverse color video to be used in PS. 
-;
-; COMMON BLOCKS:
-;       COMMON PRINTER_BLOCK
-;       COMMON COLORS 
-;
-; RESTRICTIONS:
-;       The program 'PS_open.pro' must be loaded into IDL first before 
-;       calling this routine.
-;
-; EXAMPLE:
-;
-;        PS_OPEN, 'myfile.ps'
-;        tvscl,scan
-;        PS_CLOSE
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       07-28-97   bkc  Add the support for color PostScript
-;                       Add the support for reverse video
-;                       Add handling capability for different operating system
-;       05-15-98   bkc  Change the reverse video to reverse legend color for
-;                       2D TV plot, to get reverse video use the xloadct's
-;                       option, reverse feature  
-;-
-
-COMMON PRINTER_BLOCK,printer_info
-COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
-
-	PS_init
-	set_plot,'PS'
-	!P.FONT=-1
-	if (n_elements(psfile) ne 0) then begin
-
-	if keyword_set(TV) then begin 
-
-	; use xloadct reverse video, reverse legend only  
-
-
-	    if printer_info.color gt 0 then $
-		device,filename=psfile,/color,bits=8, $
-			/Courier,/Bold, $
-			 yoffset=7, xsize=15, ysize=15  else  $
-		device,filename=psfile,/Courier,/Bold
-	endif else begin
-	    if printer_info.color gt 0 then $
-		device,filename=psfile,/color,bits=8, $
-			/Courier,/Bold, $
-			yoffset=7, xsize=17.78, ysize=12.7  else $
-		device,filename=psfile,/Courier,/Bold
-	end
-
-	end
-END
 
 PRO PS_close
 ;+
@@ -262,8 +187,12 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		print,'Usage: PS_enscript, <fileName>'
 		return
 	end
-	if OS_SYSTEM.os_family eq 'unix' then $
-	spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer ,  '-r', fileName], /noshell else $
+
+	if OS_SYSTEM.os_family eq 'unix' then begin
+	if OS_SYSTEM.printer eq '' then $
+	spawn,[OS_SYSTEM.prt, '-r', fileName], /noshell else $
+	spawn,[OS_SYSTEM.prt, '-P',OS_SYSTEM.printer ,  '-r', fileName], /noshell
+	endif else $
 	spawn,[OS_SYSTEM.prt, fileName, OS_SYSTEM.printer]
 END
 
@@ -320,7 +249,10 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 		end
 	end else psfile = 'idl.ps'
 	if OS_SYSTEM.os_family eq 'unix' then begin
-        	str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile 
+		if OS_SYSTEM.printer eq '' then $
+        	str =  OS_SYSTEM.lpr + ' ' +  psfile  else $
+        	str =  OS_SYSTEM.lpr + ' -P ' + OS_SYSTEM.printer +' '+  psfile 
+		if n_elements(r_curr) then begin
 		color = r_curr(0) + g_curr(0)*256L + b_curr(0)*256L ^2
 		if color ge 16777200 then begin 
 			temp = ['Warning:','',$
@@ -335,6 +267,7 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 			res=dialog_message(temp,/info,title='PS legend problem')
 			PS_printer
 			spawn,'gv '+psfile + ' &'
+			end
 		endif else spawn,str
 	endif else begin
 		str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
@@ -516,4 +449,81 @@ if XRegistered('PS_printer') then return
   WIDGET_CONTROL, PS_printer_base, /REALIZE
 
   XMANAGER, 'PS_printer', PS_printer_base
+END
+
+
+PRO PS_open,psfile,TV=TV
+;+
+; NAME:
+;       PS_OPEN
+;
+; PURPOSE:
+;       This routine sets the current graphics device to PostScript.
+;       and saves plot in a user specified PostScript file.
+;
+; CALLING SEQUENCE:
+;       PS_OPEN, 'myfile.ps' [,/TV]
+;
+; INPUTS:
+;       myfile.ps:  Specifies the PostScript filename to be saved.
+;
+; OUTPUTS:
+;       The PostScript graphic output is saved which can be sent to
+;       any PostScript printer or viewer. 
+;
+; KEYWORD PARAMETERS:
+;       TV:       Specifies whether reverse color video to be used in PS. 
+;
+; COMMON BLOCKS:
+;       COMMON PRINTER_BLOCK
+;       COMMON COLORS 
+;
+; RESTRICTIONS:
+;       The program 'PS_open.pro' must be loaded into IDL first before 
+;       calling this routine.
+;
+; EXAMPLE:
+;
+;        PS_OPEN, 'myfile.ps'
+;        tvscl,scan
+;        PS_CLOSE
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       07-28-97   bkc  Add the support for color PostScript
+;                       Add the support for reverse video
+;                       Add handling capability for different operating system
+;       05-15-98   bkc  Change the reverse video to reverse legend color for
+;                       2D TV plot, to get reverse video use the xloadct's
+;                       option, reverse feature  
+;-
+
+COMMON PRINTER_BLOCK,printer_info
+COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
+
+	PS_init
+	set_plot,'PS'
+	!P.FONT=-1
+	if (n_elements(psfile) ne 0) then begin
+
+	if keyword_set(TV) then begin 
+
+	; use xloadct reverse video, reverse legend only  
+
+
+	    if printer_info.color gt 0 then $
+		device,filename=psfile,/color,bits=8, $
+			/Courier,/Bold, $
+			 yoffset=7, xsize=15, ysize=15  else  $
+		device,filename=psfile,/Courier,/Bold
+	endif else begin
+	    if printer_info.color gt 0 then $
+		device,filename=psfile,/color,bits=8, $
+			/Courier,/Bold, $
+			yoffset=7, xsize=17.78, ysize=12.7  else $
+		device,filename=psfile,/Courier,/Bold
+	end
+
+	end
 END
