@@ -879,20 +879,20 @@ COMMON COLORBAR,colorbar_data
 	WSET,plot2d_state.old_win
 	end
       END
-  'PLOT2D_JPG': BEGIN
+  'PLOT2D_PNG': BEGIN
        tvlct,R,G,B,/get
 	cd,current=p
-	p = p + !os.file_sep +'JPG'+!os.file_sep
+	p = p + !os.file_sep +'PNG'+!os.file_sep
 	found = findfile(p,count=ct)
 	if ct eq 0 then spawn,!os.mkdir + ' ' +p
-	file = plot2d_state.class+'.jpg'
-	fn = dialog_pickfile(filter='*jpg',path=p,file=file,/WRITE, $
-		title='Save JPEG Image')
+	file = plot2d_state.class+'.png'
+	fn = dialog_pickfile(filter='*png',path=p,file=file,/WRITE, $
+		title='Save PNG Image')
 	if fn ne '' then begin
 	WSET,plot2d_state.win
 	if !d.n_colors gt !d.table_size then $
-        WRITE_JPEG,fn,TVRD(/true),/true else $
-        WRITE_JPEG,fn,TVRD()
+        WRITE_PNG,fn,TVRD(/true) else $
+        WRITE_PNG,fn,TVRD(),R,G,B
 	WSET,plot2d_state.old_win
 	end
       END
@@ -1106,9 +1106,9 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
   PLOT2D_RTIFF = WIDGET_BUTTON( BASE47, $
       UVALUE='PLOT2D_RTIFF', $
       VALUE='Save TIFF...')
-  PLOT2D_JPG = WIDGET_BUTTON( BASE47, $
-      UVALUE='PLOT2D_JPG', $
-      VALUE='Save JPEG...')
+  PLOT2D_PNG = WIDGET_BUTTON( BASE47, $
+      UVALUE='PLOT2D_PNG', $
+      VALUE='Save PNG...')
   PLOT2D_PICT = WIDGET_BUTTON( BASE47, $
       UVALUE='PLOT2D_PICT', $
       VALUE='Save PICT...')
