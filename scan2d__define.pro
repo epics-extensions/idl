@@ -198,7 +198,7 @@ endif else file = outfile+'.txt'
 end
 
 if n_elements(data) eq 0 then begin
-	w_warningtext,'Error: no SDS data available!',60,3
+	res = dialog_message('Error: no SDS data available!',/info)
 	return
 	end
 
@@ -555,7 +555,7 @@ unit = self.unit
         s = size(newImage)
  
         if s(0) ne 2 then begin
-              w_warningtext,'Warning: data is not 2D image ',60,5,'VIEW2D Messaes'
+		res = dialog_message('Warning: data is not 2D image',/info)
                 end
  
 	seqno = self.image_no(self.scanno_current-1)+self.detector-1
@@ -598,7 +598,7 @@ print,'Opened Logical Unit        : ', self.unit
 print,'Total Number of 2D Scans   : ', self.scanno_2d_last
 print,'Total Number of Images     : ', self.maxno
 print,'Scan seq image_no of detector 1 : '
-print,self.image_no(0:self.scanno_2d_last)
+print,self.image_no(0:self.scanno_2d_last - 1)
 print,'Current 2D Scan #   :',self.scanno_current
 print,'Current detector #  :',self.detector
 if self.scanno_current gt 0 then $
@@ -812,7 +812,7 @@ window,0,xsize=500,ysize=500,title='scan2d Object'
 
 	TVSCL,congrid(im,!d.x_size -100,!d.y_size-100),50,50
 
-	plot,xrange=xrange,yrange=yrange,[-1,-1],/noerase, $
+	plot,xrange=xrange,yrange=yrange,/nodata,[-1,-1],/noerase, $
 		pos=[50./!d.x_size, 50./!d.y_size, $
 		 (!d.x_size-50.)/!d.x_size, (!d.y_size-50.)/!d.y_size], $
 		xstyle=1, ystyle=1, xtitle=self.x_desc, ytitle=self.y_desc, $
@@ -864,7 +864,6 @@ unit = self.unit
 
 	if detector gt 1 then self.image_no(self.scanno_2d_last) = self.seqno
 
-
 	END
 
 	maxno = id
@@ -872,7 +871,7 @@ unit = self.unit
 	self.seqno = maxno-1
 	self.image_no(self.scanno_2d_last) = maxno 
 
-;	point_lun, unit, 0 
+	point_lun, unit, 0 
 
 END
 
@@ -914,6 +913,135 @@ PRO scan2d::Point_lun,seqno
 	end
 END
 
+PRO scan2d::panImage,scanno,factor   
+;+
+; NAME:
+;	scan2d::panImage
+;
+; PURPOSE:
+;       This method pops up a new PanImage window for a given 2D scan #.
+;       If the 2D scan # is not specified, then the 2D scanno # will be
+;       calculated from the current 2D image sequence number.
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]panImage [,Scanno]
+;
+; ARGUMENTS:
+;  Scanno:  Specifies the 2D scan # 
+;
+; KEYWORDS:
+;     None.   
+;
+; RESTRICTION:
+;    Before calling scan2D::panImage the scan2D::read 
+;    should have been called previously.
+;
+; EXAMPLE:
+;    Following example shows how to get the panImage of all detectors 
+;    for 2D scan #2, #3, and # 5 from the 2D image file 'junk2.image'.
+;    The object v2 need to be defined only if it is not yet defined.
+;
+;         v2 = obj_new('scan2d',file='junk2.image')
+;         v2->read
+;	  v2->panImage,2
+;	  v2->panImage,3
+;	  v2->panImage,5
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, Nov 19, 1998.
+;	xx-xx-xxxx      comment
+;-
+
+unit = self.opened
+seq = self.scanno_current
+if n_elements(scanno) then seq = scanno 
+xdim = self.width 
+ydim = self.y_req_npts
+last = self.scanno_2d_last
+
+if unit le 0 then begin
+	res=WIDGET_MESSAGE('Error: no image file loaded in')
+	return
+end
+if seq lt 1 or seq gt self.scanno_2d_last then begin
+	res=WIDGET_MESSAGE('Error: outside range 2D scanno entered')
+	return
+end
+
+	seqno = self.image_no(seq-1)
+
+	point_lun, unit, self.fptr(seqno)
+
+	image_array  = make_array(xdim,ydim,15,/float)
+	def = make_array(15,value=0)
+
+	scanno_2d = seq
+	for i=0,14 do begin
+		if EOF(unit) eq 1 then goto,update
+		u_read, unit, pvs
+		u_read, unit, nos
+		if nos(4) gt seq then goto,update
+		u_read, unit, x
+		u_read, unit, y
+		u_read, unit, t_image
+		def(nos(3)) = 1
+		image_array(*,*,nos(3)) = t_image
+	end
+
+; pops up pan images
+
+update:
+
+	width = 60
+	height = 60
+	old_win = !D.window
+
+	if n_elements(factor) then begin
+		if factor lt .1 then factor = 1
+		width = width * factor
+		height = height * factor
+	end
+
+self.win = -1
+	if self.win lt 0 then begin
+		window,/free, xsize = 8*width, ysize=2*height, $
+			title=self.name+' SCAN # '+strtrim(seq,2)
+		for i=0,14 do begin
+		xi=(i mod 8)*width+width/2 - 5 
+		yi=height/2+(15-i)/8*height
+		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+		end
+	end
+
+new_win = !D.window
+self.win = new_win
+
+	wset,new_win
+	for sel=0,14 do begin
+	if def(sel) gt 0 then begin
+	v_max = max(image_array(*,*,sel),min=v_min)
+	if v_max eq v_min then begin
+		temp = view_option.ncolors * image_array(*,*,sel) 
+		TV,congrid(temp,width,height),sel
+	endif else begin
+		temp = congrid(image_array(*,*,sel), width, height)
+		TVSCL, temp, sel
+	end
+	end
+	end
+
+
+	plots,[0,8*width],[height,height],/device
+	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+
+	wset,old_win
+	self.seqno = self.image_no(seq-1)+self.detector
+	self->point_lun,self.seqno
+
+;	print,self.seqno,new_win,self.win,old_win
+
+END
+
 FUNCTION scan2d::Init,file=file
 ; populate the index object if file is specified
 device,decompose=0   ; required for 24 bits
@@ -922,6 +1050,7 @@ loadct,39
 ;        self->point_lun,0
 	cd,current=h
 	self.home = h
+	self.win = -1
         return,1
 END
  
@@ -938,7 +1067,7 @@ struct = { scan2d, $
         name    : 'catch1d.trashcan.image',           $
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
-	pan     : 0, $ ; pan all detectors or not
+	pan     : 0, $ ; seqno at pan all detectors
         win     : -1, $; pan window # $
 ;       mode    : 0,            $   ; 0 - scan, 1 - view
         seqno   : 0, $		; image seq #
