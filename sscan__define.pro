@@ -11,7 +11,7 @@
 ; 	v = obj_new('sscan',path='/home/beams/CHA/data/xxx')
 ;
 ;	v->pickfile
-;	v->read,da1d=da1d,da2d=da2d,....
+;	v->get,da1d=da1d,da2d=da2d,....
 ;
 ; 2) The ILD widget program sscan allows the user view data through 
 ;    packaged idl program 
@@ -34,18 +34,46 @@ PRO sscan::pickfile
 ;	sscan_read,path=path,/echo
 END
 
-PRO sscan::get,da1d=da1d,da2d=da2d,da3d=da3d,pa1d=pa1d,pa2d=pa2d,pa3d=pa3d,labels=labels,id_def=id_def
+
+PRO sscan::get,da1d=da1d,da2d=da2d,da3d=da3d,pa1d=pa1d,pa2d=pa2d,pa3d=pa3d,labels=labels,id_def=id_def,rank=rank,xdesc=xdesc,ydesc=ydesc,zdesc=zdesc
+;+
+; NAME:
+; 	sscan::get
+;
+; PURPOSE:
+;	This method allows the user to extract scan data info of an opened MDA 
+;	scan file through using the keyword specifications.
+; KEYWORD:
+;  PA1D	    -
+;  PA2D	    -
+;  PA3D	    -
+;  DA1D	    -
+;  DA2D	    -
+;  DA3D	    -
+;  LABELS   -
+;  ID_DEF   -
+;  RANK     -
+;  XDESC    -
+;  YDESC    -
+;  ZDESC    -
+;-
+	rank=self.rank
 	labels = self.labels
 	id_def = self.id_def
+	is = 89
+	ie = is+89-1
 	if self.rank eq 1 then begin
 	da1d = *self.da(0)
 	pa1d = *self.pa(0)
+	xdesc = labels(is:ie,0)
 	end
 	if self.rank eq 2 then begin
 	da2d = *self.da(0)
 	pa2d = *self.pa(0)
 	da1d = *self.da(1)
 	pa1d = *self.pa(1)
+	xdesc = labels(is:ie,0)
+	ydesc = labels(is:ie,1)
 	end
 	if self.rank eq 3 then begin
 	da3d = *self.da(0)
@@ -54,6 +82,9 @@ PRO sscan::get,da1d=da1d,da2d=da2d,da3d=da3d,pa1d=pa1d,pa2d=pa2d,pa3d=pa3d,label
 	pa2d = *self.pa(1)
 	da1d = *self.da(2)
 	pa1d = *self.pa(2)
+	xdesc = labels(is:ie,0)
+	ydesc = labels(is:ie,1)
+	zdesc = labels(is:ie,2)
 	end
 END
 
