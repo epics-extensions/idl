@@ -1,0 +1,20 @@
+#!/bin/csh -f
+#*************************************************************************
+# Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+# National Laboratory.
+# Copyright (c) 2002 The Regents of the University of California, as
+# Operator of Los Alamos National Laboratory.
+# This file is distributed subject to a Software License Agreement found
+# in the file LICENSE that is included with this distribution. 
+#*************************************************************************
+source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
+
+set xdr = "sscan"
+if ( "$1" !=  "" ) then
+        set xdr = $xdr',/XDR' 
+endif
+
+echo "loadct,39" >! go_viewer
+echo "$xdr" >>! go_viewer
+idl go_viewer
+rm go_viewer
