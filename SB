@@ -10,6 +10,8 @@ endif
 setenv IDL_DEVICE X
 
 # source /usr/local/rsi/idl_5.3/bin/idl_setup
+source $PVT_LOC/idluserdir_setup
+cd $IDL_USERDIR
 
 setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
 
