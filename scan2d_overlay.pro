@@ -1,5 +1,8 @@
+; supoort scan2d, scanSee and any image_array > 15 detectors
+; overlay.tbl      - default save file for overlay color table
+; overlay_pvt.tbl  - private save file for overlay color table  
 
-
+;@xdr_open.pro
 
 PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discrete=discrete
 ;
@@ -106,7 +109,7 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;
 ;    v2->overlay,row=2,col=2,pixels=8,selects=[1,8,9,10]
 ;
-;    Toggle the 'myColor' and 'Color ...' buttons from the Overlay window
+;    Toggle the 'Default' and 'Color ...' buttons from the Overlay window
 ;    to access various color map.
 ;
 ;    Example 3 - Plot detector 9's discrete image (pixel scaled by 4) 
@@ -120,8 +123,8 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Jan 19, 1998.
 ;	01-08-02      Add Print, Printer... button
-;                     Add slider control on myColor table used
-;                     Reset myColor will set myColor slider to bg=128, ratio=8
+;                     Add slider control on Color Table used
+;                     Default Color will set Bg slider to bg=128, Fg ratio=8
 ;-
 ; pixels   - no of pixels used for each data point, default 2 
 ; detectors overlay matrix  (col x row)
@@ -176,7 +179,7 @@ end
 update:
 	overlayInitState,overlay_state,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,selects=selects,discrete=discrete
 
-	panImage,image_array,def,detnm=overlay_state.dname
+;	panImage,image_array,def,detnm=overlay_state.dname
 
 	SCAN2D_OVERLAYIMAGE,overlay_state
 END
@@ -323,36 +326,34 @@ END
 
 PRO scan2d_saveOverlayColorTbl
 	tvlct,red,green,blue,/get
-;	save,red,green,blue,file='overlay.tbl'
-	xdr_open,unit,'overlay.tbl',/write
-	xdr_write,unit,red
-	xdr_write,unit,green
-	xdr_write,unit,blue
-	xdr_close,unit
+	save,red,green,blue,file='overlay.tbl'
 END
 
 PRO scan2d_getOverlayColorTbl
-;	restore,'overlay.tbl'
-	xdr_open,unit,'overlay.tbl'
-	xdr_read,unit,red
-	xdr_read,unit,green
-	xdr_read,unit,blue
-	xdr_close,unit
+	catch,error_status
+	if error_status ne 0 then return
+	restore,'overlay.tbl'
 	tvlct,red,green,blue
 END
 
 PRO scan2d_overlay_help,Event
   str = ["                 Help on Overlay 2D Image",'', $
-  'List of DIs  :   List of initially picked detector images', $
+  'Pane Images  :   Show discrete images ', $
+  'List of names:   Show name of images selected', $
+  'Plot Type    :   Overlay / Discrete / Composite', $
+  'Contrast     :   On or Off', $
+  'List of DIs  :   List of initially picked images', $
   'Image seq #  :   Enter images sequence numbers seperated by comma', $
   'Pixel        :   Number of pixels used for each value point, default 2', $
   'Column       :   Columns used in overlay/splice selected image, default 2', $
   'Row          :   Rows used in overlay/splice selected image, default 2', $
   'Image Area   :   Drawing area for displaying overlaid/discrete images', $
-  'myColor Control:',$
-  '     "Slider1" - Control the Background Color level ', $
-  '     "Slider2" - Control the number of Foreground Color number', $
-  '     "Reset"   - Set slider1 to 128, and slider2 to 8', $
+  'Color Control:',$
+  '     "Bg     " - Control the Background Color level ', $
+  '     "Fg     " - Control the number of Foreground Color number', $
+  '     "Default" - Set Bg to 128, and Fg to 8', $
+  'Save PvtColorT : Save current color table in overlay.tbl', $
+  'Load PvtColorT : Load in the private overlay color table ', $
   'Color ...    :   Access of default IDL color tables, default pepermint', $
   'Print        :   Dump the Image area to PS printer', $
   'Printer...   :   Override the default PS printer', $
@@ -379,6 +380,17 @@ PRO SCAN2D_OVERLAY_Event, Event
   'BUTTON7': BEGIN
 	loadct,31   ;pepermint  waves=37
 	XLOADCT
+      END
+  'OVERLAY_SAVE_PVTCT': BEGIN
+	tvlct,R,G,B,/get
+	save,R,G,B,file='overlay_pvt.tbl'
+      END
+  'OVERLAY_LOAD_PVTCT': BEGIN
+	catch,error_status
+	if error_status eq 0 then begin
+	restore,'overlay_pvt.tbl'
+	tvlct,R,G,B
+	end
       END
   'BUTTON8': BEGIN
 	widget_control,overlay_state.bg_sdr,SET_VALUE=128,bad=bad
@@ -417,25 +429,25 @@ PRO SCAN2D_OVERLAY_Event, Event
 
   'OVERLAY_NX': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ncol
-	old_ncol = overlay_state.ncol
+	if ncol le 0 then begin
+		widget_control,Event.ID,set_value=1
+		ncol = 1
+		end
 	overlay_state.ncol = ncol
-;	overlay_state.nrow = 16 / overlay_state.ncol
-	WIDGET_CONTROL,Event.ID,SET_VALUE=old_ncol
 
-	overlay_replot,overlay_state
-;	scan2d_overlayImage,overlay_state
+	overlayImage_draw2,overlay_state
 
       END
 
   'OVERLAY_NY': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=nrow
-	old_nrow = overlay_state.nrow
+	if nrow le 0 then begin
+		widget_control,Event.ID,set_value=1
+		nrow = 1
+		end
 	overlay_state.nrow = nrow
-;	overlay_state.ncol = 16 / overlay_state.nrow
-	WIDGET_CONTROL,Event.ID,SET_VALUE=old_nrow
 
-	overlay_replot,overlay_state
-;	scan2d_overlayImage,overlay_state
+	overlayImage_draw2,overlay_state
 
       END
   'OVERLAY_SELECTS': BEGIN
@@ -453,16 +465,21 @@ PRO SCAN2D_OVERLAY_Event, Event
 		end
 	end
 	
-	old_string = overlay_state.pick_string
+;	old_string = overlay_state.pick_string
 	pick_string=strcompress(detectors(0),/remove_all)
 	overlay_state.pick_string = pick_string
 	overlay_state.pick = pick
 	overlay_state.selects = fix(total(pick))
-	WIDGET_CONTROL,Event.ID,SET_VALUE=old_string
 
-  WIDGET_CONTROL,Event.Top,SET_UVALUE=overlay_state
-	overlay_replot,overlay_state
-;	scan2d_overlayImage,overlay_state
+  pick = where(overlay_state.pick gt 0)
+  str ='SELECTED:   '
+  for i=0,N_ELEMENTS(pick)-1 do begin
+  str = str + overlay_state.dname(pick(i))
+  if (i+1) lt N_ELEMENTS(pick) then str=str+','
+  end
+	WIDGET_CONTROL,overlay_state.labelWID,SET_VALUE=str
+
+	overlayImage_draw2,overlay_state
 
       END
   'OVERLAYTABLE_BG': BEGIN
@@ -477,17 +494,23 @@ PRO SCAN2D_OVERLAY_Event, Event
       END
   'OVERLAY_PIXELS': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=pixels
-	old_pixels = overlay_state.pixels
+	if pixels le 0 then begin
+		widget_control,Event.ID,set_value=1
+		pixels = 1
+		end
 	overlay_state.pixels = pixels
-	WIDGET_CONTROL,Event.ID,SET_VALUE=old_pixels
 
-	overlay_replot,overlay_state
-;	scan2d_overlayImage,overlay_state
+	overlayImage_draw2,overlay_state
 
       END
   'OVERLAY_TYPE': BEGIN
 	overlay_state.discrete = Event.Value
-	if Event.Value eq 0 and overlay_state.ncol eq 1 then overlay_state.ncol=2
+	overlayImage_draw2,overlay_state
+
+      END
+  'OVERLAY_SHOWMINPT': BEGIN
+	overlay_state.minpt = Event.Value
+	overlayImage_draw2,overlay_state
       END
 
   ENDCASE
@@ -496,16 +519,6 @@ PRO SCAN2D_OVERLAY_Event, Event
 
 END
 
-PRO overlay_replot,overlay_state
-
-	overlay_state.width = overlay_state.pixels*overlay_state.ncol*overlay_state.xdim+250 
-	if overlay_state.discrete eq 0 then $
-	overlay_state.height = overlay_state.pixels*overlay_state.ydim*overlay_state.nrow else $
-	overlay_state.height = overlay_state.pixels*overlay_state.ydim*overlay_state.selects
-
-	scan2d_overlayimage,overlay_state
-
-END
 
 
 PRO overlayInitState,overlay_state,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,selects=selects,discrete=discrete,fdname=fdname
@@ -532,7 +545,10 @@ ydim=s(2)
 	ncol=2
 	if keyword_set(row) then nrow=row
 	if keyword_set(col) then ncol=col
-	if keyword_set(discrete) then ncol = 1
+	if keyword_set(discrete) then begin
+		ncol = 1
+		nrow = 1
+	end
 	if nrow*ncol gt 16 then nrow = 16/ncol+1
 
 	pick_string=''
@@ -553,7 +569,13 @@ overlay_state = { $
 	base : 0L, $
 	bg_sdr: 0L, $
 	ratio_sdr: 0L, $
-	win : 0, $
+	labelWID : 0L, $
+	ncolWID : 0L, $
+	nrowWID : 0L, $
+	panWID : 0L, $
+	WID : 0L, $
+	panWin : 0L, $
+	win : 0L, $
 	width: magnifyfactor*ncol*xdim +250,$
 	height: magnifyfactor*nrow*ydim,$
 	xsize : 400, $
@@ -566,6 +588,7 @@ overlay_state = { $
 	vmax: vmax, $
 	ncol: ncol, $
 	nrow: nrow, $
+	minpt: 0, $  ; 0 - show min pt, 1 - not show min, use next color number
 	pixels: magnifyfactor, $
 	pick_string: pick_string, $
 	pick: pick, $
@@ -579,9 +602,9 @@ overlay_state = { $
 	}
 
 if keyword_set(discrete) then begin
-	overlay_state.discrete=1  ; plot discrete images
-	overlay_state.height=magnifyfactor*ydim*10 ; overlay_state.selects
-	end	
+	 overlay_state.discrete=discrete ;1-discrete 2-composite 
+;	overlay_state.height=magnifyfactor*ydim*10 ; overlay_state.selects
+	end
 if keyword_set(fdname) then begin
 	overlay_state.dname = '???'
 	for i=0,n_elements(fdname)-1 do begin
@@ -591,7 +614,14 @@ end
 
 END
 
+
 PRO overlayImage,overlay_state
+	overlayImage_draw1,overlay_state
+	overlayImage_draw2,overlay_state
+END
+
+
+PRO overlayImage_draw1,overlay_state
 
 	xdim = overlay_state.xdim
 	ydim = overlay_state.ydim
@@ -607,26 +637,118 @@ PRO overlayImage,overlay_state
 	dcol = overlay_state.dcol
 	pick = overlay_state.pick
 	discrete = overlay_state.discrete
+	minpt= overlay_state.minpt
 
+	WSET,overlay_state.panWin
+	erase
+	for k=0,14 do begin
+	ki = k mod 8
+	kj = k / 8
+	if def(k) eq 1 then begin
+		if vmax(k) gt vmin(k) then begin
+		factor = (image_array(*,*,k) - vmin(k))/(vmax(k)-vmin(k)) 
+;		kcolor = vcol(k)-dcol*factor + 1
+		kcolor = vcol(k+1)+ceil(dcol*factor)
+		if minpt then begin
+		pt = where(factor lt 0.0001) 
+		kcolor(pt)=kcolor(pt)+1
+		end
+		endif else begin
+		kcolor = make_array(xdim,ydim,value=vcol(k))
+		end
+		x0 = ki * 61
+		y0 = (1-kj) * 61 
+		tv,congrid(kcolor,61,61),x0,y0
+	end
+	end
+	
+	WSET,overlay_state.win	
+
+END
+
+
+
+
+
+PRO overlayImage_draw2,overlay_state
+
+	xdim = overlay_state.xdim
+	ydim = overlay_state.ydim
+	selects = overlay_state.selects
+	def = overlay_state.def
+	vmax = overlay_state.vmax
+	vmin = overlay_state.vmin
+	image_array = overlay_state.images
+	ncol = overlay_state.ncol
+	nrow = overlay_state.nrow
+	magnifyfactor = overlay_state.pixels
+	vcol = overlay_state.vcol
+	dcol = overlay_state.dcol
+	pick = overlay_state.pick
+	discrete = overlay_state.discrete
+	minpt= overlay_state.minpt
+
+	; reset ncol for overlay mode
+	if discrete eq 0 and ncol le 1 then begin
+		overlay_state.ncol=2
+		overlay_state.nrow=2
+		widget_control,overlay_state.ncolWID,set_value=2
+		widget_control,overlay_state.nrowWID,set_value=2
+		ncol = 2
+		nrow = 2
+	end
+
+	; resize the drawing area
+
+	CASE discrete OF
+	0: begin
+	  wd = overlay_state.ncol * overlay_state.xdim *overlay_state.pixels
+	  ht = overlay_state.nrow * overlay_state.ydim *overlay_state.pixels
+	end
+	1: begin
+	  wd = overlay_state.pixels*overlay_state.ncol*overlay_state.xdim+250 
+	  ht = overlay_state.pixels*overlay_state.ydim*overlay_state.selects
+	end
+	2: begin
+	  wd = overlay_state.xdim *overlay_state.pixels
+	  ht = overlay_state.ydim *overlay_state.pixels
+	end
+	ENDCASE
+
+	overlay_state.height = fix(ht+1)
+	overlay_state.width = fix(wd+1)
+	WIDGET_CONTROL,overlay_state.WID,draw_xsize=overlay_state.width, $
+		draw_ysize=overlay_state.height
+
+	if discrete lt 2 then $
+	im = make_array(overlay_state.width,overlay_state.height)
 
 	WSET,overlay_state.win	
 	erase
 
 	if discrete eq 0 then begin
+	  xyouts,5,overlay_state.height-50,charsize=2, $
+		'GENERATING OVERLAY IMAGE  ...',/device
 	  kk=0
 	  for k=0,14 do begin
 	  IF def(k) EQ 1 and pick(k) gt 0 THEN BEGIN
-		for i=0,xdim-1 do begin
-		ii = i * ncol
-
 		for j=0,ydim-1 do begin
 		jj = j * nrow
 
+		for i=0,xdim-1 do begin
+		ii = i * ncol
+
 		factor = 0. ; 1.
-		if vmax(k) gt vmin(k) then $
-			factor = (image_array(i,j,k) - vmin(k)) / (vmax(k)-vmin(k)) 
-		kcolor = vcol(k) - fix(dcol*(1 - factor))
-		if factor le 0. then kcolor = vcol(k+1)+1 
+		if vmax(k) gt vmin(k) then begin
+			factor = (float(image_array(i,j,k)) - vmin(k)) / (vmax(k)-vmin(k)) 
+;			kcolor = vcol(k) - fix(dcol*(1 - factor))
+		kcolor = vcol(k+1)+ceil(dcol*factor)
+		if minpt then begin
+			if factor le 0. then kcolor = vcol(k+1)+1 
+			end
+		endif else begin
+			kcolor = vcol(k)
+		end
 
 		ki = kk mod ncol
 		kj = kk / ncol	
@@ -634,16 +756,28 @@ PRO overlayImage,overlay_state
 		x1=(ii+ki+1)*magnifyfactor
 		y0=(jj+kj)*magnifyfactor
 		y1=(jj+kj+1)*magnifyfactor
-		box,x0,y0,x1,y1,kcolor
+;		box,x0,y0,x1,y1,kcolor
+catch,error_status
+if error_status ne 0 then begin
+	print,kk,i,j,k,ki,kj,x0,x1,y0,y1,magnifyfactor
+	help,im
+return
+end
+		im(x0:x1-1,y0:y1-1) = kcolor
 		end
 		end
 		kk=kk+1
 	  END
 	  end
-	endif else begin
+	  tv,im
+	end
 ;
 ; plot discrete selected detectors with color scheme
 ;
+
+	if discrete eq 1 then begin
+	xyouts,5,overlay_state.height-50,charsize=2, $
+		'GENERATING DISCRETE IMAGES  ...',/device
 	numj=0 
 	ncol = 1
 	for k=0,14 do begin
@@ -657,26 +791,57 @@ PRO overlayImage,overlay_state
 		for j=0,ydim-1 do begin
 		jj = j 
 
-		factor = 0. ; 1.
-		if vmax(k) gt vmin(k) then $
+		factor = 0 
+		if vmax(k) gt vmin(k) then begin 
 			factor = (image_array(i,j,k) - vmin(k)) / (vmax(k)-vmin(k)) 
-		kcolor = vcol(k) - dcol*factor
+; 		kcolor = vcol(k) - dcol*factor
+		kcolor = vcol(k+1)+ceil(dcol*factor)
+		if minpt then begin
+			if factor le 0. then kcolor = vcol(k+1)+1 
+			end
+		endif else begin
+			kcolor = vcol(k)
+		end
 		x0=(ii+ki)*magnifyfactor
 		x1=(ii+ki+1)*magnifyfactor
 		y0= kj0+jj*magnifyfactor
 		y1= y0 + magnifyfactor
-		box,x0,y0,x1,y1,kcolor
+;		box,x0,y0,x1,y1,kcolor
+		im(x0:x1-1,y0:y1-1) = kcolor
 		end
 		end
 		numj = numj+1
-	;  write the detector info here min,max,detector
-		str = overlay_state.dname(k) + ', Max='+strtrim(vmax(k),2)+ $
-			', Min='+strtrim(vmin(k),2)
-		xyouts,x1,kj0+ydim/2*magnifyfactor,str,/device
 		END
 	end
+	tv,im
+	;  write the detector info here min,max,detector
+	for k=0,14 do begin
+	if pick(k) gt 0 then begin
+		kj0 = overlay_state.height - k*ydim*magnifyfactor
+		str = overlay_state.dname(k) + ', Max='+strtrim(vmax(k),2)+ $
+			', Min='+strtrim(vmin(k),2)
+		xyouts,x1,kj0-ydim/2*magnifyfactor,str,/device
+		end
+	end
+	end
+
+	if discrete eq 2 then begin
+	factor = make_array(xdim,ydim)
+	for k=0,14 do begin
+	if pick(k) eq 1 then begin
+	   for j=0,ydim-1 do begin
+	     for i=0,xdim-1 do begin
+		factor(i,j) = factor(i,j)+ image_array(i,j,k) 
+	     end
+	   end
+	end
+	end
+	factor = congrid(factor,xdim*magnifyfactor,xdim*magnifyfactor)
+	tvscl,factor
 	end
 END
+
+
 
 
 
@@ -691,7 +856,7 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
   ysize =overlay_state.height
 
   SCAN2D_OVERLAY = WIDGET_BASE(GROUP_LEADER=Group, $
-      COLUMN=1, TITLE='Overlay 2D Image', $
+      COLUMN=1, TITLE='Overlay 2D Image (R1.0)', $
       MAP=1, $
       UVALUE='SCAN2D_OVERLAY')
 
@@ -699,6 +864,14 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
       COLUMN=1, $
       MAP=1, $
       UVALUE='BASE2')
+
+  DRAW1 = WIDGET_DRAW( BASE2, $
+      RETAIN=1, $
+      UVALUE='scan2d_overlay_panimage', $
+      XSIZE=61*8, $ ;15, $
+      YSIZE=61*2 ) ;, $
+;      X_SCROLL_SIZE=400, $
+;      Y_SCROLL_SIZE=400)
 
   BASE2_2 = WIDGET_BASE(BASE2, $
       COLUMN=1, /frame, $
@@ -711,12 +884,23 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
   end
   label2 = WIDGET_LABEL(BASE2_2,VALUE=str)
 
-  BGROUP4 = CW_BGROUP( BASE2_2, ['Overlay','Discrete'], $
-      ROW=1, $
+  BASE2_3 = WIDGET_BASE(BASE2_2, $
+      ROW=1, /frame, $
+      MAP=1, $
+      UVALUE='BASE2_3')
+  BGROUP4 = CW_BGROUP( BASE2_3, ['Overlay','Discrete','Composite'], $
+      ROW=1, /frame, $ 
       EXCLUSIVE=1, /NO_RELEASE, $
-      LABEL_LEFT='Composite Type: ', $
+      LABEL_LEFT='Type:', $
       UVALUE='OVERLAY_TYPE')
   WIDGET_CONTROL,BGROUP4,SET_VALUE=overlay_state.discrete
+
+  BGROUP44 = CW_BGROUP( BASE2_3, ['On','Off'], $
+      ROW=1, /frame, $
+      EXCLUSIVE=1, /NO_RELEASE, $
+      LABEL_LEFT='Contrast:', $
+      UVALUE='OVERLAY_SHOWMINPT')
+  WIDGET_CONTROL,BGROUP44,SET_VALUE=overlay_state.minpt
 
   selects_FIELD3 = CW_FIELD( BASE2_2,VALUE=overlay_state.pick_string, $
       ROW=1, $
@@ -724,7 +908,7 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
       RETURN_EVENTS=1, $
       TITLE='Image Seq #', $
       UVALUE='OVERLAY_SELECTS', $
-      XSIZE=25)
+      XSIZE=50)
 
   pick = where(overlay_state.pick gt 0)
   str ='SELECTED:   '
@@ -739,7 +923,12 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
       MAP=1, $
       UVALUE='BASE2_1')
 
-  DRAW3 = WIDGET_DRAW( BASE2, $
+  BASE3  = WIDGET_BASE(BASE2, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE3')
+
+  DRAW3 = WIDGET_DRAW( BASE3, $
       RETAIN=1, $
       UVALUE='scan2d_overlay', $
       XSIZE=xsize, $
@@ -747,28 +936,66 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
       YSIZE=ysize, $
       Y_SCROLL_SIZE=400)
 
-  BASE4 = WIDGET_BASE(BASE2, $
+  pixels_FIELD2 = CW_FIELD( BASE2_1,VALUE=overlay_state.pixels, $
       ROW=1, $
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Pixel Sz', $
+      UVALUE='OVERLAY_PIXELS', $
+      XSIZE=2)
+
+;if overlay_state.discrete eq 0 then begin
+  Ncol_FIELD3 = CW_FIELD( BASE2_1,VALUE=overlay_state.ncol, $
+      ROW=1, $
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Col', $
+      UVALUE='OVERLAY_NX', $
+      XSIZE=2)
+  overlay_state.ncolWID = Ncol_FIELD3
+
+  Nrow_FIELD4 = CW_FIELD( BASE2_1,VALUE=overlay_state.nrow, $
+      ROW=1, $
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Row', $
+      UVALUE='OVERLAY_NY', $
+      XSIZE=2)
+  overlay_state.nrowWID = Nrow_FIELD4
+;end
+
+  BASE4 = WIDGET_BASE(BASE2_1, $
+      ROW=1, /Frame, $
       MAP=1, $
       UVALUE='BASE4')
 
-  label1 = WIDGET_LABEL(BASE4,VALUE='myColor:')
+  label1 = WIDGET_LABEL(BASE4,VALUE='Color Bg:')
   mycolor_bg = WIDGET_SLIDER( BASE4, $
       MINIMUM=0,MAXIMUM=256,UVALUE='OVERLAYTABLE_BG', $
-      VALUE=overlay_state.tbl_bg)
+      XSIZE=50,VALUE=overlay_state.tbl_bg)
+  label1 = WIDGET_LABEL(BASE4,VALUE='Fg:')
   mycolor_ratio = WIDGET_SLIDER( BASE4, $
       MINIMUM=2,MAXIMUM=64,UVALUE='OVERLAYTABLE_RATIO', $
-      VALUE=overlay_state.tbl_ratio)
+      XSIZE=50,VALUE=overlay_state.tbl_ratio)
   BUTTON8 = WIDGET_BUTTON( BASE4, $
       UVALUE='BUTTON8', $
-      VALUE='Reset')
+      VALUE='Default')
   overlay_state.bg_sdr = mycolor_bg
   overlay_state.ratio_sdr = mycolor_ratio
 
-  BASE5 = WIDGET_BASE(BASE2, $
-      ROW=1, $
+  BASE5 = WIDGET_BASE(BASE3, $
+      COLUMN=1, $
       MAP=1, $
       UVALUE='BASE5')
+
+
+  BUTTON71 = WIDGET_BUTTON( BASE5, $
+      UVALUE='OVERLAY_SAVE_PVTCT', $
+      VALUE='Save PvtColorT')
+
+  BUTTON72 = WIDGET_BUTTON( BASE5, $
+      UVALUE='OVERLAY_LOAD_PVTCT', $
+      VALUE='Load PvtColorT')
 
   BUTTON7 = WIDGET_BUTTON( BASE5, $
       UVALUE='BUTTON7', $
@@ -789,50 +1016,29 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
       VALUE='Done')
 
 
-  pixels_FIELD2 = CW_FIELD( BASE2_1,VALUE=overlay_state.pixels, $
-      ROW=1, $
-      INTEGER=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Pixels', $
-      UVALUE='OVERLAY_PIXELS', $
-      XSIZE=2)
-
-if overlay_state.discrete eq 0 then begin
-  Ncol_FIELD3 = CW_FIELD( BASE2_1,VALUE=overlay_state.ncol, $
-      ROW=1, $
-      INTEGER=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Col', $
-      UVALUE='OVERLAY_NX', $
-      XSIZE=2)
-
-  Nrow_FIELD4 = CW_FIELD( BASE2_1,VALUE=overlay_state.nrow, $
-      ROW=1, $
-      INTEGER=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Row', $
-      UVALUE='OVERLAY_NY', $
-      XSIZE=2)
-end
-
   g_tlb = WIDGET_INFO(SCAN2D_OVERLAY,/geometry)
 
   WIDGET_CONTROL, SCAN2D_OVERLAY, /REALIZE
-  WIDGET_CONTROL,SCAN2D_OVERLAY,SET_UVALUE=overlay_state
 
   ; Get drawable window index
 
-  COMMON DRAW3_Comm, DRAW3_overlayId
+;  COMMON DRAW1_Comm, DRAW1_overlayId
+  WIDGET_CONTROL, DRAW1, GET_VALUE=DRAW1_overlayId
+;  COMMON DRAW3_Comm, DRAW3_overlayId
   WIDGET_CONTROL, DRAW3, GET_VALUE=DRAW3_overlayId
 
 	overlay_state.base = SCAN2D_OVERLAY
+	overlay_state.panWID = DRAW1
+	overlay_state.WID = DRAW3
+	overlay_state.labelWID = label3
+	overlay_state.panWin = DRAW1_overlayId
 	overlay_state.win = DRAW3_overlayId
 	overlay_state.xsize = g_tlb.scr_xsize
 	overlay_state.ysize = g_tlb.scr_ysize
 
-  overlayimage,overlay_state
+  overlayImage,overlay_state
 
-
+  WIDGET_CONTROL,SCAN2D_OVERLAY,SET_UVALUE=overlay_state
   XMANAGER, 'SCAN2D_OVERLAY', SCAN2D_OVERLAY,/NO_BLOCK
 END
 
@@ -1128,10 +1334,9 @@ PRO overlay2DImages,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,sele
 	end
 
 overlay2:
-
 	overlayInitState,overlay_state,t_image,id_def,vmax,vmin,col=col,row=row,pixels=pixels,discrete=discrete,fdname=dname
 
-	panImage,t_image,id_def,detnm=dname
+;	panImage,t_image,id_def,detnm=dname
 
 	SCAN2D_OVERLAYIMAGE,overlay_state
 
@@ -1219,3 +1424,303 @@ end
 
   XMANAGER, 'overlayInitSelect', overlayInitSelect
 END
+
+PRO scan2d_overlay_selectFiles,xdrfile_array,nfile=nfile,path=path
+; KEYWORD:
+; PATH         - specify the directory where xdr files exists
+;                At least two xdr files must be selected for image overlaying
+; NFILE        - Number of file selected from the directory
+
+cd,current=opath
+        ; read overlay.config
+        fd = findfile('overlay.config',count=ct)
+        if ct then begin
+        openr,1,'overlay.config'
+        readf,1,opath
+        close,1
+        catch,error_status
+        if error_status ne 0 then cd,current=opath
+        end
+
+if keyword_set(path) then opath=path
+
+xdrpick:
+	xdrfile_array = dialog_pickfile(title='Overlay File Pick', $
+		path = opath,Filter='*.xdr*', $
+		get_path=p,/multiple,/must_exist,/read)
+	if xdrfile_array(0) eq '' then return
+
+	nfile = n_elements(xdrfile_array)
+	if nfile le 1 then begin
+		r = dialog_message('At least two XDR image files must be selected!!!',/Error)
+		opath=p
+		goto,xdrpick
+	end
+	path = p
+
+       ; write overlay.config
+        openw,1,'overlay.config'
+        printf,1,path
+        close,1
+END
+
+
+
+PRO scan2d_overlay_calc,xdrfile_array,image_array
+; read two xdr img & ranges and call overlay plot
+; INPUT:
+;  xdrfile_array  - a list of input xdr file name array < 15
+; OUTPUT:
+; IMAGE_ARRAY  - return the resultant image array (wd,ht,15) 
+;
+ 
+ nfile= n_elements(xdrfile_array)
+
+ overlay_data = { name: strarr(15), $
+	im: ptrarr(15,/allocate_heap), $
+	ranges_def: intarr(15), $
+	ranges: dblarr(6,15) $
+	}
+
+
+for i=0,nfile-1 do begin
+	xdr_open,unit,xdrfile_array(i)
+	xdr_read,unit,im1
+	xdr_read,unit,ranges1,error=err
+	xdr_close,unit
+;	help,im1,ranges1,err
+	overlay_data.name(i) = 'IM'+strtrim(i+1,2) 
+	*overlay_data.im(i) = im1
+	if err eq 0 then begin
+	overlay_data.ranges_def(i) = 1
+	overlay_data.ranges(0:5,i) = ranges1(*)
+	end
+end
+
+	im1 = *overlay_data.im(0)
+	sz1 = size(im1)
+
+	;  calculate dx, dy 
+
+;	if n_elements(ranges1) eq 0 then ranges1 = [0.,sz1(1)-1.,0.,sz1(2)-1.]
+	if overlay_data.ranges_def(0) eq 0 then $
+	 ranges1 = [-0.5*(sz1(1)-1.), 0.5*(sz1(1)-1.), $
+			-0.5*(sz1(2)-1.), 0.5*(sz1(2)-1.)] else $
+	ranges = overlay_data.ranges(*,0)
+	dx = (ranges1(1)-ranges1(0))/(sz1(1)-1)
+	dy = (ranges1(3)-ranges1(2))/(sz1(2)-1)
+
+	for i=0,nfile-1 do begin
+	im2 = *overlay_data.im(i)
+	sz2 = size(im2)
+	
+;	if n_elements(ranges2) eq 0 then ranges2 = [0.,sz2(1)-1.,0.,sz2(2)-1.]
+	if overlay_data.ranges_def(i) eq 0 then $
+	 ranges2 = [-0.5*(sz2(1)-1.), 0.5*(sz2(1)-1.), $
+			-0.5*(sz2(2)-1.), 0.5*(sz2(2)-1.)] else $
+	ranges2 = overlay_data.ranges(*,i)
+	dx2 = (ranges2(1)-ranges2(0))/(sz2(1)-1)
+	dy2 = (ranges2(3)-ranges2(2))/(sz2(2)-1)
+
+
+	; change to same mesh size
+
+	if dx2 lt dx then dx = dx2
+	if dy2 lt dy then dy = dy2
+
+	if ranges2(0) lt ranges(0) then ranges(0) = ranges2(0)
+	if ranges2(1) gt ranges(1) then ranges(1) = ranges2(1)
+	if ranges2(2) lt ranges(2) then ranges(2) = ranges2(2)
+	if ranges2(3) gt ranges(3) then ranges(3) = ranges2(3)
+
+	end
+
+	wd = fix((ranges(1)-ranges(0))/dx) + 1
+	ht = fix((ranges(3)-ranges(2))/dy) + 1
+	num_image = nfile 
+	image_array = make_array(wd,ht,15)
+
+	for i=0,nfile-1 do begin
+	im1 = *overlay_data.im(i)
+	ranges1 = overlay_data.ranges(*,i)
+	nx1 = fix((ranges1(1)-ranges1(0))/dx) + 1
+	ny1 = fix((ranges1(3)-ranges1(2))/dy) + 1
+	im1 = congrid(im1,nx1,ny1)
+
+	sz1 = size(im1)
+	nx1 = sz1(1)
+	ny1 = sz1(2)
+
+	if ranges1(0) eq ranges(0) and ranges1(2) eq ranges(2) then begin
+		image_array(0:nx1-1,0:ny1-1,i) = im1(*,*)
+	end
+	if ranges1(0) gt ranges(0) and ranges1(2) gt ranges(2) then begin
+		ixs = fix((ranges1(0)-ranges(0))/dx)
+		iys = fix((ranges1(2)-ranges(2))/dy)
+		image_array(ixs:ixs+nx1-1,iys:iys+ny1-1,i) = im1(*,*)
+	end
+	if ranges1(0) eq ranges(0) and ranges1(2) gt ranges(2) then begin
+		iys = fix((ranges1(2)-ranges(2))/dy)
+		image_array(0:nx1-1,iys:iys+ny1-1,i) = im1(*,*)
+	end
+	if ranges1(0) gt ranges(0) and ranges1(2) eq ranges(2) then begin
+		ixs = fix((ranges1(0)-ranges(0))/dx)
+		image_array(ixs:ixs+nx1-1,0:ny1-1,i) = im1(*,*)
+	end
+	end
+
+	vmax = make_array(15)
+	vmin = make_array(15)
+	def = intarr(15)
+	selects = indgen(nfile)+1 
+
+	for i=0,num_image-1 do begin
+		vmax(i)= max(image_array(*,*,i))
+		vmin(i)= min(image_array(*,*,i))
+		def(i)=1
+	end
+
+
+	; call overlayinit state
+
+	if wd gt 200 or ht gt 200 then  $
+		image_array = congrid(image_array,201,201,15)
+
+	fdname=overlay_data.name(0:nfile-1)
+	overlayInitState,overlay_state,image_array,def,vmax,vmin, $
+		pixels=1,discrete=2,selects=selects,fdname=fdname
+
+	for i=0,nfile-1 do begin
+	if ptr_valid(overlay_data.im(i)) then $
+	ptr_free,overlay_data.im(i)
+	end 
+	heap_gc,/ptr
+
+	scan2d_overlayImage,overlay_state
+
+
+END
+
+
+;-----------------------------------------------------------------
+pro scan2d_overlay_onRecall, Event
+
+
+	wWidget =  Event.top
+	textWID = Widget_Info(wWidget, FIND_BY_UNAME='W_TEXT_11')
+	widget_control,textWID,get_value=xdrfile_array
+
+	if xdrfile_array(0) eq '' then begin
+		r = dialog_message('You have to load the xdr files in first.',/error)
+		return 
+	end
+	scan2d_overlay_calc,xdrfile_array,image_array
+end
+
+;-----------------------------------------------------------------
+pro scan2d_Overlay_onOpen, Event
+
+	scan2d_overlay_selectFiles,xdrfile_array,nfile=nfile
+	if xdrfile_array(0) eq '' then return 
+
+	wWidget =  Event.top
+	textWID = Widget_Info(wWidget, FIND_BY_UNAME='W_TEXT_11')
+	widget_control,textWID,set_value=xdrfile_array
+
+	scan2d_overlay_calc,xdrfile_array,image_array
+end
+
+;-----------------------------------------------------------------
+pro scan2d_overlay_onClose, Event
+	widget_control,Event.top,/destroy
+end
+;-----------------------------------------------------------------
+pro scan2d_overlay_onHelp, Event
+	str = 'Help on Scan2d_Overlay'
+	r = dialog_message(str,/info)
+end
+;-----------------------------------------------------------------
+pro scan2d_overlay_onXDRFile, Event
+	str = 'Help on XDRFile'
+	r = dialog_message(str,/info)
+end
+;-----------------------------------------------------------------
+
+pro SCAN2D_OVERLAY_BASE_1_event, Event
+
+  wWidget =  Event.top
+
+  case Event.id of
+
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_3'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        scan2d_Overlay_onOpen, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_4'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        scan2d_overlay_onClose, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_5'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        scan2d_overlay_onHelp, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_6'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        scan2d_overlay_onXDRFile, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_21'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        scan2d_overlay_onRecall, Event
+    end
+    else:
+  endcase
+
+end
+
+pro SCAN2D_OVERLAY_BASE_1, GROUP_LEADER=wGroup, _EXTRA=_VWBExtra_
+
+  SCAN2D_OVERLAY_BASE_1 = Widget_Base( GROUP_LEADER=wGroup, UNAME='SCAN2D_OVERLAY_BASE_1'  $
+	,TITLE='IMAGE_OVERLAY' $
+      ,XOFFSET=5 ,YOFFSET=5  $ ;,SCR_XSIZE=300 ,SCR_YSIZE=219  $
+      ,SPACE=3 ,XPAD=3 ,YPAD=3 ,MBAR=SCAN2D_OVERLAY_BASE_1_MBAR)
+
+  
+  W_MENU_0 = Widget_Button(SCAN2D_OVERLAY_BASE_1_MBAR, UNAME='W_MENU_0' ,/MENU  $
+      ,VALUE='File')
+
+  
+  W_MENU_3 = Widget_Button(W_MENU_0, UNAME='W_MENU_3'  $
+      ,VALUE='Open...')
+
+  W_MENU_21 = Widget_Button(W_MENU_0, UNAME='W_MENU_21' , /separator, $
+      VALUE='Re-run Overlay...')
+
+  
+  W_MENU_4 = Widget_Button(W_MENU_0, UNAME='W_MENU_4' ,/separator, VALUE='Close')
+  
+  W_MENU_1 = Widget_Button(SCAN2D_OVERLAY_BASE_1_MBAR, UNAME='W_MENU_1' ,/MENU  $
+      ,VALUE='Help')
+
+  
+  W_MENU_5 = Widget_Button(W_MENU_1, UNAME='W_MENU_5'  $
+      ,VALUE='Help...')
+
+  
+  W_MENU_6 = Widget_Button(W_MENU_1, UNAME='W_MENU_6'  $
+      ,VALUE='xdrFile...')
+
+  W_TEXT_11 = widget_text(SCAN2D_OVERLAY_BASE_1,value=strarr(15), $
+	UNAME='W_TEXT_11',xsize=50,ysize=10,/scroll)
+
+
+  Widget_Control, /REALIZE, SCAN2D_OVERLAY_BASE_1
+
+  XManager, 'SCAN2D_OVERLAY_BASE_1', SCAN2D_OVERLAY_BASE_1, /NO_BLOCK  
+
+end
+; 
+; Empty stub procedure used for autoloading.
+; 
+pro scan2d_overlay, GROUP_LEADER=wGroup, _EXTRA=_VWBExtra_
+  SCAN2D_OVERLAY_BASE_1, GROUP_LEADER=wGroup, _EXTRA=_VWBExtra_
+end
