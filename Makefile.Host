@@ -19,9 +19,9 @@ SCRIPT1 = ezcaidl_startup.pro \
 	dcviewer.pro viewer_startup.pro \
 	view1d.pro view1d.init view1d_overlay.pro \
 	view2d.pro view2d.init cursor62_caput.pro makeIDLRef.pro \
-	dc2hdf.pro \
+	dc2hdf.pro image.pro \
 	hdfb.pro NX__define.pro nexus_scan.pro \
-	DC.init DC.pro vw2d.init vw2d.pro view3d_slicer.pro \
+	DC.init DC.pro vw2d.init vw2d.pro vw2d.bm view3d_slicer.pro \
 	readScan.pro read_scan.pro \
 	multiroi_pick.pro read_scan.pro.R2 xdr_open.pro \
 	pick3d.pro view3d_2dsum.pro pick2d.pro \
@@ -37,7 +37,7 @@ SCRIPT2 = ezcaidl_setup idluserdir_setup \
 	go_scan1d \
 	go_scan2d \
 	viewer \
-	dc2hdf \
+	dc2hdf img \
 	hdfb NX \
 	scanSee vw2d scanSee.exe2.idl53 \
 	SB \
