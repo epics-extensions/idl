@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.11 2000/04/20 19:22:27 cha Exp $
+; $Id: DC.pro,v 1.12 2000/04/21 19:38:07 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -6841,6 +6841,7 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
     END
 
   'File.Quit': BEGIN
+	catcher_close,Event.Top
 	EXIT
     END
   ENDCASE
