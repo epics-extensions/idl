@@ -1,0 +1,16 @@
+#!/usr/bin/csh
+
+source /usr/local/rsi/idl_6.0/bin/idl_setup
+
+setenv EZCA_IDL_SHARE $EPICS_EXTENSIONS/lib/solaris/libezcaIDL.so
+if $1 == "scanSee" then
+   idl -32 -vm=$EPICS_EXTENSIONS/bin/$HOST_ARCH/scanSee.sav
+   exit
+endif
+
+if $1 == "catcher" then
+   idl -32 -vm=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.sav
+   exit
+endif
+
+idl -vm=$EPICS_EXTENSIONS/bin/$HOST_ARCH/$1.sav
