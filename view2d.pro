@@ -1,12 +1,4 @@
-;*************************************************************************
-; Copyright (c) 2002 The University of Chicago, as Operator of Argonne
-; National Laboratory.
-; Copyright (c) 2002 The Regents of the University of California, as
-; Operator of Los Alamos National Laboratory.
-; This file is distributed subject to a Software License Agreement found
-; in the file LICENSE that is included with this distribution. 
-;*************************************************************************
-; $Id: view2d.pro,v 1.44 2004/07/13 19:14:46 cha Exp $
+; $Id: view2d.pro,v 1.45 2005/03/31 21:58:05 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1991,10 +1983,11 @@ end
 		image_array(*,*,nos(3)) = t_image
 	end
 
-
 ; update the image plot
 
 update:
+
+	catch2d_file.def = def
 
 	width = 60
 	height = 60
@@ -2012,6 +2005,7 @@ update:
 	for sel=0,14 do begin
 	if def(sel) gt 0 then begin
 	v_max = max(image_array(*,*,sel),min=v_min)
+
 	if v_max eq v_min then begin
 		temp = view_option.ncolors * image_array(*,*,sel) 
 		TV,congrid(temp,width,height),sel
@@ -2045,7 +2039,7 @@ update:
 	end
 
 	wset,old_win
-	viewscanimage_current
+;	viewscanimage_current
 
 END
 
@@ -2271,7 +2265,6 @@ end
 ; set plot area for 2D view
 ;
 
-
 if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 		x = catch2d_file.xarr(0:catch2d_file.width - 1)
@@ -2291,7 +2284,6 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	v_min = min(newimage2)
 	ncolors = view_option.ncolors
 
-	
 	if v_max eq v_min then begin       ;(all same value)
 		dv = v_max - v_min
 		if dv eq 0 then fact = ncolors  else fact = ncolors / dv
@@ -2307,7 +2299,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 	  t_color = view_option.fg
 	  if !d.name eq 'PS' then t_color = 0
-
+	
 
 	CASE view_option.surface OF
 	2: begin
@@ -2782,6 +2774,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	view_option.y_min = 0
 	view_option.x_max = catch2d_file.width
 	view_option.y_max = catch2d_file.height
+
 		WIDGET_CONTROL,widget_ids.x_min,SET_VALUE=0
 		WIDGET_CONTROL,widget_ids.x_max,SET_VALUE=view_option.x_max
 		WIDGET_CONTROL,widget_ids.y_min,SET_VALUE=0
@@ -2839,7 +2832,7 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 
 END
 
-PRO viewscanimage_first
+PRO viewscanimage_first,Event
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 
@@ -2851,6 +2844,7 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 	seqno = 0
 	if catch2d_file.detector lt catch2d_file.image_no(1) and catch2d_file.detector gt 0 then $
 		seqno =seqno+catch2d_file.detector - 1
+	view2d_pan_images_on,Event
 	point_lun, unit, catch2d_file.fptr(seqno)
 	catch2d_file.seqno = seqno
 	scanimage_read_record,unit,/view
@@ -2858,7 +2852,7 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 	WIDGET_CONTROL, widget_ids.sel_image, SET_VALUE=catch2d_file.detector-1
 END
 
-PRO viewscanimage_next
+PRO viewscanimage_next,Event
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 
@@ -2873,6 +2867,7 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 	if seqno ge catch2d_file.image_no(current) then $
 		seqno = catch2d_file.image_no(current-1)
 
+	view2d_pan_images_on,Event
 	point_lun, unit, catch2d_file.fptr(seqno) 
 	catch2d_file.seqno = seqno 
 	scanimage_read_record,catch2d_file.opened, /view
@@ -2882,7 +2877,7 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 
 END
 
-PRO viewscanimage_prev
+PRO viewscanimage_prev,Event
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 
@@ -2904,6 +2899,8 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 		current = current-1
 		end
 	seqno = catch2d_file.image_no(current-1) + catch2d_file.detector - 1
+
+	view2d_pan_images_on,Event
 	point_lun, unit, catch2d_file.fptr(seqno) 
 	catch2d_file.seqno = seqno 
 	scanimage_read_record,catch2d_file.opened, /view
@@ -2913,7 +2910,7 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 ;strtrim(string(current),2)
 END
 
-PRO viewscanimage_last
+PRO viewscanimage_last,Event
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 
@@ -2923,6 +2920,8 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 	unit = catch2d_file.opened
 	seqno = catch2d_file.image_no(current-1)
 	if catch2d_file.detector le (catch2d_file.maxno-seqno) then seqno =seqno+catch2d_file.detector - 1
+
+	view2d_pan_images_on,Event
 	point_lun, unit, catch2d_file.fptr(seqno) 
 	catch2d_file.seqno = seqno 
 	scanimage_read_record,unit, /view
@@ -2976,7 +2975,10 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
         catch2d_file.name = F
 
-        if found(0) ne '' then viewscanimage_init, F else begin
+        if found(0) ne '' then  begin 
+		viewscanimage_init, F 
+	 	view2d_pan_images_on,Event
+	endif else begin
 		w_warningtext,'Error:  file not found - '+ F, 60,5, $
 			title='VIEW2D Messages'
 		return
@@ -3469,6 +3471,7 @@ close,1
 	if catch2d_file.seqno ge catch2d_file.maxno then $
 	catch2d_file.seqno = catch2d_file.image_no(x-1)
 	if catch2d_file.seqno ge 0 and catch2d_file.seqno lt catch2d_file.maxno then begin
+		view2d_pan_images_on,Event
 		viewscanimage_current  
 		WIDGET_CONTROL, widget_ids.sel_image, SET_VALUE=catch2d_file.detector -1
 	endif else  begin
@@ -3483,6 +3486,7 @@ close,1
       catch2d_file.seqno = catch2d_file.image_no(seqno-1) + catch2d_file.detector-1
 	if catch2d_file.seqno gt catch2d_file.image_no(seqno) then $ 
 		catch2d_file.seqno = catch2d_file.image_no(seqno-1)
+	view2d_pan_images_on,Event
 	viewscanimage_current
 	WIDGET_CONTROL, widget_ids.sel_image, SET_VALUE=catch2d_file.detector-1
       END
@@ -3500,19 +3504,19 @@ close,1
 	REPLOT
 	END
   'IMAGE_PAN': BEGIN
-	view2d_pan_images_on
+	view2d_pan_images_on,Event
       END
   'BASEVIEW_FIRST': BEGIN
-	viewscanimage_first
+	viewscanimage_first,Event
 	END
   'BASEVIEW_NEXT': BEGIN
-	viewscanimage_next
+	viewscanimage_next,Event
 	END
   'BASEVIEW_PREV': BEGIN
-	viewscanimage_prev
+	viewscanimage_prev,Event
 	END
   'BASEVIEW_LAST': BEGIN
-	viewscanimage_last
+	viewscanimage_last,Event
 	END
   'IMAGE186': BEGIN
 	scanno = catch2d_file.scanno_current
@@ -3523,7 +3527,10 @@ close,1
 		end
 	begin_seqno = catch2d_file.image_no(scanno-1)	
 	end_seqno = catch2d_file.image_no(scanno)	
-	seqno = begin_seqno + event.value
+
+	if catch2d_file.def(event.value) then begin 
+	defid = total(catch2d_file.def(0:event.value))
+	seqno = begin_seqno + fix(defid)-1        ;event.value
 	if seqno lt end_seqno then begin
 		catch2d_file.seqno = seqno
 		if XRegistered('w_warningtext') then $
@@ -3536,6 +3543,7 @@ close,1
 		string(end_seqno - begin_seqno) ]
 		w_warningtext,st, 60,5,title='VIEW2D Messages'
 	end
+	endif else r = dialog_message('Detector '+strtrim(event.value+1,2)+' not defined',/info)
 	END
   'CURSOR62_X': BEGIN
 ;	if view_option.versus eq 1 then begin
@@ -3792,7 +3800,7 @@ if XRegistered('main13_2') ne 0  then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VIEW2D (R2.5.1)'
+  version = 'VIEW2D (R2.5.2)'
 
   main13_2 = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -3959,7 +3967,7 @@ if XRegistered('main13_2') ne 0  then return
   end
   if n_elements(dnames) then Btns_detector = dnames[0:14]
   IMAGE186 = CW_BGROUP( BASE186, Btns_detector, $
-      ROW=2, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
+      ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
       UVALUE='IMAGE186')
 
   BASE62 = WIDGET_BASE(main13_2, $
@@ -4014,18 +4022,20 @@ putp1cpbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1CP...', $
 		UVALUE='CURSOR62_CAPUT')
 end
 
-  CURSOR62_XL = WIDGET_LABEL( CURSOR62_B1, $
-      VALUE='Cursor @ X')
-  CURSOR62_X = WIDGET_TEXT( CURSOR62_B1, VALUE='', $
-	/EDITABLE, /NO_NEWLINE, $
-      UVALUE='CURSOR62_X', $
+;  CURSOR62_XL = WIDGET_LABEL( CURSOR62_B1, $
+;      VALUE='Cursor @ X')
+;  CURSOR62_X = WIDGET_TEXT( CURSOR62_B1, VALUE='', $
+;	/EDITABLE, /NO_NEWLINE, $
+  CURSOR62_X = CW_FIELD( CURSOR62_B1, VALUE='', $
+      UVALUE='CURSOR62_X', title='Cursor @ X', $
 	XSIZE=20, YSIZE=1)
 	
-  CURSOR62_YL = WIDGET_LABEL( CURSOR62_B1, $
-      VALUE='Cursor @ Y')
-  CURSOR62_Y = WIDGET_TEXT( CURSOR62_B1, VALUE='', $
-	/EDITABLE, /NO_NEWLINE, $
-      UVALUE='CURSOR62_Y', $
+;  CURSOR62_YL = WIDGET_LABEL( CURSOR62_B1, $
+;      VALUE='Cursor @ Y')
+;  CURSOR62_Y = WIDGET_TEXT( CURSOR62_B1, VALUE='', $
+;	/EDITABLE, /NO_NEWLINE, $
+  CURSOR62_Y = CW_FIELD( CURSOR62_B1, VALUE='', $
+      UVALUE='CURSOR62_Y', title='Cursor @ Y', $
 	XSIZE=20, YSIZE=1)
 	
   CURSOR62_B3 = WIDGET_BASE( IMAGE62, /ROW)
@@ -4143,8 +4153,10 @@ if keyword_set(CA) then $
       ROW=1, FRAME=2, MAP=1, TITLE='Info Block', $
       UVALUE='BASE129')
 
-  BASE129_1 = WIDGET_BASE(BASE129, $
-      COL=1, MAP=1)
+;  BASE129_1 = WIDGET_BASE(BASE129, $
+;      COL=1, MAP=1)
+  BASE129_1 = WIDGET_BASE(IMAGE62, $
+      ROW=1, MAP=1)
 
   MenuPANImage = [ $
       { CW_PDMENU_S,       3, 'PanImage' }, $ ;        0
