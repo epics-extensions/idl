@@ -11,7 +11,7 @@
 np = 4
 nd = n_elements(detname)  ;85 
 npd = np+nd
-PI = 'P'+strtrim(indgen(4),2)
+PI = 'P'+strtrim(indgen(4)+1,2)
 DI = detname
 if n_elements(DI) lt 71 then $
    DI = 'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F', $
@@ -103,9 +103,12 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
 	npd	: npd, $
 	DI	: DI, $  	;make_array(85,/string), $
 	PI	: PI, $    ;'P'+lis0(0:3), $
+	reverse	: 0, $    set to 1 if 1D scan in negative direction
+	fastscan: 0, $   1-read from mda file, 0 - from CA
 	bypass3d  : 1, $   1 bypass returning 3D data array 
 	pickDet   : -1, $  no 3D data returned
 	suffix	  : '.mda',           $ for .scan or  .mda 
+	zoom:   0 ,  $  default  without zoom
       pv          : '',           $
       pvconfig    : ['',''],           $
       pvfound     : -1, 	  $  indicator for pv found or not found
