@@ -71,6 +71,7 @@ PRO DC_view_init, filename , DC_view_ids, print=print
 
 	ndet = n_elements(id_def)-4
 	str2 = DC_view_ids.list(1:ndet)
+	str2 = DC_view_ids.detname(0:ndet-1)
 	WIDGET_CONTROL,DC_view_ids.list2DWID,SET_VALUE=str2
 	WIDGET_CONTROL,DC_view_ids.list2DWID,SET_LIST_SELECT=DC_view_ids.detno-1
 	WIDGET_CONTROL,DC_view_ids.list1dWID,SET_LIST_SELECT=DC_view_ids.list_sel(0:DC_view_ids.sel_no-1)
@@ -635,6 +636,10 @@ loadct,39
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
+ detname = 'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+   '01','02','03','04','05','06','07','08','09', $
+   strtrim(indgen(61)+10,2)]
+
   DC_view_ids = { $
 	base:0L,$
 	basefileWID: 0L,$
@@ -673,6 +678,7 @@ loadct,39
 	height: 0, $
 	depth: 0, $
 	list : strtrim(indgen(100),2), $
+	detname: detname, $
 	v : obj_new('scanSee') $
 	}
 
@@ -866,7 +872,7 @@ loadct,39
 
   LIST12 = WIDGET_LIST( BASE28_2,VALUE=DC_view_ids.list(1:15), $
       UVALUE='VIEWSPEC_2DSELECT', $
-      YSIZE=5)
+      YSIZE=8)
   DC_view_ids.list2DWID = LIST12
 
   BASE28_0 = WIDGET_BASE(BASE28, $
