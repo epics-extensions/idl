@@ -6,7 +6,15 @@ COMMON RENAME_BLOCK,rename_ids
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
   CASE Ev OF 
-
+  'RENAME_PATH': BEGIN
+	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
+	len = strlen(pathdir(0))
+	found = findfile(pathdir(0))
+	if found(0) eq '' then begin
+	st = 'mkdir '+ pathdir(0)
+	spawn,st,result
+	end
+	END
   'RENAME_DIALOGACCEPT': BEGIN
 	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
 	WIDGET_CONTROL,rename_ids.old_id,GET_VALUE=file1
@@ -75,7 +83,7 @@ COMMON RENAME_BLOCK,rename_ids
   RENAME_PATH = CW_FIELD( BASE2,VALUE=pathdir, $
       ROW=1, $
       STRING=1, $
-  ;    RETURN_EVENTS=1, $
+      RETURN_EVENTS=1, $
       TITLE='Dest Path:', $
       UVALUE='RENAME_PATH', $
       XSIZE=60)
