@@ -15,6 +15,7 @@
 ;  data = a#a
 ;
 @PS_open.pro
+@saveImage.pro
 @colorbar.pro
 @idlitparameterset__define.pro
 @idlitdatacontainer__define.pro
@@ -301,6 +302,10 @@ PRO plot2d_tvprocess_Event, Event
 	plot2d_state.tvoption = 7
 	plot2d_replot,plot2d_state
 	END
+  'BUTTON139': BEGIN
+	plot2d_state.tvoption = 11 
+	plot2d_replot,plot2d_state
+	END
   'plot2d_tvhelp': BEGIN
 	str = ['       Procedure to Query the Pixel Value', '',$
 		'- Expose the PLOT2D window completely by moving away the', $
@@ -407,6 +412,10 @@ if XRegistered('plot2d_tvprocess') then return
   BUTTON137 = WIDGET_BUTTON( BASE108, $
       UVALUE='BUTTON137', $
       VALUE='Default')
+
+  BUTTON139 = WIDGET_BUTTON( BASE108, $
+      UVALUE='BUTTON139', $
+      VALUE='TV-Log')
 
   BUTTON138 = WIDGET_BUTTON( BASE108, $
       UVALUE='BUTTON138', $
@@ -853,63 +862,16 @@ COMMON COLORBAR,colorbar_data
 	WIDGET_CONTROL,Event.Top,/DESTROY
       END
   'PLOT2D_RTIFF': BEGIN
-       tvlct,R,G,B,/get
-	cd,current=p
-	p = p + !os.file_sep +'TIFF'+!os.file_sep
-	found = findfile(p,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' +p
 	file = plot2d_state.class+'.tiff'
-	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
-		title='Save R-TIFF Image')
-	if fn ne '' then begin
-	WSET,plot2d_state.win
-	if !d.n_colors gt !d.table_size then $
-        WRITE_TIFF,fn,reverse(TVRD(/true),3) else $
-        WRITE_TIFF,fn,reverse(TVRD(),2),1,red=R,green=G,blue=B
-	WSET,plot2d_state.old_win
-	end
+	save_tiff,win=plot2d_state.win,file=file
       END
   'PLOT2D_PNG': BEGIN
-       tvlct,R,G,B,/get
-	cd,current=p
-	p = p + !os.file_sep +'PNG'+!os.file_sep
-	found = findfile(p,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' +p
 	file = plot2d_state.class+'.png'
-	fn = dialog_pickfile(filter='*png',path=p,file=file,/WRITE, $
-		title='Save PNG Image')
-	if fn ne '' then begin
-	WSET,plot2d_state.win
-	if !d.n_colors gt !d.table_size then $
-        WRITE_PNG,fn,TVRD(/true) else $
-        WRITE_PNG,fn,TVRD(),R,G,B
-	WSET,plot2d_state.old_win
-	end
+	save_png,win=plot2d_state.win,file=file
       END
   'PLOT2D_PICT': BEGIN
-       tvlct,R,G,B,/get
-	cd,current=p
-	p = p + !os.file_sep +'PICT' +!os.file_sep
-	found = findfile(p,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' +p
-	file = plot2d_state.class+'.pict'
-	fn = dialog_pickfile(filter='*pict',path=p,file=file,/WRITE, $
-		title='Save PICT Image')
-	if fn ne '' then begin
-	if !d.n_colors gt !d.table_size then begin
-		t_arr = TVRD(/true)
-		arr = color_quan(t_arr,1,red,green,blue)
-		tvlct,red,green,blue
-		WSET,plot2d_state.win
-		WRITE_PICT,fn,arr,Red,Green,Blue
-		WSET,plot2d_state.old_win
-		tvlct,R,G,B	
-	endif else begin
-	WSET,plot2d_state.win
-	WRITE_PICT,fn,TVRD(),R,G,B
-	WSET,plot2d_state.old_win
-	end
-	end
+	file = plot2d_state.class+'.png'
+	save_pict,win=plot2d_state.win,file=file
       END
   'PLOT2D_XDR': BEGIN
 	cd,current=p
@@ -1260,6 +1222,12 @@ case plot2d_state.tvoption of
 10: begin 	; use default TVSCL,data
    TVSCL,data,left,bottom,xsize=width,ysize=height
    end
+11: begin 	; use LOG data
+   if plot2d_state.max gt plot2d_state.min then begin
+   data1 = alog10(data - plot2d_state.min)
+   TVSCL,data1,left,bottom,xsize=width,ysize=height,/NAN
+   endif else TV,data,left,bottom,xsize=width,ysize=height,/NAN
+   end
 endcase
 endif else begin
 	if max(data) eq min(data) then begin
@@ -1299,12 +1267,31 @@ end
 
 if !d.name eq 'PS' then colorbar_data.width = colorbar_data.width*30
 
-		colorbar,[plot2d_state.pixel_min,plot2d_state.pixel_max], $
+		log = 0
+		off=0.
+		v_min = plot2d_state.pixel_min
+		v_max = plot2d_state.pixel_max
+   		if plot2d_state.max gt plot2d_state.min then begin
+		if plot2d_state.tvoption eq 11 then begin
+			if v_min lt 0 then begin
+			off = v_min
+			v_max = v_max - off
+			v_min = 0.
+			end
+			log=1
+			v_max = alog10(v_max)
+			if v_min eq 0 then begin
+				if v_max gt 1. then v_min = 0.01*v_max else $
+				  v_min = -2
+			endif else v_min = alog10(v_min)
+		end
+		end
+		colorbar,[v_min,v_max], $
 			colorbar_data.width,colorbar_data.height, $
 			 x=colorbar_data.x,y=colorbar_data.y, $
 			horizontal=colorbar_data.horiz, $
 			PSfact=30, reverse=plot2d_state.bgrevs, $
-			format=colorbar_data.format, $
+			format=colorbar_data.format, log=log, off=off, $
 			ncolors=plot2d_state.table_size+1, $
 			ncap=colorbar_data.nlabel
 		end
@@ -1469,6 +1456,8 @@ ENDIF
 
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
+	xdim = n_elements(plot2d_state.xarr)
+	ydim = n_elements(plot2d_state.yarr)
   CASE Ev OF 
 
   'plot2d_Xindex': BEGIN
@@ -1527,28 +1516,20 @@ ENDIF
 	plot2d_replot, plot2d_state
 	END
   'plot2d_subregion': BEGIN
-	xdim = n_elements(plot2d_state.xarr)
-	ydim = n_elements(plot2d_state.yarr)
 	widget_control,plot2d_state.i_min,get_value=imin
 	widget_control,plot2d_state.i_max,get_value=imax
 	widget_control,plot2d_state.j_min,get_value=jmin
 	widget_control,plot2d_state.j_max,get_value=jmax
-	i1 = imin
-	i2 = imax
-	j1 = jmin
-	j2 = jmax
-	if i1 gt i2 then begin
-		imax = i1
-		imin = i2
-		if imin lt 0 then imin = 0
-		if imax ge xdim then imax = xdim-1
-	end
-	if j1 gt j2 then begin
-		jmax = j1
-		jmin = j2
-		if jmin lt 0 then jmin = 0
-		if jmax ge ydim then jmax = ydim-1
-	end
+	if imin gt imax then return
+	if jmin gt jmax then return
+	if imin ge xdim then return
+	if jmin ge ydim then return
+	if imax le 0 then return
+	if jmax le 0 then return
+	if imax ge xdim then imax=xdim-1
+	if jmax ge ydim then jmax=ydim-1
+	if jmax ge ydim then jmax= ydim-1
+	if imax ge xdim then imax= xdim-1
 	newdata = plot2d_state.data(imin:imax,jmin:jmax)
 	xarr = plot2d_state.xarr(imin:imax)
 	yarr = plot2d_state.yarr(jmin:jmax)
@@ -1662,21 +1643,24 @@ end
 ;      plot2d_state = plot2d_stateInit
       CASE Event.Value OF
       0: plot2d_state.plottype= 0  	;tv
-      1: plot2d_state.plottype= 1  	;surface
-      2: plot2d_state.plottype= 2  	;contour
-      3: plot2d_state.plottype= 3  	;shade_surf
-      4: plot2d_asciiReport,plot2d_state,Event
-      5: begin
+      1: begin
+	plot2d_state.tvoption = 11
+	end
+      2: plot2d_state.plottype= 1  	;surface
+      3: plot2d_state.plottype= 2  	;contour
+      4: plot2d_state.plottype= 3  	;shade_surf
+      5: plot2d_asciiReport,plot2d_state,Event
+      6: begin
 	calibra_pick1d,plot2d_state.data, $
 		xa=plot2d_state.xarr,ya=plot2d_state.yarr, $
 		title=plot2d_state.title,GROUP=Event.top
 	end
-      6: begin
+      7: begin
 	scan2d_roi,plot2d_state.data, $
 		plot2d_state.xarr,plot2d_state.yarr, $
 		GROUP=Event.top
 	end
-      7: begin
+      8: begin
 	st = ['You may find a HTML document about plot2d at :', $
 		'',$
 		'   http://www.aps.anl.gov/~cha/plot2d.html'$
@@ -1684,7 +1668,7 @@ end
 	xdisplayfile,'',text=st,title='Help ...PLOT2D'
 	return
 	end
-      8: begin
+      9: begin
 	WIDGET_CONTROL,Event.top,BAD=bad,/DESTROY
 	catch,error_status
 	if error_status eq 0 then $
@@ -1695,6 +1679,7 @@ end
 	ELSE: print,'error'
       ENDCASE
       plot2d_replot, plot2d_state
+      if plot2d_state.tvoption eq 11 then plot2d_state.tvoption = 0
       END
   'BGROUP6': BEGIN
       CASE Event.Value OF
@@ -2103,14 +2088,14 @@ if keyword_set(comment) then begin
   BASE1_0 = WIDGET_BASE(BASE1, /ROW)
   BASE1_t = WIDGET_BASE(BASE1, /ROW)
   Btns111 = [ $
-    'TV', $
+    'TV', 'TV-Log', $
     'SURFACE', $
     'CONTOUR', $
     'SHADE_SURF',$
     'DATA...',$
     'PICK1D...',$
     'ROI2D...',$
-	'HELP ...','CLOSE']
+	'HELP ...', 'CLOSE']
   BGROUP2 = CW_BGROUP( BASE1_0, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
 
