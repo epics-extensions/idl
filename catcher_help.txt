@@ -333,7 +333,24 @@ Peak/Centroid/FWHM ...  This button turns on the statistic calculation and pops
 			The statistic calculation can be turned off by close 
 			the statistic scroll window.
 
+FWHM on Y ->One...      This button pops up plot of FWHM on Y for the first
+			selected detector and option of listing detail fwhm.rpt
+			(no window displayed for constant Y value case)
 
+FWHM on Y ->All...      This button pops up plot windows of FWHM on Y for all
+			detectors (except for those detectors with a constant
+			Y value case)
+
+FWHM on DY/DX ->One...  This button pops up plot of FWHM on DY/DX for the first
+			selected detector and option of listing detail fwhm.rpt
+			(no window displayed for constant Y value case)
+
+FWHM on DY/DX ->All...  This button pops up plot windows of FWHM on DY/DX for 
+			all detectors (except for those detectors with a 
+			constant Y value case)
+
+Averate/Deviation ...   This button pops up the standard deviation calculation
+                        for all selected detectors   
 
 
 
