@@ -6,6 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
+
 FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
 
@@ -569,6 +570,7 @@ DONE:
 END
 
 
+; $Id: DC.pro,v 1.28 2002/09/18 20:43:20 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3025,6 +3027,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
        prefix = str_sep(scanData.pv,':')
 ;        ln = caget(prefix[0]+':saveData_fullPathName',pd)
         ln = cagetArray(prefix[0]+':saveData_fullPathName',pd)
+	if !d.name eq 'X' then $
         if ln eq 0 then scanData.path = string(pd(1:99))
 
 	write_config
@@ -4913,7 +4916,7 @@ if dim eq 3 then begin
 	WIDGET_CONTROL,ROW0,SENSITIVE=0
 	WIDGET_CONTROL,ROW1,SENSITIVE=0
 	WIDGET_CONTROL,BASE2,SENSITIVE=0
-	r = dialog_message("Please use SB or pick3d to view this file",/info)
+	r = dialog_message("Please use IMAGE2D / SB / PICK3D to view this file",/info)
 end
 
 
@@ -8408,6 +8411,8 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 
 		; check for path change
 		
+   ps=0
+   IF !d.name EQ 'X' THEN BEGIN
 		path = pd(2)+!os.file_sep+pd(3)+!os.file_sep
 		ps = strpos(path,scanData.path)
 		if ps lt 0 then begin
@@ -8417,6 +8422,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 			scanData.path = npath
 			end
 		end
+   END
 
 	tn = str_sep(pd(1),": ")             ; works only if ': ' is true
 	if n_elements(tn) gt 1 then begin
@@ -8621,7 +8627,7 @@ print,'Outpath: ',scanData.outpath
 		if ferr ne 0 then return
 		end
 	
-;WIDGET_CONTROL,/HOURGLASS
+WIDGET_CONTROL,/HOURGLASS
 
 	if scanData.bypass3d then scan_read,1,-1,-1,maxno,dim,pickDet=-1 else $
 	scan_read,unit,-1,-1,maxno,dim
