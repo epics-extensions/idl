@@ -17,7 +17,7 @@ PRO plot1d_replot,state
 
 ; one dim array 
 
-WSET,state.winDraw
+if !d.name eq 'X' then WSET,state.winDraw
 !p.multi = [0,1,0,0,0]
 erase
 
@@ -470,7 +470,7 @@ WIDGET_CONTROL,id_draw,get_value=windraw
 	state.id_draw = id_draw
 	state.xsize = g_tlb.scr_xsize
 	state.ysize = g_tlb.scr_ysize
-	WSET,windraw
+	if !d.name eq 'X' then WSET,windraw
 	
 	plot1d_replot, state
 
