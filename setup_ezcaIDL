@@ -5,14 +5,15 @@
 
 set HOST_ARCH = `/usr/local/epics/startup/HostArch`
 setenv HOST_ARCH  $HOST_ARCH
-set PVT_LOC = /usr/local/epics/extensions/bin/$HOST_ARCH
+set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
+
+# set EZCA_IDL_SHARE & IDL_STARTUP
 
         setenv  EZCA_IDL_SHARE $PVT_LOC/ezcaIDL.so
         setenv  EZCA_WAVE_SHARE $PVT_LOC/ezcaWave.so
         setenv  IDL_STARTUP $PVT_LOC/ezcaidl_startup.pro 
 
-# set EZCA_IDL_SHARE
-# set IDL_STARTUP
+# if private version exist override by them
 
 if ${?EPICS_EXT_PVT} == 1 then 
 	 set PVT_LOC = $EPICS_EXT_PVT/bin/$HOST_ARCH
@@ -20,20 +21,34 @@ else if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	 set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif 
 
-if -e ezcaIDL.so  then
-        setenv  EZCA_IDL_SHARE ezcaIDL.so
-        setenv  EZCA_WAVE_SHARE ezcaWave.so
-else if ${?EPICS_EXT_PVT} == 1 or ${?EPICS_EXTENSIONS_PVT} == 1 then
+if ${?EPICS_EXT_PVT} == 1 or ${?EPICS_EXTENSIONS_PVT} == 1 then
 	if  -e $PVT_LOC/ezcaIDL.so  then
         setenv  EZCA_IDL_SHARE $PVT_LOC/ezcaIDL.so
+	endif
+	if  -e $PVT_LOC/ezcaWave.so  then
         setenv  EZCA_WAVE_SHARE $PVT_LOC/ezcaWave.so
+	endif
+	if  -e $PVT_LOC/ezcaidl_startup.pro  then
         setenv  IDL_STARTUP $PVT_LOC/ezcaidl_startup.pro 
 	endif
+endif
+
+if -e ezcaIDL.so  then
+        setenv  EZCA_IDL_SHARE ezcaIDL.so
+endif
+if -e ezcaWave.so  then
+        setenv  EZCA_WAVE_SHARE ezcaWave.so
+endif
+if -e ezcaidl_startup.pro  then
+        setenv  IDL_STARTUP ezcaidl_startup.pro 
 endif
 
 # release 4.0
 source /usr/local/rsi/idl/bin/idl_setup
 setenv IDL_DEVICE X
 
+#echo EZCA_IDL_SHARE $EZCA_IDL_SHARE
+#echo EZCA_WAVE_SHARE $EZCA_WAVE_SHARE
+#echo IDL_STARTUP $IDL_STARTUP
 exit
 
