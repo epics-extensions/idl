@@ -80,12 +80,13 @@ w_plotspec_id = { $
 	xticklen: 0.04, $
 	yticklen: 0.02, $
 	gridstyle: 0, $
-	colorI: make_array(npd,/INT,value=!d.n_colors-2) $ 
+	colorI: make_array(npd,/Long,value=!d.n_colors-2) $ 
         }
 
-if !d.name eq 'X' then device,bypass_translation=0
-   loadct,39
-   plotoption_setcolor		; init color index array
+   LOADCT,39
+   colorI = lonarr(npd) 
+   getLineColors,colorI
+   w_plotspec_id.colorI = colorI
 
    scanData  =  {                 $
 dim: 0, $   ; dimension
