@@ -12,6 +12,10 @@ prior to R2.2.2b release was in native binary format.
 The 'View Report' button in report dialog will automatically save the 
 report file if it was not found at the time it was pressed.
 
+The problem of fewer number of columns of detectors shown in multiple 
+reports generation is fixed. The problem shows up only if the current
+IOC detector number is less than the number of the saved file.
+
 <<X axis for 2D Image>>
 
 The X axis saved for 2D images sometimes is not correct for 'RELATIVE'
@@ -27,6 +31,21 @@ to 'RELATIVE' the after scan position should set to 'PRIOR POS'.
 An option of entering the output format for 2D image ASCII report is added
 in VIEW2D R2.3f.
 
+<<Statistic Menu>>
+
+Two entries 'FWHM on Y ...' and 'FWHM on DY/DX ...' are added to statistic menu.
+In plot of Y, the Y curve and the FWHM line are drawn for the selected 
+detector. In plot of DY/DX, the approximate DY/DX and the corresponding
+FWHM are drawn for the selected detector. The value of FWHM and xhpeak 
+are annotated on the plot. 
+
+<<Fitting->Ez_fit ...>>
+
+It automatically loads the entire detector array into the Ez_fit program.
+The smallest selected detector number is initially picked as the curve to 
+be fitted by the Ez_fit program. A user can use the GetData->2DImage menu 
+manually to pick another detector curve to be fitted.  A new fitting method 
+ERRORFFIT is available in Ez_fit. 
 
 
                         CATCHER R2.2.2c5  RELEASE NOTE 
