@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.36 2004/05/24 20:26:13 cha Exp $
+; $Id: DC.pro,v 1.37 2004/07/13 16:38:20 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -588,8 +588,6 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 COMMON w_statistic_block,w_statistic_ids
 
-if !d.name eq 'WIN' or !d.n_colors gt !d.table_size then device,decomposed=1
-
     WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
     scanData.wf_sel = wf_sel(0:scanData.npd-1)
 ;   if total(scanData.wf_sel) eq 0 then return
@@ -725,7 +723,8 @@ if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
 restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
 TVLCT,red,green,blue
-end
+endif else device,decomposed=1
+
 
 if !d.name ne 'PS' then WSET, widget_ids.plot_area
 ;   ERASE
@@ -909,8 +908,8 @@ if auto eq 1 and n_elements(st) gt 0  and widget_ids.statistic gt 1 then begin
 	ydis = 0.1*!d.y_ch_size
 	xyouts,xdis,ydis,footer_note,/device
 
-if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue
-if !d.name eq 'WIN' or !d.n_colors gt !d.table_size then device,decomposed=0
+if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue else $
+device,decomposed=0
 END
 
 
@@ -1058,25 +1057,31 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
 	color = w_plotspec_id.colorI(id)   ; use fix detector color
-	if w_plotspec_id.color eq 0 then color= !d.n_colors-1
+	if !d.n_colors gt !d.table_size then  color = w_plotspec_id.colorV(id)
+
+	if w_plotspec_id.color eq 0 then begin
+		color= !d.n_colors-1
+		if !d.name eq 'PS' then color = 0
+	end
 
 	; 24 bit visual case
-	if !d.name eq 'PS' then color = 0
+	thick = 2
+	if !d.name eq 'PS' then thick=5
 
 	line = id1
-	if w_plotspec_id.solid eq 1 and !d.name ne 'PS' then line = 0
+	if w_plotspec_id.solid eq 1 and w_plotspec_id.color eq 1 then line = 0
 
 npd = scanData.nd
 detname = scanData.DI
 if scanData.svers then detname= detname(15:scanData.num_det-1)
 
 if w_plotspec_id.type eq 0 then begin
-      IF (x_axis EQ 0) THEN OPLOT, p1, d1, color=color, LINE = line , THICK=2 $
-      ELSE OPLOT, d1, color=color, LINE = line, THICK=2
+      IF (x_axis EQ 0) THEN OPLOT,p1,d1,color=color,LINE=line,thick=thick $
+      ELSE OPLOT,d1,color=color,LINE=line,thick=thick
 	; write legend 
 	if w_plotspec_id.log ne 1 then $ 
-	oplot,[xdis,xdis2],[lydis,lydis],color=color,LINE=line,/noclip else $
-	oplot,[xdis,xdis2],[10^lydis,10^lydis],color=color,LINE=line,/noclip
+	oplot,[xdis,xdis2],[lydis,lydis],color=color,thick=thick,LINE=line,/noclip else $
+	oplot,[xdis,xdis2],[10^lydis,10^lydis],color=color,thick=thick,LINE=line,/noclip
 	xdis = 0.8*!d.x_size
 	xdis2 = 0.85*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
@@ -1098,8 +1103,8 @@ endif else begin
 		OPLOT, d1,color=color, PSYM = sym
 
 	if w_plotspec_id.log ne 1 then $ 
-		oplot,[xdis,xdis],[lydis,lydis],color=color,PSYM=sym,/noclip else $
-		oplot,[xdis,xdis],[10^lydis,10^lydis],color=color,PSYM=sym,/noclip
+		oplot,[xdis,xdis],[lydis,lydis],color=color,thick=thick,PSYM=sym,/noclip else $
+		oplot,[xdis,xdis],[10^lydis,10^lydis],color=color,thick=thick,PSYM=sym,/noclip
 	; write legend
 	xdis = 0.8*!d.x_size
 	xdis2 = 0.85*!d.x_size
@@ -3179,11 +3184,11 @@ if realtime_id.def(w_plotspec_id.xcord) eq 2 then begin
 
         x_rn = realtime_pvnames
 
+	xmin=0
         xmax = realtime_id.xmax
 ;        ln = caget(x_rn(w_plotspec_id.xcord),pd)
         ln = cagetArray(x_rn(w_plotspec_id.xcord),pd)
         if ln eq 0 and pd(0) gt xmax then begin
-                xmin=0
                 xmax=pd
                 dx = 0.1 * pd(0)
                 realtime_id.xmax = xmax + dx
@@ -4153,15 +4158,10 @@ scanData.pvconfig(1) = scanData.y_pv
 
 WIDGET_CONTROL, /HOURGLASS
 
-;maxno = scanData.act_npts
-;dim = scanData.dim
-;w_viewscan_id.maxno = maxno
 w_viewscan_id.unit = unit
-;        catch,error_status
-;        if error_status then goto,next_step
 
-	if scanData.bypass3d then scan_read,1,-1,-1,maxno,dim ,pickDet=-1 else $
-	scan_read,unit,-1,-1,maxno,dim 
+	if scanData.bypass3d then scan_read,1,-1,-1,maxno,dim,scanH ,pickDet=-1 else $
+	scan_read,unit,-1,-1,maxno,dim,scanH 
 
 next_step:
 if n_elements(maxno) eq 0 then begin
@@ -4242,17 +4242,12 @@ w_viewscan_format = CW_FIELD( row1,VALUE=scanData.code+scanData.format, $
 
 @vw2d.bm
 
-;   if maxno gt 1 then begin
-;
-;  if dim eq 2 then $
-;   VIEW2D_BTN = WIDGET_BUTTON( row1,VALUE=BMP167, $
-;      UVALUE='VIEWSPEC_2DIMAGE')
-;   end
-
   BASE2 = WIDGET_BASE(w_viewscan_base, $
       ROW=1, $
       MAP=1, $
       UVALUE='BASE2')
+
+if w_viewscan_id.maxno gt 1 then begin
 
 str = '1D Scan # [ 1 -'+ strcompress(string(maxno)) +' ]:'
 w_viewscan_label = WIDGET_LABEL(BASE2,VALUE=str)
@@ -4260,7 +4255,6 @@ w_viewscan_seqno = WIDGET_TEXT(BASE2,VALUE=strtrim(maxno,2), $
 		EDITABLE=1, $
 		UVALUE='VIEWSPEC_SEQNO', XSIZE = 8)
 
-if maxno gt 1 then begin
   BMPBTN10_first = WIDGET_BUTTON( BASE2,VALUE=BMP767, $
       UVALUE='VIEWSPEC_FIRST')
 
@@ -4274,7 +4268,6 @@ if maxno gt 1 then begin
       UVALUE='VIEWSPEC_LAST')
 
 ; add seqno slider here
-
 	w_viewscan_slider = WIDGET_SLIDER(BASE2, $
 		MAX=w_viewscan_id.maxno, $
 		MIN=1,UVALUE='VIEWSPEC_SLIDER')
@@ -4301,10 +4294,11 @@ w_viewscan_ids = { $
 ;	ascii:	w_viewscan_ascii, $
 	print:	w_viewscan_print, $
 	slider:  0L, $
-	seqno:  w_viewscan_seqno, $
+	seqno:  0L, $
 	format:  w_viewscan_format $
 	 }
 
+if n_elements(w_viewscan_seqno) gt 0 then w_viewscan_ids.seqno = w_viewscan_seqno
 if n_elements(w_viewscan_slider) gt 0 then w_viewscan_ids.slider = w_viewscan_slider
 
 ; Realize the widgets:
@@ -4414,12 +4408,19 @@ END
 ;
 
 
-PRO scan_read,unit,seq_no,id,maxno,dim,pickDet=pickDet
+PRO scan_read,unit,seq_no,id,maxno,dim,scanH,pickDet=pickDet
 ; keyword pickDet is used for 3D scan
 ;     pickDet > 0 only the selected 3D detector array is returned
 ;     pickDet < 0 no 3D detector array is returned
 ; 		  i.e. da3D will be undefined
 ; add special treatment for scanH 2D and 3D  cases
+;	seqno <= 0  populate initial data structure is desired
+;	      > 0   bypass initial data structure population
+;	id = -1     implies read from input file is desired
+;          >= 0     implies no read is desired only 1D plot is desired
+;	maxno       returns maxno of 1D scan
+;	dim	    returns dim
+;	scanH	    returns  indicator of presence of scanH
 ;
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
@@ -4436,13 +4437,13 @@ COMMON CATCH1D_2D_COM,data_2d, gD
 next_seq_no = seq_no + 1
  npd = scanData.num_det + 4
 
+	scanno = -1
+	DetMax = [npd-4, 1, 1]  ;scanData.lastDet
+
 ; alloc gD only if not exist yet
 if id lt 0 then begin
 
 	if n_elements(gD) then begin
-
-	scanno = -1
-	DetMax = [npd-4, 1, 1]  ;scanData.lastDet
 
 	scanno = read_scan(scanData.trashcan,Scan,pickDet=pickDet) ;, lastDet=DetMax)
 	if scanno lt 0 then return
@@ -4494,7 +4495,7 @@ print,scanData.trashcan
 ;print,'ALLOC gD'
 	if scanno lt 0 then return
 	end
-end ; seq_no > 0
+end ; id >= 0
 	scanno = *(*gD).scanno
 	dim = *(*gD).dim
 	num_pts = *(*gD).num_pts
@@ -4523,12 +4524,33 @@ populate:
 		scanH = 1
 		DetMax = [1,npd-4,1,1]
 	end
+	if scanH eq 0 then begin
+	scanData.scanH = 0
+	widget_control,widget_ids.scanH,set_droplist_select=0
+	end
 
 	scanData.dim = dim
 
 ; make sure 3D scan have correct image_array returned  before continuation
 sz = size(da2D)
 
+	; panimage only when read data is true
+	IF id lt 0 THEN BEGIN
+	if dim ge 2 and n_elements(da2D) gt 3 then begin
+; reset to whole panimage 
+ widget_control,widget_ids.pickimin,set_slider_max=scanData.req_npts-1
+ if scanData.imin gt scanData.req_npts-1 then $
+	scanData.imin = scanData.req_npts-1
+ widget_control,widget_ids.pickimin,set_value=scanData.imin
+
+	scanData.scanno_2d = scanno
+;	if dim eq 2 then $
+;	update_2d_data,data_2d,num_pts[0],num_pts[1],da2D,id_def[*,0]
+;	if dim eq 3 then $
+;	update_2d_data,data_2d,num_pts[0],num_pts[1],da2D,id_def[*,1]
+	update_2d_data,data_2d,scanData.req_npts,scanData.y_req_npts,da2D
+	end
+	END
 
 ; check the header for the file if the the seq_no is set to le 0
 IF seq_no LE 0 THEN BEGIN
@@ -4549,14 +4571,18 @@ IF seq_no LE 0 THEN BEGIN
 
 	; check for existence of scanH
 
-;	if scanH and dim eq 2  then begin
-;	   realtime_id.def = id_def[0:scanData.npd-1,1]
-;	   label = labels[*,1]
-;           scanData.req_npts = num_pts[1]
-;           scanData.act_npts = cpt[1]
-;	   scanData.pv = pv[1]
-;	end
-	if scanH and dim eq 3 then begin
+	if scanH then begin
+	if dim eq 2 then begin
+	   if scanData.scanH eq 0 then begin
+	   realtime_id.def = id_def[0:scanData.npd-1,1]
+	   label = labels[*,1]
+           scanData.req_npts = num_pts[1]
+           scanData.act_npts = cpt[1]
+	   scanData.pv = pv[1]
+		maxno=1
+	   end
+	end
+	if dim eq 3 then begin
 	   realtime_id.def = id_def[0:scanData.npd-1,1]
 	   label = labels[*,1]
 		maxno = cpt[2]
@@ -4566,8 +4592,10 @@ IF seq_no LE 0 THEN BEGIN
 	        scanData.pv = pv[1]
 	end
 	end
+	end
 
 	read_desc_engu,label 
+
 	scanData.p_def = realtime_id.def(0:3)
 
 	scanData.refno = 0 ;        scanData.refno = start_seqno
@@ -4581,21 +4609,6 @@ IF seq_no LE 0 THEN BEGIN
 
 ;  bring up the panimage window for 2D
 
-
-	if dim ge 2 and n_elements(da2D) gt 3 then begin
-; reset to whole panimage 
- widget_control,widget_ids.pickimin,set_slider_max=scanData.req_npts-1
- if scanData.imin gt scanData.req_npts-1 then $
-	scanData.imin = scanData.req_npts-1
- widget_control,widget_ids.pickimin,set_value=scanData.imin
-
-	scanData.scanno_2d = scanno
-;	if dim eq 2 then $
-;	update_2d_data,data_2d,num_pts[0],num_pts[1],da2D,id_def[*,0]
-;	if dim eq 3 then $
-;	update_2d_data,data_2d,num_pts[0],num_pts[1],da2D,id_def[*,1]
-	update_2d_data,data_2d,scanData.req_npts,scanData.y_req_npts,da2D
-	end
 END  ; end seqno le 0
 
 ;if dim eq 3 and sz(0) ne 3 then return  ; case of no detector found
@@ -4644,7 +4657,7 @@ ndet = scanData.nd 	; ndet = ceil( total(id_def(4:npd-1,0)) )
 	end
 
 ndet=scanData.lastDet(0)
-; if scanH then ndet = scanData.lastDet(1)
+if scanH and scanDATA.scanH eq 0 then ndet = scanData.lastDet(1)
 if dim eq 3 then ndet = scanData.lastDet(1)
 
 ; sz3 = size(da3D)
@@ -4658,17 +4671,23 @@ if dim eq 3 and sz(0) eq 3 then ndet = sz(3)
 
 act_npts = cpt[0]
 if dim eq 3 then act_npts = num_pts[1]
+if scanH and scanData.scanH eq 0 then act_npts = num_pts[1]
 scanData.act_npts = act_npts 
 
 if act_npts gt 0 then begin
 for i=0,3 do begin
-;        if id_def[i,0] gt 0 then begin
         if realtime_id.def[i] gt 0 then begin
-;	if dim eq 3 and scanH eq 0 then $
-;	scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,i] else $
-;	scanData.pa(0:act_npts-1,i) = pa3D[0:act_npts-1,i] 
-	if dim ge 2 or scanH then $
-	scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,i] 
+	if dim ge 2 then begin 
+	if n_elements(pa2D) gt 1 then begin
+	  act_npts = sz(1)
+	  scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,i] 
+	end
+	if dim eq 2 and n_elements(pa1D) gt 1 then $
+	   if scanData.scanH eq 0 and scanH then begin
+	   act_npts = sz(2)
+	   scanData.pa(0:act_npts-1,i) = pa1D[0:act_npts-1,i] 
+	   end
+	end
 	if dim eq 1 then $
 	scanData.pa(0:act_npts-1,i) = pa1D[0:act_npts-1,i] 
         end
@@ -4679,10 +4698,11 @@ end
 for i=0,ndet-1 do begin
         if realtime_id.def[4+i] gt 0 then begin
 	if dim eq 2 then begin
+		if scanData.scanH eq 0 and scanH then $
+		scanData.da(0:sz(2)-1,i) = da1D[0:sz(2)-1,i] else $
 		scanData.da(0:sz(1)-1,i) = da2D[0:sz(1)-1,scanData.y_seqno,i] 
 	end
 	if dim eq 3  then begin   ; one-level down from outter loop
-;		cpt2 = cpt(2)-1
 		scanData.da(0:num_pts(1)-1,i) = da2D[0:num_pts(1)-1,scanData.y_seqno,i]
 	end
 	if dim eq 1 then $
@@ -4694,6 +4714,7 @@ end
 ; reset for 1D plot  
 if scanH then scanData.lastDet(0) = ndet
 
+if dim eq 2 and scanH and scanData.scanH eq 0 then seq_no=1
 w_plotspec_id.seqno = seq_no
 w_viewscan_id.seqno = seq_no
 
@@ -4716,6 +4737,8 @@ w_viewscan_id.seqno = seq_no
 	if dim eq 3 then w_plotspec_array(0) = pv(1)
 
 	if dim ge 2 then w_plotspec_array(0) = w_plotspec_array(0) +' @ y('+strtrim(scanData.y_seqno+1,2)+')' +'='+strtrim(yvalue,2)
+	if dim eq 2 and scanH and scanData.scanH eq 0 then $
+		w_plotspec_array(0) = scanData.pv
 
 	; x positional axis picked
 	ix = w_plotspec_id.xcord
@@ -6772,6 +6795,60 @@ PRO user_scan_init, GROUP=Group
 
   XMANAGER, 'user_scan_init', user_scan_init
 END
+
+PRO catch1d_get_pvtcolor,i,color
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+; 24 bits
+	if n_elements(R_ORIG) eq 0 then $
+	catch1d_get_pvtct
+	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
+;	plot,indgen(10),color=color
+END
+
+PRO catch1d_load_pvtct,ctfile
+	if n_params() eq 0 then restore,'catch1d.tbl' else $
+	restore,ctfile
+	tvlct,red,green,blue
+	xpalette
+END
+
+PRO catch1d_save_pvtct
+	tvlct,red,green,blue,/get
+	save,red,green,blue,file='catch1d.tbl'
+END
+
+PRO catch1d_get_pvtct,red,green,blue
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+
+; 8 bit visual
+
+	if  !d.n_colors lt 16777216 then begin
+		tvlct,red,green,blue,/get
+	endif else begin
+
+; 24 bit visual
+	file = 'catch1d.tbl'
+	found = findfile(file)
+	if found(0) eq '' then begin
+		file =getenv('EPICS_EXTENSIONS_PVT')+'/idllib/catch1d.tbl'
+		found1 = findfile(file)
+		if found1(0) eq '' then $
+		file =getenv('EPICS_EXTENSIONS')+'/idllib/catch1d.tbl'
+		end
+	restore,file
+	tvlct,red,green,blue
+	end
+
+; set ORIG color 
+
+	R_ORIG = red
+	G_ORIG = green
+	B_ORIG = blue
+
+	LOADCT,39
+END
+
+
 ;
 ;  DC.pro
 ;
@@ -6987,7 +7064,27 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 	sscan,file=scanData.trashcan
 	END
   'ViewData.1D_OVERLAY...': BEGIN
-	r = dialog_message('1D_OVERLAY not available yet !!',/info)
+	overlay_1d,path=scanData.path,Group=Event.top
+	END
+  'ViewData.1D_CALIBRA...': BEGIN
+	dim = *(*gD).dim
+	if dim eq 1 then begin
+	scanno = *(*gD).scanno
+	id_def = *(*gD).id_def
+	pa1d = *(*gD).pa1D
+	da1d = *(*gD).da1D
+	sz = size(da1d)
+	nd = sz(2)
+	def = id_def(4:4+nd-1,dim-1)
+	if sz(0) eq 2 then begin
+	calibration_factor,da1d,def,xv=pa1d,classname=w_plotspec_array(3), $
+		dnames=scanData.DI(0:nd-1), $
+		title='1D OVERLAY',inpath=scanData.path, $
+		format=scanData.format,GROUP=group
+	end
+	endif else begin
+	r = dialog_message('File is not 1D scan !!',/info)
+	end
 	END
   'ViewData.IMAGE2D...': BEGIN
 	dim = *(*gD).dim
@@ -7008,6 +7105,7 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 
 	; if first 70 detectors option set by user
 	if scanData.svers then begin
+		if sz(3) gt scanData.nd then $
 		det_def = det_def(0:scanData.nd-1)
 		nd = max(where(det_def > 0))
 		if nd(0) eq -1 then return
@@ -7790,10 +7888,9 @@ end ;     end of if scanData.option = 1
         5: ret = indgen(10) +50 
         6: ret = indgen(10) +60 
         7: ret = indgen(15) +70 
-        8: begin
-		ret = indgen(scanData.npd-4) 
-	   end
+        8: ret = indgen(scanData.npd-4) 
 	9: ret = -1
+	10: ret = indgen(scanData.npd-15-4) + 15 
         ENDCASE
 	if ret(0) ge scanData.nd then return
         scanData.sel_list = ret 
@@ -7871,6 +7968,10 @@ end ;     end of if scanData.option = 1
 		sel=wf_sel(0:scanData.num_det-1), $
 		title=scanData.trashcan,group=Event.top
 	END
+  'PICK_SCANH': BEGIN
+	scanData.scanH = Event.Index
+	scan_read,1,-1,0,maxno    ; no read desired
+	END
   'PICK_PS': BEGIN
         ratio = .5 ^ Event.Index
         PS_open,'1d.ps',scale_factor=ratio
@@ -7941,7 +8042,7 @@ end ;     end of if scanData.option = 1
 ;	if ln lt 0 or scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 then begin
 	if ln le 0 or w_plotspec_id.scan eq 0 then begin
 		UPDATE_PLOT, scanData.lastPlot 
-		return
+;		return
 	end
 	if realtime_id.ind eq 1 then begin
                         realtime_id.ymin =0.
@@ -8426,6 +8527,12 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;       03-17-2004 bkc  R3.2
 ;                       fix 1D line plot color use from the 'catch1d.tbl'
 ;			fix image2d normalization color scheme
+;       06-17-2004 bkc  R3.3
+;			1D PS plot now support colored PostScript Printer
+; 			Add support of 1D_OVERLAY... to overlay 1D plot of 
+;			selected multiple 1D arrays from different file
+;			Add support of 1D_CALIBRA... plot to manupulate 
+;			1D data vectors from a selected 1D scan file 
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8450,7 +8557,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 	/KBRD_FOCUS_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R3.2)', $
+      TITLE='scanSee ( R3.3)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -8484,6 +8591,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
         { CW_PDMENU_S,       0, '1D/2D...' }, $ ;        1
         { CW_PDMENU_S,       0, 'IMAGE2D...' },  $ ;        3
         { CW_PDMENU_S,       0, '1D_OVERLAY...' },  $ ;        3
+        { CW_PDMENU_S,       0, '1D_CALIBRA...' },  $ ;        3
         { CW_PDMENU_S,       2, 'SSCAN(1D/2D/3D)...' }  $ ;        3
 	]
 
@@ -8651,8 +8759,8 @@ if keyword_set(autoscan) then $
   label145 = widget_label(BASE144_3,value='Images')
   ; add sublist panimage
 
-l123 = ['D1-DA','DB-D05','D06-D15','D16-D25','D26-D35','D36-D45','D46-D55','D56-D70','ALL','NONE']
-l123_1 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D71-D85','ALL','NONE']
+l123 = ['D1-DA','DB-D05','D06-D15','D16-D25','D26-D35','D36-D45','D46-D55','D56-D70','ALL','NONE','D01-D70']
+l123_1 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D71-D85','ALL','NONE','D01-D70']
 
   pick_panimage = WIDGET_DROPLIST(BASE144_3, VALUE=l123, $
 	UVALUE='PICK_PANIMAGE')
@@ -8672,6 +8780,9 @@ l123_1 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70',
   pick_PS = WIDGET_DROPLIST(BASE144_2, VALUE=['1','1/2','1/4'], $
         UVALUE='PICK_PS',TITLE='PS ratio')
   WIDGET_CONTROL,pick_PS,set_droplist_select = 1
+
+  pick_scanH = WIDGET_DROPLIST(BASE144_2, VALUE=['scan1','scanH'], $
+        UVALUE='PICK_SCANH',TITLE='1D:')
 
 ; set drawing area as wide as window width
 win_state = WIDGET_INFO(MAIN13_1, /GEOMETRY)
