@@ -1,0 +1,130 @@
+ScanSee  program provides a convenient IDL widget tool of displaying various 
+1D/2D/3D scans saved by the IOC scan software.  This program can also serve as 
+an approximate tool of displaying the realtime 1D/2D/3D scan data. The input 
+raw scan data is automatically saved by the IOC in XDR format. 
+
+This program can operate either in scan mode or view data mode. Since both 
+modes share the same 1D drawing area, if a user want to see the realtime data 
+1D plot while scan is going on, he should let the scan mode grab the control 
+of the 1D drawing area.
+
+This program provide a ViewData menu which allows the user easily to access 
+the various scan browser sub-programs based on the type of 1D/2D/3D scan picked.
+The ViewData->1D/2D... menu can bring up either W_VIEWSCAN or stand alone
+scan browser (SB). If scan is going on, to avoid the interference of realtime 
+plot, the stand alone SB (scan browser) is brought up. If no scan is going 
+on, the W_VIEWSCAN program is brought up.  
+
+For the first time to start scanSee a user should use File->Open... to select
+the input scan file from the appropriate data directory. The input file name is 
+automatically created by the scan saveData file system. The scan files
+are sequenced accoding to the saveData sequence number. At the normal 
+completion of the scanSee program a configuration file "DC.config"
+is created or updated at the current startup directory. The configuration file
+"DC.config" later on will be used for easy re-start.
+
+Please refer http://www.aps.anl.gov/~cha/scanSee.html for additional infomation
+about scanSee package.
+
+The functionality of user interface in DC.pro is given below: 
+
+File Menu
+    Open...     - use the file selection dialog picking the desired scan file
+		  (always re-use this option to pick another file if file 
+	           open error detected in scanSee)
+    Printer...  - dialog overrides the default output printer
+    Quit        - exit the scanSee IDL program 
+
+Setup Menu
+    Acquisition - turn acquisition on/off
+		  (if user want to view other old scan while realtime scan is 
+		   going on, he/she can turn Acquisition to Off to avoid the
+		   the realtime and viewing mode interference, let the viewing
+		   program temporarily to possess the 1D drawing area)
+    Realtime    - turns 1D realtime plot on/off
+    TextWin     - turns 1D realtime text window on/off
+    Debug       - turns debug message on/off
+    Scan...     - sets up monitored scan1 and scan2 record PV name
+    Color...    - calls the xloadct routine
+
+Plot Options Menu
+    Colors      - selects 1D plot in Color/Black&White
+    Lines       - selects line style in Dotted/Solid only
+    Symbols     - sets line plot in Line / Symbol / both
+    Grid        - sets grid line Off/On
+    Error Bar   - sets 10% error bar Off/On
+    Y Scale     - sets y axis in Linear / Linear (y>0) / Log
+    Ranges...   - dialog sets 1D plot ranges
+    Labels...   - dialog sets 1D plot title and lebels  
+
+ViewData Menu
+    1D/2D...    - calls 1D/2D W_VIEWSCAN sub-program or SB (scan browser)
+    1D/2D/3D... - calls stand alone system program SB (scan browser) 
+                  (for 1D/2D/3D scan file)
+    PICK3D...   - calls stand alone system program pick3d 
+		  (target for large dimension 3D scan file)
+
+Print Menu
+    Plot        - sends 1D plot to printer
+    Report...   - dialog sets up various 1D ascii report option
+
+Zoom Menu
+    Zoom to Box - positions and resizes the 1D drawing box
+    Zoom In/Out - zoom in/out the 1D drawing area 
+    Calc Slopes - sets 1D drawing area slope calc mode
+    Zoom Off(AutoScale) - sets default auto scale 1D plot
+    User Scales...      - dialog sets 1D plot ranges
+
+
+Statistic Menu
+    None              - turns off statistic calculation
+    Pick/Centroid/FWHM on Plot - writes pick/centroid/FWHM on plot
+    Pick/Centroid/FWHM... - writes pick/centroid/FWHM on plot plus text window
+    FWHM on Y
+	One...        - uses plot1d to show FWHM on Y for 1st picked curve
+	All...        - uses plot1d to show FWHM on Y for all 1D curves 
+    FWHM on DY/DX
+	One...        - uses plot1d to show FWHM on DY/DX for 1st picked curve
+	All...        - uses plot1d to show FWHM on DY/DX for all 1D curves
+    Average/Deviation ... - writes averate and deviation on plot plus text window
+
+Fitting Menu
+    Ez_Fit...         - call EZ_FIT program with 1D data array
+    1D Binary         - saves binary 1D XDR data array in fitting.bin1d
+    
+Help Menu
+    Version...        - show version #
+    Release Note...   - show release note
+    Help...           - show this help page
+
+Status Field
+    The status text field shows the monitored status of the scan record,
+    current 1D points acquired during 1D/2D scan.
+
+Filename Label
+    The full path filename indicates the current file name picked.
+
+Less/More Button
+    Reduces/Restores the information displayed in 1D realtime window.
+ 
+1D Drawing Area
+    Plot 1D curves for all selected detectors, plus filename, scan #, etc...
+	
+DI Group Buttons
+    Group of detector selection buttons for a given 1D data array.
+
+Xaxis Droplist (#/P1/P2/P3/P4)
+    Set plot X axis, default is positioner vector of P1. 
+    If no positioner is defined, index vector # should be used.
+
+Images Droplist
+    Select the detector list to be plotted in the realtime pan Image window. 
+    Default all defined detectors will be plotted in the pan Image window.
+	Di-Dj    - strip of detector Di to Dj is selected
+        All      - including first to last detector 
+
+2D Image List
+    Select the desired realtime pan Image window size 
+        Small    - set pan Image cell size to 60x60 pixels
+        Large    - set pan Image cell size to 120x120 pixels
+	Di       - select detector Di image & plot in 200x200 pixels window
