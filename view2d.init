@@ -139,5 +139,5 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
    WIDGET_CONTROL, widget_ids.x_max, SET_VALUE = view_option.width
    WIDGET_CONTROL, widget_ids.x_min, SET_VALUE = 0
 
-   LOADCT,39      ;load a usable color table
+;   LOADCT,39      ;inherit from the parent
 
