@@ -1,6 +1,6 @@
 #!/bin/csh -f
 # 
-# usage: catcher [-h -v -n  -c test.config -d test.trashcan -e test.env ] 
+# usage: catcher [-h -v -n -D -c test.config -d test.trashcan -e test.env ] 
 #
 # Author: Ben-chin Cha
 # 
@@ -9,6 +9,8 @@ if ("$1" == "-h" | "$1" == "-help") then
 endif
 source $EPICS_EXTENSIONS/bin/$HOST_ARCH/setup_ezcaIDL
 set x = "" ; set y = ""; set z=""; set w=""; set v=""
+set xf=""; set yf=""; set zf=""; set wf=""; set vf=""
+set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe"
 if -e catch1d.config then
 	cp catch1d.config catch1d.config.tmp
 endif
@@ -16,18 +18,31 @@ endif
 while ( "$1" !=  "" )
 if ( "$1" == "-n" | "$1" == "-N" | "$1" == "-Nosave" ) then 
 	set w = 'nosave=1'
+	set wf = "scanData.nosave='1'"
 	shift
-endif
-if ( "$1" == "-v" | "$1" == "-V" | "$1" == "-ViewOnly" ) then 
-	set v = 'viewonly=1'
-	shift
-endif
 
-if ("$2" != "") then 
+else if ( "$1" == "-v" | "$1" == "-V" | "$1" == "-ViewOnly" ) then 
+	set v = 'viewonly=1'
+	set vf = "scanData.option='0'"
+	shift
+
+else if ( "$1" == "-D" ) then 
+	set exe =''
+	shift
+
+else if ( "$1" == "-c" | "$1" == "-d" | "$1" == "-e" ) then 
+	if ( "$2" == "") then 
+	echo "Usage: catcher [-h] [-v] [-n] [-D] [-c config_file] [-d data_file] [-e env_file]" 
+	echo ""
+	exit
+	endif
+
+   if ("$2" != "") then 
    switch("$1")
    case -config:  
    case -c:  
 	set x = 'config''="'$2'"' 
+	set xf = "scanData.config=""'"$2"'"
 	if -e $2 then
 		cp $2 catch1d.config.tmp
 	else 
@@ -37,46 +52,62 @@ if ("$2" != "") then
    case	-envfile:  
    case -e:
 	set y = 'envfile''="'$2'"'
+	set yf = "scanData.envfile=""'"$2"'"
 	breaksw
    case	-data:  
    case	-d:  
 	set z = 'data''="'$2'"'
+	set zf = "scanData.trashcan=""'"$2"'"
 	breaksw
    default:
 	breaksw
    endsw
    shift; shift
-endif
+   endif
+else 
+	echo "Usage: catcher [-h] [-v] [-n] [-D] [-c config_file] [-d data_file] [-e env_file]" 
+	echo ""
+	exit
+endif 
 end
 
 set xyz = "catcher_v1"
+	echo "" >! go_catcher2
 
 if ("$x" != "") then
 	set xyz = $xyz','$x
+	echo $xf >>! go_catcher2
 endif
 if ("$y" != "") then
  	set xyz = $xyz','$y
+	echo $yf >>! go_catcher2
 endif
 if ("$z" != "") then
 	 set xyz = $xyz','$z
+	echo $zf >>! go_catcher2
 endif
 if ("$w" != "") then
 	 set xyz = $xyz','$w
+	echo $wf >>! go_catcher2
 endif
 if ("$v" != "") then
 	 set xyz = $xyz','$v
+	echo $vf >>! go_catcher2
 endif
-echo $xyz >! go_catcher
-cat go_catcher
-	idl go_catcher 
+echo ".run catcher_v1" >! go_catcher
+echo ".run catch1d_user" >>! go_catcher
+echo $xyz >>! go_catcher
+
+	idl $exe go_catcher
+	rm go_catcher2
 exit
 help::
 echo  ""
 echo NAME
-echo "      catcher - run the EPICS IDL data catcher program "
+echo "      catcher - run the EPICS IDL data catcher with runtime license"
 echo ""
 echo SYNOPSIS
-echo "      catcher [-c file.config] [-d file.data] [-e file.env] [-h] [-n] [-v]"
+echo "      catcher [-c file.config] [-d file.data] [-e file.env] [-h] [-n] [-v] [-D]"
 echo ""
 echo DESCRIPTION
 echo "     catcher provides the user with very flexible file specification"
@@ -130,6 +161,9 @@ echo ""
 echo "     -v     Start the data catcher as view only mode, no new scan data"
 echo "            will be captured for this mode."
 echo "            Configuration file will not be updated."
+echo ""
+echo "     -D     This option overrides the using of default IDL run time license "
+echo "            by the developer IDL license at APS."
 echo ""
 echo EXAMPLES
 echo "     catcher -c test.config -d test.data -e test.env "
