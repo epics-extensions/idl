@@ -735,7 +735,7 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
 
   panImage_3d = WIDGET_BUTTON( BASE5_2, $
       UVALUE='PICK3D_PANIMAGE', $
-      VALUE='3D PanImages...')
+      VALUE='PanImages...')
 
   Btns1422 = [ $
     'X', $
