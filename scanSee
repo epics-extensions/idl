@@ -7,7 +7,6 @@ if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif
 
-#source /usr/local/rsi/idl_5.1/bin/idl_setup
 
 setenv IDL_DEVICE X
 
@@ -19,8 +18,16 @@ endif
 
 set xdr = "DC"
 
-echo ".run DC" >! go_viewer
-echo ".run vw2d" >>! go_viewer
+echo ".run read_scan.pro.R2" >! go_viewer
+echo ".run readScan.pro.R2" >>! go_viewer
+echo ".run DC.pro.R2.1" >>! go_viewer
+echo ".run vw2d.pro.R2.1" >>! go_viewer
 echo "$xdr" >>! go_viewer
-idl go_viewer
+if `isainfo -b` == 64 then
+	source /usr/local/rsi/idl_5.4/bin/idl_setup
+	idl -32  go_viewer
+else
+	source /usr/local/rsi/idl_5.3/bin/idl_setup
+	idl go_viewer
+endif
 rm go_viewer
