@@ -21,24 +21,36 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	width = statistic_2dids.width ; sz(1)
 	height = statistic_2dids.height ; sz(2)
 
-	image = congrid(im,xw,yw)
-	tvscl,image,xl,yl
+;	image = congrid(im,xw,yw)
+;	tvscl,image,xl,yl
 
-	r = defroi(xw,yw,xverts,yverts,x0=xl,y0=yl)  
-	xv = ceil(xverts/statistic_2dids.factor(0))
-	yv = ceil(yverts/statistic_2dids.factor(1))
-	arr = polyfillv(xv,yv,width,height)
+;	r = defroi(xw,yw,xverts,yverts,x0=xl,y0=yl)  
+;	xv = ceil(xverts/statistic_2dids.factor(0))
+;	yv = ceil(yverts/statistic_2dids.factor(1))
+;	arr = polyfillv(xv,yv,width,height)
 
+	zoom = [xw/sz(1),yw/sz(2)]
+	tvscl,congrid(im,xw,yw),xl,yl
+	r = defroi(xw+1,yw+1,xv,yv,x0=xl,y0=yl)  
+	xverts = xv / statistic_2dids.factor(0)
+	yverts = yv / statistic_2dids.factor(1)
+	xverts = fix(xverts+.5)
+	yverts = fix(yverts+.5)
+	arr = polyfillv(xverts,yverts,statistic_2dids.width,statistic_2dids.height)
 	if n_elements(arr) eq 1 then begin
-		res = dialog_message('Too small polygon area picked for this image !!',/Error)
+		res = dialog_message('At least two elements must be picked for polygon region defined !!',/Error)
 		return
 	endif else begin
 		res = dialog_message('Do you want to over-write the old polygon ROI ?',/question)
 		if res eq 'No' then return
 	end
 	
-		statistic_2dWritePolyROI,xverts,yverts
-;print,arr
+	statistic_2dids.roi_nelem = n_elements(arr)
+	statistic_2dids.roi_elist = 0
+	statistic_2dids.roi_elist = arr
+
+;	statistic_2dWritePolyROI,xverts,yverts,r_index
+	statistic_2dWritePolyROI,xv,yv,arr
 END
 
 PRO statistic_2dPlot
@@ -102,24 +114,28 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	statistic_2dids.cross = 0
 END
 
-PRO statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr
+PRO statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr,r_index
 COMMON STATISTIC_2DBLOCK, statistic_2dids
 	u_openr,unit,statistic_2dids.picked,/XDR
-	 u_read,unit,xverts
-	 u_read,unit,yverts
+	 u_read,unit,xv
+	 u_read,unit,yv
 	u_close,unit	
+	statistic_2dids.roi_elist = 0
 
-	xv = ceil(xverts / statistic_2dids.factor(0))
-	yv = ceil(yverts / statistic_2dids.factor(1))
-	arr = polyfillv(xv,yv,statistic_2dids.width,statistic_2dids.height)
+	xverts = fix(xv / statistic_2dids.factor(0)+.5)
+	yverts = fix(yv / statistic_2dids.factor(1)+.5)
+	arr = polyfillv(xverts,yverts,statistic_2dids.width,statistic_2dids.height)
+	statistic_2dids.roi_nelem = n_elements(arr)
+	statistic_2dids.roi_elist = arr
 
 END
 
-PRO statistic_2dWritePolyROI,xverts,yverts
+PRO statistic_2dWritePolyROI,xverts,yverts,r_index
 COMMON STATISTIC_2DBLOCK, statistic_2dids
 	u_openw,unit,statistic_2dids.picked,/XDR
 	 u_write,unit,xverts
 	 u_write,unit,yverts
+;	 u_write,unit,r_index
 	u_close,unit	
 END
 
@@ -129,12 +145,14 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	found = findfile(statistic_2dids.picked)
 	if found(0) eq '' then return
 	
-	statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr
+;  xverts,yverts in data index
+;  xv,yv in  pixels
+	statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr,r_index
 
 device,get_graphics_function=oldGraphFunc
 device,set_graphics_function=6
-	polyfill,xverts+statistic_2dids.margin_l, $
-		yverts+statistic_2dids.margin_b, $
+	polyfill,xv+statistic_2dids.margin_l, $
+		yv+statistic_2dids.margin_b, $
 		/dev,color = !d.table_size-1,/noclip
 device,set_graphics_function=oldGraphFunc
 
@@ -159,7 +177,7 @@ device,set_graphics_function=oldGraphFunc
 
 	statistic_2dids.roi_nelem = nelem
 	for ij=0,nelem-1 do begin
-		j = temp_ind(ij) / width
+		j = temp_ind(ij) / width 
 		i = temp_ind(ij) MOD width
 		temp(ij) = im(i,j)
 	end 
@@ -220,12 +238,14 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	for i=0,width-1 do begin
 	if im(i,j) ge lower_b and im(i,j) le upper_b then begin
 		temp(ij) = im(i,j)
-		temp_ind(ij) = i+ j*height
+		temp_ind(ij) = i+ j*width
 		ij=ij+1
 		end
 	end
 	end
 	statistic_2dids.roi_nelem = nelem
+	statistic_2dids.roi_elist = 0
+	statistic_2dids.roi_elist = temp_ind
 	endif else begin
 		res = dialog_message('ROI too small, at least 2 elements has to be selected',/Info)
 		temp=im * 0 
@@ -283,7 +303,6 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 ;	ybox = ybox + statistic_2dids.margin_b
 ;	plots,xbox,ybox,/device,thick=2
 ;	endif else device,set_graphics_function=6
-
 st=['You are in the define rectangular ROI mode', $
 	'Press and move LMB to select the ROI', $
 	'Release and move LMB to show the ROI box']
@@ -305,7 +324,10 @@ while(!err eq 1) do begin
 	plots,[x1,x2,x2],[y1,y1,y2],/device,thick=2
 	plots,[x1,x1,x2],[y1,y2,y2],/device,thick=2
 endwhile
-
+if  n_elements(x2) eq 0 then begin
+	device,set_graphics_function=3
+	return
+end
 statistic_2dids.x1 = x1 - statistic_2dids.margin_l
 statistic_2dids.x2 = x2 - statistic_2dids.margin_l
 if x2 lt x1 then begin 
@@ -407,6 +429,17 @@ statistic_2dids.yrange[1] = fix(statistic_2dids.y2/statistic_2dids.factor[1]) ;+
 	res = dialog_message('ROI is too small! Try again.',/Error)
 	return
 	end
+
+	for j=statistic_2dids.yrange(0),statistic_2dids.yrange(1) do begin
+	for i=statistic_2dids.xrange(0),statistic_2dids.xrange(1) do begin
+		ij = j*statistic_2dids.width + i
+		if n_elements(elist) eq 0 then elist = ij else $
+		elist = [elist, ij]
+	end
+	end
+	statistic_2dids.roi_nelem = n_elements(elist)
+	statistic_2dids.roi_elist = 0
+	statistic_2dids.roi_elist = elist
 
 	result = moment(temp2,mdev=mdev,sdev=sdev)
 	temp_max = max(temp2,jmax)
@@ -719,6 +752,7 @@ end
 		'Right button to close polygon region']
 	WIDGET_CONTROL,statistic_2dids.message,SET_VALUE=text
 		defroi_congrid,statistic_2dids.im0,arr,xverts,yverts
+scan2d_ROI_default
 	statistic_2dPlot
 	WIDGET_CONTROL,statistic_2dids.message,SET_VALUE='**Press MMB to Query Pixel Values**'
 	END
@@ -870,7 +904,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	if statistic_2dids.back eq 2 then begin
 		printf,1,'ROI: Polygon region defined in ',statistic_2dids.picked
 
-		statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr
+		statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr,r_index
 
 if keyword_set(debug) then begin
 print,xverts
@@ -880,15 +914,15 @@ print,yv
 print,arr
 end
 
-	printf,1,'Xverts index:',xv
-	printf,1,'Yverts index:',yv
+	printf,1,'Xverts index:',xverts
+	printf,1,'Yverts index:',yverts
 		if n_elements(arr) eq 1 then begin
 			printf,1,'The polygon ROI is not suitable for this image.'
 			close,1
 			return
 		end
 	endif else begin
-	if statistic_2dids.back eq 0 then $ 
+	if statistic_2dids.back eq 0 then  begin 
 		printf,1,'ROI: Rectangle region defined in ',statistic_2dids.file
 	printf,1,'ROI in index: [',strtrim(xrange(0),2),':', $
 		strtrim(xrange(1),2),', ', $
@@ -898,11 +932,28 @@ end
 		strtrim(statistic_2dids.x(xrange(1)),2),', ', $
 		strtrim(statistic_2dids.y(yrange(0)),2),':', $
 		strtrim(statistic_2dids.y(yrange(1)),2),'] ' 
+
+		for j=yrange(0),yrange(1) do begin
+		for i=xrange(0),xrange(1) do begin
+		ij = j*statistic_2dids.width+i
+		if n_elements(arr) eq 0 then arr = ij else arr= [arr,ij]
+		end
+		end
 	end
 	printf,1,''
-	if statistic_2dids.back eq 1 then $ 
+	if statistic_2dids.back eq 1 then begin 
+	for j=0,statistic_2dids.height-1 do begin
+	for i=0,statistic_2dids.width-1 do begin
+	if statistic_2dids.im0(i,j) ge statistic_2dids.backave and statistic_2dids.im0(i,j) le statistic_2dids.backave2 then begin
+		ij = j*statistic_2dids.width+i 
+		if n_elements(arr) eq 0 then arr = ij else arr = [arr,ij]
+		end
+	   end
+	   end
 	printf,1,'Filter Low and High Values: ['+strtrim(statistic_2dids.backave,2)+','+ $
 		strtrim(statistic_2dids.backave2,2)+']'
+	end
+	end
 	printf,1,'ave = ',statistic_2dids.roi_ave
 	printf,1,'dev = ',statistic_2dids.roi_dev
 	printf,1,'min = ',statistic_2dids.roi_min
@@ -910,6 +961,22 @@ end
 	printf,1,'total = ',statistic_2dids.roi_total
 	printf,1,'nelem = ',statistic_2dids.roi_nelem
 	printf,1,''
+	printf,1,'       N         I            J    IM(I,J)    IM(I,J)-ave   ROI'
+	printf,1,'         ---------------------------------------------------'
+
+	for ij=0,statistic_2dids.roi_nelem-1 do begin
+		i = arr(ij) MOD statistic_2dids.width
+		j = arr(ij) / statistic_2dids.width
+		if statistic_2dids.back eq 0 then $
+		  printf,1,ij,i,j,statistic_2dids.im0(i,j), $
+		   statistic_2dids.im0(i,j)-statistic_2dids.roi_ave,"   RECT"
+		if statistic_2dids.back eq 1 then $
+		  printf,1,ij,i,j,statistic_2dids.im0(i,j), $
+		   statistic_2dids.im0(i,j)-statistic_2dids.roi_ave,"   FILTER"
+		if statistic_2dids.back eq 2 then $
+		  printf,1,ij,i,j,statistic_2dids.im0(i,j), $
+		   statistic_2dids.im0(i,j)-statistic_2dids.roi_ave,"   POLY"
+	end
 	close,1
 
 END
@@ -1115,6 +1182,7 @@ ysize = 300
 	min_i: jmin MOD width, $
 	min_j: jmin / width, $
 	roi_nelem: width*height, $
+	roi_elist: make_array(width*height,/byte), $
 	roi_min: im_min, $
 	roi_max: im_max, $
 	roi_total: total(im), $
