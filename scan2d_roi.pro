@@ -455,7 +455,22 @@ statistic_2dids.yrange[1] = fix(statistic_2dids.y2/statistic_2dids.factor[1]) ;+
 	print,'yrange',statistic_2dids.yrange
 	end
 
+	xrange = statistic_2dids.xrange
+	if xrange(1) lt xrange(0) then begin
+		statistic_2dids.xrange(0) = xrange(1)
+		statistic_2dids.xrange(1) = xrange(0)
+		end
+	yrange = statistic_2dids.yrange
+	if yrange(1) lt yrange(0) then begin
+		statistic_2dids.yrange(0) = yrange(1)
+		statistic_2dids.yrange(1) = yrange(0)
+		end
 	im0 = *statistic_2dids.im0
+	sz = size(im0)
+	if sz(0) eq 2 then begin
+	  if statistic_2dids.xrange(1) ge sz(1) then statistic_2dids.xrange(1) = sz(1)-1
+	  if statistic_2dids.yrange(1) ge sz(2) then statistic_2dids.yrange(1) = sz(2)-1
+	end
 	temp2 = im0(statistic_2dids.xrange(0):statistic_2dids.xrange(1),$
 		statistic_2dids.yrange(0):statistic_2dids.yrange(1))
 	if n_elements(temp2) lt 2 then begin
@@ -1128,6 +1143,7 @@ PRO scan2d_ROI,im,x,y,debug=debug,header=header,roifile=roifile,rptfile=rptfile,
 ; 	Written by:	Ben-chin Cha, June 23, 1999.
 ;       01-24-2001  bkc R1.1
 ;                       Handle large image array, improve the efficiency
+;       12-05-2003  bkc Fix the problem of inverse order of ROI
 ;-
 
 ;
