@@ -188,13 +188,10 @@ PRO NX::Getfid,fids,file=file, nowin=nowin
 ; get all file annotations
 ;
 	filename = self.file	
-	fid = self.fid
-	if keyword_set(file) then begin
-		filename=file
-		fid = HDF_OPEN(filename)
-		end
+	if keyword_set(file) then filename=file
 	str0 = 'File: '+filename
 
+	fid = HDF_OPEN(filename)
 	if fid eq -1 then begin
 		xdisplayfile,text=[str0, '', 'Failed to open HDF file.']
 		return
@@ -210,7 +207,7 @@ PRO NX::Getfid,fids,file=file, nowin=nowin
 		fids = [fids,ids]
 	endwhile
 	end
-	if keyword_set(file) then HDF_CLOSE,fid
+	HDF_CLOSE,fid
 
 	if self.debug then $
 	xdisplayfile,text=fids,title='NX::getfid,fids'
@@ -397,13 +394,12 @@ end
 		goto,final_step
 	end
 
-;	sd_id = hdf_sd_start(filename,/rdwr)
-	sd_id = self.sd_id
+	sd_id = hdf_sd_start(filename,/rdwr)
 	index = hdf_sd_attrfind(sd_id,name)
 	if index ne -1 then begin
 	hdf_sd_attrinfo,sd_id,index,name=nm,count=len,type=ty,data=data
 	end
-;	HDF_SD_END, sd_id
+	HDF_SD_END, sd_id
 	output='Find global attribute with Name : '+name
 
 final_step:
@@ -414,6 +410,7 @@ final_step:
 END
 
 PRO NX::Open,filename, gname=gname, gclass=gclass, $
+	create=create, append=append, $
 	location = location, $
 	user_name = user_name, $
 	user_email = user_email, $
@@ -439,6 +436,7 @@ PRO NX::Open,filename, gname=gname, gclass=gclass, $
 ; KEYWORDS:
 ;     Following keywords are used in NX HDF file creation.
 ;
+;     Create:     It is required if the new HDF file to be created
 ;     Gname:      Specifies entry group name, default to 'entry_default'
 ;     Gclass:     Specifies entry group class name, default to 'NXdefault'
 ;     Program_name: HDF file associated with program name
@@ -469,6 +467,8 @@ if n_elements(filename) eq 0 then begin
 	'','INPUT', $
 	'  File          - HDF file name', $
 	'KEYWORD', $
+	'  Append        - add new SDS or Group to the file', $
+	'  Create        - required, if a new hdf file to be created', $
 	'  Gname         - Default entry group name, e.g. entry_default', $
 	'  Gclass        - Default entry group class name, e.g. NXdefault', $
 	'  Program_name  - Associated program name', $
@@ -548,8 +548,7 @@ if found(0) eq '' then begin
 	HDF_VG_ADDTR,vg_id,vg_tag,ref
 	end
 	HDF_VG_DETACH,vg_id
-;	HDF_SD_END,sd_id
-	self.sd_id = sd_id          ; sd_id open or close only once
+	HDF_SD_END,sd_id
 
 print,'filename=',filename, ' created'
 
@@ -565,17 +564,15 @@ endif else begin
 
 	if self.fid gt 0 then self->close
 
-	fid  = HDF_OPEN(filename,/RDWR)
-	sd_id = HDF_SD_START(filename,/RDWR)
-	self.fid = fid
-	self.sd_id = sd_id
+	if keyword_set(append) then fid  = HDF_OPEN(filename,/RDWR) else $
+	fid  = HDF_OPEN(filename)
 
+	self.fid = fid
 
 	if self.debug eq 0 then return 
 	time1 = systime(1)
 	print,'HDF open used time = ',time1-time0, ' seconds.'
 end
-
 
 END
 
@@ -725,8 +722,7 @@ PRO NX::Close
 
 	time2 = systime(1)
 
-	HDF_SD_END,self.sd_id
-	if self.sd_id gt 0 then self.sd_id = 0 
+	;HDF_SD_END,self.sd_id
 	if self.fid gt 0 then hdf_close,self.fid
 	self.fid = -1 
 
@@ -934,7 +930,7 @@ END
 
 
 
-PRO NX::FindVg,seq,gid,output=str,name=name,class=class,nowin=nowin
+PRO NX::FindVg,seq,gid,output=str,name=name,class=class,nowin=nowin,seq_start=seq_start,seq_end=seq_end
 ;+
 ; NAME:
 ;	NX::FINDVG
@@ -954,6 +950,8 @@ PRO NX::FindVg,seq,gid,output=str,name=name,class=class,nowin=nowin
 ;     Gid:       Returns the array of matched group reference id 
 ;
 ; KEYWORDS:
+;     Seq_start: Specifies the start search  group sequence # 
+;     Seq_end:   Specifies the end search  group sequence # 
 ;     Name:      Specifies the group name to search for
 ;     Class:     Specifies the class name to search for
 ;     Output:    If specified, it returns the output strings. If debug option
@@ -1008,9 +1006,7 @@ if search eq 0 then begin
 	return
 	end
 
-;self->open,self.file
-
-fid = self.fid
+fid  = HDF_OPEN(self.file)
 
 id=-1
 tmp=(num=0)
@@ -1033,10 +1029,14 @@ if search eq 0 then str = 'List for: '
 if keyword_set(name) then str = str + " name='"+name+"'"
 if keyword_set(class) then str = str + ", class='"+class+"'"
 
+seq1 = 0
+seq2 = ng - 1
+if keyword_set(seq_start) then seq1 = seq_start
+if keyword_set(seq_end) then seq2 = seq_end
 seq = -1
 gid = -1
 str = [str,'','VGroups found:'] 
-for i= 0, ng -1 do begin
+for i= seq1,seq2 do begin
 	vg_hdl = HDF_VG_ATTACH(fid,vgroup_ids(i))   ;gid(i)
 	if vg_hdl gt 0 then begin
 	HDF_VG_GETINFO,vg_hdl,class=cl,name=na,NENTRIES=nume
@@ -1060,6 +1060,9 @@ for i= 0, ng -1 do begin
 	HDF_VG_DETACH,vg_hdl
 	end
 end
+
+HDF_CLOSE,fid
+
 	if self.debug eq 0 or keyword_set(nowin) then return
 	xdisplayfile,text=str,title='NX::findVg,name=name,class=class'
 END
@@ -1118,8 +1121,7 @@ PRO NX::PutVg,name=name,class=class,parent=parent,file=file
 	filename = self.file
 	if keyword_set(file) then filename = file
 
-;	fid = HDF_OPEN(filename,/RDWR)
-	fid = self.fid
+	fid = HDF_OPEN(filename,/RDWR)
 	vg_id = HDF_VG_ATTACH(fid,-1,/WRITE)
 	if vg_id gt 0 then begin
 	HDF_VG_SETINFO, vg_id, name=name, class=class
@@ -1137,7 +1139,7 @@ PRO NX::PutVg,name=name,class=class,parent=parent,file=file
 
 	HDF_VG_DETACH,vg_id
 	end
-;	HDF_close,fid
+	HDF_close,fid
 END
 
 
@@ -1235,7 +1237,8 @@ end
 END
 
 
-PRO NX::VG,seq,tags,refs,ent_name,ent_type,output=output,nowin=nowin,sdsdata=sdsdata
+
+PRO NX::VG,seq,tags,refs,output=output,nowin=nowin,nument=nument
 ;+
 ; NAME:
 ;	NX::VG
@@ -1245,7 +1248,7 @@ PRO NX::VG,seq,tags,refs,ent_name,ent_type,output=output,nowin=nowin,sdsdata=sds
 ;       group seq number in the NX HDF object.
 ;
 ; CALLING SEQUENCE:
-;       Obj->[NX::]VG, Seq [,Tags [,Refs]] [,Output=output][,Sdsdata=sdsdata]
+;       Obj->[NX::]VG, Seq [,Tags [,Refs]] [,Output=output]
 ;
 ; INPUT:
 ;     Seq:       Specifies the VGroup zero based seq number
@@ -1253,12 +1256,10 @@ PRO NX::VG,seq,tags,refs,ent_name,ent_type,output=output,nowin=nowin,sdsdata=sds
 ; OUTPUT:
 ;     Tags:      Returns the HDF tags of the entries in the VGroup
 ;     Refs:      Returns the HDF refs of the entries in the VGroup
-;     Ent_name:  Returns the name of the entries in the VGroup
-;     Ent_type:  Returns the type of the entries in the VGroup
-;                1 - Vgroup, 2 - VData, 3 - SDS data
 ;
 ; KEYWORDS:
-;     SDSDATA:   If specified, the subgoup SDS data will be displayed too 
+;     Nument:  If specified, it returns the number of entires found for the
+;                VG
 ;     Output:    If specified, output info strings are returned through this
 ;                keyword.
 ;     Nowin:     If specified, the popup window is suppressed.
@@ -1282,12 +1283,10 @@ PRO NX::VG,seq,tags,refs,ent_name,ent_type,output=output,nowin=nowin,sdsdata=sds
 ; seq - zero based group sequence
 
 if n_params() eq 0 then begin
-	str=['Usage:  Obj->[NX::]VG, Seq [,/SDSDATA]','', $
+	str=['Usage:  Obj->[NX::]VG, Seq','', $
 	'This method reads all the subgroup entries data for a specified', $
 	'Vgroup sequence number.','',$
-	'INPUT:', '  Seq  -  zero based seq number', $
-	'KEYWORD:','  SDSDATA - display the subgroup SDS data too ' $
-	]
+	'INPUT:', '  Seq  -  zero based seq number']
 	xdisplayfile,text=str,title='NX::VG,seq'
 	return
 end
@@ -1298,24 +1297,22 @@ if seq ge self.numVG then begin
 	return
 end
 
-; fid = HDF_OPEN(self.file,/RDWR)
-  fid = self.fid
+fid = HDF_OPEN(self.file)
 self->VgVd,gid,did 
 
 str = 'VGroup # '+string(seq)
 	vg_hdl = HDF_VG_ATTACH(fid,gid(seq))
 	if vg_hdl gt 0 then begin
 	HDF_VG_GETINFO,vg_hdl,class=class,name=name,NENTRIES=NENTRIES
+nument=nentries
 	str = [str,  'Group Name:           '+name, $
 		'Group Class Name:     '+class, $
 		'Number of Entries: '+ string(nentries)]
-	if keyword_set(sdsdata) then $
-	self->subVg,vg_hdl,NENTRIES,tags,refs,ent_name,ent_type,subgroups,/sdsdata else $
 	self->subVg,vg_hdl,NENTRIES,tags,refs,ent_name,ent_type,subgroups
 	str = [str,subgroups]
 	end
 	HDF_VG_DETACH,vg_hdl
-; HDF_CLOSE,fid
+HDF_CLOSE,fid
 	if self.debug eq 0 or keyword_set(nowin) then return
 	xdisplayfile,text=str,title='NX::VG,seq'
 END
@@ -1376,7 +1373,75 @@ end
 	xdisplayfile,text=str,title='NX::GetSDS'
 END
 
-PRO NX::FindSDS,sds_name,seq,ref,data,type=type,ndims=ndims,dims=dims,output=output,nowin=nowin
+PRO NX::FindAll,sds_name,seqs,nowin=nowin,seq_start=seq_start,seq_end=seq_end
+;+
+; NAME:
+;	NX::FINDALL
+;
+; PURPOSE:
+;       This method returns all seq number of the SDS which match the search
+;       sds_name.   
+;
+; CALLING SEQUENCE:
+;       Obj->[NX::]FindAll, Sds_name, Seqs, [,/NOWIN]
+;
+; INPUT:
+;     Sds_name:   Specifies the SDS data set name to search for 
+;
+; OUTPUT:
+;     Seqs:       Returns the matched SDS index array 
+;
+; KEYWORDS:
+;     Nowin:      If specified, no info window pops up. 
+;     Seq_start:  Specifies the start search SDS seq #, default 0
+;     Seq_end:    Specifies the end search SDS seq #, default numSDS
+;
+; EXAMPLE:
+;     Example 1 finds the SDS data set with name as 'scan1' where v is the
+;     opened NX HDF object.
+;
+;         v->FindALL,'scan1',seqs
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, Jan 25, 2002.
+;	xx-xx-xxxx      comment
+;-
+
+	sd_id = HDF_SD_START(self.file)
+	numSDS = self.numSDS
+
+	output = 'search for name = '+string(sds_name)
+
+	seq1 = 0
+	seq2 = numSDS-1
+	if keyword_set(seq_start) then seq1 = seq_start
+	if keyword_set(seq_end) then seq2 = seq_end
+	for seq = seq1,seq2 do begin
+	sd_ids = HDF_SD_SELECT(sd_id,seq)
+        HDF_SD_GETINFO,sd_ids,dims=dims,format=format,label=label, $
+		name=name,caldata=caldata,coordsys=coordsys,range=range, $
+                natts=natts,ndims=ndims,type=type,unit=unit
+
+	if strpos(name,sds_name) ge 0 then begin
+		output = [ output,'SDS # '+string(seq)]
+		if n_elements(ids) eq 0 then ids = seq else $
+		ids = [ids,seq]
+	end
+	HDF_SD_ENDACCESS,sd_ids
+	end
+	HDF_SD_END,sd_id
+
+	seqs = -1
+	if n_elements(ids) gt 0 then seqs = ids else output=[output,'','None found!!!']
+
+	if keyword_set(nowin) then return
+	if self.debug then $
+	xdisplayfile,text=output,title='NX::FindALL,sds_name'
+print,'FindAll: seqs= ',seqs
+END
+
+
+PRO NX::FindSDS,sds_name,seq,ref,data,type=type,ndims=ndims,dims=dims,output=output,nowin=nowin,start=start
 ;+
 ; NAME:
 ;	NX::FINDSDS
@@ -1404,6 +1469,8 @@ PRO NX::FindSDS,sds_name,seq,ref,data,type=type,ndims=ndims,dims=dims,output=out
 ;     Dims:      If specified, it returns the SDS data dims
 ;     Output:    If specified, it returns the output string 
 ;     Nowin:     If specified, no output window pops up
+;     START:     Specify the begin search SDS sequence number
+;                default 0
 ;
 ; EXAMPLE:
 ;     Example 1 find the info about the SDS data set with 'location' as name
@@ -1442,13 +1509,14 @@ if n_params() eq 0 then begin
 	xdisplayfile,text=str,title='NX::FindSDS'
 	return
 end
-;	sd_id = HDF_SD_START(self.file)
-	sd_id = self.sd_id
+	sd_id = HDF_SD_START(self.file)
 	numSDS = self.numSDS
 
 	output='search for name = '+ string(sds_name)
+	begin_seq = 0
+	if keyword_set(start) then begin_seq = start
 
-	for seq=0,numSDS-1 do begin
+	for seq=begin_seq,numSDS-1 do begin
         sd_ids = HDF_SD_SELECT(sd_id,seq)
         HDF_SD_GETINFO,sd_ids,dims=dims,format=format,label=label, $
 		name=name,caldata=caldata,coordsys=coordsys,range=range, $
@@ -1467,15 +1535,16 @@ end
 		HDF_SD_END,sd_id
 		if keyword_set(nowin) then return
 		if self.debug then $
-		xdisplayfile,text=output,title='NX::FindSD,sds_name'
+		xdisplayfile,text=output,title='NX::FindSDS,sds_name'
 		return
 	end
 	HDF_SD_ENDACCESS,sd_ids
 	end
-;	HDF_SD_END,sd_id
+	HDF_SD_END,sd_id
+
 END
 
-PRO NX::SDS,seq,data,name=name,dims=dims,format=format,label=label,natts=natts,ndims=ndims,type=type,unit=unit,range=range,caldata=caldata,coordsys=coordsys,output=output,nowin=nowin
+PRO NX::SDS,seq,data,name=name,dims=dims,format=format,label=label,natts=natts,attrnms=attrnms,attrdas=attrdas,ndims=ndims,type=type,unit=unit,range=range,caldata=caldata,coordsys=coordsys,output=output,nowin=nowin
 ;+
 ; NAME:
 ;	NX::SDS
@@ -1486,6 +1555,7 @@ PRO NX::SDS,seq,data,name=name,dims=dims,format=format,label=label,natts=natts,n
 ;
 ; CALLING SEQUENCE:
 ;       Obj->[NX::]SDS, Seq, Data [,Name=name] [,Dims=dims] [,Format=format]
+;                   [,Attrnms=attrnms] [,Attrdas=attrdas] 
 ;                   [,Label=label] [,Natts=natts] [,Ndims=ndims] [,Type=type]
 ;                   [,Range=range] [,Caldata=caldata] [,Coordsys=coordsys] 
 ;                   [,Unit=unit] [,Output=output] [,/NOWIN]
@@ -1502,6 +1572,8 @@ PRO NX::SDS,seq,data,name=name,dims=dims,format=format,label=label,natts=natts,n
 ;     FORMAT:   returns format attribute
 ;     LABEL:    returns lagel attribute 
 ;     NATTS:    returns number of attributes
+;     ATTRNMS:    returns name array  of attributes
+;     ATTRDAS:    returns value array of attributes
 ;     NDIMS:    returns number of dimensions
 ;     TYPE:     returns data type
 ;     RANGE:    returns range attribute
@@ -1537,6 +1609,8 @@ if n_params() eq 0 then begin
 	'  COORDSYS - returns coordsysattribute', $
 	'  LABEL  -  returns lagel attribute ', $
 	'  NATTS  -  returns number of attributes', $
+	'  ATTRNMS  -  returns attribute names', $
+	'  ATTRDAS  -  returns attribute values', $
 	'  NDIMS  -  returns number of dimensions', $
 	'  TYPE   -  returns data type', $
 	'  OUTPUT -  returns output string', $
@@ -1552,26 +1626,25 @@ end
 		xdisplayfile,text=str,title='NX::SDS,seq'
 		return
 	end
-;	sd_id = HDF_SD_START(self.file)
-	sd_id = self.sd_id
+	sd_id = HDF_SD_START(self.file)
         sd_ids = HDF_SD_SELECT(sd_id,seq)
         HDF_SD_GETINFO,sd_ids,dims=dims,format=format,label=label, $
 		name=name,caldata=caldata,coordsys=coordsys,range=range, $
                 natts=natts,ndims=ndims,type=type,unit=unit
         HDF_SD_GETDATA,sd_ids,data
 help,natts,caldata,coordsys,format,label,unit,name,type,range,ndims,dims,data,output=out1
-	output = [ output,'SDS # '+string(seq), out1,'data = ']
-	if type eq 'BYTE' and ndims eq 1 then $
-	output = [output, string(string(data),/print)] else $
-	output = [output, string(data,/print)] 
-
 	; get attributes
+
+	attrnms = make_array(natts,/string)
+	attrdas = make_array(natts,/string)
 
 		out2=''
 		if natts gt 0 then begin
 		for j=0,natts-1 do begin
 		out2=[out2,'     Attribute # '+string(j)]
 		HDF_SD_ATTRINFO,sd_ids,j,count=act,data=adata,name=anm,type=aty
+attrnms(j) = anm
+attrdas(j) = string(adata)
 		help,act,aty,output=out3
 		out2 = [out2,$
 			'     Attribute Type : '+ string(aty), $
@@ -1583,130 +1656,16 @@ help,natts,caldata,coordsys,format,label,unit,name,type,range,ndims,dims,data,ou
 
 	output = [output,out2]
 	HDF_SD_ENDACCESS,sd_ids
-;	HDF_SD_END,sd_id
+	HDF_SD_END,sd_id
 
 	if keyword_set(nowin) then return
+	output = [ output,'SDS # '+string(seq), out1,'data = ']
+	if type eq 'BYTE' and ndims eq 1 then $
+	output = [output, string(string(data),/print)] else $
+	output = [output, string(data,/print)] 
+
 	if self.debug then $
 	xdisplayfile,text=output,title='NX::SDS,seq'
-END
-
-
-PRO NX::SDSRef,refno,data,name=name,dims=dims,format=format,label=label,natts=natts,ndims=ndims,type=type,unit=unit,range=range,caldata=caldata,coordsys=coordsys,output=output,nowin=nowin
-;+
-; NAME:
-;	NX::SDSREF
-;
-; PURPOSE:
-;       This method reads the SDS data for a specified SD reference 
-;       number for a HDF file.
-;
-; CALLING SEQUENCE:
-;       Obj->[NX::]SDSREF, Seq, Data [,Name=name] [,Dims=dims] [,Format=format]
-;                   [,Label=label] [,Natts=natts] [,Ndims=ndims] [,Type=type]
-;                   [,Range=range] [,Caldata=caldata] [,Coordsys=coordsys] 
-;                   [,Unit=unit] [,Output=output] [,/NOWIN]
-;
-; INPUT:
-;     Seq:      HDF reference number for the SDS data set
-;
-; OUTPUT:
-;     Data:     returns the SDS data obtained
-;
-; KEYWORDS:
-;     NAME:     returns the name attribute
-;     DIMS:     returns dims array
-;     FORMAT:   returns format attribute
-;     LABEL:    returns lagel attribute 
-;     NATTS:    returns number of attributes
-;     NDIMS:    returns number of dimensions
-;     TYPE:     returns data type
-;     RANGE:    returns range attribute
-;     CALDATA:  returns caldata attribute
-;     COORDSYS: returns coordsysattribute
-;     UNIT:     returns unit attribute
-;     OUTPUT:   returns output string
-;     NOWIN:    If specified, no info window pops up. 
-;
-; EXAMPLE:
-;     Example 1 get SDS data set with  reference of 10 the opened NX HDF object v
-;     without popping up info window.
-;
-;         v->SDSREF,10,data,/nowin
-;
-; MODIFICATION HISTORY:
-; 	Written by:	Ben-chin Cha, Jun 19, 1998.
-;	xx-xx-xxxx      comment
-;-
-
-if n_params() eq 0 then begin
-	str=['Usage:  Obj->[NX::]SDSREF, refno, data, Name=name, Dims=dims,...','', $
-	'This method reads the SD data for a known SDS reference number.','',$
-	'INPUT:', '     refno -  reference seq number', $
-	'OUTPUT:','    data -  return the SDS data variable', $
-	'KEYWORDS:', $
-	'  NAME   -  returns name attribute', $
-	'  DIMS   -  returns dims array', $
-	'  UNIT   -  returns unit attribute', $
-	'  FORMAT -  returns format attribute', $
-	'  RANGE  -  returns range attribute', $
-	'  CALDATA -  returns caldata attribute', $
-	'  COORDSYS - returns coordsysattribute', $
-	'  LABEL  -  returns lagel attribute ', $
-	'  NATTS  -  returns number of attributes', $
-	'  NDIMS  -  returns number of dimensions', $
-	'  TYPE   -  returns data type', $
-	'  OUTPUT -  returns output string', $
-	'  NOWIN  -  if specifed, no info window pops up' $
-	]
-	xdisplayfile,text=str,title='NX::SDSREF,refno'
-	return
-end
-
-;	sd_id = HDF_SD_START(self.file)
- 	sd_id = self.sd_id	
-	seq = HDF_SD_REFTOINDEX(sd_id, refno)
-print,seq
-        output=['FILE: '+self.file, '']
-	if seq lt 0 or seq ge self.numSDS then begin
-		str = [output,'Error: there are only '+strtrim(self.numSDS,2)+' sets of SD data.','       0 based seq should be entered.']
-		xdisplayfile,text=str,title='NX::SDSREF,refno'
-		return
-	end
-
-        sd_ids = HDF_SD_SELECT(sd_id,seq)
-        HDF_SD_GETINFO,sd_ids,dims=dims,format=format,label=label, $
-		name=name,caldata=caldata,coordsys=coordsys,range=range, $
-                natts=natts,ndims=ndims,type=type,unit=unit
-        HDF_SD_GETDATA,sd_ids,data
-help,natts,caldata,coordsys,format,label,unit,name,type,range,ndims,dims,data,output=out1
-	output = [ output,'SDS # '+string(seq), out1,'data = ']
-	if type eq 'BYTE' and ndims eq 1 then $
-	output = [output, string(string(data),/print)] else $
-	output = [output, string(data,/print)] 
-
-	; get attributes
-
-		out2=''
-		if natts gt 0 then begin
-		for j=0,natts-1 do begin
-		out2=[out2,'     Attribute # '+string(j)]
-		HDF_SD_ATTRINFO,sd_ids,j,count=act,data=adata,name=anm,type=aty
-		help,act,aty,output=out3
-		out2 = [out2,$
-			'     Attribute Type : '+ string(aty), $
-			'     Attribute Count: '+ string(act), $
-			'     Attribute Name : '+ anm, $
-			'     Attribute Data : ',string(adata)	]
-		end
-		end
-
-	output = [output,out2]
-	HDF_SD_ENDACCESS,sd_ids
-;	HDF_SD_END,sd_id
-
-	if keyword_set(nowin) then return
-	if self.debug then $
-	xdisplayfile,text=output,title='NX::SDSREF,refno'
 END
 
 PRO NX::DumpSDS,SDS_ref,output,file=file,help=help
@@ -1775,8 +1734,7 @@ end
 		return
 	end	
 
-	if keyword_set(file) then sd_id = HDF_SD_START(self.file) else $
-	sd_id = self.sd_id
+	sd_id = HDF_SD_START(self.file)
 	HDF_SD_FILEINFO, sd_id, no_datasets, no_gattributes
 	self.numSDS = no_datasets
 
@@ -1813,116 +1771,43 @@ help,natts,caldata,coordsys,format,label,unit,name,type,range,ndims,dims,data,ou
 	output=[output,out1,out2]
 	end
 
-	if keyword_set(file) then HDF_SD_END,sd_id
+	HDF_SD_END,sd_id
 
 	if keyword_set(nowin) then return
 	xdisplayfile,text=output,title='NX::dumpSDS'
 END
 
 
-PRO NX::SDSVGname,names,gclass=gclass,output=output,nowin=nowin
+PRO NX::SDSData,ref,name,data,type,ndims,dims,seq=seq,nowin=nowin
 ;+
 ; NAME:
-;	NX::SDSVGname
+;	NX::SDSDATA
 ;
 ; PURPOSE:
-;       This method find the vgroup names corresponding to SDS data sets. 
-;       The returned array consists of SDSname suffix with ': ' and Vgroup
-;       name which it below to.
+;	This method returns SD data set for a known SDS reference number.
 ;
 ; CALLING SEQUENCE:
-;       Obj->[NX::]SDSVGname,names[,Output=output] [,/NOWIN]
+;	Obj->[NX::]SDSData,ref,name,data,type,ndims,dims,seq=seq,/nowin
 ;
 ; INPUT:
-;     None.
+;	Ref:	Specify the reference number of the SDS data set
 ;
 ; OUTPUT:
-;     names:     returns the SDS_VGroup name string 
+; 	Name:   Return the name attribute of the SDS
+;	Data:   Return the data array of the SDS
+;	Type:   Return the data type
+;	Ndims:  Return the dimension of the SDS
+;	Dims:   Return the dimensions of the SDS
 ;
-; KEYWORDS:
-;     GCLASS:   Specifies the string of group class to be searched . 
-;               If specified, only the matched class will be returned. 
-;     OUTPUT:   Returns output strings.
-;     NOWIN:    If specified, no info window pops up. 
-;
+; KEYWORD:
+;	Seq:    Return the corresponding SDS sequence number 
+;	Nowin:  Suppress the terminal window information
 ; EXAMPLE:
-;     Example 1 finds the combined vgroup name string of SDS data set 
 ;
-;         v->SDSVGname,names,/nowin
-;
-; MODIFICATION HISTORY:
-; 	Written by:	Ben-chin Cha, Jun 19, 1998.
-;	xx-xx-xxxx      comment
+;	V->findVG,name='scan1_axis',g_seq,gid
+;	v->Vg,g_seq,tags,refs
+;	v->SDSData,refs,name,data,type,ndims,dims,seq=seq
 ;-
-
-if n_params() eq 0 then begin
-	str=['Usage:  Obj->[NX::]SDSVGname, names, output=output, /NOWIN','', $
-	'This method finds the combined SDS VGoup  data set name', $
-	'NAMES:','    data -  return the SDS data variable', $
-	'KEYWORDS:', $
-	'  NOWIN  -  if specifed, no info window pops up' $
-	]
-	xdisplayfile,text=str,title='NX::SDSVGname,names'
-	return
-end
-
-;	fid = HDF_OPEN(self.file)
-;	sd_id = HDF_SD_START(self.file)
-        fid = self.fid
- 	sd_id = self.sd_id	
-
-
-	vgroup = -1
-	sds_vgname = '' 
-	for j=0,self.numVG-1 do begin
-
-		vgroup = HDF_VG_GETID(fid,vgroup)
-		if vgroup ne -1 then begin
-		vg_id = HDF_VG_ATTACH(fid,vgroup)	
-		HDF_VG_GETINFO,vg_id,class=class,name=name,nentries=num_entries
-
-; sds data in all groups may contain duplications
-		if num_entries ge 1 then begin
-;  all the sds data
-;		if num_entries ge 1 and class eq 'Var0.0' then begin
-;  only matched APS group 
-;		if num_entries ge 1 and strpos(class,'APS') ge 0 then begin
-		search = 0 
-		if keyword_set(gclass) then $
-			search = strpos(class,strtrim(gclass,2))
-		if search ge 0 then begin
-		HDF_VG_GETTRS,vg_id,tags,refs
-		id = -1
-		for i = 0,num_entries-1 do begin
-		   if tags(i) eq 720 then begin
-			seq = HDF_SD_REFTOINDEX(sd_id,refs(i))
-help,seq
-			if seq ge 0 and seq lt self.numSDS then begin
-			sd_ids = HDF_SD_SELECT(sd_id,seq)
-			HDF_SD_GETINFO,sd_ids, name=dname
-			if sds_vgname(0) eq '' then $
-			sds_vgname = name+'=>'+dname else $
-			sds_vgname = [sds_vgname, name + '=>' + dname]
-			HDF_SD_ENDACCESS,sd_ids
-			end
-		   end
-		  end
-		end
-		HDF_VG_DETACH,vg_id
-	     end    ; end if search
-	  end   ; end if num_entries
-	endfor
-;	HDF_SD_END,sd_id
-;	HDF_CLOSE,fid
-
-help,sds_vgname
-output = sds_vgname
-	if keyword_set(nowin) then return
-	if self.debug then $
-	xdisplayfile,text=sds_vgname,title='NX::SDSVGname,names'
-END
-
-PRO NX::SDSData,ref,name,data,type,ndims,dims,nowin=nowin
 	if n_params() eq 0 then begin
 	str = ['Usage:  Obj->[NX::]SDSData, ref [,Name,Data,Type,Ndims,Dims]','', $
 	'This method returns SD data set for a known SDS reference number.','',$
@@ -1934,32 +1819,29 @@ PRO NX::SDSData,ref,name,data,type,ndims,dims,nowin=nowin
 	'    Ndims - variable returns the ndims of SDS data', $
 	'    Dims  - variable returns the dims of SDS data', $
 	'KEYWORD',$
+	'    Seq   - if specified, it returns the corresponding SDS seq #', $
 	'    Nowin - if specified, no info window pops up' $
 	]
 	xdisplayfile,text=str,title='NX::SDSData'
 	return
 	end
 
-;	sd_id = HDF_SD_START(self.file)
-	sd_id = self.sd_id
+	sd_id = HDF_SD_START(self.file)
 	seq = HDF_SD_REFTOINDEX(sd_id,ref)
 	if seq ge 0 then begin
 		sds_id = HDF_SD_SELECT(sd_id,seq)
 		HDF_SD_GETINFO,sds_id,name=name,type=type,Ndims=ndims,dims=dims
 		HDF_SD_GETDATA,sds_id,data
 		HDF_SD_ENDACCESS,sds_id
+	end
+	HDF_SD_END,sd_id
 
+	if self.debug eq 0 or keyword_set(nowin) then return 
 	help,ref,seq,name,type,ndims,dims,output=str
 	if type eq 'BYTE' and ndims eq 1 then $
 		str = [str,'','DATA=',string(data)] else $
 		str = [str,'','DATA=',string(string(data),/print)]
-	endif else begin
-		name = '(???)'
-		str= ' Ref id '+strtrim(ref,2) + ' is not SDS data'
-	end
-;	HDF_SD_END,sd_id
 
-	if self.debug eq 0 or keyword_set(nowin) then return 
 	xdisplayfile,text=str,title='NX::SDSData'
 END
 
@@ -2014,12 +1896,9 @@ if keyword_set(help) then begin
 end
 
 filename = self.file 
-fid = self.fid
+if keyword_set(file) then filename = file
 
-if keyword_set(file) then begin 
-	filename = file
-	fid = HDF_OPEN(filename,/READ)
-	end
+fid = HDF_OPEN(filename,/READ)
 if fid ne -1 then begin
 	id = -1
 	tmp=(num=0)
@@ -2049,8 +1928,7 @@ if num gt 0 then begin
 endif else begin
 	str = [str, 'Error: No VDATA found in this file !!']
 end
-
-if keyword_set(file) then HDF_CLOSE,fid	
+HDF_CLOSE,fid	
 end
 xdisplayfile,text=str,title='NX::DumpVD'
 END
@@ -2113,12 +1991,9 @@ if keyword_set(help) then begin
 end
 
 filename = self.file
-fid = self.fid
 
-if keyword_set(file) then begin
-	filename = file 
-	fid = HDF_OPEN(filename, /READ)
-	end
+if keyword_set(file) then filename = file 
+fid = HDF_OPEN(filename, /READ)
 
 if fid lt 0  then begin
 	xdisplayfile,text=['File: '+filename,'', $
@@ -2142,7 +2017,7 @@ if fid lt 0  then begin
 
 if numVG lt 1  then begin
 	xdisplayfile,text=['File: '+filename, 'Error: no VGroup available !']
-	if keyword_set(file) then HDF_CLOSE,fid
+	HDF_CLOSE,fid
 	return
 	end
 	
@@ -2219,11 +2094,6 @@ HDF_VG_GETTRS,VGROUP_ID,tags,refs
                 	731 : fw = [fw,v_string+'SD Calibration info']
                 	732 : fw = [fw,v_string+'SD Fill Value info']
 		ENDCASE
-		;===== SD data
-		if keyword_set(data) and tags(i) eq 720 then begin
-			self->sdsref,refs(i),data,output=out,/nowin
-			fw = [fw,"====>SDS Ref #"+string(refs(i)),out]
-			end
 	endif else begin
                 if HDF_VG_ISVD(VGROUP_ID,id) then begin
                   vd_id=HDF_VD_ATTACH(fid,id)
@@ -2260,13 +2130,13 @@ endfor
 
 NO_VGROUPS:
 
-if keyword_set(file) then HDF_CLOSE,fid
+ HDF_CLOSE,fid
 
 
 END
 
 
-PRO NX::subVg,vgroup_id,num_en,tags,refs,att_name,att_type,str,sdsdata=sdsdata
+PRO NX::subVg,vgroup_id,num_en,tags,refs,att_name,att_type,str
 ; att_type = 1 VGroup subgroup
 ;            2 VData 
 ;            3 SDS data
@@ -2275,14 +2145,12 @@ PRO NX::subVg,vgroup_id,num_en,tags,refs,att_name,att_type,str,sdsdata=sdsdata
 	att_name = strarr(num_en)
 	att_type = intarr(num_en)
 	HDF_VG_GETTRS,vgroup_id,tags,refs
-; print,tags
-; print,refs
+
 str = [str,string('tags:',tags,/print),string('refs:',refs,/print)]
 	id = -1
+	nm=''
 	for i=0,num_en - 1 do begin
-	nm = ''
-;	id = HDF_VG_GETNEXT(vgroup_id,id)
-	id = refs(i)
+	id = HDF_VG_GETNEXT(vgroup_id,id)
 	vd = HDF_VG_ISVD(vgroup_id,id)
 	if vd then begin
 		st = '     VDATA Attribute Entry # '+strtrim(i,2)
@@ -2290,16 +2158,21 @@ str = [str,string('tags:',tags,/print),string('refs:',refs,/print)]
 		vd_id = HDF_VD_ATTACH(self.fid,id)
 		if vd_id gt 0 then begin
 
-		HDF_VD_GET,vd_id,NAME=nm,fields=fields,nfields=nfields,ref=ref,tag=tag,size=sz
+		HDF_VD_GET,vd_id,NAME=NAME,fields=fields,nfields=nfields,ref=ref,tag=tag,size=sz
 		count= HDF_VD_READ(vd_id,vdata)
 		help,name,fields,nfields,ref,tag,sz,count,vdata,output=st0
 		st=[st,st0, string(string(vdata),/print)]
+ 
+;                types=make_array(nfields,/string)
+;                for index=0,nf-1 do begin
+;                  HDF_VD_GETINFO, vd_id, index, NAME=n, TYPE=ty
+;                  types(index) = ty
+;                end
 
 		end 
 		str = [str,st]
 		HDF_VD_DETACH,vd_id
 	end
-	; group attribute entry
 	vg = HDF_VG_ISVG(vgroup_id,id)
 	if vg then begin
 		vg_id = HDF_VG_ATTACH(self.fid,id)
@@ -2308,39 +2181,19 @@ str = [str,string('tags:',tags,/print),string('refs:',refs,/print)]
 			att_type(i) = 1
 			HDF_VG_GETINFO,vg_id,NAME=nm
 			if n_elements(str) eq 0 then $
-			str = '     SUBGROUP Attribute Entry # '+strtrim(i,2) + '     SUBGROUP name:'+ nm  else $
-			str = [str,'     SUBGROUP Attribute Entry # '+strtrim(i,2) + '     SUBGROUP name:'+ nm ]
-		HDF_VG_DETACH,vg_id
-		endif else begin   ; vg_id = -1
-		att_type(i) = 3
-;		self->SDSData,id,nm,data,type,/nowin
-        sd_id = self.sd_id
-        seq = HDF_SD_REFTOINDEX(sd_id,id)
-        if seq ge 0 then begin
-                sds_id = HDF_SD_SELECT(sd_id,seq)
-                HDF_SD_GETINFO,sds_id,name=nm,type=type,Ndims=ndims,dims=dims
-                HDF_SD_GETDATA,sds_id,data
-                HDF_SD_ENDACCESS,sds_id
-		st = '     Subgroup Attribute Entry # '+strtrim(i,2)
-		if n_elements(nm) then begin
-			st = st + '     (SDS) NAME='+nm
-			if keyword_set(sdsdata) then $
-			st = [st,'    DATA=' , string(data)]
-			end
-	endif else st = '     SUBGROUP Attribute Entry # '+strtrim(i,2)+' (NON VG/VD/SDS TYPE)'
-		str = [str,st]
+			str = '     Attribute Entry # '+strtrim(i,2) + '     SUBGROUP name:'+ nm  else $
+			str = [str,'     Attribute Entry # '+strtrim(i,2) + '     SUBGROUP name:'+ nm ]
+		; group attribute entry
+		endif else begin ; vg_id = -1
+			att_type(i) = 3
+			; check for group attribute
+			self->SDSData,refs(i),nm,data,type,/nowin
+			st = '     SUBGROUP Attribute Entry # '+strtrim(i,2)
+			if n_elements(nm) then st = st + '     name='+nm
+			if n_elements(data) then st = st + '     data='+string(data)
+			str = [str,st]
 		end
-	end
-	if tags(i) eq 720 then begin
-		att_type(i) = 3
-		self->SDSData,id,nm,data,/nowin
-		st = '     SDS Attribute Entry # '+strtrim(i,2)
-		if n_elements(nm) then begin
-			st = st + '     (SDS) NAME='+nm
-			if keyword_set(sdsdata) then $
-			st = [st,'    DATA=' , string(data)]
-			end
-		str = [str,st]
+		HDF_VG_DETACH,vg_id
 	end
 	att_name(i) = nm
 	end
@@ -2456,8 +2309,7 @@ if n_params() eq 0 then begin
 	return
 end
 	filename = self.file
-;	fid = HDF_OPEN(filename,/READ)
-	fid = self.fid
+	fid = HDF_OPEN(filename,/READ)
 	self->VgVd,gid,did
 	match = -1
 	match_name = ''
@@ -2487,7 +2339,7 @@ end
 		end
 		HDF_VD_DETACH,vd
 	end
-;	HDF_CLOSE,fid
+	HDF_CLOSE,fid
 
 	if n_elements(match) eq 1 then begin
 		id = match(0)
@@ -2729,6 +2581,7 @@ for i= 0, ng -1 do begin
 	HDF_VG_DETACH,vg_hdl
 	end
 end
+
 	if keyword_set(nowin) then return
 	if self.debug eq 0 or keyword_set(nowin) then return
 	xdisplayfile,text=str,title="NX::getVg"
@@ -2780,19 +2633,16 @@ if keyword_set(help) then begin
 end
 
 	filename = self.file
-	if self.fid then begin
-		self->close
+	if self.fid eq 0 then begin
 		self->open,filename
 		end
 
-;	sd_id = HDF_SD_START(filename)
-	sd_id = self.sd_id
+	sd_id = HDF_SD_START(filename)
 	HDF_SD_FILEINFO,sd_id,nmfsds,nglobatts
 	self.numSDS = nmfsds
 	self.numGAttr = nglobatts
-;	HDF_SD_END,sd_id
+	HDF_SD_END,sd_id
 
-;fid = HDF_OPEN(self.file)
 fid = self.fid
 id=-1
 tmp=(num=0)
@@ -2816,7 +2666,6 @@ while tmp ne -1 do begin
         end
  id=tmp
 endwhile
-;HDF_CLOSE,fid
 
 self.numVD = num
 ;print,'numVG=', self.numVG
@@ -2834,6 +2683,19 @@ return
 END
 
 PRO NX::Print,nowin=nowin
+;+
+; NAME:
+;	NX::PRINT
+;
+; PURPOSE:
+;     This method print a summary info about the hdf file opened
+;
+; CALLING SEQUENCE:
+;	Obj->[NX::]Print [,NOWIN] [,NumSDS=numSDS] [,numGAttr=numgAttr]
+;
+; KEYWORD:
+;    NOWIN:      Suppress the window display of the summary
+;-
 ; close the file first to get the current HDF status
 ;
 	filename = self.file
