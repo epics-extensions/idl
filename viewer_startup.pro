@@ -1,4 +1,5 @@
-
+  device,pseudo=8
+; device,decompose=0
 arch = getenv('HOST_ARCH')
 private = getenv('EPICS_EXTENSIONS_PVT')
 print,'arch ',arch
