@@ -923,6 +923,7 @@ WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
 	path = img_state.path
 	img_displayImage,sfile,path,img_state,Event
 	end
+	img_state.cfile = img_state.ifile
 WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
 END
 
@@ -934,14 +935,24 @@ WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
 END
 
 PRO OnImgStop,Event
-widget_control,event.top,/clear_events
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	img_state.cfile = img_state.ifile
+	img_state.ifile = img_state.nfile 
+	widget_control,event.top,/clear_events
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
 END
 
 PRO OnImgStart,Event
 WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	if img_state.cfile gt 0 then begin
+		img_state.ifile = img_state.cfile
+		if img_state.cfile eq img_state.nfile then img_state.ifile = 0
+		img_state.cfile = -1
+	end
 	if img_state.nfile gt 1 then begin
 	img_state.ifile = img_state.ifile+1
 	last = img_state.nfile
+	timer = img_state.timer
 	current = img_state.ifile
 	if img_state.ifile ge img_state.nfile then begin
 		img_state.ifile = last -1 ; 0
@@ -951,11 +962,35 @@ WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
 	sfile = found(img_state.ifile)
 	path = img_state.path
 	img_displayImage,sfile,path,img_state,Event
+	end
+	if img_state.ifile lt img_state.nfile then $
+		widget_control,event.top,timer=timer ;,send_event=Event
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
+END
+
+PRO OnAddTimer,Event
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	if img_state.nfile gt 1 and img_state.ifile lt img_state.nfile then begin
+	img_state.ifile = img_state.ifile+1
+	last = img_state.nfile
+	timer = img_state.timer
+	current = img_state.ifile
+	img_state.cfile = current
+	if img_state.ifile ge img_state.nfile then begin
+		img_state.ifile = last -1 ; 0
+		r=dialog_message(' **End of slide show** ',/info)
+	end
+	found = *img_state.files
+	sfile = found(img_state.ifile)
+	path = img_state.path
+	img_displayImage,sfile,path,img_state,Event
 	if current lt last then $
-		widget_control,event.id,timer=img_state.timer,send_event=Event
+	widget_control,event.top,timer=timer ;,send_event=Event
 	end
 WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
 END
+
+
 ;-----------------------------------------------------------------
 pro OnOpen, Event
 ; If there is a file, draw it to the draw widget.
@@ -1547,7 +1582,7 @@ pro OnHelpImg, Event
 	'  Start  - Start slide show', $
 	'  Stop   - Stop slide show', $
 	'  Seq #  - Set slide show starting seq #', $
-	'  Timer  - Set timer used in slide show, default 2 sec', $
+	'  Timer  - Set timer used in slide show, default 1 sec', $
 	'  Filename: - Display the filename for the image', $
 	'']
 ;	r = dialog_message(str,/info,title='Help IMG')
@@ -1947,9 +1982,15 @@ pro WID_BASE_0_event, Event
 
   case Event.id of
 
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_STOP'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnImgStop, Event
+    end
     Widget_Info(wWidget, FIND_BY_UNAME='WID_BASE_0'): begin
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BASE' )then $
         OnBaseResize, Event
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_TIMER' )then $
+        OnAddTimer, Event
     end
     Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_10'): begin
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
@@ -2102,10 +2143,6 @@ pro WID_BASE_0_event, Event
     Widget_Info(wWidget, FIND_BY_UNAME='IMG_SLIDER2'): begin
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_SLIDER' )then $
         OnImgSlider2, Event
-    end
-    Widget_Info(wWidget, FIND_BY_UNAME='IMG_STOP'): begin
-      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
-        OnImgStop, Event
     end
     else:
   endcase
@@ -2261,7 +2298,7 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
 	title='Seq #:', xsize=50, $
       /suppress_value,/tracking_events,UNAME='IMG_SLIDER1')
 
-  SLIDER2 = WIDGET_SLIDER( BASE2,VALUE=2,minimum=2,maximum=10, $
+  SLIDER2 = WIDGET_SLIDER( BASE2,VALUE=1,minimum=1,maximum=10, $
 	title='Timer:', xsize=50, $
       /suppress_value,/tracking_events,UNAME='IMG_SLIDER2')
 
@@ -2286,7 +2323,7 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
 	menu3WID: W_MENU_40,$
 	sldr1WID: SLIDER1, $
 	fileWID: file_LABEL3, $
-	timer: 2, $
+	timer: 1, $
         file    : '', $
 	path    : '', $
 	ftype	: '', $
@@ -2295,6 +2332,7 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
         files   : ptr_new(/ALLOCATE_HEAP),  $        ; list of found files
 	ifile   : -1, $      ; current file index 
 	nfile   : 0, $      ; total same file type
+	cfile   : -1,  $    ; last current file
 	color_low : 0, $
 	color_high : !d.n_colors, $
         original : 0, $    ;  1 - actual read in size , 0 - current screen size
@@ -2402,6 +2440,11 @@ pro img, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,_EXTRA=_VWBExtra_
 ; EXAMPLE:
 ;
 ;	IMG
+;
+; MODIFICATION LOG:
+;	01-09-2003 bkc	Add slide show menu bar options: 
+;                       first, next, prev, last, start, and stop buttons 
+;			seq # slider bar, and timer slider bar
 ;-
   WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,_EXTRA=_VWBExtra_
 end
