@@ -7,14 +7,14 @@ if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif
 
-source /usr/local/rsi/idl_5.1/bin/idl_setup
+#source /usr/local/rsi/idl_5.1/bin/idl_setup
 
 setenv IDL_DEVICE X
 
 if ${?EPICS_EXTENSIONS_PVT} == 1 then
-        source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/setup_ezcaIDL
+        source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/ezcaidl_setup
 else
-        source $EPICS_EXTENSIONS/bin/$HOST_ARCH/setup_ezcaIDL
+        source $EPICS_EXTENSIONS/bin/$HOST_ARCH/ezcaidl_setup
 endif
 
 set xdr = "DC"
