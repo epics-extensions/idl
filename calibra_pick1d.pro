@@ -35,7 +35,7 @@ PRO CALIBRA_PICK1D_Event, Event
 	col = info.values(*,d)
 	check_window,info.win2
 	plot1d,info.xa,col,id_tlb,windraw,Xtitle='COLUMN '+strtrim(d,2),GROUP=Event.Top, $
-		Wtitle='PICK1D', $
+		Wtitle='PICK1D', /data, $
 		Ytitle='Values',TITLE=info.title + ' @ Y='+strtrim(info.ya(d),2)
 	info.win2 = [id_tlb,windraw]
 	end
@@ -48,7 +48,7 @@ PRO CALIBRA_PICK1D_Event, Event
 	row = transpose(info.values(d,*))
 	check_window,info.win1
 	plot1d,info.ya,row,id_tlb,windraw,Xtitle='ROW '+strtrim(d,2),GROUP=Event.Top, $
-		Wtitle='PICK1D', $
+		Wtitle='PICK1D', /data, $
 		Ytitle='Values',TITLE=info.title + ' @ X='+strtrim(info.xa(d),2)
 	info.win1= [id_tlb,windraw]
 	end
@@ -62,14 +62,14 @@ PRO CALIBRA_PICK1D_Event, Event
   'CALIBRA_PLOTROWS': BEGIN
 	check_window,info.win1
 	plot1d,info.ya,transpose(info.values),id_tlb,windraw,GROUP=Event.Top,Xtitle='Y values', $
-		Wtitle='PICK1DROWS', $
+		Wtitle='PICK1DROWS', /data, $
 		Ytitle='Values',TITLE=info.title
 	info.win1= [id_tlb,windraw]
       END
   'CALIBRA_PLOTCOLUMNS': BEGIN
 	check_window,info.win2
 	plot1d,info.xa,info.values,id_tlb,windraw,GROUP=Event.Top,Xtitle='X values', $
-		Wtitle='PICK1DCOLUMNS', $
+		Wtitle='PICK1DCOLUMNS', /data, $
 		Ytitle='Z values',TITLE=info.title
 	info.win2= [id_tlb,windraw]
       END
@@ -205,6 +205,16 @@ PRO calibra_pick1D, val, xa=xa, ya=ya,title=title, GROUP=Group
 	   ya: ya, $
 	   height: height, $
 	   width: width, $
+plot1d_xlog: 0, $
+plot1d_ylog: 0, $
+plot1d_xrange: [min(xa),max(xa)], $
+plot1d_yrange: [min(ya),max(ya)], $
+plot1d_width: 350, $
+plot1d_height:350, $
+plot1d_charsize: 1, $
+plot1d_thick: 1, $
+plot1d_xmargin: [10,3], $
+plot1d_ymargin: [5,3], $
 	   select: [-1,-1,-1,-1], $
 	   win1: [0L,-1], $
 	   win2: [0L,-1], $
