@@ -119,7 +119,14 @@ COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
 	WIDGET_CONTROL,sds_const_state.sel2ID,GET_VALUE=st
 	if strtrim(st,2) gt 1 then begin
         parse_num,st,res
-	SDS_multi2d,seq=res,data=data,dname=dname 
+	id = where(res lt HDF_Query.numSDS)
+	if res(0) lt HDF_Query.numSDS and res(0) ge 0 then begin 
+	SDS_multi2d,seq=res(id),data=data,dname=dname 
+	endif else begin
+	st = ['Error: Invalid SDS # entered!', '', $
+		 'Valid SDS # : [0-'+strtrim(HDF_Query.NUMSDS-1,2)+']']
+	r = dialog_message(/error,st)
+	end
 	sz = size(data)
 	if sz(0) eq 3 then begin 
 	xarr = *HDF_Query.xarr
@@ -5340,10 +5347,10 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
 
   'File.Open...': BEGIN
-	F = DIALOG_PICKFILE(/READ,FILE='4.hdf',PATH=HDF_Query.fpath,GET_PATH=P,FILTER=['*.hdf','*.Nx','*.nx','*.nexus'])
+	F = DIALOG_PICKFILE(/READ,FILE='',PATH=HDF_Query.fpath,GET_PATH=P,FILTER=['*.hdf','*.Nx','*.nx','*.nexus'])
 	if strlen(F) lt 1 then begin
 		print,'Error: no file selected by you!'
-		
+		return	
 		end
 
 	HDFSDSDATA_checkfile,F,Event
@@ -5740,7 +5747,7 @@ end
 
 END
 
-PRO HDFB, filename, GROUP=Group
+PRO HDFB, file, GROUP=Group
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
@@ -5808,6 +5815,15 @@ HDF_Query = { $,
 	CD,CURRENT=cur
 	HDF_Query.fpath = cur
 	HDF_Query.dir = cur
+
+if n_elements(file) gt 0 then begin
+         ; write config
+	if HDF_ISHDF(file) then begin
+         openw,1,'hdfb.config'
+         printf,1,file
+         close,1
+	end
+end
 
 	found = findfile('hdfb.config')
 	if found(0) ne '' then begin
