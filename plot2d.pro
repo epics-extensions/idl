@@ -556,6 +556,7 @@ CASE plot2d_state.plottype OF
 	plot2d_notes,plot2d_state
 	end
     3: begin
+	if plot2d_state.shade eq 1 then begin
 	shades = (plot2d_state.data-minvl)/(maxvl-minvl)*!d.table_size
 	shade_surf,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
 		xlog=plot2d_state.xlog,ylog=plot2d_state.ylog, $
@@ -565,6 +566,15 @@ CASE plot2d_state.plottype OF
 		xmargin=xmargin, ymargin=ymargin, $
                 title=plot2d_state.title, xtitle=plot2d_state.xtitle, $
 		ytitle=plot2d_state.ytitle
+	endif else begin   ; default light shade assumed
+	shade_surf,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
+		xlog=plot2d_state.xlog,ylog=plot2d_state.ylog, $
+		charsize=plot2d_state.charsize, $
+		ax = plot2d_state.ax, az=plot2d_state.az, $
+		xmargin=xmargin, ymargin=ymargin, $
+                title=plot2d_state.title, xtitle=plot2d_state.xtitle, $
+		ytitle=plot2d_state.ytitle
+	end
 	plot2d_notes,plot2d_state
 	end
     1: begin
@@ -594,13 +604,12 @@ CASE plot2d_state.plottype OF
 	plot2d_notes,plot2d_state
 	end
     2: begin
-
 	contour,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
 		title=plot2d_state.title,xtitle=plot2d_state.xtitle, $
 		ytitle=plot2d_state.ytitle, $
 		xmargin=xmargin, ymargin=ymargin, $
 		max_value= maxvl, min_value=minvl, $
-		charsize=1, c_charsize=1.2, $
+		charsize=1, c_charsize=1, $
 		c_colors=plot2d_state.colorI,$
 		levels=plot2d_state.levels(0:plot2d_state.nlevels-1), $
 		NLevels=plot2d_state.nlevels, /Follow
@@ -713,7 +722,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 	title=title, xtitle=xtitle, ytitle=ytitle, ztitle=ztitle, $
 	xarr=xarr,yarr=yarr, $
 	rxloc=rxloc, ryloc=ryloc, comment=comment, $
-	stamp=stamp, GROUP=Group
+	stamp=stamp, wTitle=wTitle, GROUP=Group
 
 COMMON PLOT2D_BLOCK,plot2d_state
 ;+
@@ -825,7 +834,7 @@ xl = ''
 yl =''
 zl =''
 ti = ''			; plot title
-wti='Plot2d'		; window title
+wti='PLOT2D'		; window title
 cl = !d.n_colors
 footnote = make_array(10,/string)
 timestamp=''
@@ -857,15 +866,15 @@ if keyword_set(yarr) then yarray = yarr
 
   plot2d_state = { $
 	data:data, $
-	max:0, $
-	min:0, $
+	max:max(data), $
+	min:min(data), $
 	x:1, $
 	y:1, $
 	xarr:xarray, $
 	yarr:yarray, $
 	plottype:1, $     	;surface
 	charsize:1, $
-	c_charsize:1.2, $
+	c_charsize:1, $
 	xlog:0, $
 	ylog:0, $
 	zlog:0, $
@@ -942,7 +951,7 @@ if keyword_set(comment) then begin
       /TLB_SIZE_EVENTS, $	; resizable window
       /COLUMN, $
       MAP=1, $
-      TITLE='PLOT2D', $
+      TITLE=wti, $
       UVALUE='MAIN13')
 
   BASE1 = WIDGET_BASE(MAIN13, /ROW)
@@ -960,7 +969,7 @@ if keyword_set(comment) then begin
 
   Btns361 = [ $
     'Print', $
-    'Colors', $
+    'Colors ...', $
     'Plot Options ...', $ 
     'Done' ]
   BGROUP6 = CW_BGROUP( BASE2, Btns361, $
@@ -991,5 +1000,5 @@ if keyword_set(comment) then begin
 
   WIDGET_CONTROL, MAIN13, SET_UVALUE=plot2d_state
 
-  XMANAGER, 'MAIN13', MAIN13
+  XMANAGER, 'MAIN13', MAIN13,/NO_BLOCK
 END
