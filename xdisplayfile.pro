@@ -1,4 +1,4 @@
-; $Id: xdisplayfile.pro,v 1.2 2001/04/04 21:30:06 cha Exp $
+; $Id: xdisplayfile.pro,v 1.3 2002/07/31 21:28:52 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -11,11 +11,11 @@ WIDGET_CONTROL, event.id, GET_UVALUE=Ev
 CASE Ev OF 
 'EXIT': WIDGET_CONTROL, event.top, /DESTROY
 'FILE_PRINT': begin
-	r = findfile(state.file,count=ct)
+	r = findfile(state.filename,count=ct)
 	if r(0) ne '' then begin
-		PS_enscript,state.file
+		PS_enscript,state.filename
 	endif else begin
-	WIDGET_CONTROL,state.text_area,GET_VALUE=str
+	WIDGET_CONTROL,state.filetext,GET_VALUE=str
 	openw,unit,'tmp',/GET_LUN
 	for i=0,n_elements(str)-1 do printf,unit,str(i)
 	FREE_LUN,unit
@@ -27,7 +27,7 @@ END
 
 
 PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
-		HEIGHT = HEIGHT, TEXT = TEXT, FONT = font
+	HEIGHT = HEIGHT, TEXT = TEXT, FONT = font, BLOCK=block,MODAL=MODAL
 ;+
 ; NAME: 
 ;	XDISPLAYFILE
@@ -66,6 +66,10 @@ PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
 ;	WIDTH:	The number of characters wide the widget should be.  If this
 ;		keyword is not specified, 80 characters is the default.
 ;
+;	BLOCK:  Set this keyword to have XMANAGER block when this application 
+;	        is registered. By default the Xmanager keyword NO_BLOCK 
+;	        is set to 1
+;	MODAL: 
 ; OUTPUTS:
 ;	No explicit outputs.  A file viewing widget is created.
 ;
@@ -88,14 +92,19 @@ PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
 ;      16 Jun. 1997     BKC Max dispalyable line is 10000 for non-unix OS system.
 ;      28 Aug. 1997     BKC Add the printer button, file name label, it uses the
 ;                       PS_print,file to print.
+;      30 Jul. 2002     BKC Add the block, modal keywords take care the 
+;                       animation help problem
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
                                                         ;use the defaults if
 IF(NOT(KEYWORD_SET(HEIGHT))) THEN HEIGHT = 24		;the keywords were not
 IF(NOT(KEYWORD_SET(WIDTH))) THEN WIDTH = 80		;passed in
 
+if n_elements(block) eq 0 then block=0
+noTitle = n_elements(title) eq 0
+
 IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
-  IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = FILENAME     
+  IF noTitle THEN TITLE = FILENAME     
   OPENR, unit, FILENAME, /GET_LUN, ERROR=i		;open the file and then
   if i lt 0 then begin		;OK?
 	a = [ !err_string, ' Can not display ' + filename]  ;No
@@ -130,8 +139,14 @@ ENDIF ELSE BEGIN
     a = TEXT
 ENDELSE
 
+ourGroup = 0L
+if n_elements(group) eq 0 then ourGroup = widget_base() else ourGroup=group
+
+if keyword_set(MODAL) then $
+filebase = WIDGET_BASE(TITLE = TITLE, /MODAL, $		;create the base
+		GROUP=ourGROUP,/COLUMN ) else $
 filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
-		/COLUMN ) 
+		GROUP=ourGROUP,/COLUMN ) 
 
 label=WIDGET_LABEL(filebase,value=TITLE)
 rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
@@ -155,12 +170,16 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 		/SCROLL, $
 		VALUE = a)
 
-state = { $
-	 base: filebase, $
-	 text_area: filetext, $
-	 file: '' $
-	 }
-if n_elements(filename) then state.file = filename
+;state = { $
+;	 base: filebase, $
+;	 filetext: filetext, $
+;	 file: '' $
+;	 }
+ 
+ state = { ourGroup: ourGroup, $
+	filename: filename, $
+	filetext: filetext, $
+	notitle: noTitle}
 
 WIDGET_CONTROL,filebase,SET_UVALUE=state
 
@@ -169,7 +188,7 @@ WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
 Xmanager, "XDisplayFile", $				;register it with the
 		filebase, $				;widget manager
 		GROUP_LEADER = GROUP, $
-		EVENT_HANDLER = "XDispFile_evt" 
+		EVENT_HANDLER = "XDispFile_evt",NO_BLOCK=(NOT(FLOAT(block))) 
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
