@@ -9,8 +9,6 @@ endif
 
 setenv IDL_DEVICE X
 
-source /usr/local/rsi/idl_5/bin/idl_setup
-
 setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
 
 echo ".run ez_fit" >! go_ezfit
