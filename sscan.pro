@@ -1310,7 +1310,7 @@ PRO scanSee_axisInfo,SSD,Event,axis=axis
 		printf,1,i,'  ',SSD.HD_D(i,j)
 	end
 	printf,1,''
-	printf,1,'NB_DET=',(SSD.NB_TRG)[j]
+	printf,1,'NB_TRG=',(SSD.NB_TRG)[j]
 	printf,1,'SSD.HD_T(*,j)'
 	help,SSD.HD_T(*,j),output=out
 	printf,1,out
