@@ -10,7 +10,7 @@
 ; overlay.tbl      - default save file for overlay color table
 ; overlay_pvt.tbl  - private save file for overlay color table  
 
-;@xdr_open.pro
+@PS_open.pro
 
 PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discrete=discrete
 ;
@@ -349,6 +349,7 @@ PRO scan2d_overlay_help,Event
   'Pane Images  :   Show discrete images ', $
   'List of names:   Show name of images selected', $
   'Plot Type    :   Overlay / Discrete / Composite', $
+  'XDR		:   Save the composite as XDR data', $
   'Contrast     :   On or Off', $
   'List of DIs  :   List of initially picked images', $
   'Image seq #  :   Enter images sequence numbers seperated by comma', $
@@ -386,9 +387,10 @@ PRO SCAN2D_OVERLAY_Event, Event
 	return
       END
   'BUTTON7': BEGIN
-	loadct,31   ;pepermint  waves=37
+;	loadct,31   ;pepermint  waves=37
 	XLOADCT
-	if !d.name eq 'WIN' then overlayImage,overlay_state
+	overlayImage,overlay_state
+  WIDGET_CONTROL,overlay_state.tyWID,SET_VALUE=overlay_state.discrete
       END
   'OVERLAY_SAVE_PVTCT': BEGIN
 	tvlct,R,G,B,/get
@@ -400,7 +402,7 @@ PRO SCAN2D_OVERLAY_Event, Event
 	restore,'overlay_pvt.tbl'
 	tvlct,R,G,B
 	end
-	if !d.name eq 'WIN' then overlayImage,overlay_state
+	overlayImage,overlay_state
       END
   'BUTTON8': BEGIN
 	widget_control,overlay_state.bg_sdr,SET_VALUE=128,bad=bad
@@ -408,28 +410,10 @@ PRO SCAN2D_OVERLAY_Event, Event
 	widget_control,overlay_state.ratio_sdr,SET_VALUE=8
 	scan2d_setOverlayColorTbl,128,8
 	SCAN2D_GETOVERLAYCOLORTBL
-	if !d.name eq 'WIN' then overlayImage,overlay_state
+	overlayImage,overlay_state
       END
   'BUTTON9': BEGIN
-	arr = TVRD()
-        sz = size(arr)
-        xs = sz(1)
-        ys = sz(2)
-        width = float(xs)/40
-        height = float(ys)/40
-	scale = 1.1
-	
-	; if width or height exceed 18.3 gives problem
-
-        set_plot,'PS'
-        device,filename='idl.ps',/color,bits=8, $
-                /Courier,/Bold, scale_factor=scale, $
-                xsize=width,ysize=height
-        TV,arr
-        PS_close
-        PS_print, 'idl.ps'
-	if !d.name eq 'X' then spawn,"gv idl.ps" 
-;	WIDGET_CONTROL,Event.id,SENSITIVE=0
+	PS_TVRD,file='ovl.ps',wid=overlay_state.win,scale=2
       END
   'BUTTON10': BEGIN
 	PS_printer
@@ -497,13 +481,13 @@ PRO SCAN2D_OVERLAY_Event, Event
 	WIDGET_CONTROL,Event.ID,GET_VALUE=bg
 	overlay_state.tbl_bg = bg
 	scan2d_setOverlayColorTbl,overlay_state.tbl_bg,overlay_state.tbl_ratio
-	if !d.name eq 'WIN' then overlayImage,overlay_state
+	overlayImage,overlay_state
       END
   'OVERLAYTABLE_RATIO': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=v
 	overlay_state.tbl_ratio = v
 	scan2d_setOverlayColorTbl,overlay_state.tbl_bg,overlay_state.tbl_ratio
-	if !d.name eq 'WIN' then overlayImage,overlay_state
+	overlayImage,overlay_state
       END
   'OVERLAY_PIXELS': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=pixels
@@ -516,10 +500,13 @@ PRO SCAN2D_OVERLAY_Event, Event
 	overlayImage_draw2,overlay_state
 
       END
+  'OVERLAY_XDR': BEGIN
+	overlay_state.xdr = Event.Value
+      END
   'OVERLAY_TYPE': BEGIN
 	overlay_state.discrete = Event.Value
+	overlayImage_draw1,overlay_state
 	overlayImage_draw2,overlay_state
-
       END
   'OVERLAY_SHOWMINPT': BEGIN
 	overlay_state.minpt = Event.Value
@@ -540,15 +527,13 @@ s = size(image_array)
 xdim=s(1)
 ydim=s(2)
 	vcol = make_array(15,/int)
-;	dcol = !d.n_colors/15
-	dcol = !d.n_colors/16
+	dcol = 16
 	found = findfile('overlay.tbl')
 	if found(0) eq '' then SCAN2D_SETOVERLAYCOLORTBL,128,8
 	SCAN2D_GETOVERLAYCOLORTBL
 
 	for i=0,14 do begin
-		vcol(i) = !d.n_colors - i*dcol - 1 
-;	print,i,vcol(i),vmin(i),vmax(i)
+		vcol(i) = 256 - i * dcol -1
 	end
 
 	magnifyfactor = 2
@@ -587,10 +572,12 @@ overlay_state = { $
 	nrowWID : 0L, $
 	panWID : 0L, $
 	WID : 0L, $
+	tyWID: 0L, $
 	panWin : 0L, $
 	win : 0L, $
 	width: magnifyfactor*ncol*xdim +250,$
 	height: magnifyfactor*nrow*ydim,$
+	xdr: 0, $
 	xsize : 400, $
 	ysize : 600, $
 	xdim : xdim, $
@@ -652,7 +639,7 @@ PRO overlayImage_draw1,overlay_state
 	discrete = overlay_state.discrete
 	minpt= overlay_state.minpt
 
-	WSET,overlay_state.panWin
+	if !d.name eq 'X' then WSET,overlay_state.panWin
 	erase
 	for k=0,14 do begin
 	ki = k mod 8
@@ -675,7 +662,7 @@ PRO overlayImage_draw1,overlay_state
 	end
 	end
 	
-	WSET,overlay_state.win	
+	if !d.name eq 'X' then WSET,overlay_state.win	
 
 END
 
@@ -685,7 +672,6 @@ END
 
 PRO overlayImage_draw2,overlay_state
 widget_control,/hourglass
-
 	xdim = overlay_state.xdim
 	ydim = overlay_state.ydim
 	selects = overlay_state.selects
@@ -724,7 +710,7 @@ widget_control,/hourglass
 	  ht = overlay_state.pixels*overlay_state.ydim*overlay_state.selects
 	end
 	2: begin
-	  wd = overlay_state.xdim *overlay_state.pixels
+	  wd = overlay_state.xdim *overlay_state.pixels + 250
 	  ht = overlay_state.ydim *overlay_state.pixels
 	end
 	ENDCASE
@@ -737,7 +723,7 @@ widget_control,/hourglass
 	if discrete lt 2 then $
 	im = make_array(overlay_state.width,overlay_state.height)
 
-	WSET,overlay_state.win	
+	if !d.name eq 'X' then WSET,overlay_state.win	
 	erase
 
 	if discrete eq 0 then begin
@@ -832,9 +818,10 @@ end
 	for k=0,14 do begin
 	if pick(k) gt 0 then begin
 		kj0 = overlay_state.height - k*ydim*magnifyfactor
-		str = overlay_state.dname(k) + ', Max='+strtrim(vmax(k),2)+ $
-			', Min='+strtrim(vmin(k),2)
-		xyouts,x1,kj0-ydim/2*magnifyfactor,str,/device
+		str = overlay_state.dname(k) + ', Max='+strtrim(vmax(k),2) 
+		xyouts,x1,kj0-ydim/2*magnifyfactor,str,charsize=1.5,/device
+		str = '    , Min='+strtrim(vmin(k),2)
+		xyouts,x1,kj0-15-ydim/2*magnifyfactor,str,charsize=1.5,/device
 		end
 	end
 	end
@@ -854,8 +841,21 @@ end
 	col_start = overlay_state.vcol(0)
 	factor = col_range * (max(t_im)-t_im)/(max(t_im)-min(t_im)) 
 	factor = col_start - fix(factor)
-	factor = congrid(factor,xdim*magnifyfactor,ydim*magnifyfactor)
+	x1 = xdim*magnifyfactor
+	y1 = ydim*magnifyfactor
+	factor = congrid(factor,x1,y1)
 	tv,factor
+		str = 'Sum: '+ ', Max='+strtrim(max(t_im),2) 
+		xyouts,x1,y1/2,str,charsize=1.5,/device
+		str = '      , Min='+strtrim(min(t_im),2)
+		xyouts,x1,y1/2-15,str,charsize=1.5,/device
+; write xdr output
+	if overlay_state.xdr then begin
+		xdr_open,unit,'ovl.xdr',/write
+		xdr_write,unit,t_im
+		xdr_write,unit,[0,xdim-1,0,ydim-1,min(t_im),max(t_im)]
+		xdr_close,unit
+	end
 	end
 END
 
@@ -912,6 +912,13 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
       LABEL_LEFT='Type:', $
       UVALUE='OVERLAY_TYPE')
   WIDGET_CONTROL,BGROUP4,SET_VALUE=overlay_state.discrete
+
+  BGROUP43 = CW_BGROUP( BASE2_3, ['No','Yes'], $
+      ROW=1, /frame, $
+      EXCLUSIVE=1, /NO_RELEASE, $
+      LABEL_LEFT='Xdr:', $
+      UVALUE='OVERLAY_XDR')
+  WIDGET_CONTROL,BGROUP43,SET_VALUE=overlay_state.xdr
 
   BGROUP44 = CW_BGROUP( BASE2_3, ['On','Off'], $
       ROW=1, /frame, $
@@ -990,11 +997,11 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
   label1 = WIDGET_LABEL(BASE4,VALUE='Color Bg:')
   mycolor_bg = WIDGET_SLIDER( BASE4, $
       MINIMUM=0,MAXIMUM=256,UVALUE='OVERLAYTABLE_BG', $
-      XSIZE=50,VALUE=overlay_state.tbl_bg)
+      XSIZE=50,VALUE=overlay_state.tbl_bg,/scroll)
   label1 = WIDGET_LABEL(BASE4,VALUE='Fg:')
   mycolor_ratio = WIDGET_SLIDER( BASE4, $
       MINIMUM=2,MAXIMUM=64,UVALUE='OVERLAYTABLE_RATIO', $
-      XSIZE=50,VALUE=overlay_state.tbl_ratio)
+      XSIZE=50,VALUE=overlay_state.tbl_ratio,/scroll)
   BUTTON8 = WIDGET_BUTTON( BASE4, $
       UVALUE='BUTTON8', $
       VALUE='Default')
@@ -1049,6 +1056,7 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
 	overlay_state.panWID = DRAW1
 	overlay_state.WID = DRAW3
 	overlay_state.labelWID = label3
+	overlay_state.tyWID = BGROUP4
 	overlay_state.panWin = DRAW1_overlayId
 	overlay_state.win = DRAW3_overlayId
 	overlay_state.xsize = g_tlb.scr_xsize
@@ -1444,10 +1452,34 @@ end
 END
 
 PRO scan2d_overlay_selectFiles,xdrfile_array,nfile=nfile,path=path
+;+
+; PROGRAM:
+;	SCAN2D_OVERLAY_SELECTFILES
+;
+; PURPOSE:
+;	Use file selection dialog to select a set of XDR files which should
+;	contain XDR 2D image, X,Y,Z ragnes data which are saved by the scanSee 
+;	subprogram image2d 
+;
+; CATEGORY:
+;	Widgets.
+;
+; CALL SEQUENCE:
+;	SCAN2D_OVERLAY_SELECTFILES, XDRFILE_ARRAY [,PATH=path] [,NFILE=nfile] 
+;
+; OUTPUT:
+;  XDRFILE_ARRAY - return an array of XDR image filenames selected from the 
+;		   2D overlay file selection dialog, at least two file must be  
+;		   selected
+;
 ; KEYWORD:
 ; PATH         - specify the directory where xdr files exists
 ;                At least two xdr files must be selected for image overlaying
-; NFILE        - Number of file selected from the directory
+; NFILE        - Number of files selected from the directory 
+;
+; EXAMPLE:
+;	SCAN2D_OVERLAY_SELECTFILES,xdrfile_array
+;-
 
 cd,current=opath
         ; read overlay.config
@@ -1463,7 +1495,7 @@ cd,current=opath
 if keyword_set(path) then opath=path
 
 xdrpick:
-	xdrfile_array = dialog_pickfile(title='Overlay File Pick', $
+	xdrfile_array = dialog_pickfile(title='2D Overlay File Pick', $
 		path = opath,Filter='*.xdr*', $
 		get_path=p,/multiple,/must_exist,/read)
 	if xdrfile_array(0) eq '' then return
@@ -1636,7 +1668,6 @@ END
 ;-----------------------------------------------------------------
 pro scan2d_overlay_onRecall, Event
 
-
 	wWidget =  Event.top
 	textWID = Widget_Info(wWidget, FIND_BY_UNAME='W_TEXT_11')
 	widget_control,textWID,get_value=xdrfile_array
@@ -1672,7 +1703,7 @@ pro scan2d_overlay_onHelp, Event
 	'file with the Left Mouse Button (LMB) in the file selection box:','', $
 	'       LMB       - select only the picked file', $
 	'       CNTL-LMB  - add the picked file to the selection list', $
-	'       SHIFT-LBM - add all the files between the last two click files', $
+	'       SHIFT-LMB - add all the files between the last two click files', $
 	'                   to the selection list', $
 	'Press the OK or Open button accept all the fiels selected', $
 	'']
@@ -1693,6 +1724,7 @@ end
 ;-----------------------------------------------------------------
 
 pro SCAN2D_OVERLAY_BASE_1_event, Event
+if !d.name eq 'X' then device,decomposed=0
 
   wWidget =  Event.top
 
@@ -1818,7 +1850,7 @@ pro scan2d_overlay,path=path, GROUP=Group, _EXTRA=_VWBExtra_
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, July 17, 2002
-;	xx-xx-xxxx  bkc comment
+;	07-23-2004  bkc update drawing area when it is true color device
 ;-
   cd, current=p
   if keyword_set(path) then p=path
