@@ -15,6 +15,7 @@ if ( "$1" !=  "" ) then
 endif
 
 echo ".run view1d" >! go_viewer
+echo ".run plot1d" >>! go_viewer
 echo ".run view1d_overlay" >>! go_viewer
 echo ".run scan2d__define.pro" >>! go_viewer
 echo ".run scan1d__define.pro" >>! go_viewer
