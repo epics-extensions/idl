@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.12 2000/04/21 19:38:07 cha Exp $
+; $Id: DC.pro,v 1.13 2000/07/19 22:18:38 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -74,7 +74,7 @@ pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 ;-
 
 device, get_graphics = old, set_graphics = 6  ;Set xor
-col = !d.n_colors - 2
+col = !d.table_size - 2
 
 if keyword_set(message) then begin
 	st = [$,
@@ -6126,7 +6126,7 @@ wshow,catch2d_file.xzdraw
 dline = (!y.crange(1)-!y.crange(0)) *.2
 hline = (!x.crange(1)-!x.crange(0)) *.1
 clr1 = 0
-clr2 = !d.n_colors - 1
+clr2 = !d.table_size - 1
 
 while !ERR eq 1 do begin
 cursor,x,y,1,/normal
@@ -6182,7 +6182,7 @@ wshow,catch2d_file.yzdraw
 dline = (!y.crange(1)-!y.crange(0)) *.2
 hline = (!x.crange(1)-!x.crange(0)) *.1
 clr1 = 0
-clr2 = !d.n_colors - 1
+clr2 = !d.table_size - 1
 while !ERR eq 1 do begin
 cursor,x,y,1,/normal
 
@@ -6563,18 +6563,13 @@ PRO PDMENU_VDATA_Event, Event
 	scanSee,filename=scanData.trashcan, fileno=scanData.fileno, Group=Event.top
 	END
   'ViewData.3D Slicer...': BEGIN
-	view3d_slicer,file=scanData.trashcan,Group=Event.top
+	view3d_slicer,file=scanData.trashcan,DMAX=15,Group=Event.top
+	END
+  'ViewData.1D/2D/3D...': BEGIN
+	spawn,'scanBrowser &'
 	END
   ENDCASE
 
-;  CASE Event.Value OF 
-;  'ViewData.1D ...': BEGIN
-;	catch1d_viewmode, Event
-; 	END
-;  'ViewData.2D ...': BEGIN
-;	vw2d, GROUP=event.top, file=scanData.trashcan
-; 	END
-;  ENDCASE
 END
 
 PRO HELPMENU_Event, Event
@@ -7626,26 +7621,6 @@ end
 
 outpath = scanData.path
 tpath1 = scanData.home+!os.file_sep
-CATCH,error_status
-if error_status ne 0 then begin
-	if !error_state.name eq 'IDL_M_BADARRSUB' then return
-	if outpath eq tpath1 then return else $
-        outpath = scanData.home+!os.file_sep
-;	r = dialog_message(!err_string + string(error_status),/error)
-        found = findfile(outpath+'ASCII'+!os.file_sep+'.tmp',count=ct)
-        if ct eq 0 then $
-        spawn, !os.mkdir + ' ' + outpath+'ASCII' + ' ' + $
-                outpath+'TIFF' + ' ' +$
-                outpath+'GIF' + ' ' +$
-                outpath+'PICT' + ' ' +$
-                outpath+'ROI' + ' ' +$
-                outpath+'CALIB'
-	openw,1,outpath+'ASCII'+!os.file_sep+'.tmp'
-	close,1
-end
-openw,1,outpath+'.tmp'
-close,1
-stopcheck:
 outpath = outpath+'ASCII'+!os.file_sep
 found = findfile(outpath+'.tmp',count=ct)
 if ct eq 0 then begin
@@ -7775,6 +7750,9 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;                       routines which depends on whether without or with 
 ;                       active scanning going on
 ;                       ViewData->3D Slicer... for viewing 3D scan data
+;       07-19-2000 bkc  R1.2f
+;                       view3d_slicer,DMAX=15,...  support 85/15 detectors
+;                       Add the ViewData->1D/2D/3D entry
 ;                       
 ;-
 ;
@@ -7799,7 +7777,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R1.2e )', $
+      TITLE='scanSee ( R1.2f )', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -7832,7 +7810,8 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
   MenuVData = [ $
       { CW_PDMENU_S,       3, 'ViewData' }, $ ;        0
         { CW_PDMENU_S,       0, '1D/2D...' }, $ ;        1
-        { CW_PDMENU_S,       0, '3D Slicer...' } $ ;        1
+        { CW_PDMENU_S,       0, '3D Slicer...' }, $ ;        1
+        { CW_PDMENU_S,       0, '1D/2D/3D...' } $ ;        1
 	]
 
   PDMENU_VDATA = CW_PDMENU( BASE68, MenuVData, /RETURN_FULL_NAME, $
