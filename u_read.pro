@@ -378,8 +378,8 @@ print,''
 END
 
 
-PRO u_read_set,unit,s,x
-if n_params() ne 3 then begin
+PRO u_read_set,unit,s,x,ERRCODE,help=help
+if n_params() lt 3 then begin
 	print,''
 	print,'Usage: u_read_set, unit, s, x'
 	print,''
@@ -388,6 +388,7 @@ if n_params() ne 3 then begin
 	print,'u_write routine.'
 	print,'     where   S    LONG = Array(5), must be defined before calling this routine'
 	print,'             X    returned array'
+	print,'       ERRCODE    returned code, 0 for success, -99 for failure'
 	return
 	end
 readu,unit,s
@@ -444,20 +445,23 @@ case fix(type) of
 	   end
 else: begin
 	print,'type=',type
-		ret=WIDGET_MESSAGE('Error: wrong type of data read in!!')
-		retall
+;		ret=WIDGET_MESSAGE('Error: wrong type of data read in!!')
+;		retall
+		return
 	end
 endcase
 
 	CATCH,error_status
 	if error_status eq -184 then begin
 		ret=WIDGET_MESSAGE('Error: unable to read data, wrong type of file opened!!')
-		retall
+;		retall
+	return
 	end
 	readu,unit,x
+ERRCODE = 0
 END
 
-PRO u_read,unit,x,help=help
+PRO u_read,unit,x,ERRCODE,help=help
 ;+
 ; NAME:
 ;       U_READ
@@ -469,7 +473,7 @@ PRO u_read,unit,x,help=help
 ;
 ; CALLING SEQUENCE:
 ;
-;       U_READ, Unit, Var [,/Help]
+;       U_READ, Unit, Var [,ERRCODE ,/Help]
 ;
 ; INPUTS:
 ;       Unit:   The logic unit number returned by file open for unformatted
@@ -481,6 +485,8 @@ PRO u_read,unit,x,help=help
 ; OUTPUTS:
 ;       Var:    This variable holds the right type of data obtained from 
 ;               the opened file, it can be either 1D vector, or 2D array.
+;   ERRCODE:    This variable holds the error code for the u_read. It
+;               returns 0 if succeeded, returns -99 if failed.
 ;
 ; RESTRICTIONS:
 ;       All the data must be created by the U_WRITE routine in order to be 
@@ -499,15 +505,17 @@ PRO u_read,unit,x,help=help
 ;       Written by:     Ben-chin K. Cha, 03-23-95.
 ;
 ;       05-30-97	bkc	Support opened file as XDR type data.
+;       10-13-97	bkc	Add the ERRCODE to indicate success or failure.
 ;-
 
+ERRCODE = -99
 if keyword_set(help) then goto, help1
-if n_params() ne 2 then begin
+if n_params() lt 2 then begin
 	print,'Usage: u_read, unit, array'
 	return
 	end
 s = lonarr(5)
-IF NOT EOF(unit) THEN  u_read_set,unit,s,x  ELSE print,'EOF on unit ',unit
+IF NOT EOF(unit) THEN  u_read_set,unit,s,x,ERRCODE  ELSE print,'EOF on unit ',unit
 return
 
 help1:
