@@ -331,7 +331,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 
   pan_tiffname = CW_FIELD(BASE2_12, /RETURN_EVENTS, $
 	TITLE='Filename:', $
-	XSIZE=50, YSIZE=1, VALUE="", $
+	XSIZE=50, YSIZE=1, VALUE="tiff", $
 	UVALUE = "PANIMAGE_TIFFNAME")
   WIDGET_CONTROL,pan_tiffname,SENSITIVE=0
 
