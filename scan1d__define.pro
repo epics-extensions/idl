@@ -5,7 +5,29 @@
 @u_read.pro
 @fit_statistic.pro
 
-PRO scan1d::statistic,VX,VY,C_MASS=c_mass,X_PEAK=x_peak,Y_PEAK=y_peak, $
+PRO scan1d::Calibration,scanno,format=format,GROUP=group
+
+	if n_elements(scanno) then $
+	self->read,scanno,def=def,pa=pa,da=da,np=np,nd=nd,/plot, $
+	x_names=x_names,x_descs=x_descs,x_engus=x_engus, $
+	y_names=y_names,y_descs=y_descs,y_engus=y_engus, $
+	title=title,stamp=stamp,file=file ,seqno=seqno else $
+	self->read,def=def,pa=pa,da=da,np=np,nd=nd,/plot, $
+	x_names=x_names,x_descs=x_descs,x_engus=x_engus, $
+	y_names=y_names,y_descs=y_descs,y_engus=y_engus, $
+	title=title,stamp=stamp,file=file ,seqno=seqno 
+	
+       path = self.path
+        ln = strlen(self.path) 
+        if ln gt 0 and strmid(self.path,ln-1,1) ne !os.file_sep then $
+                path = self.path + !os.file_sep
+
+	def = def[4:18]
+	calibration_factor,da,def,xv=pa,classname=file,title=title,$
+		inpath=path,format=format,GROUP=group
+END
+
+PRO scan1d::Statistic,VX,VY,C_MASS=c_mass,X_PEAK=x_peak,Y_PEAK=y_peak, $
 		Y_HPEAK=y_hpeak, X_HWDL=x_hwdl,X_HWDR=x_hwdr, FWHM=fwhm, $
 		NO=NO,DETECTOR=detector,FIT=FIT,LIST=LIST
 ;+
@@ -36,6 +58,7 @@ PRO scan1d::statistic,VX,VY,C_MASS=c_mass,X_PEAK=x_peak,Y_PEAK=y_peak, $
 ;    X_FWDL:   returns the left end of X coordinate of the FWHM width 
 ;    X_FWDR:   returns the right end of X coordinate of the FWHM width 
 ;    FWHM:     returns the full width of the half peak  
+;    LIST:
 ;
 ; EXAMPLE:
 ;   Example 1  will calucultate the FWHM value for the 6th scan and
@@ -77,7 +100,7 @@ if keyword_set(NO) then begin
 end
 
 	if keyword_set(list) then $
-	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot,/LIST else $
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot,/LIST,report='fwhm.rpt' else $
 	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot
 
 	x_hwdl = xl
@@ -238,14 +261,18 @@ PRO scan1d::Open,filename,wid
 ;-
 
 if !d.name eq 'X' then begin
-        type = 0
-        U_OPENR,unit,filename
-        u_read,unit,version
-        if string(version(0)) eq '' then begin
+        type = 1
+        U_OPENR,unit,filename,/XDR
+        u_read,unit,version,errcode
+        if errcode lt 0 then begin
                 u_close,unit
-                U_OPENR,unit,filename,/XDR
-                type = 1
+                U_OPENR,unit,filename
+                type = 0
         end
+end
+if  n_elements(version) eq 0 then begin
+	r=dialog_message('Error: wrong type of file entered!',/Error)
+	return
 end
 if !d.name eq 'WIN' then begin
         U_OPENR,unit,filename,/XDR
@@ -352,7 +379,8 @@ PRO scan1d::Plot,no,ix=ix,iy=iy
 	if xtitle eq '' then xtitle=x_names(p_pick)
 	comment = ' Scan # '+string(seqno)
 	comment = [comment, 'File : '+ self.file, stamp]
-	plot1d,x,y,title=title,comment=comment,xtitle=xtitle
+	plot1d,x,y,id_tlb,title=title,comment=comment,xtitle=xtitle
+	self.win = id_tlb
 END
 
 ;
@@ -472,9 +500,9 @@ if arg_present(da) or keyword_set(plot) or keyword_set(list) then begin
 	y_req = fix(y(5))
 	y_act = fix(y(6))
 	y_value = y(7)
-	title = x(0)
+	title = strtrim(x(0),2)
 	stamp = x(4)
-	file = x(3)
+	file = strtrim(x(3),2)
 	def = id_def
 
 	labels = string(labels)
@@ -881,6 +909,20 @@ PRO scan1d::Print
 	print,'scan1d.fptr=',self.fptr(0:self.maxno)
 END
 
+PRO scan1d::Delete
+        obj_destroy,self
+END
+
+PRO scan1d::Cleanup
+        if self.unit then free_lun,self.unit
+        catch,error_status
+        if error_status ne 0 then goto,reset
+        if self.win ne -1 then widget_control,self.win,/destroy
+reset:
+        self.unit=0
+        self.win = -1
+END
+
 FUNCTION scan1d::Init,file=file
 ; populate the index object if file is specified
 loadct,39
@@ -902,6 +944,7 @@ struct = { scan1d, $
         unit: 0, $
         seqno: 0, $
         maxno: 0, $
+	win: -1, $
 	size: 0L, $
         fptr: make_array(10000,/long) $
         }
