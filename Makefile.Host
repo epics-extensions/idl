@@ -20,7 +20,7 @@ SCRIPT1 = ezcaidl_startup.pro \
 	view1d.pro view1d.init view1d_overlay.pro \
 	view2d.pro view2d.init cursor62_caput.pro makeIDLRef.pro \
 	dc2hdf.pro \
-	hdfb.pro \
+	hdfb.pro NX__define.pro nexus_scan.pro \
 	DC.init DC.pro vw2d.init vw2d.pro view3d_slicer.pro \
 	readScan.pro read_scan.pro \
 	multiroi_pick.pro read_scan.pro.R2 xdr_open.pro \
@@ -28,18 +28,17 @@ SCRIPT1 = ezcaidl_startup.pro \
  	view3d_2d.pro panimage.pro \
 	memtest.pro scansee_overlay.pro assignname_read.pro scansee_browser.pro
 
-SCRIPT2 = ezcaidl_setup setup_ezcaIDL \
+SCRIPT2 = ezcaidl_setup idluserdir_setup \
 	calibra scanBrowser \
 	dc2tiff \
 	ezfit \
 	catcher toimage \
-	catcher.exe2.idl53 catcher3 \
-	catcher.exe2.idl54 catcher4 \
+	catcher.exe2.idl53 \
 	go_scan1d \
 	go_scan2d \
 	viewer \
 	dc2hdf \
-	hdfb \
+	hdfb NX \
 	scanSee vw2d scanSee.exe2.idl53 \
 	SB \
  	dc2ins_2d dc2ins_1d \
