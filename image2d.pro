@@ -1523,7 +1523,7 @@ END
 
 
 
-PRO image2d_init,widget_ids,image2d_state=image2d_state,image_array,xarr,yarr,title=title,outpath=outpath,id_def=id_def,scanno=scanno,pv=pv,xdescs=xdescs,ydescs=ydescs,zdescs=zdescs,seqnm=seqnm
+PRO image2d_init,widget_ids,image2d_state=image2d_state,image_array,xarr,yarr,title=title,outpath=outpath,id_def=id_def,scanno=scanno,pv=pv,xdescs=xdescs,ydescs=ydescs,zdescs=zdescs,seqnm=seqnm,VERS=VERS
 COMMON IMAGE2D_NORM_BLOCK, norm_ids
 
 @os.init
@@ -1581,14 +1581,18 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	'DA','DB','DC','DD','DE','DF', $ 
     'D01', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08', 'D09', 'D10' ]
 	vlist = 'D'+strtrim(indgen(60)+11,2)
+	
+  if keyword_set(VERS) then ListVal949 = [ListVal949(15:24),vlist] else $
 	ListVal949 = [ListVal949,vlist]
+
 
 	list = indgen(sz(3)) + 1
   if keyword_set(seqnm) then begin
 	ListVal949= 'S'+ strtrim(list,2)
 	if sz(3) gt 15 then begin
 	widget_control,widget_ids.sel_image,set_value=ListVal949(0:14)
-	widget_control,widget_ids.sel_base,set_value=ListVal949(15:sz(3)-1)
+	widget_control,widget_ids.sel_base,set_value=ListVal949(0:sz(3)-1)
+;	widget_control,widget_ids.sel_base,set_value=ListVal949(15:sz(3)-1)
 	endif else $
 	widget_control,widget_ids.sel_image,set_value=ListVal949(0:sz(3)-1)
   end
@@ -1614,6 +1618,7 @@ image2d_state = { $
 	widget_ids : widget_ids, $
 	view_option : view_option, $
 	norm_ids : norm_ids, $
+	VERS : VERS, $
 	path : p, $
 	home : p, $
 	outpath : p+!os.file_sep, $
@@ -1880,7 +1885,7 @@ PRO PDMENU93_Event, Event, image2d_state
 	detnm = detnm(p1:p2-1)
 	image_array = image_array(*,*,p1:p2-1)
 	image2d_state.start = p2 
-	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top
+	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top,VERS=image2d_state.VERS
     END
   'PanImages.PanImage Subsets.Next...': BEGIN
 	p1 = image2d_state.start
@@ -1892,7 +1897,7 @@ PRO PDMENU93_Event, Event, image2d_state
 	detnm = detnm(p1:p2-1)
 	image_array = image_array(*,*,p1:p2-1)
 	image2d_state.start = p2
-	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top
+	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top,VERS=image2d_state.VERS
 	end
     END
   'PanImages.PanImage Subsets.Prev...': BEGIN
@@ -1904,7 +1909,7 @@ PRO PDMENU93_Event, Event, image2d_state
 	detnm = detnm(p1:p2-1)
 	image_array = image_array(*,*,p1:p2-1)
 	image2d_state.start = p1
-	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top
+	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top,VERS=image2d_state.VERS
     END
   'PanImages.PanImage Subsets.Last...': BEGIN
 	p2 = maxno
@@ -1915,7 +1920,7 @@ PRO PDMENU93_Event, Event, image2d_state
 	detnm = detnm(p1:p2-1)
 	image_array = image_array(*,*,p1:p2-1)
 	image2d_state.start = p1
-	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top
+	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top,VERS=image2d_state.VERS
     END
   'PanImages.PanImage Subsets.Mid-point...': BEGIN
 	p1 = (image2d_state.start+maxno)/2
@@ -1926,14 +1931,14 @@ PRO PDMENU93_Event, Event, image2d_state
 	detnm = detnm(p1:p2-1)
 	image_array = image_array(*,*,p1:p2-1)
 	image2d_state.start = p1 
-	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top
+	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top,VERS=image2d_state.VERS
     END
   'PanImages.PanImages...': BEGIN
 	detnm = image2d_state.DPVS
-	panimage_sel,image_array,id_def,title=title,group=Event.top,detnm=detnm
+	panimage_sel,image_array,id_def,title=title,group=Event.top,detnm=detnm,VERS=image2d_state.VERS
     END
   'PanImages.Calibration...': BEGIN
-	calibration_factor,image_array,id_def,xv=x,yv=y,title=title
+	calibration_factor,image_array,id_def,xv=x,yv=y,title=title,VERS=image2d_state.VERS
     END
   'Fitting.Ez_Fit...': BEGIN
 	ez_fit,xarray=x,yarray=y,im=image,Group=Event.top
@@ -2027,16 +2032,16 @@ PRO IMAGE2D_BASE_Event, Event
   'IMAGE2D_LIST1': BEGIN
 	if Event.Index lt (image2d_state.maxno-15) then begin
 	image2d_state.detector = Event.Index + 16
-	if image2d_state.detector le n_elements(id_def) then begin
+	if id_def(image2d_state.detector-1) then begin
 	image2d_REPLOT,image2d_state
 	; set initial xl,xr,yl,yr
   	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE=xarr(0)
   	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE=yarr(0)
   	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE=xarr(image2d_state.width-1)
   	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE=yarr(image2d_state.height-1)
-	end
 	endif else begin
 	r = dialog_message('Detector not defined',/info)
+	end
 	end
       END
   'IMAGE2D_LIST2': BEGIN
@@ -2300,7 +2305,7 @@ END
 
 
 
-PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv,id_def=id_def,scanno=scanno,xdescs=xdescs,ydescs=ydescs,zdescs=zdescs,seqnm=seqnm
+PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv,id_def=id_def,scanno=scanno,xdescs=xdescs,ydescs=ydescs,zdescs=zdescs,seqnm=seqnm,VERS=VERS
 ;+
 ; NAME:
 ;       IMAGE2D
@@ -2333,8 +2338,9 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
 ;	YDESCS[4]:  String array specify the y axis title
 ;	ZDESCS[N]:  String array specify the Z axis title
 ;	ID_DEF[N]:  2D data defined indicator vector 
-;	SEQNM:      if specified detector list will be replaced by the ZDESCS
-
+;	SEQNM:   if specified detector list will be replaced by the ZDESCS
+;	VERS:    if specified implies scan version 5.19 or later assumed
+;
 ; COMMON BLOCKS:
 ;       IMAGE2D_NORM_BLOCK used by the dialog of setting the Image
 ;       Color Scheme.
@@ -2356,6 +2362,8 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
 ;			Modify the set new 2D scan ranges to check for relative
 ;                       mode to reset the new center position and relative new
 ;                       scan range
+;	10-31-2003	Release 1.1
+;			Support scan VERS 5.19 name start from D01...
 ;			
 ;-
 
@@ -2448,21 +2456,9 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       UVALUE='IMAGE2D_RENEW', $
       VALUE='ReNew')
 
-  LABEL15 = WIDGET_LABEL( BASE8, $
-      UVALUE='LABEL15', $
-      VALUE='D01...D70')
-
-  ListVal949 = [ $
-    'D01  ', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08', 'D09', 'D10' ]
-	vlist = 'D'+strtrim(indgen(60)+11,2)
-	ListVal949 = [ListVal949,vlist] +'          '
-  LIST17 = WIDGET_LIST( BASE8,VALUE=ListVal949, $
-      UVALUE='IMAGE2D_LIST1', $
-      YSIZE=3)
-
   LABEL19 = WIDGET_LABEL( BASE8, $
       UVALUE='LABEL19', $
-      VALUE='D1...DF')
+      VALUE='  Det#')
 
   ListVal1099 = [ $
     'D1  ', $
@@ -2482,6 +2478,18 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
     'DF' ]
   LIST20 = WIDGET_LIST( BASE8,VALUE=ListVal1099+'          ', $
       UVALUE='IMAGE2D_LIST2', $
+      YSIZE=3)
+
+  LABEL15 = WIDGET_LABEL( BASE8, $
+      UVALUE='LABEL15', $
+      VALUE='  Det#')
+
+  ListVal949 = [ $
+    'D01  ', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08', 'D09', 'D10' ]
+	vlist = 'D'+strtrim(indgen(60)+11,2)
+	ListVal949 = [ListVal949,vlist] +'          '
+  LIST17 = WIDGET_LIST( BASE8,VALUE=ListVal949, $
+      UVALUE='IMAGE2D_LIST1', $
       YSIZE=3)
 
 ;  xaxis = widget_droplist(BASE8,value=['P1','P2','P3','P4'], $
@@ -2825,10 +2833,11 @@ if n_elements(image_array) eq 0 then begin
   image_array = indgen(100,50,200,/float) ;image_array
 end
 
+  if n_elements(VERS) eq 0 then VERS=0
   image2d_init,widget_ids,image2d_state=image2d_state, $
 	image_array,xarr,yarr,title=title,outpath=outpath, pv=pv, $
 	id_def=id_def,scanno=scanno,xdescs=xdescs,ydescs=ydescs,$
-	zdescs=zdescs,seqnm=seqnm
+	zdescs=zdescs,seqnm=seqnm,VERS=VERS
 
 
   image2d_REPLOT,image2d_state

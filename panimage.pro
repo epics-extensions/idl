@@ -49,21 +49,28 @@ end
 END 
 
 
-PRO panimage_sel_init,panimageinfo,image_array,det_def,detnm=detnm
+PRO panimage_sel_init,panimageinfo,image_array,det_def,detnm=detnm,vers=vers
 
   sz = size(image_array)
 
 ; select  order in D1, ...,DF, D01...D70
 
-  detname = 'D'+ [ $
-		strtrim(indgen(9)+1,2),'A','B','C','D','E','F', $
+  if keyword_set(vers) then begin
+    detname = 'D'+ ['01','02','03','04','05','06','07','08','09', $
+              	strtrim(indgen(61)+10,2) $
+		]
+    l123 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70']
+  endif else begin
+    detname = 'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F', $
        		'01','02','03','04','05','06','07','08','09', $
               	strtrim(indgen(61)+10,2) $
 		]
   l123 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D1-DF']
+  end
 
   if keyword_set(detnm) then detname= detnm
 
+  nd = n_elements(detname)
   panimageinfo = {  $
 	base : 0L, $
 	title : '',$
@@ -72,10 +79,11 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def,detnm=detnm
 	new_win : -1, $
 	multiwin : 1, $		  	; multiple window option
 	image_array: image_array, $
+	dstart : 15, $ 		; D01 start detector seq
 	width : sz(1), $
 	height : sz(2), $
 	ndet: sz(3), $
-	id_def: intarr(85), $
+	id_def: intarr(nd), $
 	outtype : 0, $
 	factor : 1, $
 	path : '', $
@@ -85,7 +93,7 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def,detnm=detnm
 	reverse : 1, $
 	labelon : 0, $
 	numd : 10, $		
-	sel_list: intarr(85), $
+	sel_list: intarr(nd), $
 	factor_id : 0L, $		;pan_factor, $
 	tiff_id : 0L, $			;pan_tiffname, $
 	reverse_id: 0L, $		;pan_reverse, $
@@ -93,6 +101,7 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def,detnm=detnm
 	}
 
 panimageinfo.id_def = det_def
+if keyword_set(VERS) then panimageinfo.dstart = 0
 
 END
 
@@ -158,26 +167,27 @@ PRO PANIMAGE_SEL_Event, Event
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
   WIDGET_CONTROL, Event.top, GET_UVALUE=panimageinfo
 
+  nd = n_elements(panimageinfo.detname)
   CASE Ev OF 
   'PANIMAGE_SUBLIST': BEGIN
 	sublist = WIDGET_INFO(Event.ID,/DROPLIST_SELECT)
 	CASE sublist OF
-	0: ret = indgen(10) +15 
-	1: ret = indgen(10) +25 
-	2: ret = indgen(10) +35 
-	3: ret = indgen(10) +45
-	4: ret = indgen(10) +55 
-	5: ret = indgen(10) +65 
-	6: ret = indgen(10) +75 
+	0: ret = indgen(10) + panimageinfo.dstart
+	1: ret = indgen(10) +10 + panimageinfo.dstart
+	2: ret = indgen(10) +20 + panimageinfo.dstart
+	3: ret = indgen(10) +30 + panimageinfo.dstart
+	4: ret = indgen(10) +40 + panimageinfo.dstart
+	5: ret = indgen(10) +50 + panimageinfo.dstart
+	6: ret = indgen(10) +60 + panimageinfo.dstart
 	7: ret = indgen(15)
 	ENDCASE
 	title = panimageinfo.title + ' : ' + panimageinfo.sublist(sublist)
 	PANIMAGE_SEL_accept,ret,title,panimageinfo
-	panimageinfo.sel_list = intarr(85) 
+	panimageinfo.sel_list = intarr(nd) 
 	panimageinfo.sel_list = ret 
       END
   'PANIMAGE_ALL': BEGIN
-	ret = indgen(85) 
+	ret = indgen(nd) 
 	title = panimageinfo.title + ' : All read detectors'
 	ret_conv = ret(0:panimageinfo.ndet-1)
 	PANIMAGE_SEL_accept,ret_conv,title,panimageinfo
@@ -202,14 +212,14 @@ PRO PANIMAGE_SEL_Event, Event
       ret = WIDGET_INFO(panimageinfo.list_wid,/LIST_SELECT)
 	num = WIDGET_INFO(panimageinfo.list_wid,/LIST_NUMBER)
 	if ret(0) lt 0 then begin
-		ret = indgen(85) 
+		ret = indgen(nd) 
 		ret_conv = ret(0:panimageinfo.ndet-1)
 	endif else begin
 	ret_conv = ret
 	end
 	title = panimageinfo.title
 	PANIMAGE_SEL_accept,ret_conv,title,panimageinfo
-	panimageinfo.sel_list = intarr(85) 
+	panimageinfo.sel_list = intarr(nd) 
 	panimageinfo.sel_list = ret_conv 
       END
   'PANIMAGE_CANCEL': BEGIN
@@ -277,7 +287,7 @@ END
 
 
 
-PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,panimageinfo,tiff=tiff,path=path,detnm=detnm
+PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,panimageinfo,tiff=tiff,path=path,detnm=detnm,vers=vers
 ;+
 ; NAME: 
 ;   panImage_Sel
@@ -301,16 +311,20 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 ;     TIFF:      Specifies the output tiff file name 
 ;     PATH:      Specifies the output data path
 ;     DETNM:     Specifies the Ndets image ID names
+;     VERS:      Specifies the VERS contorl indicator 
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Mar 29, 2000.
 ;       04-21-2003 bkc  Add ASCII... report generation button for selected image
+;       10-30-2003 bkc  Add version control
 ;-
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
+  if keyword_set(VERS) then $
+  panimage_sel_init,panimageinfo,image_array,det_def,DETNM=DETNM,/VERS else $
   panimage_sel_init,panimageinfo,image_array,det_def,DETNM=DETNM
 
   PANIMAGE_SEL = WIDGET_BASE(GROUP_LEADER=Group, $
