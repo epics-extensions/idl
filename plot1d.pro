@@ -1033,8 +1033,8 @@ CASE B_ev OF
 'PLOT1D_DATA': begin
 	sz = size(state.y)
 	nel = n_elements(state.x)
+	if sz(0) eq 2 then nel = sz(1)
 	f1 = '('+ strtrim(nel+1,2)+'G17.7)'
-
 	openw,1,'plot1d.txt'
 	if state.scatter then  $
 		printf,1,'; Scattering data column vectors: Xi,Yi, ...' else $
@@ -1070,7 +1070,7 @@ CASE B_ev OF
 
 	close,1
 
-	xdisplayfile,'plot1d.txt',title='Listing of plot1d.txt',Group=Ev.top
+	xdisplayfile,'plot1d.txt',title=state.title,Group=Ev.top
 	cd,current=cpath
 	if xregistered('plot1d') then $
 	rename_dialog,cpath,'plot1d.txt','',Group=Ev.top
