@@ -7,6 +7,8 @@
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
 
+@colorbar.pro
+@PS_open.pro
 
 PRO image2d_normalize_accept,pick_i,image2d_state
 
@@ -1000,10 +1002,12 @@ END
 
 PRO image2d_REPLOT,image2d_state
 COMMON SYSTEM_BLOCK,OS_SYSTEM
+COMMON COLORBAR, colorbar_data
 COMMON PRINTER_BLOCK,printer_info
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 COMMON IMAGE2D_NORM_BLOCK, norm_ids
 
+ if n_elements(colorbar_data) eq 0 then colorbar_init,colorbar_data
 
 	widget_ids = image2d_state.widget_ids
 	view_option = image2d_state.view_option
@@ -1422,7 +1426,13 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		end
 
 		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=50,x=390 else $
-		colorbar,[v_min,v_max], y=10
+		colorbar,[v_min,v_max],colorbar_data.width, $
+			colorbar_data.height, $
+			horizontal=colorbar_data.horiz, $
+			x=colorbar_data.x, y=10, $
+			reverse=printer_info.reverse, $
+			ncap=colorbar_data.nlabel,format=colorbar_data.format
+;		colorbar,[v_min,v_max], y=10
 
                 ; save pixmap
                 if !d.name ne OS_SYSTEM.device then return
@@ -1444,8 +1454,10 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		width = x_max - x_min + 1
 		height = y_max - y_min + 1
 
+		xrange = [ xarr(x_min), xarr(x_max)]
+		yrange = [ yarr(y_min), yarr(y_max)]
 	 	    xratio = 1.
-		    yratio = float(y_max-y_min+1)/(x_max-x_min+1) 
+		    yratio = float(yrange(1)-yrange(0))/(xrange(1)-xrange(0)) 
 		    if yratio gt 1. then begin
 			xratio = 1. / yratio
 			yratio = 1.
@@ -1514,11 +1526,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	ytitle = image2d_state.y_desc
 	if strtrim(image2d_state.z_desc,2) ne '' then $
 	title = image2d_state.z_desc + ' - ' + title else $
-	title = 'D'+strtrim(image2d_state.detector,2) + ') '+title
-id = image2d_state.detector - 1 - 15
-if id ge 0 then $
-title = image2d_state.DPVS(id) + ' ('+title else $
-title = image2d_state.DPVS(70+image2d_state.detector)
+	title = image2d_state.DPVS(image2d_state.detector-1) +' ' +title
 
 		if !d.name eq 'PS' then begin
 		    xo = !d.x_size * image2d_state.view_option.ps_l
@@ -1543,8 +1551,8 @@ title = image2d_state.DPVS(70+image2d_state.detector)
 
 		    p1 = [float(image2d_state.view_option.margin_l)/ !d.x_size, $
 			float(image2d_state.view_option.margin_b)/!d.y_size, $
-			float(!d.x_size - image2d_state.view_option.margin_r) / !d.x_size, $
-			(float(image2d_state.view_option.margin_b) + height)/!d.y_size $
+			(float(image2d_state.view_option.margin_l)+width)/!d.x_size, $
+			(float(image2d_state.view_option.margin_b)+height)/!d.y_size $
 			]
 
 		    plot,/noerase,/nodata, pos=p1 ,[-1,-1], $
@@ -1553,7 +1561,13 @@ title = image2d_state.DPVS(70+image2d_state.detector)
 			xstyle = 1, ystyle=1
 		end
 		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=100 else $
-		colorbar,[v_min,v_max], y=10
+		colorbar,[v_min,v_max],colorbar_data.width, $
+			colorbar_data.height, $
+			horizontal=colorbar_data.horiz, $
+			x=colorbar_data.x, y=10, $
+			reverse=printer_info.reverse, $
+			ncap=colorbar_data.nlabel,format=colorbar_data.format
+;		colorbar,[v_min,v_max], y=10
 
 	   end
 	ELSE: print,'Unknow case entered'
@@ -1790,6 +1804,7 @@ END
 
 PRO PDMENU4_Event, Event, image2d_state
 COMMON IMAGE2D_NORM_BLOCK, norm_ids
+COMMON COLORBAR, colorbar_data
 
 	ncol = image2d_state.width
 	nrow = image2d_state.height
@@ -1888,6 +1903,10 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	restore,'pvtcolors.dat'
 	TVLCT,red,green,blue
 	end
+    END
+  'Color.ColorBar Config...': BEGIN
+        WSET,image2d_state.widget_ids.plot2d_area
+        colorbar_config,GROUP=Event.top
     END
   'Color.Change Color Table...': BEGIN
 	XLOADCT,Group=Event.Top
@@ -2492,6 +2511,10 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
 ;			Support scan VERS 5.19 name start from D01...
 ;			
 ;-
+
+@os.init
+PS_init
+
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
@@ -2530,7 +2553,8 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
         { CW_PDMENU_S,       0, 'Save Private Color Table' }, $ ;       11
         { CW_PDMENU_S,       0, 'Load Private Color Table' }, $ ;       12
         { CW_PDMENU_S,       0, 'Image Color Scheme...' }, $ ;       14
-        { CW_PDMENU_S,       2, 'Change Color Table...' }, $ ;       13
+        { CW_PDMENU_S,       0, 'Change Color Table...' }, $ ;       13
+        { CW_PDMENU_S,       2, 'ColorBar Config...' }, $ ;       13
       { CW_PDMENU_S,       1, 'Help' }, $ ;       15
         { CW_PDMENU_S,       2, 'Help...' } $  ;     16
 
@@ -2967,7 +2991,6 @@ end
 	image_array,xarr,yarr,title=title,outpath=outpath, pv=pv, $
 	id_def=id_def,scanno=scanno,xdescs=xdescs,ydescs=ydescs,$
 	zdescs=zdescs,seqnm=seqnm,VERS=VERS
-
 
   image2d_REPLOT,image2d_state
 
