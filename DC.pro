@@ -513,7 +513,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.14 2001/04/04 21:34:40 cha Exp $
+; $Id: DC.pro,v 1.15 2001/04/04 21:37:56 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -8618,7 +8618,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   COMMON DRAW61_Comm, DRAW61_Id
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
-@DC.init.R2.3
+@DC.init
 
 ; get start home work directory
 
