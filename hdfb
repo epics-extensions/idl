@@ -1,5 +1,5 @@
 #!/bin/csh -f
-setenv IDL_STARTUP /home/oxygen/CHA/epics/extensions/bin/$HOST_ARCH/hdfb_startup.pro
+setenv IDL_STARTUP /home/oxygen/CHA/epics/extensions/bin/$HOST_ARCH/viewer_startup.pro
 echo ".run /home/oxygen/CHA/epics/extensions/bin/$HOST_ARCH/hdfb" >! go_hdfb
 echo "hdfb" >>! go_hdfb
 idl go_hdfb
