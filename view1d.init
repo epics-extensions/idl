@@ -7,7 +7,7 @@
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
 
-;  catcher_view1d.init (R1.3)
+;  catcher_view1d.init (R1.5e)
  
 ;if n_elements(view1d_plotspec_id) eq 0 then $
 view1d_plotspec_id = { $
@@ -31,15 +31,18 @@ view1d_plotspec_id = { $
 	xticklen: 0.04, $
 	yticklen: 0.02, $
 	gridstyle: 0, $
+	colorV: make_array(19,/LONG), $ 
 	colorI: make_array(19,/LONG,value=!d.n_colors-2) $ 
         }
 
-if !d.name eq 'X' then device,bypass_translation=0,retain=2
+; if these is problem for 8 bit devices may require uncomment below line
+; if !d.name eq 'X' then device,bypass_translation=0,retain=2
 
-;   plotoption_setcolor    ; init color index array
+;LOADCT,39
 colorI = lonarr(19)
-getLineColors,colorI
+getLineColors,colorI,v=colorV
 view1d_plotspec_id.colorI = colorI
+view1d_plotspec_id.colorV = colorV
 
    V1D_scanData  =  {                 $
 XDR : 0, $	; 0 - input file in pure binary , 1 - in xdr binary 
