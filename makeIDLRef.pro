@@ -111,6 +111,16 @@ mk_html_help,'plot2d.pro','html/plot2dRef.html', $
 
 END
 
+PRO colorbarRef
+descript=[ '<H1>colorbar.pro</H1> ', $
+'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This is a utility routine for generating the colorbar on a plot device.' $
+]
+mk_html_help,'colorbar.pro','html/colorbarRef.html', $
+	descript=descript
+
+END
+
 PRO u_readRef
 descript=[ '<H1>u_read.pro</H1> ', $
 'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
@@ -194,11 +204,42 @@ mk_html_help,'obj_clean.pro','html/objCleanRef.html', $
 	descript=descript
 END
 
+PRO scan2d_convertRef
+descript=[ '<H1>scan2d_convert.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program is specially written for scan2d object, it provides the user with', $
+'flexible object methods of reading / writing TIFF or GIF images for a list', $
+'of desired image numbers.']
+
+mk_html_help,'scan2d_convert.pro','html/scan2d_convertRef.html', $
+	descript=descript
+END
+
+PRO scan2d_ROIRef
+descript=[ '<H1>scan2d_roi.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application SCAN2D_ROI to flexiblely', $
+'define a 2D-ROI and caluculate statistics with any input 2D image.']
+
+mk_html_help,'scan2d_roi.pro','html/scan2d_ROIRef.html', $
+	descript=descript
+END
+
+PRO calibrationRef
+descript=[ '<H1>calibration_factor.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application CALIBRATION_FACTOR to flexiblely', $
+'define and calculate various image calibrations with a set of input 2D scan image_array.']
+
+mk_html_help,'calibration_factor.pro','html/calibrationRef.html', $
+	descript=descript
+END
+
 PRO scan1d_ObjectRef
 ;
 descript=[ '<H1>scan1d__define.pro</H1> ', $
 'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
-'This program is written in IDL 5.0 object programming language .', $
+'This program is written in IDL object programming language .', $
 'It allows the IDL user easily to access 1D scan data captured by the data catcher', $
 'without bringing up data catcher or viewer.', $
 '<P>For proper operation of the <B>scan1d</B> object, a user first has to make',$
@@ -211,7 +252,7 @@ descript=[ '<H1>scan1d__define.pro</H1> ', $
 'in his/her IDL search path.', $
 '<P>From the unix operating system to access IDL <I><B>scan1d</B></I> object class by entering :', $
 '<PRE>     <B>idl  go_scan1d</B></PRE>', $
-'<P>The files <B>u_read.pro</B>, <B>plot1d.pro</B>, and <B>scan1d__define.pro</B> are automatically loaded into IDL 5.0 for user.', $
+'<P>The files <B>u_read.pro</B>, <B>plot1d.pro</B>, and <B>scan1d__define.pro</B> are automatically loaded into IDL for user.', $
 "</B><P>For an example to create a <I><B>'scan1d'</B></I> object with variable name as <B>v1d</B>, ", $
 "where the 1D catcher data is saved in the file <B><I>'junk2'</I></B>:", $
 
@@ -227,7 +268,7 @@ PRO scan2d_ObjectRef
 ;
 descript=[ '<H1>scan2d__define.pro</H1> ', $
 'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
-'This program is written in IDL 5.0 object programming language .', $
+'This program is written in IDL object programming language .', $
 'It allows the IDL user easily to access 2D scan data captured by the data catcher.', $
 '<P>In order to access <B>scan2d</B> object from other IDL program, a user has to make',$
 'sure that the following environment variable is set before invoking IDL :', $
@@ -237,7 +278,7 @@ descript=[ '<H1>scan2d__define.pro</H1> ', $
 'in his/her IDL search path.', $
 '<P>From the unix operating system to access IDL <I><B>scan2d</B></I> object class by entering :', $
 '<PRE>     <B>idl  go_scan2d</B></PRE>', $
-'<P>The files <B>u_read.pro</B>, and <B>scan2d__define.pro</B> are automatically loaded into IDL 5.0 for user.', $
+'<P>The files <B>u_read.pro</B>, and <B>scan2d__define.pro</B> are automatically loaded into IDL for user.', $
 "</B><P>For an example to create a <I><B>'scan2d'</B></I> object with variable name as <B>v2</B>, ", $
 "where the 2D catcher data is saved in the file <B><I>'junk2.image'</I></B>:", $
 
@@ -247,6 +288,37 @@ descript=[ '<H1>scan2d__define.pro</H1> ', $
 '<PRE><B>     v2->view,135 </B></PRE>' $
 ]
 mk_html_help,'scan2d__define.pro','html/scan2d_ObjectRef.html', $
+	descript=descript
+END
+
+PRO scanSee_ObjectRef
+;
+descript=[ '<H1>scanSee__define.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program is written in IDL object programming language .', $
+'It allows the IDL user easily to access the scan data written by the IOC scan software.', $
+'<P>In order to access <B>scanSee</B> object from other IDL program, a user has to make',$
+'sure that the following environment variable is set before invoking IDL :', $
+'<PRE>     <B>setenv EPICS_EXTENSIONS  /usr/local/epics/extensions </B></PRE>', $
+'<PRE><B>     setenv IDL_STARTUP /usr/local/epics/extensions/bin/$HOST_ARCH/viewer_startup.pro </B></PRE>', $
+'<P>and make sure including the directory <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B>',$
+'in his/her IDL search path.', $
+'<P>From the unix operating system to access IDL <I><B>scanSee</B></I> object class by entering :', $
+"<PRE><B>     idl</B>", $
+"<PRE><B>     IDL> .run scanSee__define</B></PRE>", $
+'<P>The files used by <B>scanSee__define.pro</B> are automatically loaded into IDL for user.', $
+"</B><P>For an example to create a <I><B>'scanSee'</B></I> object with variable name as <B>v2</B>, ", $
+"where the scan data is saved in the file <B><I>'/home/sricat/CHA/data/rix/cha:_0039.scan'</I></B>:", $
+
+"<PRE><B>     file=<I>'/home/sricat/CHA/data/rix/cha:_0039.scan'</I></B>", $
+"<B>     v2 = obj_new('scanSee',file=<I>file</I>)</B></PRE>", $
+
+"<P>To view the 4th detector's image from the file:", $
+'<PRE><B>     v2->view2d,4 </B></PRE>', $
+"<P>To run the calibration program for the file:", $
+'<PRE><B>     v2->calibration </B></PRE>' $
+]
+mk_html_help,'scanSee__define.pro','html/scanSee_ObjectRef.html', $
 	descript=descript
 END
 
@@ -307,8 +379,8 @@ END
 
 PRO makeIDLRef
 ; This program builds the catcher.html from the source files
-; files = ['catcher_v1.pro','view2d.pro','plot1d.pro','view1d.pro','dcviewer.pro']
-; mk_html_help, files, 'html/catcher.html'
+ files = ['catcher_v1.pro','view2d.pro','plot2d.pro','plot1d.pro','view1d.pro','dcviewer.pro','scan2d_roi.pro']
+ mk_html_help, files, 'catcher.html'
 
 ; catcherRef
 	catcherRef
@@ -354,6 +426,9 @@ PRO makeIDLRef
 ; scan2d_ObjectRef
 	scan2d_ObjectRef
 
+; scan2d_ObjectRef
+	scanSee_ObjectRef
+
 ; objCleanRef
 	objCleanRef
 
@@ -363,4 +438,10 @@ PRO makeIDLRef
 ; readScanRef
 	readScanRef
 
+; scan2d_convertRef
+	scan2d_convertRef
+; scan2d_ROIRef
+	scan2d_ROIRef
+; calibrationRef
+	calibrationRef
 END
