@@ -986,9 +986,11 @@ help,printer_info.reverse
       END
   ENDCASE
 
-if printer_info.name ne '' and OS_SYSTEM.os_family eq 'unix' then $
+if printer_info.name ne '' then begin
+	if OS_SYSTEM.os_family eq 'unix' then $
 	OS_SYSTEM.printer = '-P'+printer_info.name + ' ' else $
-	OS_SYSTEM.printer = ''
+	OS_SYSTEM.printer = printer_info.name 
+end
 
 END
 
@@ -1065,7 +1067,7 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='BASE2')
 
   LABEL3 = WIDGET_LABEL( BASE2, $
-      FONT='-adobe-times-medium-r-normal--20-140-100-100-p-96-iso8859-1', $
+	FONT=!os.font, $
       UVALUE='LABEL3', $
       VALUE='Setup PS Printer')
 
@@ -1106,7 +1108,7 @@ COMMON PRINTER_BLOCK,printer_info
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.2 1997/10/16 21:56:00 cha Exp $
+; $Id: view1d.pro,v 1.3 1997/12/19 23:54:50 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1275,7 +1277,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.2 1997/10/16 21:56:00 cha Exp $
+; $Id: view1d.pro,v 1.3 1997/12/19 23:54:50 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1782,6 +1784,32 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 END
 
 
+
+
+PRO catch1d_get_pvtcolor,i,color
+; 24 bits
+	catch1d_get_pvtct,red,green,blue
+	color = red(i) + green(i)*256L + blue(i)*256L ^2
+;	plot,indgen(10),color=color
+END
+
+PRO catch1d_save_pvtct
+	tvlct,red,green,blue,/get
+	save,red,green,blue,file='catch1d.tbl'
+END
+
+PRO catch1d_get_pvtct,red,green,blue
+	file = 'catch1d.tbl'
+	found = findfile(file)
+	if found(0) eq '' then begin
+		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
+		found1 = findfile(file)
+		if found1(0) eq '' then $
+		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
+	end
+	restore,file
+	tvlct,red,green,blue
+END
 
 ;
 ;  figure out the ~ file name
@@ -4049,6 +4077,11 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
 	color = view1d_plotspec_id.colorI(id1)
+        ; 24 bit visual case
+        if !d.n_colors eq 16777216 then begin
+                catch1d_get_pvtcolor,color,t_color
+                color = t_color
+                end
 	if !d.name eq 'PS' then color = 0
 
 ;if V1D_scanData.debug eq 1 then $
@@ -4684,7 +4717,7 @@ if found(0) ne '' then  begin
 	report_path = V1D_scandata.path
 	save_outfile = V1D_scandata.path+view1d_summary_id.outfile
 	CATCH,error_status
-	if error_status eq -171 then begin
+	if error_status eq -171 or error_status eq -206 then begin
 		report_path = V1D_scandata.home + !os.file_sep 
 		save_outfile = report_path+view1d_summary_id.outfile
 		goto, RESETSENSE
@@ -4975,6 +5008,8 @@ END
 ; @view1d_plot.pro
 ; @view1d_summary.pro
 
+
+
 PRO read_desc_engu,labels
 COMMON LABEL_BLOCK,x_names,y_names,x_descs,y_descs,x_engus,y_engus
 
@@ -5003,6 +5038,7 @@ END
 PRO open_binary_type,unit,filename,type,wid
 ; check the binary type and return lun unit and XDR type
 
+if !d.name eq 'X' then begin
 	type = 0
 	U_OPENR,unit,filename
 	u_read,unit,version
@@ -5011,6 +5047,11 @@ PRO open_binary_type,unit,filename,type,wid
         	U_OPENR,unit,filename,/XDR
 		type = 1
 	end
+end
+if !d.name eq 'WIN' then begin
+       	U_OPENR,unit,filename,/XDR
+	type = 1
+end
 	if n_params() eq 4 then WIDGET_CONTROL,wid,set_droplist_select=type
 END
 
@@ -5210,6 +5251,8 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 
 ; check file existence
 
+if !d.name eq 'WIN' then return
+
 found = findfile(filename)
 if found(0) eq '' then return
 	openr,1,filename
@@ -5408,13 +5451,13 @@ COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array , view1
 
   if view1d_plotspec_id.color eq 1 then begin
         LOADCT, 39
-        dcl = float(!d.n_colors - 1)
-	ncv=10
+        dcl = !d.table_size - 2 
+	ncv = 4
         colorlevel = dcl / ncv 
         for i=0,18 do begin
         ii = i / ncv
         im = i mod ncv
-        view1d_plotspec_id.colorI(i) = colorlevel * (ncv - im - ii*0.5) 
+        view1d_plotspec_id.colorI(i) = dcl - ii - im * colorlevel 
         end
   end
 
@@ -5441,7 +5484,7 @@ COMMON view1d_PLOTMENU_OPTION_BLOCK,ids,r_names
 	view1d_plotoptionsmenu_set_string,3,2
 	view1d_plotspec_id.color = 0
 	for i=0,18 do begin
-       	view1d_plotspec_id.colorI(i) = !d.n_colors - 1 
+       	view1d_plotspec_id.colorI(i) = !d.table_size - 1 
 	end
 	end
 ; solid / dotted/ dashed
