@@ -33,7 +33,7 @@ PRO COMMANDTEXT_Event, Event
       END
   'COMMANDTEXT_BUTTON6': BEGIN
 	WIDGET_CONTROL,info.base,/DESTROY
-	exit
+	return
       END
   ENDCASE
 END
