@@ -1,3 +1,114 @@
+                        CATCHER R2.2.2c7+  RELEASE NOTE 
+                        ==========================
+
+
+The catcher_v1.pro program has been upgraded to R2.2.27c+. 
+The view2d program has been updated to R2.3g+. The underline
+programs modified including the calibration, ez_fit, fit_statistic.
+
+A new stand-alone program 'calibra' is available for performing 1D/2D
+calibration.
+
+
+<<FWHM>>
+
+The problem of 0 FWHM for scanning from positive to negative is fixed.
+
+Two submenu 'FWHM on Y' and 'FWHM on DY/DX' is added to the statistic
+menu.
+
+	FWHM on Y->One...     Plots FWHM on Y for first selected detector
+				Option of accessing 'fwhm.rpt'
+		   All...     Plots FWHM on Y for all detectors
+
+	FWHM on DY/DX->One... Plots FWHM on DY/DX for first selected detector
+				Option of accessing 'fwhm.rpt'
+		       All... Plots FWHM on DY/DX for all detectors
+
+<<VIEW2D>>
+
+The view2d program has been upgraded to R2.3g+. View2D interface is
+slightly different in catcher and viewer. Used in catcher, a new 
+feature of setting 2D scan motor positions is available. 
+
+**Bug Fixed** 
+
+The problem of user clicking the 2D plot area before loading the 2D image  
+into VIEW2D has been fixed in this version.
+
+**New Features**
+
+Automatically set the initial text fields of Xmax and Ymax same as the 
+image width and height.
+
+Add the option of setting new PiPV, and PiCP positions if view2d is invoked 
+from the catcher. The new 2D setting positions can be entered directly 
+from the keyboard or by clicking the 2D image area.
+
+
+<<calibra>>
+
+A new 1D/2D calibration program, calibra, can be accessed from the UNIX 
+command prompt. It consists the following new files:
+
+	calibra
+	calibdrv.pro
+	calibra_pick1d.pro
+	calibration_factor.pro
+
+
+ 
+                        CATCHER R2.2.2c7  RELEASE NOTE 
+                        ==========================
+
+The view2d program has been upgraded to R2.3g. 
+
+Bugs fixed include the following:
+
+The maximum allowable size of X, and Y array has been increased to 2001.
+The axis plot of TV image is suppressed if constant value is detected.
+
+New features in R2.3g includes:
+
+<<PanImage Menu>>
+
+A submenu PanImages and Calibration... are added to the PanImage menu.
+The PanImages submenu generates the panImage window and lets the user
+save the panImage as a TIFF/RTIFF/GIF file.
+
+	PanImage->PanImages->PanImages...
+	 	     PanImages+TIFF...
+	  	     PanImages+RTIFF...
+	   	     PanImages+GIF...
+	PanImage->Calibration...
+
+The Calibration... menu will automatically bring up the 2D Image Calibration 
+program for user.
+
+<<Output Files Change>>
+
+All the output file will be saved under the corresponding sub-directory.
+It first tries to create the sub-directory under the data directory. If the
+user has no write permission under the data directory. The sub-directory
+will be created under the current working directory where catcher or 
+viewer is started.
+
+The sub-directories used by the view2d include the following:
+	   
+	./ASCII       -  for ascii files
+	./ROI         -  for 2D ROI definition and report files
+	./TIFF        -  for bottom-up or top_down (reverse) TIFF image files
+	./GIF         -  for GIF image files
+	./CALIBRA     -  for calibration ascii and factors definition files
+	
+
+<<VIEW1D>>
+
+Previously if the positioner array is a constant 0.0, the data array will 
+be plotted against the step #.	Now data array will be plotted against the 
+step # only if the positioner array and detector array both are constant. 
+
+
                         CATCHER R2.2.2c6  RELEASE NOTE 
                         ==========================
 
