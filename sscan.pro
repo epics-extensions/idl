@@ -270,7 +270,7 @@ PRO scanSee_writeConfig,SSD
 	close,1
 END
 
-PRO scanSee_image2d,SSD,axis1,axis2
+PRO scanSee_image2d,SSD,axis1,axis2,vers=vers
 
 	if SSD.rank eq 1 then return
 	xarr = *SSD.pa(SSD.rank-2)
@@ -299,8 +299,9 @@ if sz(0) eq 1 and axis2 gt 0 then yarr = indgen(sz(1))
 
 ;        da2d = *SSD.da(SSD.rank-2)
 ;	if axis2 ge 4 or axis1 ge 4 then image2d,da2d,id_def=id_def else $
-        image2d,*SSD.da(SSD.rank-2),xarr,yarr,id_def=id_def, $
-	xdescs=xd,ydescs=yd,zdescs=zdescs
+	title=SSD.file
+        image2d,*SSD.da(SSD.rank-2),xarr,yarr,id_def=id_def,title=title, $
+	xdescs=xd,ydescs=yd,zdescs=zdescs,vers=vers
 END
 
 PRO sscan_getDescs,SSD,xdescs,ydescs,zdescs
@@ -395,14 +396,22 @@ END
 PRO scanSee_pickYaxis,Event
 	axis = widget_info(Event.id,/droplist_select)
   	widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
+	vers = scanSee_data.vers
 	scanSee_data.pick2d = axis
 	axis1 = scanSee_data.pick1d
 	SSD = *scanSee_data.SSD
+	SSD.vers = vers
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 	if ssd.nb_det(ssd.rank-2) eq 0 then return
-	scanSee_image2d,SSD,axis1,axis
+	scanSee_image2d,SSD,axis1,axis,vers=vers
 END
 
+PRO scanSee_version,Event
+	vs = widget_info(Event.id,/droplist_select)
+  	widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
+	scanSee_data.vers = vs
+  	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
+END
 
 PRO SSCAN_DLISTPICK4D_Event, Event
 
@@ -491,7 +500,16 @@ PRO scanSee_pick3d_det,Event
 	sscan_read3DPick,SSD,da2D,idet=idet
 	nd = where(SSD.id_def(4:88,0) gt 0)
 	title=SSD.class+' : 3D Seq # :D_'+strtrim(nd(idet)+1,2)
-	view3d_2d,*SSD.da[0],title=title,group=Event.top
+;	if n_elements(ssd.cal_array) eq 0 then  $
+	sscan_readENV,ssd
+	cal = *ssd.cal_array
+	xv = *ssd.pa[ssd.rank-3]
+	yv = *ssd.pa[ssd.rank-2]
+	zv = *ssd.pa[ssd.rank-1]
+	for i=0,ssd.npts(0)-1 do begin
+	xv(i) = cal(idet).cal_offset+cal(idet).cal_slope*i+cal(idet).cal_quad*i*i
+	end
+	view3d_2d,*SSD.da[0],0,xv,yv,zv,title=title,group=Event.top
 	end
 	if ssd.rank eq 4 then begin
 ;	pda3D = *ssd.da(1)
@@ -503,7 +521,7 @@ END
 
 PRO scanSee_checkrank,scanSee_data
   	SSD = *scanSee_data.SSD
-  	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
+  	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank,2)+'D'
 
 	if SSD.rank lt 3 then begin
 	    WIDGET_CONTROL,scanSee_data.p4d_wid,SENSITIVE=0 
@@ -823,6 +841,7 @@ HD_T = make_array(4,mdim,value=trg_info)
 	class	: '', $
 	path : p, $
 	lun : -1, $
+	vers	: 0, $   ; 0 - 85 detecors, 1 - 70 detectors
 	mdim : mdim, $
 	rank  : 0, $
 	scanno : 0, $
@@ -848,6 +867,7 @@ HD_T = make_array(4,mdim,value=trg_info)
 	noenv  : 0, $
 	envPtr : 0L, $
 	ts2	: ptr_new(/allocate_heap), $
+	cal_array :  ptr_new(/allocate_heap), $
 	EH	: ptr_new(/allocate_heap), $
 	da	: ptrarr(mdim,/allocate_heap), $
 	pa	: ptrarr(mdim,/allocate_heap), $
@@ -1076,6 +1096,7 @@ END
 
 PRO sscan_readENV,SSD,echo=echo
 ; read the env variable saved with the scan data
+; if cal specified returns cal_array
 ;
 	pos = SSD.envPtr
 	noenv = 0L
@@ -1129,13 +1150,14 @@ PRO sscan_readENV,SSD,echo=echo
 		readu,lun,v1
 	    end
 	endcase
+	vl = string(v1)
 	end
 		EH(i).type = type
 		EH(i).count = count
 		EH(i).name = name
 		EH(i).desc = desc
 		EH(i).unit = unit
-		EH(i).vl = string(vl)
+		EH(i).vl = vl
 	end
 	end
 
@@ -1144,6 +1166,31 @@ if keyword_set(echo) then begin
 print,SSD.file
 print,EH
 end
+
+; get calibration array
+
+found = make_array(ssd.nb_det(0),/int)
+id = 0
+for i=0,ssd.noenv-1 do begin
+	if strpos(EH(i).desc,'CAL_OFFSET') ge 0 then begin
+	found(id) = i
+	id = id + 1
+	i = i+2
+	end	
+end
+if id eq 0 then return
+cal_d = { cal_offset:0., cal_slope:0., cal_quad: 0.}
+cal_array = make_array(id,value=cal_d)
+for j=0,id-1 do begin
+	if found(j) gt 0 then begin
+	i = found(j)
+	cal_array(j).cal_offset = EH(i).vl
+	cal_array(j).cal_slope = EH(i+1).vl
+	cal_array(j).cal_quad = EH(i+2).vl
+	print,j,i,EH(i).vl,EH(i+1).vl,EH(i+2).vl
+	end
+end
+*ssd.cal_array = cal_array
 END
 
 PRO scanSee_fillVector,SSD,im_array,echo=echo
@@ -1504,22 +1551,19 @@ dataonly:
 	if keyword_set(echo) eq 0 then return
 
 	if SSD.rank eq 1 then begin
-		da1D = *SSD.da(0)
-		if keyword_set(echo) then plot1d,da1D,title='SSCAN: Scan # '+strtrim(SSD.scanno,2)
+		if keyword_set(echo) then scanSee_plot1d,SSD,1
 	end
 
 
 	if SSD.rank eq 2 then begin
-;		if SSD.nb_det(1) then da1D = *SSD.da(1)
-;		da2d = *SSD.da(0)
 		id_def = SSD.id_def(4:4+SSD.detMax(0)-1,0)
-		panimage,*SSD.da(0),id_def,numd=10,title='SSCAN: 2D scan #'+strtrim(SSD.scanno,2)
+		panimage,*SSD.da(0),id_def,numd=10, $
+			title='SSCAN: 2D scan #'+strtrim(SSD.scanno,2)
 	end
 
 if n_elements(zslice) eq 0 then zslice=1
 
 	if SSD.rank eq 3 then begin 
-;		da2D = *SSD.da(1)
 		title='SSCAN: 3D Scan #'+strtrim(SSD.scanno,2)
 		if SSD.nb_det(1) gt 0 then begin
 			id_def = SSD.id_def(4:4+SSD.detMax(1)-1,1)
@@ -1547,7 +1591,6 @@ if n_elements(zslice) eq 0 then zslice=1
 	end
 
 	if SSD.rank eq 4 then begin
-;		da2D = *SSD.da(2)
 		if SSD.nb_det(2) gt 0 then panimage,*SSD.da(2)
 		if SSD.nb_det(1) gt 0 then begin
 		id_def = ssd.id_def(4:4+ssd.nb_det(1)-1,1)
@@ -1646,11 +1689,13 @@ print,SSD.path
   'ViewData.2D Array...': BEGIN
 	axis1 = scanSee_data.pick1d
 	axis2 = scanSee_data.pick2d
+	vers = scanSee_data.vers
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 	if ssd.rank lt 2 then return
 	if SSD.detMax(SSD.rank-2) eq 0 then return
 	if ssd.nb_det(SSD.rank-2) eq 0 then return
-	scanSee_image2d,SSD,axis1,axis2
+	SSD.vers = vers
+	scanSee_image2d,SSD,axis1,axis2,vers=vers
     END
   'ViewData.4D Array...': BEGIN
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
@@ -1804,6 +1849,9 @@ PRO SSCAN_MAIN13_Event, Event
   'SSCAN_PICKAY': BEGIN
 	scanSee_pickYaxis,Event
       END
+  'SSCAN_PICKVS': BEGIN
+ 	scanSee_version,Event	
+      END
   'SSCAN_PICK4D': BEGIN
   	WIDGET_CONTROL,Event.top,/HOURGLASS
 	scanSee_pick4d_det,Event
@@ -1876,6 +1924,7 @@ PRO sscan,file=file,GROUP=Group
 ;
 ; MODIFICATION HISTORY:
 ;        Written by:     Ben-chin K. Cha, July 27, 2004.
+;	03-30-05 bkc	Add support for 85/70 detectors, default 85 Dis
 ;-
 
 if XRegistered('SSCAN_MAIN13') then return
@@ -1888,7 +1937,7 @@ if XRegistered('SSCAN_MAIN13') then return
   SSCAN_MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
       MAP=1, $
-	title='sscan Reader', $
+	title='sscan Reader (R1.0)', $
       UVALUE='SSCAN_MAIN13')
 
   BASE2 = WIDGET_BASE(SSCAN_MAIN13, $
@@ -1935,13 +1984,13 @@ if XRegistered('SSCAN_MAIN13') then return
 
   LABEL6 = WIDGET_LABEL( BASE4, $
       UVALUE='LABEL6', $
-      VALUE='          ')
+      VALUE='  ')
 
-  pick4d = widget_droplist(BASE4,Value='    4D Seq # '+ strtrim(indgen(10)+1,2), $
+  pick4d = widget_droplist(BASE4,Value=' 4D Seq # '+ strtrim(indgen(10)+1,2), $
 	/frame, UVALUE='SSCAN_PICK4D',Title='')
   widget_control,pick4d,sensitive=0
 
-  pick3d = widget_droplist(BASE4,Value='    3D Seq # '+ strtrim(indgen(10)+1,2), $
+  pick3d = widget_droplist(BASE4,Value=' 3D Seq # '+ strtrim(indgen(10)+1,2), $
 	/frame, UVALUE='SSCAN_PICK3D',Title='')
   widget_control,pick3d,sensitive=0
 
@@ -1951,6 +2000,9 @@ if XRegistered('SSCAN_MAIN13') then return
   pickAy = widget_droplist(BASE4,Value=['P1','P2','P3','P4','Step #'], $
 	/frame, UVALUE='SSCAN_PICKAY',Title='Yaxis:')
   
+  pickvs = widget_droplist(BASE4,Value=['85','70'], $
+	/frame, UVALUE='SSCAN_PICKVS',Title='DIs')
+
   FieldVal854 = '/home/beams/CHA/data/xxx/cha_0001.mda'
   if keyword_set(file) eq 0 then begin
   r = findfile('scanSee.config',count=ct)
@@ -2000,10 +2052,12 @@ if XRegistered('SSCAN_MAIN13') then return
   scanSee_data = { base: SSCAN_MAIN13, $
 	file_wid : FIELD3, $
 	btns_wid : BASE5, $
+	vers_wid : pickvs, $
 	p4d_wid : pick4d, $
 	p3d_wid : pick3d, $
 	type_wid : LABEL6, $
 	SSD : ptr_new(/allocate_heap), $
+	vers : 0, $
 	pick1d : 0, $
 	pick2d : 0, $
 	pick3d : 0, $
