@@ -515,7 +515,7 @@ if n_params() lt 2 then begin
 	return
 	end
 s = lonarr(5)
-IF NOT EOF(unit) THEN  u_read_set,unit,s,x,ERRCODE  ELSE print,'EOF on unit ',unit
+IF NOT EOF(unit) THEN  u_read_set,unit,s,x,ERRCODE ;ELSE print,'EOF on unit ',unit
 return
 
 help1:
@@ -1067,7 +1067,7 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='BASE2')
 
   LABEL3 = WIDGET_LABEL( BASE2, $
-	FONT=!os.font, $
+;	FONT=!os.font, $
       UVALUE='LABEL3', $
       VALUE='Setup PS Printer')
 
@@ -1108,7 +1108,7 @@ COMMON PRINTER_BLOCK,printer_info
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.3 1997/12/19 23:54:50 cha Exp $
+; $Id: view1d.pro,v 1.4 1998/02/17 23:17:50 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1277,7 +1277,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.3 1997/12/19 23:54:50 cha Exp $
+; $Id: view1d.pro,v 1.4 1998/02/17 23:17:50 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1460,7 +1460,7 @@ end
 ;       PARENT - The ID of the parent widget.
 ;
 ; KEYWORD PARAMETERS:
-;	BGROUP_NAMES:	An array of strings to be associated with
+;	BG_NAMES:	An array of strings to be associated with
 ;			each button and returned in the event structure as VALUE.
 ;	BGEVENT_FUNCT:	The name of an user-supplied event function 
 ;			for the buttons. This function is called with the return
@@ -1509,6 +1509,97 @@ end
 ;  01  8-9-95  jps  	modified from idl's cw_tmpl.pro
 ;-
 
+
+
+PRO cwterm_Save_Event, Event
+COMMON SYSTEM_BLOCK,OS_SYSTEM
+
+  WIDGET_CONTROL,Event.Top,GET_UVALUE=info
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+
+  'CWTERM_SAVEFILE': BEGIN
+      END
+  'CWTERM_SAVEACCEPT': BEGIN
+	WIDGET_CONTROL,info.newname, GET_VALUE=filename
+	if strtrim(filename(0),2) ne '' then begin
+	found = findfile(filename(0))
+	if found(0) ne '' then begin
+		WIDGET_CONTROL,info.base,/DESTROY
+		st = [ 'File: '+filename(0),' already existed!', $
+			'ASCII data saved in ',info.oldname]
+		res = dialog_message(st,/info)
+		return
+	end
+	spawn,[OS_SYSTEM.cp, info.oldname, filename(0)],/noshell
+	WIDGET_CONTROL,info.base,/DESTROY
+;	res=widget_message('File: "'+filename(0)+'" saved',/info)
+	end
+      END
+  'CWTERM_SAVECANCEL': BEGIN
+	WIDGET_CONTROL,info.base,/DESTROY
+      END
+  ENDCASE
+END
+
+;
+; if filename specifies the default file name used by the cw_term, 
+;     it will be override by the textfield entered by the user
+;
+PRO cwterm_save_dialog, GROUP=Group,oldname=oldname, rename=rename
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+
+  cwterm_Save = WIDGET_BASE(GROUP_LEADER=Group, $
+	TITLE='CW_TERM Save File', $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='cwterm_Save')
+
+  BASE2 = WIDGET_BASE(cwterm_Save, $
+      COLUMN=1, TITLE='CW_TERM SaveFile', $
+      MAP=1, $
+      UVALUE='BASE2')
+
+  FieldVal288 = [ $
+    '' ]
+  if n_elements(rename) then FieldVal288 = strtrim(rename,2)
+  FIELD3 = CW_FIELD( BASE2,VALUE=FieldVal288, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='File:', $
+      UVALUE='CWTERM_SAVEFILE', $
+      XSIZE=60)
+
+  BASE4 = WIDGET_BASE(BASE2, $
+      COLUMN=2, $
+      MAP=1, $
+      UVALUE='BASE4')
+
+  CWTERM_SAVE_BUTTON5 = WIDGET_BUTTON( BASE4, $
+      UVALUE='CWTERM_SAVEACCEPT', $
+      VALUE='Accept')
+
+  CWTERM_SAVE_BUTTON6 = WIDGET_BUTTON( BASE4, $
+      UVALUE='CWTERM_SAVECANCEL', $
+      VALUE='Cancel')
+
+  info = {  $
+	base : cwterm_Save, $
+	oldname: oldname, $
+	newname: FIELD3 $
+	}
+
+  WIDGET_CONTROL, cwterm_Save, SET_UVALUE=info
+  WIDGET_CONTROL, cwterm_Save, /REALIZE
+
+  XMANAGER, 'cwterm_Save', cwterm_Save
+END
 
 PRO term_set_value, id, value
 
@@ -1575,6 +1666,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		; Retrieve the structure from the child that contains the sub ids.
   stash = WIDGET_INFO(parent, /CHILD)
   WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY,  BAD_ID=bad_id
+		  fileName = state.win_file
 
   CASE Ev OF 
 
@@ -1582,6 +1674,11 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
       END
   'BGROUP':BEGIN
 	CASE event.value OF
+	  'Save...': BEGIN
+		if XRegistered('cwterm_Save') eq 0 then $
+		cwterm_save_dialog,GROUP=Event.id, $
+			rename=state.rename,oldname=fileName
+	      END
 	  'Close': BEGIN
 	      WIDGET_CONTROL, parent, DESTROY=1, BAD_ID=bad_id
 	      END
@@ -1628,8 +1725,9 @@ END
 FUNCTION cw_term, parent, SET_VALUE=value, $
 	COLUMN=column, TITLE=title, $
 	FILENAME=filename, $
+	RENAME = rename, $
         RESET=reset, $
-	BGROUP_NAMES = bg_names, BGEVENT_FUNCT = bg_efun, $
+	BG_NAMES = bg_names, BGEVENT_FUNCT = bg_efun, $
 	FONT=font, FRAME=frame, $
 	MAP=map, SENSITIVE=sense, $
 	ROW=row, SCROLL=scroll, SPACE=space, UVALUE=uvalue, $
@@ -1669,8 +1767,10 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 ;       4 Oct. 1994     MLR Fixed bug if /TEXT was present and /TITLE was not.
 ;      14 Jul. 1995     BKC Increased the max line to variable size.
 ;      16 Jun. 1997     BKC Max line set to 10000, os system check.
+;      18 Dec. 1997     BKC add the save file event.
 
   IF(KEYWORD_SET(filename)) THEN BEGIN
+
     IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = filename     
     OPENR, unit, filename, /GET_LUN, ERROR=i		;open the file and then
     IF i LT 0 THEN BEGIN		;OK?
@@ -1697,11 +1797,16 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
     IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = 'Term'
   ENDELSE
 
-  winFile = title
+  winFile = ''
+  if n_elements(filename) then winFile=filename
   winTitle = title
  
  IF reset EQ 0 THEN BEGIN
 
+  if n_elements(rename) then $
+	  state = { main_id:0L, group_leader:0L, $
+			rename : rename, $
+		    bgroup_id:0L, text_id:0L, win_file:winFile } else $
 	  state = { main_id:0L, group_leader:0L, $
 		    bgroup_id:0L, text_id:0L, win_file:winFile }
 
@@ -1743,9 +1848,10 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 	  buttons = STRARR(N_BUTTONS+N_ELEMENTS(bg_names))
 	  buttons(0:N_BUTTONS-1) = ['Print','Clear','Close']
 
+	
 	  ; User control buttons
 	  IF N_ELEMENTS(bg_names) NE 0 THEN BEGIN
-		buttons(N_BUTTONS:1+N_ELEMENTS(bg_names)) = bg_names(*)
+ 	   buttons(N_BUTTONS:N_BUTTONS+N_ELEMENTS(bg_names)-1) = bg_names(*)
 	  ENDIF
 
 	  ; Create control buttons
@@ -1888,7 +1994,7 @@ PRO  getStatisticDeviation_1d,id1,y,mean,sdev,mdev,st
 	mdev=0.
 	no = n_elements(y)
 	if no eq 0 then return 
-	mean = y(0)
+	mean = total(y)/ no
 	if no eq 1 then return
 	index = where(y gt mean, count)      ; check for constant function 
 	mean = [mean,0.,0.,0.]
@@ -2317,6 +2423,7 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 	end
 
 	filenamepath,FNAME,F,P
+	if fname eq f then p = p + !os.file_sep
 
 	V1D_scanData.path = P 
 	V1D_scanData.trashcan = FNAME
@@ -4716,6 +4823,37 @@ if found(0) ne '' then  begin
 
 	report_path = V1D_scandata.path
 	save_outfile = V1D_scandata.path+view1d_summary_id.outfile
+
+; quard trashcan
+	if save_outfile eq V1D_scandata.trashcan then begin
+		res = widget_message('Error: illigal file name entered!!',/error)
+		return
+	end
+
+; quard existing file 
+	found = findfile(save_outfile)
+	if found(0) ne '' then begin
+
+		st = ['Warning!  Warning!  Warning!  ' , save_outfile, '     already existed.', $
+		     ' Is it ok to rename as ', $
+		     save_outfile+ '.bk','???']
+		res = dialog_message(st,/Question)
+		if res eq 'No' then goto,view_print 
+		move_file = save_outfile + '.bk'
+deepmove:
+		found1 = findfile(move_file)
+		if found1(0) ne '' then begin
+			st = [' Warning!  Warning!', $
+				move_file, $
+				'also already existed !!']
+			res = dialog_message(st,/Question)
+			if res eq 'No' then  goto,view_print
+			move_file = move_file + '.bk'
+			goto,deepmove
+		end
+		spawn,[!os.mv, save_outfile, move_file],/noshell 
+	end
+
 	CATCH,error_status
 	if error_status eq -171 or error_status eq -206 then begin
 		report_path = V1D_scandata.home + !os.file_sep 
@@ -4753,6 +4891,7 @@ RESETSENSE:
 
 endif else view1d_warningtext,'Error:  Data file " '+filename+' " not found!'
 ;	WIDGET_CONTROL, view1d_summary_ids.base , /DESTROY
+view_print:
 	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 1 
 	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 1 
 
@@ -5892,6 +6031,10 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;                       Automatic figure out the type of binary data read in
 ;                       only works for IDL 5.0.1 and up
 ;                       Add the support for ez_fit curve fitting package
+;       01-28-98  bkc   Fix the error in standard deviation calc if max occurs
+;                       at y(0)
+;       02-17-98  bkc   If the user entered an existing ASCII file it will be
+;                       backuped for user
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
