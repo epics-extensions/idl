@@ -1,4 +1,207 @@
+			Release Note for scanSee R2.3
+			==============================
+
+
+Starting from this release, the data array returned by the read routine is
+automatically dimensioned according to the last number of detector used in
+the scan. Each scan record has its own number of detectors defined.
+The IDL performance slowed down when a large 2D/3D scan dimension are used.
+
+For 3D scan if any of the dimension exceeds 500 it will read 3D scan data
+detector by detector due to IDL memory and performace problem.
+
+New IDL programs released with R2.3 include the following:
+
+    read_scan.pro(R2.4) - read routines for XDR scan file
+	scanSee(2.3)    - Unix script to start the DC, which internally
+			  calls vw2d, panimage, ez_fit, calibration routines
+                          and lets user access the SB and pick3d (W/O realtime)
+	DC.init(R2.3)		
+	DC.pro(R2.3) 	- Driver program for viewing realtime scan file
+			  It lets user access 1D/ 2D/ 3D scan data file
+
+	vw2d            - Unix script to start vw2d.pro only (No realtime)
+	vw2d.init(R2.2)  
+	vw2d.pro(R2.2)  - IDL program to view 2D scan data file
+
+	pick3d          - Unix script to start pick3d.pro only  (No realtime)
+	pick3d.pro  	- Plugin widget program for 3D slicer for selecting 
+			  single detector out of a jiant 3D scan file
+	pick2d.pro  	- Plugin widget program for selection detector's
+                          2D image in a 3D scan 
+
+       view3d_2dsum.pro - Plugin widget program for summing 2D ROI data of
+                          a 3D data array
+
+	SB              - Unix script to start 1D/2D/3D scan broser 
+			  (No realtime CA function will be called)
+	scanSee.pro(R2) - 1D/2D/3D Scan browser driver program
+      read_scan.pro.R2  - read routines used by the scanSee.pro (SB)
+
+
+<< pick3d.pro >>
+
+The PICK3D program works only on 3D scan file. It allows the user to pick 
+a single detector array out from a big 3D scan. Then it provides various 
+2D slice plot, ascii, panimage features for the picked detector array.
+
+<< pick2d.pro >>
+
+The PICK2D program works only on the 2D image array generated in a 3D scan.
+It allows the user to pick a single detector image from the 2D array  and 
+then it provides various 2D slice plot, ascii, panimage, calibration  
+features for the picked detector.
+
+<< view3d_2dsum.pro >>
+
+This program let the user interactively extract the ROI for a given
+3D data array for a user sepecified axial rank. It calculates the 
+axial sum of 2D-ROI data and generated a resultant final 2D image, 
+and then provide various 2D image viewing function PLOT2D, ASCII2D, 
+
+
+Modifications
+=============
+
+<< read_scan.pro.R2 >> 
+
+  * support return data array for a user specified single detector
+
+  * support return portion of the data array up to the user desired
+    detectors 
+
+
+<< vw2d.pro(R2.2) >>
+
+  * Starting from this release the vw2d.config will be created and used for 
+    restart with last file path.
+
+  * Option of selecting number of detectors to be read into program 
+    (default is 25).
+
+  * The default image displayed will be 16th detector 'D01'
+
+  * ReNew button only display first 100x100 portion of a 2D image is fixed.
+ 
+  * The problem of opening 2D scan file with scan number exceeds 1000 is fixed.
+
+<< DC.pro(R2.3) >> 
+  * 'PICK3D...' entry has been added on the 'ViewData' menu.
+
+<view3d_slicer.pro> 
+
+The view3d_slicer.pro is updated to R1.1. It now set default detector to
+"D01", the slicer sequence # updated according to the picked rank. A user
+can access any 2D slice out of a selected detector.
+
+
+<< panimage.pro >>
+
+  * support selecting varible number of detectors up to 85 
+  * option of save panimage as tiff/xdr file 
+
+			Release Note for scanSee R2.1
+			==============================
+
+This release supports up to 85 detectors. The IOC scan record should
+have been VERSION 5.02 or later.
+
+The panImage now supports various sublist selecting options.
+
+New IDL programs released with R2.1 include the following:
+
+	DC.init.R2.1		
+	DC.pro.R2.1 		- Driver program for viewing scan file
+	vw2D.init.R2.1
+	vw2D.pro.R2.1 		- Program for viewing 2D scan file
+	read_scan.pro.R2	- Scan file read functions
+	readScan.pro.R2		- Read scan file utility routines
+	scanSee__define.pro.R2  - Collection of Object method for IOC scan file
+	view3d_2d.pro		- Plugin widget program for 2D slicer of 3D array
+	view3d_slicer.pro  	- Plugin widget program for 2D slicer of a 3D scan file 
+	colorbar.pro		- Colorbar configuration plugin program
+	panimage.pro		- Panimage sublist selection plugin program
+	multiroi.pro		- Multiple 2D ROI statistic plugin program
+
+New Unix script files:
+
+	SB		- 85 detector Scan Browser which supports 1D/2D/3D 
+	                  scan file  (can not handle jiant 3D scan file)
+	scanSee2	- invokes the new scanSee beta release 
+
+
+
+			Release Note for scanSee R1.2e
+			==============================
+
+The ViewData... button is replaced by the ViewData menu button. 
+It consists two entries: 1D/2D... and 3D Slicer... View 1D/2D
+supports two different viewing modes : static analysis mode and 
+realtime scanning mode.
+
+During static analysis mode, i.e. no active scan is going on, 
+the main window drawing area will be used for displaying old 
+1D line scan data and vw2d program will be used to display
+2D data. The user interface is just like previous releases.
+
+During active scanning mode the main window drawing area is 
+reserved for displaying the realtime 1D live scanning data. 
+The scanBrowser program will be used for displaying old 1D/2D scan 
+data if active scanning is going on at the moment when the
+ViewData->1D/2D... entry is depressed. In scanBrowser each old scan 
+has its own displaying window a user has the flexiblility to select 
+any combination of detector #, 1D scan line #, and many post
+processing functions.  By seperating the realtime plotting area
+and static analysis plotting areas, it is possible to let the user 
+simultaneously view the live data as well as the other old scan data. 
+
+The new ViewData->3D Slicer... entry will invoke the 
+view3d_slicer program. It allows the user view the 3D scan
+data by slicing out any 2D slicer from the 3D array.
+ 
+
+			Release Note for scanSee R1.2d
+			==============================
+
+New files released with R1.2d include the following:
+
+		calibdrv.pro
+		calibra_pick1d.pro
+		calibration_factor.pro
+		scanSee.pro
+		scanSee__define.pro
+		scanBrowser
+
+Running on PC user has manually create the output subdirectory:
+ASCII, ROI, TIFF, CALIB, etc.
+
+
+			Release Note for scanSee R1.2c
+			==============================
+
+
+The release R1.2c for scanSee include the following programs:
+		DC.pro 
+		DC.init
+		vw2d.pro
+		vw2d.init
+		scan2d_roi.pro
+
+New features added to scanSee include generating TIFF, reverse TIFF,
+GIF 2D image, and various 2D-ROI statistic report options for RectROI,
+FilterROI, PolyROI.
+
+
+			Release Note for scanSee R1.2b
+			==============================
+
+Supports automatic filename sequence. ViewData... supports displaying
+1D or 2D scan file. It provides efficient file sequence selection 
+mechanism.
+ 
+
 			Release Note for scanSee R1.1
+			=============================
 
 
 The scan data is automatically saved on file system by the IOC through 
