@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.30 2000/02/29 22:07:16 cha Exp $
+; $Id: view2d.pro,v 1.31 2000/12/06 19:57:28 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -74,7 +74,7 @@ pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 ;-
 
 device, get_graphics = old, set_graphics = 6  ;Set xor
-col = !d.n_colors - 2
+col = !d.table_size - 2
 
 if keyword_set(message) then begin
 	st = [$,
@@ -952,54 +952,6 @@ WIDGET_CONTROL,widget_ids.z_cursor,SET_VALUE=strtrim(zv)
 if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 END
 
-; 
-; get cursor coordinates
-;
-PRO catch2d_xycoord, x, y, Event
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
-COMMON CATCH2D_FILE_BLOCK,catch2d_file
-
-hide_cross,view_option.x,view_option.y,view_option.d_wid,view_option.s_wid
-;cursor,x,y,0,/device
-x = Event.x
-y = Event.y
-view_option.x = x
-view_option.y = y
-show_cross,x,y,view_option.d_wid,view_option.s_wid
-
-	x = x / catch2d_file.x_mag
-	y = y / catch2d_file.y_mag
-
-
-; if user coordinate mode is set
-
-if view_option.user eq 1 then begin
-	WIDGET_CONTROL,widget_ids.y_min,GET_VALUE=y_min
-	if y_min gt 0 then y = fix( y + y_min)
-	WIDGET_CONTROL,widget_ids.x_min,GET_VALUE=x_min
-	if x_min gt 0 then x = fix( x + x_min)
-	end
-
-if x lt catch2d_file.width and y lt catch2d_file.height then begin
-;print,'x,y,zval',x,y, image(x,y)
-
-	zv = image(x,y)
-	if view_option.versus then begin
-		xv = catch2d_file.xarr(x)
-		yv = catch2d_file.yarr(y)
-	endif else begin
-		xv = x
-		yv = y
-	end
-WIDGET_CONTROL,widget_ids.x_cursor,SET_VALUE=strtrim(xv,2) + '(*)'
-WIDGET_CONTROL,widget_ids.y_cursor,SET_VALUE=strtrim(yv,2) + '(*)'
-WIDGET_CONTROL,widget_ids.z_cursor,SET_VALUE=strtrim(zv,2) + '(*)'
-endif else begin
-	w_warningtext,'Cursor outside the image range',60,5,'VIEW2D Messages'
-	end
-
-END
 
 ;
 ; xdistribution cursor
@@ -1026,7 +978,7 @@ wshow,catch2d_file.xzdraw
 dline = (!y.crange(1)-!y.crange(0)) *.2
 hline = (!x.crange(1)-!x.crange(0)) *.1
 clr1 = 0
-clr2 = !d.n_colors - 1
+clr2 = !d.table_size - 1
 
 while !ERR eq 1 do begin
 cursor,x,y,1,/normal
@@ -1083,7 +1035,7 @@ wshow,catch2d_file.yzdraw
 dline = (!y.crange(1)-!y.crange(0)) *.2
 hline = (!x.crange(1)-!x.crange(0)) *.1
 clr1 = 0
-clr2 = !d.n_colors - 1
+clr2 = !d.table_size - 1
 while !ERR eq 1 do begin
 cursor,x,y,1,/normal
 
@@ -1441,7 +1393,7 @@ if XRegistered('view2d_normalize') then return
       UVALUE='BASE2')
 
   LABEL3 = WIDGET_LABEL( BASE2, $
-      FONT='-dt-application-bold-r-normal-sans-20-140-100-100-p-105-iso8859-1', $
+      FONT='-dt-application-bold-r-normal-sans-20-140-100-*', $
       UVALUE='LABEL3', /DYNAMIC_RESIZE, $
       VALUE='Auto Scaled')
 
@@ -1858,7 +1810,7 @@ END
 @plot2d.pro
 @scan2d_roi.pro
 
-PRO view2d_pan_images_on,Event,tiff=tiff,gif=gif,rtiff=rtiff,def=def,image_array=image_array
+PRO view2d_pan_images_on,Event,tiff=tiff,xdr=xdr,rtiff=rtiff,def=def,image_array=image_array
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 
@@ -1952,14 +1904,14 @@ update:
 	rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
 	end
 
-	if keyword_set(GIF) then begin
-	tvlct,R,G,B,/get
-	WRITE_GIF,'view2d.gif',TVRD(),R,G,B
-	WRITE_GIF,'view2d.gif',/close
+	if keyword_set(XDR) then begin
+	xdr_open,unit,'view2d.xdr',/write,error=error
+	xdr_write,unit,image_array
+	xdr_close,unit
 	fileSeqString,catch2d_file.scanno_current,suf0
-	outname=catch2d_file.name+'.pan'+suf0+'.gif'
-	dir = catch2d_file.outpath+'GIF'+!os.file_sep
-	rename_dialog,dir,'view2d.gif',outname,GROUP=Event.Top
+	outname=catch2d_file.name+'.pan'+suf0+'.xdr'
+	dir = catch2d_file.outpath+'XDR'+!os.file_sep
+	rename_dialog,dir,'view2d.xdr',outname,GROUP=Event.Top
 	end
 
 	wset,old_win
@@ -2097,6 +2049,7 @@ PRO REPLOT
 COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
+COMMON COLORBAR, colorbar_data
 COMMON PRINTER_BLOCK,printer_info
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
@@ -2193,8 +2146,8 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 ;  draw 2D data as data image
    if view_option.user eq 0 then begin
-	erase 
-	; expand data to drawing area
+	erase,view_option.bg
+; expand data to drawing area
 		catch2d_file.x_mag = 1
 		catch2d_file.y_mag = 1
 		newimage2 = newimage
@@ -2215,6 +2168,12 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	return
    end
 
+; set plot axis color
+
+	  t_color = view_option.fg
+	  if !d.name eq 'PS' then t_color = 0
+
+
 	CASE view_option.surface OF
 	2: begin
 		if view_option.versus then begin
@@ -2223,7 +2182,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			newim = image(x_min:ix,y_min:iy)
 			nx=x(x_min:ix)
 			ny=y(y_min:iy)
-			SHADE_SURF, newim,nx,ny  
+			SHADE_SURF, newim,nx,ny 
 		endif else SHADE_SURF, newimage
 	   end
 	3: begin
@@ -2262,6 +2221,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			ny=temp(y_min:iy-1)
 		end
 		CONTOUR, newim,nx,ny, $
+			background=view_option.bg, color=t_color, $
 			levels = levels, $
 			c_colors=reverse(colors), c_labels=labels, $
 			 c_charsize=1.5,/follow
@@ -2295,7 +2255,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		widget_ids.xsurface = id
 	   end
 	0: begin
-	   erase
+	   erase,view_option.bg
 		; expand data to drawing area
 		catch2d_file.x_mag = 1
 		catch2d_file.y_mag = 1
@@ -2367,26 +2327,19 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 	; draw headers
 
-	if !d.name ne 'PS' then begin
-          xdis = 0.01 * !d.x_size
-          ydis = !d.y_size - 1.2 * !d.y_ch_size
-          xyouts,xdis,ydis,header_note1,/device
-          ydis = !d.y_size - 2.2 * !d.y_ch_size
-          xyouts,xdis,ydis,header_note,/device
-	endif else begin
-	  if printer_info.reverse then t_color = ncolors-1 else t_color = 0
-          xdis = 0.001 * !d.x_size
+	  xdis = 0.01 * !d.x_size
+	  if !d.name eq 'PS' then xdis = 0.001 * !d.x_size
           ydis = !d.y_size - 1.2 * !d.y_ch_size
           xyouts,xdis,ydis,header_note1,/device, color=t_color
           ydis = !d.y_size - 2.2 * !d.y_ch_size
           xyouts,xdis,ydis,header_note,/device, color=t_color
-	end
 
 	if strtrim(catch2d_file.z_desc,2) ne '' then $
 	title = catch2d_file.z_desc + ' - ' + title else $
 	title = 'D'+strtrim(catch2d_file.detector,2) + ' - '+title
 
 		if !d.name eq 'PS' then begin
+		    t_color = 0
 		    xo = !d.x_size * view_option.ps_l
 		    yo = !d.y_size * view_option.ps_b
 		    xw = !d.x_size * (view_option.ps_r - view_option.ps_l)
@@ -2418,12 +2371,21 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			xrange=xrange, yrange=yrange, $
 			xtitle= catch2d_file.x_desc, $
 			ytitle=ytitle, $
-			title=title, xstyle = xstyle, ystyle=ystyle
+			title=title, xstyle = xstyle, ystyle=ystyle,color=t_color
 
 		end
 
-		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=100 else $
-		colorbar,[v_min,v_max],y=10
+	colorbar_data.min = v_min
+	colorbar_data.max = v_max
+	colorbar_data.wid = !d.window 
+	posy = colorbar_data.y
+		colorbar,[v_min,v_max],colorbar_data.width, $
+			colorbar_data.height, $
+			horizontal=colorbar_data.horiz, $
+			x=colorbar_data.x, y=posy, $
+			reverse=printer_info.reverse, $
+			ncap=colorbar_data.nlabel, format=colorbar_data.format
+			
 
                 ; save pixmap
                 if !d.name ne OS_SYSTEM.device then return
@@ -2440,7 +2402,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 	   end
 	1: begin
-	   erase
+	   erase,view_option.bg
 		; equal aspect ratio  
 		catch2d_file.x_mag = 1
 		catch2d_file.y_mag = 1
@@ -2503,20 +2465,12 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		strtrim(catch2d_file.xarr(view_option.i_min),2) + ', ' + $
 		strtrim(catch2d_file.yarr(view_option.j_min),2) + ')' 
 
-	if !d.name ne 'PS' then begin
           xdis = 0.01 * !d.x_size
-          ydis = !d.y_size - 1.2 * !d.y_ch_size
-          xyouts,xdis,ydis,header_note1,/device
-          ydis = !d.y_size - 2.2 * !d.y_ch_size
-          xyouts,xdis,ydis,header_note,/device
-	endif else begin
-	  if printer_info.reverse then t_color = ncolors-1 else t_color = 0
-          xdis = 0.001 * !d.x_size
+ 	  if !d.name eq 'PS' then xdis = 0.001 * !d.x_size
           ydis = !d.y_size - 1.2 * !d.y_ch_size
           xyouts,xdis,ydis,header_note1,/device,color=t_color
           ydis = !d.y_size - 2.2 * !d.y_ch_size
           xyouts,xdis,ydis,header_note,/device,color=t_color
-	end
 
 	ytitle = catch2d_file.y_desc
 	if strtrim(catch2d_file.z_desc,2) ne '' then $
@@ -2553,11 +2507,20 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		    plot,/noerase,/nodata,pos=p1 ,[-1,-1], $
 			xrange=xrange, yrange=yrange,title=title, $
 			xtitle=xtitle, ytitle=ytitle, $
-			xstyle = xstyle, ystyle=ystyle
+			xstyle = xstyle, ystyle=ystyle,color=t_color
 		end
 		
-		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=100 else $
-		colorbar,[v_min,v_max],y=10
+	colorbar_data.min = v_min
+	colorbar_data.max = v_max
+	colorbar_data.wid = !d.window
+	posy = colorbar_data.y
+
+		colorbar,[v_min,v_max],colorbar_data.width, $
+			colorbar_data.height, $
+			horizontal=colorbar_data.horiz, $
+			x=colorbar_data.x, y=posy, $
+			reverse=printer_info.reverse, $
+			ncap=colorbar_data.nlabel, format=colorbar_data.format
 
 	   end
 	ELSE: print,'Unknow case entered'
@@ -2835,14 +2798,15 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	save,filename='dc2aim.sav',/XDR,ncol,nrow,xarr,yarr,imarr
     END
 
-  'File.Save as GIF': BEGIN
-	tvlct,R,G,B,/get
-	WRITE_GIF,'view2d.gif',TVRD(),R,G,B
-	WRITE_GIF,'view2d.gif',/close
+  'File.Save as XDR': BEGIN
+	if catch2d_file.scanno_current le 0 then return
+	xdr_open,unit,'view2d.xdr',/write,error=eror
+	xdr_write,unit,image
+	xdr_close,unit
 	fileSeqString,catch2d_file.seqno,suf0
-	outname=catch2d_file.name+'.'+suf0+'.gif'
-	dir = catch2d_file.outpath+'GIF'+!os.file_sep
-	rename_dialog,dir,'view2d.gif',outname,GROUP=Event.Top
+	outname=catch2d_file.name+'.'+suf0+'.xdr'
+	dir = catch2d_file.outpath+'XDR'+!os.file_sep
+	rename_dialog,dir,'view2d.xdr',outname,GROUP=Event.Top
     END
 
   'File.Save as R-TIFF': BEGIN
@@ -2892,24 +2856,18 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 END
 
 
-; DO NOT REMOVE THIS COMMENT: END PDMENU189
-; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
-
-
-; CODE MODIFICATIONS MADE ABOVE THIS COMMENT WILL BE LOST.
-; DO NOT REMOVE THIS COMMENT: BEGIN PDMENU188
-
-
-
 
 PRO PDMENU188_Event, Event
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
+COMMON PRINTER_BLOCK,printer_info
+COMMON COLORBAR, colorbar_data
 
   CASE Event.Value OF 
 
   'Color.Save Private Color Table': BEGIN
 	TVLCT,red,green,blue,/Get
 	Save,red,green,blue,file='pvtcolors.dat'
+	return
     END
   'Color.Load Private Color Table': BEGIN
 	found = findfile('pvtcolors.dat')
@@ -2922,16 +2880,56 @@ COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 		restore,'pvtcolors.dat'
 		TVLCT,red,green,blue
 	end
+	return
     END
 
   'Color.Change Color Table ...': BEGIN
     XLOADCT
+	return
     END
   'Color.Image Color Scheme ...': BEGIN
 	view2d_normalize,GROUP=Event.top
+	return
 	END
+  'Color.Reverse Background': BEGIN
+	if printer_info.reverse then begin
+		 printer_info.reverse = 0
+		 view_option.bg = 0
+		 view_option.fg = !d.table_size-1 
+	endif else begin
+		 printer_info.reverse = 1
+		 view_option.bg = !d.table_size-1 
+		 view_option.fg = 0
+	end
+	REPLOT
+	return
+	END
+  'Color.ColorBar Config ...': BEGIN
+	WSET,widget_ids.plot2d_area
+	colorbar_config,caller='REPLOT',GROUP=Event.top
+	return
+    END
+  'Color.Font.Name.Default': BEGIN
+	view_option.fontname = 'Default'
+    END
+  'Color.Font.Name.Courier': BEGIN
+	view_option.fontname = 'Courier'
+    END
+  'Color.Font.Name.Helvetica': BEGIN
+	view_option.fontname = 'Helvetica'
+    END
+  'Color.Font.Name.Times': BEGIN
+	view_option.fontname = 'Times'
+    END
+  'Color.Font.Name.Symbol': BEGIN
+	view_option.fontname = 'Symbol'
+    END
   ENDCASE
+
+	setfont,view_option.fontname 
+	REPLOT
 END
+
 
 
 PRO PDMENU189_help_Event, Event
@@ -2965,8 +2963,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
   'PanImage.PanImages.PanImages+RTIFF': begin
 	view2d_pan_images_on,Event,/rtiff
 	end
-  'PanImage.PanImages.PanImages+GIF': begin
-	view2d_pan_images_on,Event,/gif
+  'PanImage.PanImages.PanImages+XDR': begin
+	view2d_pan_images_on,Event,/xdr
 	end
   'PanImage.Calibration...': begin
 	title=':  SCAN # '+ strtrim(catch2d_file.scanno_current,2)
@@ -3246,16 +3244,24 @@ COMMON w_warningtext_block,w_warningtext_ids
 	end
 	END
   'CURSOR62_X': BEGIN
+	if view_option.versus eq 1 then begin
+		r=dialog_message(["Not available for 'Plot vs Values'","Must change to 'Plot vs Step#' first"],/error)
+		return
+	end
 	WIDGET_CONTROL,Event.id,GET_VALUE=x
 	WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
-	catch2d_ydist,fix(x(0))	, Event
-	catch2d_zcursor,x(0),y(0)
+	catch2d_zcursor,fix(x(0)),fix(y(0)),z
+;	if z ne '' then  catch2d_ydist,fix(x(0)), Event
 	END
   'CURSOR62_Y': BEGIN
+	if view_option.versus eq 1 then begin
+		r=dialog_message(["Not available for 'Plot vs Values'","Must change to 'Plot vs Step#' first"],/error)
+		return
+	end
 	WIDGET_CONTROL,Event.id,GET_VALUE=y
 	WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
-	catch2d_xdist,fix(y(0))	, Event
-	catch2d_zcursor,x(0),y(0)
+	catch2d_zcursor,fix(x(0)),fix(y(0)),z
+;	if z ne '' then  catch2d_xdist,fix(y(0)), Event
 	END
   'CURSOR62_XZ': BEGIN
 	if catch2d_file.xzdraw eq 0 then begin
@@ -3301,13 +3307,29 @@ COMMON w_warningtext_block,w_warningtext_ids
   ENDCASE
 END
 
-PRO catch2d_zcursor,x,y
+PRO catch2d_zcursor,x,y,z
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
+; x y is index number 
 
-z=''
-if x gt 0 and x lt catch2d_file.x_act_npts and y gt 0 and y lt catch2d_file.y_act_npts then z = string(image(x,y))
-WIDGET_CONTROL,widget_ids.z_cursor,SET_VALUE=strtrim(z,2)
+	z=''
+	if x lt 0 or x ge catch2d_file.x_act_npts then begin 
+	 r = dialog_message('X Index out of range',/error)
+	 return
+	end
+	if  y lt 0 or y ge catch2d_file.y_act_npts then begin
+	 r = dialog_message('Y Index out of range',/error)
+	 return
+	end
+
+	z = string(image(x,y))
+	WIDGET_CONTROL,widget_ids.z_cursor,SET_VALUE=strtrim(z,2)
+
+	hide_cross,view_option.x,view_option.y,view_option.d_wid,view_option.s_wid
+	view_option.x = view_option.margin_l + x*catch2d_file.x_mag
+	view_option.y = view_option.margin_b + y*catch2d_file.y_mag
+	show_cross,view_option.x,view_option.y,view_option.d_wid,view_option.s_wid
+
 END
 
 ; DO NOT REMOVE THIS COMMENT: END main13_2
@@ -3432,9 +3454,16 @@ PRO view2d, GROUP=Group, file=file, XDR=XDR,CA=CA
 ;       01-25-00 bkc  Automatically set the Xmin,Xmax,Ymin,Ymax widget
 ;                     release R2.3g+
 ;                     Add the set new postions button if caInit found
+;       06-01-00 bkc  Release R2.3h
+;                     Add the Color->ColorBar Config ... dialog for configuring
+;                     the colorbar on 2D image
+;       12-05-00 bkc  Release R2.3h+
+;                     Delete GIF, add XDR option save image as XDR data
+;                     Modify plot2d save in XDR too
 ;-
 ;
 @os.init
+PS_init
 
 if XRegistered('main13_2') ne 0  then return
 
@@ -3442,7 +3471,7 @@ if XRegistered('main13_2') ne 0  then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VIEW2D (R2.3g+)'
+  version = 'VIEW2D (R2.3h+)'
 
   main13_2 = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -3469,7 +3498,7 @@ if XRegistered('main13_2') ne 0  then return
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as R-TIFF' }, $ ;        2
-        { CW_PDMENU_S,       0, 'Save as GIF' }, $ ;        2
+        { CW_PDMENU_S,       0, 'Save as XDR' }, $ ;        2
         { CW_PDMENU_S,       0, 'Printer ...' }, $ ;        2
         { CW_PDMENU_S,       0, 'Print' }, $ ;        2
         { CW_PDMENU_S,       0, 'PS_close' }, $ ;        2
@@ -3482,14 +3511,26 @@ if XRegistered('main13_2') ne 0  then return
 
   MenuDesc909 = [ $
       { CW_PDMENU_S,       3, 'Color' }, $ ;        0
+        { CW_PDMENU_S,       0, 'Reverse Background' },  $  ;      1
         { CW_PDMENU_S,       0, 'Save Private Color Table' }, $  ;      1
         { CW_PDMENU_S,       0, 'Load Private Color Table' }, $  ;      1
         { CW_PDMENU_S,       0, 'Change Color Table ...' }, $  ;      1
-        { CW_PDMENU_S,       0, 'Image Color Scheme ...' } $  ;      1
+        { CW_PDMENU_S,       0, 'Image Color Scheme ...' }, $  ;      1
+        { CW_PDMENU_S,       0, 'ColorBar Config ...' },  $  ;      1
+      { CW_PDMENU_S,       3, 'Font' }, $ ;        0
+        { CW_PDMENU_S,       1, 'Name' }, $ ;        1
+          { CW_PDMENU_S,       0, 'Default' }, $ ;        2
+          { CW_PDMENU_S,       0, 'Courier' }, $ ;        3
+          { CW_PDMENU_S,       0, 'Helvetica' }, $ ;        4
+          { CW_PDMENU_S,       0, 'Times' }, $ ;        5
+          { CW_PDMENU_S,       2, 'Symbol' } $ ;        6
+
   ]
 
   PDMENU188 = CW_PDMENU( BASE190, MenuDesc909, /RETURN_FULL_NAME, $
       UVALUE='PDMENU188')
+
+
 
   MenuDesc911 = [ $
       { CW_PDMENU_S,       3, 'Help' }, $ ;        0
@@ -3757,7 +3798,7 @@ end
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+RTIFF' }, $ ;        1
-        { CW_PDMENU_S,       2, 'PanImages+GIF' }, $ ;        1
+        { CW_PDMENU_S,       2, 'PanImages+XDR' }, $ ;        1
       { CW_PDMENU_S,       2, 'Calibration...' } $ ;        0
 	]
   PDMENU2D_panimage = CW_PDMENU( BASE129_1, MenuPANImage, /RETURN_FULL_NAME, $
