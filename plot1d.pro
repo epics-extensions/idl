@@ -1,4 +1,5 @@
 
+@fit_statistic.pro
 @PS_open.pro
 
 PRO plot1d_help
@@ -124,6 +125,87 @@ PRO plot1d_dialogs_Event, Event
 	WIDGET_CONTROL,state.legendStrWid,set_value=str
 	WIDGET_CONTROL,state.main_list,set_list_select=sel
       END
+  'plot1d_FWHM_Y': BEGIN
+	if state.main_list gt 0 then begin
+	; only plot first 10 curves to avoid too many windows pop up
+	sel = widget_info(state.main_list,/list_select)
+	nn = n_elements(sel)
+	if nn gt 10 then nn = 10
+	for i=0,nn-1 do begin
+	namelabel = state.legend(sel(i))
+	p1 = state.x(*,0)
+	d1 = state.y(*,sel(i))
+	if i eq 0 then $
+	Statistic_1d,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,xl,xr,/plot, $
+		report='fwhm.rpt',title=state.title+namelabel+'_FWHM_Y',Group=Event.top else $
+	Statistic_1d,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,xl,xr,/plot, $
+		title=state.title+namelabel+'_FWHM_Y',Group=Event.top
+	end
+	endif else begin
+	namelabel = state.title
+	p1 = state.x(*,0)
+	d1 = state.y(*)
+	Statistic_1d,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,xl,xr,/plot, $
+		report='fwhm.rpt',title=state.title+'_FWHM_Y',Group=Event.top
+	end
+      END
+  'plot1d_FWHM_DY': BEGIN
+	if state.main_list gt 0 then begin
+	; only plot first 10 curves to avoid too many windows pop up
+	sel = widget_info(state.main_list,/list_select)
+	nn = n_elements(sel)
+	if nn gt 10 then nn = 10
+	for i=0,nn-1 do begin
+	namelabel = state.legend(sel(i))
+	p1 = state.x(*,0)
+	d1 = state.y(*,sel(i))
+	d1 = slope(p1,d1)
+	if i eq 0 then $
+	Statistic_1d,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,xl,xr,/plot, $
+		/fit, $
+		report='fwhm.rpt',title=state.title+namelabel+'_FWHM_DY',Group=Event.top else $
+	Statistic_1d,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,xl,xr,/plot, $
+		/fit, $
+		title=state.title+namelabel+'_FWHM_DY',Group=Event.top
+	end
+	endif else begin
+	namelabel = state.title
+	p1 = float(state.x(*,0))
+	d1 = state.y(*,0)
+	d1 = slope(p1,d1)
+	Statistic_1d,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,xl,xr,/plot, $
+		/fit, $
+		report='fwhm.rpt',title=state.title+'_FWHM_DY',Group=Event.top
+	end
+      END
+  'plot1d_FITTING': BEGIN
+        xa = state.x(*,0)
+        ya = state.y(*,*)
+	ez_fit,xarray=xa,yarray=ya,group=Event.top
+      END
+  'plot1d_STATISTIC': BEGIN
+	if state.main_list gt 0 then begin
+	sel = widget_info(state.main_list,/list_select)
+	for i=0,n_elements(sel)-1 do begin
+	namelabel = state.legend(sel(i))
+	p1 = state.x(*,0)
+	d1 = state.y(*,sel(i))
+	get_statistic_1d,namelabel,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,st
+		if i eq 0 then str = st else $
+		str = [str,st]
+	getStatisticDeviation_1d,namelabel,d1,mean,sdev,mdev,st
+	str = [str,st,'']
+	end
+	endif else begin
+	namelabel = state.title
+	p1 = state.x(*,0)
+	d1 = state.y(*)
+	get_statistic_1d,namelabel,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,str
+	getStatisticDeviation_1d,namelabel,d1,mean,sdev,mdev,st
+	str = [str,st,'']
+	end
+	xdisplayfile,text=str,title=state.title+'_STATISTIC',Group=Event.top
+      END
   'plot1d_main_list': BEGIN
 		state.selection= 0 
   		WIDGET_CONTROL,state.plotallWID,SET_VALUE=0
@@ -231,7 +313,6 @@ PRO plot1d_dialogs_Event, Event
 
   plot1d_replot,state
 
-  WIDGET_CONTROL,Event.top,set_uvalue=state
   WIDGET_CONTROL,state.base,set_uvalue=state
 
 END
@@ -241,6 +322,7 @@ END
 PRO plot1d_dialogs, GROUP=Group ,state
 
 if XRegistered('plot1d_dialogs') then return
+state.list_sel = indgen(n_elements(state.selection))
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -456,7 +538,6 @@ if n_elements(state.selection) gt 1 then begin
   even_list = WIDGET_BUTTON(BASE2_622,VALUE='Even #',UVALUE='plot1d_even')
   odd_list = WIDGET_BUTTON(BASE2_622,VALUE='Odd #',UVALUE='plot1d_odd')
 
-
    ;Hold down cntrl to select only those items that are chicked on.
    ; Shift select items between last two clicks
 
@@ -466,6 +547,22 @@ if n_elements(state.selection) gt 1 then begin
    WIDGET_CONTROL,main_list,set_list_select=state.list_sel
   
 end
+
+  ; statistic button
+
+  BASE2_623 = WIDGET_BASE(BASE2_6, $
+      /COLUMN, /frame, $
+      MAP=1, $
+      UVALUE='BASE2_623')
+  label_tool = WIDGET_LABEL(BASE2_623,VALUE='Analysis Tools')
+  statistic = WIDGET_BUTTON(BASE2_623,VALUE='STATISTIC...', $
+	UVALUE='plot1d_STATISTIC')
+  fwhm_y = WIDGET_BUTTON(BASE2_623,VALUE='FWHM...', $
+	UVALUE='plot1d_FWHM_Y')
+  fwhm_dy = WIDGET_BUTTON(BASE2_623,VALUE='FWHM DY...', $
+	UVALUE='plot1d_FWHM_DY')
+  fitting = WIDGET_BUTTON(BASE2_623,VALUE='FITTING...', $
+	UVALUE='plot1d_FITTING')
 
   BASE2_4 = WIDGET_BASE(BASE2, $
       ROW=1, $
@@ -540,56 +637,12 @@ end
   XMANAGER, 'plot1d_dialogs', plot1d_xysize
 END
 
-PRO catch1d_get_pvtcolor,i,color
-COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
-; 24 bits
-	if n_elements(R_ORIG) eq 0 then $
-	catch1d_get_pvtct
-	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
-;	plot,indgen(10),color=color
-END
-
-PRO catch1d_save_pvtct
-	tvlct,red,green,blue,/get
-	save,red,green,blue,file='catch1d.tbl'
-END
-
-PRO catch1d_get_pvtct
-COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
-
-; 8 bit visual
-
-	if  !d.n_colors lt 16777216 then begin
-		tvlct,red,green,blue,/get
-	endif else begin
-
-; 24 bit visual
-	file = 'catch1d.tbl'
-	found = findfile(file)
-	if found(0) eq '' then begin
-		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		found1 = findfile(file)
-		if found1(0) eq '' then $
-		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		end
-	restore,file
-	tvlct,red,green,blue
-	end
-
-; set ORIG color 
-
-	R_ORIG = red
-	G_ORIG = green
-	B_ORIG = blue
-
-	LOADCT,39
-END
-
 
 PRO plot1d_replot,state
 COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
  
-if !d.name eq 'WIN' then device,decomposed=1
+; if 24 bits use color table need set deomposed=0
+if !d.n_colors gt 256 then device,decomposed=0 
 
 	state.xsize = !d.x_size
 	state.ysize = !d.y_size
@@ -611,13 +664,16 @@ if !d.name eq 'WIN' then device,decomposed=1
 	end
 
 	if s(0) eq 1 then y = y * state.factor
+	x = state.x(*,0)
 	
 	if s(0) eq 2 then begin
  	y = make_array(s(1),no)
+	if state.scatter then x =y
 	il = 0
 	for i=0,s(2)-1 do begin
 		if state.selection(i) then begin
 		y(0,il) = state.y(*,i) * state.factor(i)	
+		if state.scatter then x(0,il) = state.x(*,i) 
 		il = il + 1
 		if n_elements(pick) eq 0 then pick = i else $
 		pick = [pick,i]
@@ -629,7 +685,7 @@ if !d.name eq 'WIN' then device,decomposed=1
 	cpt = state.cpt-1 
 	y = y(0:cpt,*)
 	s = size(y)
-	x = state.x(0:cpt,*)
+	x = x(0:cpt,*)   
 
 	if state.userscale eq 0 then begin
 		state.xrange = [min(x),max(x)]
@@ -658,9 +714,9 @@ if !d.name ne 'PS' then WSET,state.winDraw
 !p.multi = [0,1,0,0,0]
 if state.bgrevs then begin
 	state.tcolor = 0
-	state.bgcolor = !d.table_size-1
+	state.bgcolor = state.table_size-1
 endif else begin
-	state.tcolor = !d.table_size-1
+	state.tcolor = state.table_size-1
 	state.bgcolor = 0
 end
 erase,122  ;,state.bgcolor
@@ -687,8 +743,8 @@ color = cl
 
 z = y(*,0)
 
-if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
-	PLOT,x,z,/nodata, COLOR=state.tcolor, background=state.bgcolor, $
+	PLOT,x,z,/nodata, COLOR=state.tcolor, $
+		background=state.bgcolor, $
 		xrange=state.xrange, yrange = yrange, $
 		ylog=state.ylog, xlog=state.xlog, psym=psym, $
 		xgridstyle=state.grid, $
@@ -699,7 +755,7 @@ if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
 
 if s(0) eq 1 then $
-	OPLOT,x,z, COLOR=color, thick=thick, psym=psym, linestyle=line 
+	OPLOT,x,z, COLOR=color-16, thick=thick, psym=psym, linestyle=line
 
 ; two dim array - multiple curves
 
@@ -714,24 +770,20 @@ in_symbol(0)=psym
 ;if state.scatter then x = state.x(*,0)
 xt = x
 if state.scatter then xt = x(*,0)
-	OPLOT,xt,z,COLOR=color, thick=thick, linestyle=line, psym=psym 
-	
-;	dcl = state.color / 16
-	dcl = !d.table_size-2
+	; plot 1st line
+	OPLOT,xt,z,COLOR=color-16, thick=thick, linestyle=line, psym=psym, $
+		symsize=state.charsize 
+	dcl = state.table_size-2
 	ncv = 4  ;7
 	colorlevel = dcl / ncv
 	for i= 1 ,s(2) - 1 do begin
 		if state.autocolor eq 1 then begin
-		ii = i / ncv
+		ii = (i MOD 256) / ncv
 		im = i MOD ncv
 		cl = dcl -ii -im*colorlevel
+		if cl lt 0 then cl = -cl
 		in_color(i) = cl
 		color = cl
-		; if 24 bits use cl_val
-        	if !d.n_colors eq 16777216 then begin
-                	catch1d_get_pvtcolor,cl,t_color
-                	color = t_color
-                	end
 
 		end
 		if psym gt 0 then psym = psym+1
@@ -748,9 +800,9 @@ if i eq 2 and psym gt 0 then psym=psym+1
 		if state.scatter then xt = x(*,i)
 
 		if state.curvfit then begin
-			psym=7      ; if curve fitting is true
+			psym=7      ; if curve fitting is true use line plot
 		end
-		OPLOT,xt,z,COLOR=color,linestyle=line, psym=psym mod 7, $
+		OPLOT,xt,z,COLOR=in_color(i),linestyle=line, psym=psym mod 7, $
 			thick=thick 
 		psym = in_symbol(i)
 ; print,i,psym,cl,line
@@ -809,11 +861,6 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	x=[real_x1,real_xl]
 	y=[real_yl,real_yl]
 	color = in_color(i)
-        ; if 24 bits use cl_val
-	if !d.n_colors eq 16777216 then begin
-	catch1d_get_pvtcolor,in_color(i),t_color
-	color = t_color
-	end
 
 	if psym ne 0 then $
 	oplot,x,y,linestyle=in_line(i),color=color,thick=2
@@ -823,7 +870,6 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	end
 end
 
-if !d.name eq 'WIN' then device,decomposed=0
 
 END
 
@@ -853,7 +899,12 @@ CASE B_ev OF
 ;	nel = sz(1)
 	nel = state.cpt
 	f1 = '('+ strtrim(nel+1,2)+'G17.7)'
+
 	openw,1,'plot1d.txt'
+	if state.scatter then  $
+		printf,1,'; Scattering data column vectors: Xi,Yi, ...' else $
+		printf,1,'; Data column vectors: X,Y1,Y2,Y3, ...'
+
 	if sz(0) eq 1 then $
 	for i=0,nel-1 do printf,1,state.x(i),state.y(i)
 
@@ -862,10 +913,17 @@ CASE B_ev OF
 	y = reform(state.y(i,*))
 ;	print,format=f1,state.x(i),y
 
-	str =  ''
-	str = string(state.x(i))
-	for j=1,n_elements(y) do begin
-	str = str + ' ' + string(y(j-1))
+	if state.scatter then begin
+		str =  ''
+		for j=1,n_elements(y) do begin
+		str = str + ''+string(state.x(i,j-1))+ ' ' + string(state.y(i,j-1))
+		end
+	endif else begin
+		str =  ''
+		str = string(state.x(i))
+		for j=1,n_elements(y) do begin
+		str = str + ' ' + string(y(j-1))
+		end
 	end
 	printf,1,str
 	end
@@ -912,6 +970,7 @@ CASE B_ev OF
 	end
 'PLOT1D_CLOSE': begin
 	WIDGET_CONTROL,ev.top,BAD=bad,/DESTROY
+	state.winDraw=0L
 	return
 	end
 ENDCASE
@@ -930,7 +989,7 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 	legend=legend, xylegend=xylegend, $
 	width=width, height=height, $
 	comment=comment, cleanup=cleanup, $
-	curvfit=curvfit, $
+	curvfit=curvfit, bgrevs=bgrevs, $
 	xstyle=xstyle, ystyle=ystyle, $
 	wtitle=wtitle, report=report, data=data, button=button, GROUP=GROUP
 ;+
@@ -1049,6 +1108,8 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;       CLEANUP: Set this keyword if the created window can no be closed by the
 ;                window manager is desired.
 ;
+;       BGREVS:  Reverse background color 
+;
 ; OPTIONAL_OUTPUTS:
 ;       ID_TLB: The widget ID of the top level base returned by the PLOT1D. 
 ;
@@ -1118,6 +1179,11 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;                      PS Plot button generates PS plot output 
 ;       02-18-02 bkc   Add option of NPT slider to specify the last of the 
 ;                      data points to be plotted for each curve
+;       05-01-02 bkc   Add FWHM_Y, FWHM_DY, Fitting, Statistic buttons
+;                      Check for 24 bit display
+;                      Add bgrevs keyword
+;                      Check for incomplete color table size case 
+;                      Check for scattering data 1D plot 
 ;-
 
 ;LOADCT,39
@@ -1157,6 +1223,14 @@ if keyword_set(legend) then curves = legend(0:sz(2)-1)
 end
 if keyword_set(factor) then rfactor = factor
 
+	; find the actual table size
+	table_size = !d.table_size
+	if table_size eq 256 then begin
+        tvlct,r,g,b,/get
+        t_size = where(r eq 0 and g eq 0 and b eq 0)
+        table_size = 256 - n_elements(t_size)+1
+	end
+
 ; check for input labels
 xsize=350
 ysize=350
@@ -1164,7 +1238,7 @@ xl = ''
 yl =''
 ti = ''
 wti='Plot1d'
-cl = !d.table_size - 1
+cl = table_size - 1
 footnote = ''
 add_line=0
 if keyword_set(title) then ti = string(title)
@@ -1190,10 +1264,11 @@ state = { $
 	main_list: 0L, $	; multi-list
 	list_sel: list_sel, $   ; initially all selected
 	report:'',$
+	table_size : table_size, $   ; actual table size
 	autocolor: 1, $ 	; automatic use different color for each curve
-	bgrevs : 1, $          ; reverse background 
+	bgrevs : 0, $ ;1, $          ; 1-reverse background 
 	tcolor : 0, $
-	bgcolor : !d.table_size-1, $
+	bgcolor : table_size-1, $
 	color:cl-2, $ 
 	symbol: 0, $
 	curvfit: 0, $		; whether data is from curve fitting
@@ -1215,7 +1290,7 @@ state = { $
 	timestamp: timestamp, $
 	yexpand: 1, $
 	footnote: 0, $
-	comment: strarr(10), $  ; footnote, $
+	comment: strarr(20), $  ; footnote, $
         xrange: [min(xa),max(xa)], $
         yrange: [min(ya),max(ya)], $
 	xmin: 0., $
@@ -1251,6 +1326,8 @@ if (total(xsz) - total(sz)) eq 0. then state.scatter = 1
 state.comment = footnote
 if keyword_set(xstyle) then state.xstyle = xstyle 
 if keyword_set(ystyle) then state.ystyle = ystyle 
+
+if keyword_set(bgrevs) then state.bgrevs = bgrevs 
 
 if keyword_set(charsize) then begin
 	if charsize gt 1 then state.charsize = charsize
