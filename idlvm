@@ -8,24 +8,11 @@ set LOC=/usr/local/epics/extensions
 if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set LOC=$EPICS_EXTENSIONS_PVT
 endif
-source $LOC/bin/$HOST_ARCH/ezcaidl_setup
 
-setenv EZCA_IDL_SHARE $LOC/lib/$HOST_ARCH/libezcaIDL.so
-if $1 == "scanSee" then
-   echo run $LOC/bin/$HOST_ARCH/scanSee.sav
-   idl -32 -vm=$LOC/bin/$HOST_ARCH/scanSee.sav
-   exit
-endif
-
-if $1 == "catcher" then
-   echo run $LOC/bin/$HOST_ARCH/catcher.sav
-   idl -32 -vm=$LOC/bin/$HOST_ARCH/catcher.sav
-   exit
-endif
-
-if $1 == "sscan" then
-   echo run $LOC/bin/$HOST_ARCH/sscan.sav
-   idl -32 -vm=$LOC/bin/$HOST_ARCH/sscan.sav
+if ($1 == "scanSee" || $1 == "catcher" || $1 == "sscan" || $1 == "mca") then
+   source $LOC/bin/$HOST_ARCH/ezcaidl_setup
+   echo run $LOC/bin/$HOST_ARCH/$1.sav
+   idl -32 -vm=$LOC/bin/$HOST_ARCH/$1.sav
    exit
 endif
 
