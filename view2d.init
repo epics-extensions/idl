@@ -100,6 +100,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	yzline_yo : [0.,0.],$
 	yzline_zo : [0.,0.],$
 	s_wid   : -1, $       ; window id for saved pixmap
+	def	: make_array(15,/int), $
 	xarr    : make_array(2001), $
 	yarr    : make_array(2001) $
 ;	image   : ptr_new(allocate_heap) $
