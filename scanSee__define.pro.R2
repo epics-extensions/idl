@@ -1096,12 +1096,16 @@ PRO scanSee::Plot1D,no,xarr=xarr,yarr=yarr,xsel=xsel,ysel=ysel,title=title,group
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
-;       xx-xx-xxxx      comment
+;       11-27-2000      Trap for zero detector case
 ;-
 ; ysel - string list
 	scanno = 1
 	if keyword_set(no) then scanno = no
 	self.xaxis = 0
+	if total(self.def) lt 1. then begin
+		r = dialog_message('No detector found for scan file: '+self.file,/error)
+	return
+	end
 	if keyword_set(xsel) then self.xaxis = xsel
 	if keyword_set(ysel) then $
 	scan1Ddata,self.gD,scanno,/plot, xarr=xarr,yarr=yarr, title=title,$
