@@ -63,10 +63,38 @@
 ; MODIFICATION HISTORY:
 ;  01  8-9-95  jps  	modified from idl's cw_tmpl.pro
 ;  02  5-13-99  bkc  	modified check for 80 columns for enscript print on unix
+;  03 11-23-99  bkc     added findpath function, and file destination directory 
 ;-
 
 
+FUNCTION findpath,dir,print=print,create=create
+; return  -1 not found, 1 found, 0 created
+;
+if n_elements(dir) eq 0 then begin
+	print,'Usage:   check_dir,dirname'
+	return,-1
+	end
 
+	catch,err_status
+	if err_status ne 0 then begin
+	if keyword_set(create) then begin
+		spawn,!os.mkdir + ' '+dir
+		print,'Tried to create the path directory '+dir+ ' !!!'
+		return,0
+	endif else begin
+		print,'Error: The path directory '+dir+ ' not found!!!'
+		return,-1
+	end
+	end
+
+	pushd,dir
+	popd
+	if keyword_set(print) then begin
+	cd,current=p
+	print,'Current path: ',p
+	end
+	return,1
+END
 PRO cwterm_Save_Event, Event
 COMMON SYSTEM_BLOCK,OS_SYSTEM
 
@@ -77,18 +105,34 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 
   'CWTERM_SAVEFILE': BEGIN
       END
+  'CWTERM_DESTDIR': BEGIN
+	WIDGET_CONTROL,info.dir, GET_VALUE=dir
+	if strtrim(dir(0),2) ne '' then begin
+	ret = findpath(dir(0),/create)
+	end
+      END
+  'CWTERM_MKDIRHELP': BEGIN
+	str =['If the destination directory path does not exist yet,', $
+		'enter the Dest Path field and depress the RETURN key will', $
+		'create the destination directory for you.']
+	res = dialog_message(str,/Info)
+	return
+      END
   'CWTERM_SAVEACCEPT': BEGIN
-	WIDGET_CONTROL,info.newname, GET_VALUE=filename
+	WIDGET_CONTROL,info.dir, GET_VALUE=dir
+	ret = findpath(dir(0),/create)
+	WIDGET_CONTROL,info.newname, GET_VALUE=newname
+	filename = strtrim(dir,2)+strtrim(newname,2)
 	if strtrim(filename(0),2) ne '' then begin
 	found = findfile(filename(0))
 	if found(0) ne '' then begin
 		WIDGET_CONTROL,info.base,/DESTROY
 		st = [ 'File: '+filename(0),' already existed!', $
-			'ASCII data saved in ',info.oldname]
+		'',	'ASCII data is saved in ',info.oldname]
 		res = widget_message(st,/info)
 		return
 	end
-	spawn,[OS_SYSTEM.cp, info.oldname, filename(0)],/noshell
+	spawn,[OS_SYSTEM.mv, info.oldname, filename(0)],/noshell
 	WIDGET_CONTROL,info.base,/DESTROY
 ;	res=widget_message('File: "'+filename(0)+'" saved',/info)
 	end
@@ -109,22 +153,36 @@ PRO cwterm_save_dialog, GROUP=Group,oldname=oldname, rename=rename
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
+  if keyword_set(rename) eq 0 then begin
+	res = dialog_message('Error: rename file is required.',/Error)
+  	return
+  end
+
+  len = rstrpos(rename,!os.file_sep)+1
+  dir = strmid(rename,0,len)
+  name = strmid(rename,len,strlen(rename)-len)
 
   cwterm_Save = WIDGET_BASE(GROUP_LEADER=Group, $
 	TITLE='CW_TERM Save File', $
-      ROW=1, $
+      COLUMN=1, $
       MAP=1, $
       UVALUE='cwterm_Save')
 
   BASE2 = WIDGET_BASE(cwterm_Save, $
-      COLUMN=1, TITLE='CW_TERM SaveFile', $
+      TITLE='CW_TERM SaveFile', $
+      column=1, $
       MAP=1, $
       UVALUE='BASE2')
 
-  FieldVal288 = [ $
-    '' ]
-  if n_elements(rename) then FieldVal288 = strtrim(rename,2)
-  FIELD3 = CW_FIELD( BASE2,VALUE=FieldVal288, $
+  FIELD2 = CW_FIELD( BASE2,VALUE=dir, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Dest Path:', $
+      UVALUE='CWTERM_DESTDIR', $
+      XSIZE=60)
+
+  FIELD3 = CW_FIELD( BASE2,VALUE=name, $
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
@@ -133,7 +191,7 @@ PRO cwterm_save_dialog, GROUP=Group,oldname=oldname, rename=rename
       XSIZE=60)
 
   BASE4 = WIDGET_BASE(BASE2, $
-      COLUMN=2, $
+      ROW=1, $
       MAP=1, $
       UVALUE='BASE4')
 
@@ -141,12 +199,17 @@ PRO cwterm_save_dialog, GROUP=Group,oldname=oldname, rename=rename
       UVALUE='CWTERM_SAVEACCEPT', $
       VALUE='Accept')
 
+  CWTERM_SAVE_HELP = WIDGET_BUTTON( BASE4, $
+      UVALUE='CWTERM_MKDIRHELP', $
+      VALUE='Help...')
+
   CWTERM_SAVE_BUTTON6 = WIDGET_BUTTON( BASE4, $
       UVALUE='CWTERM_SAVECANCEL', $
       VALUE='Cancel')
 
   info = {  $
 	base : cwterm_Save, $
+	dir : FIELD2, $
 	oldname: oldname, $
 	newname: FIELD3 $
 	}
