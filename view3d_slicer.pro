@@ -101,9 +101,10 @@ PRO view3d_pick1d,state,calibra=calibra,group=group
 	k = state.k_listid
 	rank = state.rank
 	xyz = *(*state.Scan.da)[0]
+	sz = size(xyz)
 
 	ipos = 0
-	cpt = (*state.Scan.cpt)
+	cpt = sz(1:3)
 
 	CASE rank OF 
 	0: BEGIN    ; x axis picked
@@ -142,6 +143,8 @@ PRO view3d_pick1d,state,calibra=calibra,group=group
 	return
 	end
 
+	if min(xa) eq max(xa) then xa = indgen(n_elements(xa))
+	if min(ya) eq max(xa) then ya = indgen(n_elements(xa))
 	calibra_pick1d,za,xa=xa,ya=ya,title=title,Group=group
 
 END
@@ -282,24 +285,6 @@ PRO view3d_asciiRep,state,group=group
 END
 
 
-PRO findOutpath,file,path,outpath,class
-if n_elements(!os) eq 0 then $
-@os.init
-	path = ''
-	r = rstrpos(file,!os.file_sep)
-	class = strmid(file,r+1,strlen(file)-r)
-
-	if r ge 0 then path = strmid(file,0,r+1)
-	outpath = path
-
-	catch,error_status
-	if error_status then begin
-		cd,current=cr
-		outpath = cr + !os.file_sep
-	end 
-	openw,1,outpath+'.tmp'
-	close,1
-END
 
 PRO view3d_free,Scan 
   if ptr_valid(Scan.scanno) then ptr_free,Scan.scanno
@@ -316,7 +301,11 @@ END
 
 PRO view3d_init,state,file
 
-	findOutpath,file,path,outpath,class
+;	outpath = state.home+!os.file_sep 
+	r = rstrpos(file,!os.file_sep)
+	if r ge 0 then path = strmid(file,0,r+1)
+	class = strmid(file,r+1,strlen(file)-r)
+
 	state.path = path
 	rp = rstrpos(class,'_')
         state.prefix = strmid(class,0,rp+1)
@@ -326,7 +315,17 @@ PRO view3d_init,state,file
 	state.scanno = *Scan.scanno
 
 	if scanno ne -1 and  *Scan.dim ne 3 then begin
-		r = dialog_message(['Non 3D scan file selected:',file],/error)
+		str = ['Non 3D scan file selected:',file, '', $
+			'Please first close the VIEW3D_SLICER window, and then', $
+			'access any other scan file by either ', $
+			'Method 1:', $
+			'    ViewData->1D/2D/3D Browser... menu ', $
+			'  or  ', $
+			'Method 2:', $
+			'    File->Open',$
+			'    ViewData->1D/2D... menu ' $
+		]
+		r = dialog_message(str,/error)
 		error = -1
 		return
 	end 
@@ -346,7 +345,6 @@ PRO view3d_init,state,file
 	; initialize variables
 
 	state.file = file
-	state.outpath = outpath
 	state.class = class
 	WIDGET_CONTROL,state.filenamewid,SET_VALUE=file
 	WIDGET_CONTROL,state.prevnext,SENSITIVE=1
@@ -363,19 +361,6 @@ PRO view3d_init,state,file
 ;	view3d_test,state
 	view3d_panImage,state,group=state.base
 
-	found = findfile(state.outpath+'ASCII',count=ct)
-	if ct gt 0 then return
-	catch,error_status
-	if error_status ne 0 then begin
-	spawn, !os.mkdir + ' ' + state.outpath+'ASCII' + ' ' + $
-		state.outpath+'TIFF' + ' ' +$
-		state.outpath+'GIF' + ' ' +$
-		state.outpath+'PICT' + ' ' +$
-		state.outpath+'ROI' + ' ' +$
-		state.outpath+'CALIB'
-	end
-	openw,1,state.outpath+'ASCII'+!os.file_sep+'.tmp'
-	close,1
 END   
 
 
@@ -419,8 +404,37 @@ PRO PDMENU5_Event, Event, state
 	if ct eq 0 then return
 
 	state.path = P
-	view3d_init,state,F
 
+	outpath = p
+	catch,error_status
+	if error_status ne 0 then begin
+		outpath = state.home+!os.file_sep
+		goto, step_mkdir
+	end
+	openw,1,outpath+'.tmp'
+	close,1
+
+step_mkdir:
+
+	found = findfile(state.outpath+'ASCII',count=ct)
+	if ct gt 0 then goto,step_init
+
+	r = dialog_message(['Please check the existence of ASCII,TIFF,GIF,', $
+		'PICT,ROI,CALIB  subdirectory'],/error)
+	catch,error_status
+	if error_status ne 0 then goto,step_init
+	spawn, !os.mkdir + ' ' + state.outpath+'ASCII' + ' ' + $
+		state.outpath+'TIFF' + ' ' +$
+		state.outpath+'GIF' + ' ' +$
+		state.outpath+'PICT' + ' ' +$
+		state.outpath+'ROI' + ' ' +$
+		state.outpath+'CALIB'
+
+step_init:
+
+	state.outpath = outpath
+	view3d_init,state,F
+	
     END
   'File.Close': BEGIN
     PRINT, 'Event for File.Close'
@@ -516,7 +530,7 @@ END
 
 
 
-PRO VIEW3D_SLICER, file=file, NDET=NDET, GROUP=Group
+PRO VIEW3D_SLICER, file=file, DMAX=DMAX, GROUP=Group
 ;+
 ; NAME: 
 ;    VIEW3D_SLICER
@@ -541,7 +555,8 @@ PRO VIEW3D_SLICER, file=file, NDET=NDET, GROUP=Group
 ;                prefixed with uid and suffixed with '.scan', e.g.
 ;                'uid:_nnnn.scan'
 ;
-;    NDET:       Specify the number of detectors, 15 for scan 4.1, 99 for newer
+;    DMAX:       Specify the maximum number of detectors, 15 for scan 4.1
+;                85 for newer
 ;
 ;    GROUP:      Specify the widget ID of the group leader of the widget.
 ;                The death of the group leader results in the death of the
@@ -556,15 +571,18 @@ PRO VIEW3D_SLICER, file=file, NDET=NDET, GROUP=Group
 ;
 ;-
 
-heap_gc
-
+  heap_gc
   if Xregistered('VIEW3D') then return
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  ListVal1283 = 'D'+strtrim(indgen(15)+1,2) 
+  ND = 85
+  if keyword_set(DMAX) then ND = DMAX
+  ndet = ND
+
+  ListVal1283 = 'D'+strtrim(indgen(ND)+1,2) 
 
   cd,current=cr
   home = cr 
@@ -574,14 +592,12 @@ Scan = { $
         dim     : ptr_new(/allocate_heap), $  ;0, $
         npts    : ptr_new(/allocate_heap), $  ;[0,0], $
         cpt     : ptr_new(/allocate_heap), $  ;[0,0], $
-        id_def  : ptr_new(/allocate_heap), $  ;intarr(19,2), $
+        id_def  : ptr_new(/allocate_heap), $  ;intarr(ND+4,2), $
         pv      : ptr_new(/allocate_heap), $  ;['',''], $
-        labels  : ptr_new(/allocate_heap), $  ;strarr(57,2), $
+        labels  : ptr_new(/allocate_heap), $  ;strarr(ND*3,2), $
         pa      : ptr_new(/allocate_heap), $
         da      : ptr_new(/allocate_heap) $
         }
-
-  if keyword_set(ndet) eq 0 then ndet = 15
 
   view3d_state = { base: 0L, $
 	prevnext: 0L, $
@@ -603,7 +619,7 @@ Scan = { $
 	file: '', $
 	home: home, $
 	path: home + !os.file_sep, $
-	outpath: '', $
+	outpath: home+!os.file_sep, $
 	Scan: Scan $
 	 }
 
