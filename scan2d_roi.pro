@@ -25,8 +25,8 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	tvscl,image,xl,yl
 
 	r = defroi(xw,yw,xverts,yverts,x0=xl,y0=yl)  
-	xv = fix(xverts/statistic_2dids.factor(0))
-	yv = fix(yverts/statistic_2dids.factor(1))
+	xv = ceil(xverts/statistic_2dids.factor(0))
+	yv = ceil(yverts/statistic_2dids.factor(1))
 	arr = polyfillv(xv,yv,width,height)
 
 	if n_elements(arr) eq 1 then begin
@@ -109,8 +109,8 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	 u_read,unit,yverts
 	u_close,unit	
 
-	xv = fix(xverts / statistic_2dids.factor(0))
-	yv = fix(yverts / statistic_2dids.factor(1))
+	xv = ceil(xverts / statistic_2dids.factor(0))
+	yv = ceil(yverts / statistic_2dids.factor(1))
 	arr = polyfillv(xv,yv,statistic_2dids.width,statistic_2dids.height)
 
 END
@@ -471,7 +471,9 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
   CASE Event.Value OF
 
   'ROIFile.New...': BEGIN
-	f = dialog_pickfile(path=statistic_2dids.roipath,filter='*roi.xdr*', $
+	filter='*roi.xdr*'
+	if statistic_2dids.back eq 2 then filter='*roi*poly*'
+	f = dialog_pickfile(path=statistic_2dids.roipath,filter=filter, $
 		title='New ROI File',get_path=p,/WRITE)
 	found = findfile(f)
 	if found(0) ne '' then begin
@@ -479,21 +481,23 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 		return
 	end
 	if strtrim(f,2) ne '' then begin
+	WIDGET_CONTROL,statistic_2dids.fileid,SET_VALUE=f
 	res = strpos(f,'.poly')
 	if res gt 0 then f= strmid(f,0,res)
-	WIDGET_CONTROL,statistic_2dids.fileid,SET_VALUE=f
 	statistic_2dids.file = f
 	statistic_2dids.roipath = p
 	statistic_2dids.picked = f+'.poly'
 	end
     END
   'ROIFile.Open...': BEGIN
-	f = dialog_pickfile( path=statistic_2dids.roipath,filter='*roi.xdr*', $
+	filter='*roi.xdr*'
+	if statistic_2dids.back eq 2 then filter='*roi*poly*'
+	f = dialog_pickfile( path=statistic_2dids.roipath,filter=filter, $
 		title='Pick ROI File',/MUST_EXIST,get_path=p,/WRITE)
 	if strtrim(f,2) ne '' then begin
+	WIDGET_CONTROL,statistic_2dids.fileid,SET_VALUE=f
 	res = strpos(f,'.poly')
 	if res gt 0 then f= strmid(f,0,res)
-	WIDGET_CONTROL,statistic_2dids.fileid,SET_VALUE=f
 	statistic_2dids.file = f
 	statistic_2dids.roipath = p
 	statistic_2dids.picked = f+'.poly'
@@ -610,6 +614,10 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	END
   'STATISTIC_2DBACKMODE': BEGIN
 	statistic_2dids.back = Event.Index
+	if Event.Index eq 2 then $
+	WIDGET_CONTROL,statistic_2dids.fileid,SET_VALUE=statistic_2dids.picked else $
+	WIDGET_CONTROL,statistic_2dids.fileid,SET_VALUE=statistic_2dids.file
+
 	if statistic_2dids.back eq 0 then $
 		WIDGET_CONTROL,statistic_2dids.rectbase,SENSITIVE=1 else $
   		WIDGET_CONTROL,statistic_2dids.rectbase,SENSITIVE=0
