@@ -1,18 +1,18 @@
-;  DC.init (R1.2b)
- 
+;  DC.init (R1.2c)
+
   widget_ids = {                  $ 
       base        : MAIN13_1,     $
       menubar_base: BASE68,       $
+      status_base : BASE69,       $
+      plot_base   : BASE61, $
+      axis_base   : BASE144,      $
       menusetup_base: SETUPOPTIONSMENU, $
       menuplot_base: PLOTOPTIONSMENU, $
       file	  : PDMENU127,    $
-;      binary_type : BINARY_TYPE,  $
       trashcan    : CATCHER_FILE,    $
-      viewdata    : PDMENU_VDATA,  $
-      savelabel   : SAVE_LABEL,  $
+;      viewdata    : PDMENU_VDATA,  $
       pv_stat     : FIELD141,     $
       rept_base   : BASE140,      $
-      axis_base   : BASE144,      $
       wf_select   : BGROUP145,    $
       plot_wid    : DRAW61,       $
       plot_area   : DRAW61_Id,    $
@@ -56,16 +56,16 @@ debug : 0,    $   ;  0 normal runing mode, 1 debug mode
 option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'IOC_DC', $
-      release     : '(DC R1.2b)', $
+      release     : '(DC R1.2c)', $
       dataversion : '', 	  $  new field in R1.5.5.0
       pv          : '',           $
       pvconfig    : '',           $
-      pvwait      : '',           $
-      pvbusy      : '',           $
       pvfound     : -1, 	  $  indicator for pv found or not found
       num_pos	  : 4, 		  $  max no of pos allowed   
       num_det     : 15, 	  $  max no of detectors allowed 
       home	  : '', $
+      fileno	  : 0, 		  $  current scan file number
+      filemax	  : 1, 		  $  max scan file number
       envfile	  : 'catch1d.env', $
       maxenv 	  : 500, $
       config      : 'DC.config', $
@@ -77,11 +77,11 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       req_npts    : 100,          $
       act_npts    : 0,          $
       readin_npts    : 0,          $
+	wf_sel	   : make_array(19), $
       	px         : FLTARR(4000), $
       	dx         : make_array(4000,/double), $
 	pa : Make_array(4000,4,/double), $
 	da : FLTARR(4000,15), $	
-        voigt : make_array(11,15,/double), $
       lastPlot    : 1,   $   ; <0 not plot data, 0 userscale, 1 autoscale 
       scanno	  : 0,            $   ; current plot no 
       startno	  : 0,            $   ; start no when catch1d is brought up
@@ -94,7 +94,6 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       realtime    : 0, 	  	  $   ; realtime scan monitor indicator 
 ; add 2D scan parameters here
       scanno_2d	  : 0,            $   ; current 2D scan no 
-      y_handshake      : '',           $ ; 2d handshake pvname
       image        : 1, $		; default 60x60 image 
       image_width  : 60, $
       image_height : 60, $
@@ -112,10 +111,9 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
    }
 
    WIDGET_CONTROL, widget_ids.wf_select, SET_VALUE = [1,1,0,0]
-;   WIDGET_CONTROL, widget_ids.y_max, SET_VALUE = 100
-;   WIDGET_CONTROL, widget_ids.y_min, SET_VALUE = 0
-;   WIDGET_CONTROL, widget_ids.x_max, SET_VALUE = 100
-;   WIDGET_CONTROL, widget_ids.x_min, SET_VALUE = 0
+
+   WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
+   scanData.wf_sel = wf_sel
 
 ; init w_plotspec
 
