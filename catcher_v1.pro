@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.58 2004/07/13 17:08:15 cha Exp $
+; $Id: catcher_v1.pro,v 1.59 2004/12/10 23:40:50 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -484,7 +484,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.58 2004/07/13 17:08:15 cha Exp $
+; $Id: catcher_v1.pro,v 1.59 2004/12/10 23:40:50 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1362,6 +1362,53 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
 END
 
+PRO zoom_checkAxis,Event
+  COMMON CATCH1D_COM, widget_ids, scanData
+COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
+
+
+	if Event.Index eq 0 and w_plotspec_id.x_axis_u eq 0 then begin
+		xmin = w_plotspec_limits(0)
+		xmax = w_plotspec_limits(1)
+		p1 = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord) 
+		dl = (xmax-xmin)/1.1
+		f = (p1(scanData.act_npts-1)-p1(0))/dl
+		id = where(p1 le xmax and p1 ge xmin)
+		if id(0) ne -1 then begin
+		nid = n_elements(id)
+		if id(0) gt 0 then w_plotspec_limits(0) = id(0)-1 else $
+			w_plotspec_limits(0) = id(0)
+		w_plotspec_limits(1) = id(nid-1) 
+		end
+		w_plotspec_id.x_axis_u = 1
+		dl = (w_plotspec_limits(1) - w_plotspec_limits(0)) / f
+		dl = fix(dl/2)
+		w_plotspec_limits(0) = w_plotspec_limits(0) - dl
+		w_plotspec_limits(1) = w_plotspec_limits(1) + dl
+	end
+	if Event.Index gt 0 then begin
+	  if w_plotspec_id.x_axis_u eq 1 then begin
+	  	w_plotspec_id.x_axis_u = 0
+		w_plotspec_id.xcord = Event.Index - 1
+		xmin = w_plotspec_limits(0)
+		xmax = w_plotspec_limits(1)
+		p1 = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord) 
+		il = fix(xmin)
+		ir = fix(xmax)
+		if xmin lt 0 then il = 0 
+		if xmax gt scanData.act_npts or xmax lt 0 then ir = scanData.act_npts-1
+		f = 1.1*(ir-il)/(xmax-xmin)
+		dl = (p1(ir)-p1(il))/f/2
+		w_plotspec_limits(0) = p1(il) - dl
+		w_plotspec_limits(1) = p1(ir) + dl
+	  endif else begin
+	  	w_plotspec_id.xcord = Event.Index - 1
+	  	w_plotspec_id.x_axis_u = 0
+	  end
+	end
+END
+
+
 PRO zoom_to_box
   COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
@@ -1398,7 +1445,7 @@ w_plotspec_limits(1) = d(0,1)
 w_plotspec_limits(2) = d(1,0)
 w_plotspec_limits(3) = d(1,1)
         WAIT, .2
-;        WIDGET_CONTROL,widget_ids.plot_area , SENSITIVE = 1
+        WIDGET_CONTROL,widget_ids.plot_area , SENSITIVE = 1
         UPDATE_PLOT, 0
 
 END
@@ -1448,7 +1495,6 @@ WHILE 1 do begin
 cursor,x,y,0,/normal
 
 if !err eq 2 then begin            ; zoom out
-;	UPDATE_PLOT,1
 x = (x - !x.window(0)) / (!x.window(1)-!x.window(0)) * $
         (!x.crange(1)-!x.crange(0)) + !x.crange(0)
 
@@ -1630,6 +1676,243 @@ endwhile
 	end
 END
 
+
+
+
+PRO zoompan_Event, Event
+  COMMON CATCH1D_COM, widget_ids, scanData
+COMMON w_warningtext_block,w_warningtext_ids
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+
+  'ZOOM_PAN_SEL2': BEGIN
+      CASE Event.Value OF
+      0: begin
+	dx = 0.05*(!x.crange(1)-!x.crange(0))
+	x1 = !x.crange(0) - dx
+	x2 = !x.crange(1) - dx
+	y1 = !y.crange(0)
+	y2 = !y.crange(1)
+	zoom_box,x1,y1,x2,y2
+	end
+      1: begin
+	dx = 0.05*(!x.crange(1)-!x.crange(0))
+	x1 = !x.crange(0) + dx
+	x2 = !x.crange(1) + dx
+	y1 = !y.crange(0)
+	y2 = !y.crange(1)
+	zoom_box,x1,y1,x2,y2
+	end
+      2: begin
+	dy = 0.05*(!y.crange(1)-!y.crange(0))
+	y1 = !y.crange(0) - dy
+	y2 = !y.crange(1) - dy
+	x1 = !x.crange(0)
+	x2 = !x.crange(1)
+	zoom_box,x1,y1,x2,y2
+	end
+      3: begin
+	dy = 0.05*(!y.crange(1)-!y.crange(0))
+	y1 = !y.crange(0) + dy
+	y2 = !y.crange(1) + dy
+	x1 = !x.crange(0)
+	x2 = !x.crange(1)
+	zoom_box,x1,y1,x2,y2
+	end
+      ELSE: Message,'Unknown button pressed'
+      ENDCASE
+      END
+  'ZOOM_PAN_SEL1': BEGIN
+      CASE Event.Value OF
+      0: begin
+	x = 0.5*(!x.crange(1)+!x.crange(0))
+	y = 0.5*(!y.crange(1)+!y.crange(0))
+
+dx = 0.25 * (!x.crange(1)-!x.crange(0))
+dy = 0.25 * (!y.crange(1)-!y.crange(0))
+x1 = x - dx
+x2 = x + dx
+y1 = y - dy
+y2 = y + dy
+if x2 gt !x.crange(1) then x2 = !x.crange(1)
+if x1 lt !x.crange(0) then x1 = !x.crange(0)
+if y2 gt !y.crange(1) then y2 = !y.crange(1)
+if y1 lt !y.crange(0) then y1 = !y.crange(0)
+zoom_box,x1,y1,x2,y2
+	end
+
+      1: begin
+	x = 0.5*(!x.crange(1)+!x.crange(0))
+	y = 0.5*(!y.crange(1)+!y.crange(0))
+dx = 1. * (!x.crange(1)-!x.crange(0))
+dy = 1. * (!y.crange(1)-!y.crange(0))
+x1 = x - dx
+x2 = x + dx
+y1 = y - dy
+y2 = y + dy
+zoom_box,x1,y1,x2,y2
+	end
+      2: begin
+	scanData.lastPlot = 1
+        UPDATE_PLOT, 1
+	end
+      ELSE: Message,'Unknown button pressed'
+      ENDCASE
+      END
+  'ZOOM_PAN_CLOSE': BEGIN
+	scanData.zoom = 0
+	widget_control,Event.top,/destroy
+      END
+  ENDCASE
+END
+
+
+
+
+PRO zoompan_Event, Event
+  COMMON CATCH1D_COM, widget_ids, scanData
+COMMON w_warningtext_block,w_warningtext_ids
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+
+  'ZOOM_PAN_SEL2': BEGIN
+      CASE Event.Value OF
+      0: begin
+	dx = 0.05*(!x.crange(1)-!x.crange(0))
+	x1 = !x.crange(0) - dx
+	x2 = !x.crange(1) - dx
+	y1 = !y.crange(0)
+	y2 = !y.crange(1)
+	zoom_box,x1,y1,x2,y2
+	end
+      1: begin
+	dx = 0.05*(!x.crange(1)-!x.crange(0))
+	x1 = !x.crange(0) + dx
+	x2 = !x.crange(1) + dx
+	y1 = !y.crange(0)
+	y2 = !y.crange(1)
+	zoom_box,x1,y1,x2,y2
+	end
+      2: begin
+	dy = 0.05*(!y.crange(1)-!y.crange(0))
+	y1 = !y.crange(0) - dy
+	y2 = !y.crange(1) - dy
+	x1 = !x.crange(0)
+	x2 = !x.crange(1)
+	zoom_box,x1,y1,x2,y2
+	end
+      3: begin
+	dy = 0.05*(!y.crange(1)-!y.crange(0))
+	y1 = !y.crange(0) + dy
+	y2 = !y.crange(1) + dy
+	x1 = !x.crange(0)
+	x2 = !x.crange(1)
+	zoom_box,x1,y1,x2,y2
+	end
+      ELSE: Message,'Unknown button pressed'
+      ENDCASE
+      END
+  'ZOOM_PAN_SEL1': BEGIN
+      CASE Event.Value OF
+      0: begin
+	x = 0.5*(!x.crange(1)+!x.crange(0))
+	y = 0.5*(!y.crange(1)+!y.crange(0))
+
+dx = 0.25 * (!x.crange(1)-!x.crange(0))
+dy = 0.25 * (!y.crange(1)-!y.crange(0))
+x1 = x - dx
+x2 = x + dx
+y1 = y - dy
+y2 = y + dy
+if x2 gt !x.crange(1) then x2 = !x.crange(1)
+if x1 lt !x.crange(0) then x1 = !x.crange(0)
+if y2 gt !y.crange(1) then y2 = !y.crange(1)
+if y1 lt !y.crange(0) then y1 = !y.crange(0)
+zoom_box,x1,y1,x2,y2
+	end
+
+      1: begin
+	x = 0.5*(!x.crange(1)+!x.crange(0))
+	y = 0.5*(!y.crange(1)+!y.crange(0))
+dx = 1. * (!x.crange(1)-!x.crange(0))
+dy = 1. * (!y.crange(1)-!y.crange(0))
+x1 = x - dx
+x2 = x + dx
+y1 = y - dy
+y2 = y + dy
+zoom_box,x1,y1,x2,y2
+	end
+      2: begin
+	scanData.lastPlot = 1
+	scanData.zoom = 0
+        UPDATE_PLOT, 1
+	scanData.zoom = 1
+	end
+      ELSE: Message,'Unknown button pressed'
+      ENDCASE
+      END
+  'ZOOM_PAN_CLOSE': BEGIN
+	scanData.zoom = 0
+	UPDATE_PLOT,1
+	widget_control,Event.top,/destroy
+      END
+  ENDCASE
+END
+
+
+
+
+PRO zoom_in_out1, GROUP=Group
+
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+
+  zoompan = WIDGET_BASE(GROUP_LEADER=Group, $
+      ROW=1, $
+      MAP=1, $
+      TITLE='ZOOM_PAN', $
+      UVALUE='zoompan')
+
+  BASE2 = WIDGET_BASE(zoompan, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE2')
+
+  Btns320 = [ $
+    'left ', $
+    'right ', $
+    'down', $
+    'up ' ]
+  BGROUP3 = CW_BGROUP( BASE2, Btns320, $
+      ROW=1, $
+      LABEL_LEFT='PAN: ', $
+      UVALUE='ZOOM_PAN_SEL2')
+
+  Btns409 = [ $
+    '* 2', $
+    '/ 2', $ 
+    'Auto Scale' ]
+  BGROUP4 = CW_BGROUP( BASE2, Btns409, $
+      ROW=1, $
+      LABEL_LEFT='ZOOM:', $
+      UVALUE='ZOOM_PAN_SEL1')
+
+  BUTTON5 = WIDGET_BUTTON( BASE2, $
+      UVALUE='ZOOM_PAN_CLOSE', $
+      VALUE='Close')
+
+
+  WIDGET_CONTROL, zoompan, /REALIZE
+
+  XMANAGER, 'zoompan', zoompan
+END
 
 ;
 ; Auto Save File For catch1d_setup.pro
@@ -2480,6 +2763,11 @@ readf,unit,st
 end
 free_lun,unit
 
+; required for IDL 6.1 VM
+	l = strlen(scanData.path)
+	if strpos(scanData.path,!os.file_sep,l-1) gt 0 then $
+	scanData.home = strmid(scanData.path,0,l-1) else $
+	scanData.home = scanData.path
 END
 
 ;
@@ -3445,9 +3733,11 @@ ENDELSE
      IF (x_axis EQ 0) THEN BEGIN
        plotXTitle = strtrim(w_plotspec_array(1))
      ENDIF ELSE BEGIN
-       xmin = 0
+	if scanData.zoom eq 0 then begin
+	xmin = 0
 	xmax=num_pts
 	if auto eq 1 then view1d_adjust_ranges,xmin,xmax
+	end
        plotXTitle = 'Step #'        
      ENDELSE
 
@@ -4253,6 +4543,12 @@ if realtime_id.ind eq 0 then begin
 	if w_plotspec_id.log eq 2 then y_range=[0.,w_plotspec_limits(3)] 
 	if w_plotspec_id.log eq 1 then y_range=[0.1,w_plotspec_limits(3)] 
 
+if !d.n_colors le !d.table_size then begin
+TVLCT,o_red,o_green,o_blue,/get
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+TVLCT,red,green,blue
+endif else device,decomposed=1
+
 	plot,xrange=xrange, $
 		yrange=y_range, $
 		title=tempTitle, $
@@ -4462,6 +4758,8 @@ if realtime_id.axis eq 1 then begin
 	for i=0,scanData.num_det - 1 do begin
 	if realtime_id.def(4+i) ne 0 and wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
+	if !d.n_colors gt !d.table_size then color = w_plotspec_id.colorV(i)
+
 		oplot,scanData.px(1:n1), scanData.da(1:n1,i),LINE=ln_style(i), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
@@ -4471,6 +4769,7 @@ if realtime_id.axis eq 1 then begin
 	for i=0,scanData.num_pos - 1 do begin
 	if realtime_id.def(i) ne 0 and wf_sel(15+i) eq 1 then begin
 	color = w_plotspec_id.colorI(15+i)
+	if !d.n_colors gt !d.table_size then color = w_plotspec_id.colorV(15+i)
 	oplot,scanData.px(1:n1), scanData.pa(1:n1,i),LINE=ln_style(i+15), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
@@ -4492,6 +4791,7 @@ for i=0,scanData.num_det-1 do begin
 		end
 		if wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
+	if !d.n_colors gt !d.table_size then color = w_plotspec_id.colorV(i)
 		oplot,xtemp, ytemp,LINE=ln_style(i), $
 			PSYM = symbol * (i+1) mod 8, $
 			 COLOR=color
@@ -4509,6 +4809,7 @@ for i=0,scanData.num_pos-1 do begin
 		end
 		if wf_sel(i+15) eq 1 then begin
 	color = w_plotspec_id.colorI(i+15)
+	if !d.n_colors gt !d.table_size then color = w_plotspec_id.colorV(i+15)
 		oplot,xtemp, ytemp,LINE=ln_style(i+15), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
@@ -4525,7 +4826,9 @@ if (n2+1) ge npts then begin
 	realtime_id.ind = 2
 ;	print,'caclock',caclock()
 	end
-if !d.n_colors gt !d.table_size then device,decomposed=0
+if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue else $
+device,decomposed=0
+
 END
 
 
@@ -7244,12 +7547,11 @@ errcode = 0
 	u_read,unit,maxno
 	u_read,unit,array
 	u_close,unit
-
 	openr,1,filename
 	status = FSTAT(1)
 	close,1
 	
-	if status.size eq fsize(0) then begin
+	if fsize(0) eq status.size  then begin
 	w_viewscan_id.size = fsize(0)
 	w_viewscan_id.maxno = maxno(0)
 ;	w_viewscan_id.fptr(0:w_viewscan_id.maxno) = array
@@ -7536,7 +7838,7 @@ for i=0,14 do begin
 	5: data_2d.d6(0,0:npts,y_seqno) = px
 	6: data_2d.d7(0,0:npts,y_seqno) = px
 	7: data_2d.d8(0,0:npts,y_seqno) = px
-		8: data_2d.d9(0,0:npts,y_seqno) = px
+	8: data_2d.d9(0,0:npts,y_seqno) = px
 	9: data_2d.d10(0,0:npts,y_seqno) = px
 	10: data_2d.d11(0,0:npts,y_seqno) = px
 	11: data_2d.d12(0,0:npts,y_seqno) = px
@@ -7555,7 +7857,7 @@ end
 
 END
 
-PRO catch1d_win_2D_update1,y_seqno
+PRO catch1d_win_2D_update1,y_seqno,REDO=REDO
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
   COMMON CATCH1D_2D_COM, data_2d
@@ -7600,12 +7902,10 @@ if error_status lt 0 then begin
 
         end
 end
-
 	wset,new_win
-;	if !d.name eq 'WIN' then device,decompose=0
 	if !d.n_colors gt !d.table_size then device,decompose=0
 
-;	erase
+	if keyword_set(REDO) eq 0 then begin
 	for sel=0,14 do begin
 	if realtime_id.def(4+sel) gt 0 then begin
 	CASE sel OF
@@ -7625,12 +7925,20 @@ end
 	13: data_2d.image = data_2d.d14(0,0:npts,0:y_seqno)
 	14: data_2d.image = data_2d.d15(0,0:npts,0:y_seqno)
 	ENDCASE
+	data_2d.images(0:npts,0:y_seqno,sel) =  data_2d.image(0:npts,0:y_seqno)
 	temp = congrid(data_2d.image, width, height)
 	TVSCL, temp, sel
 	end
 	end
+	endif else begin
+	 for sel=1,14 do begin
+	  if realtime_id.def(4+sel) gt 0 then begin
+		da = data_2d.images(*,*,sel)
+		TVSCL,congrid(da,width,height), sel
+	  end
+	 end	
+	end
 
-;	if !d.name eq 'WIN' then device,decompose=1
 	if !d.n_colors gt !d.table_size then device,decompose=1
 	wset,old_win
 END
@@ -7813,7 +8121,7 @@ END
 ;
 ; update only selected 2D detector
 ;
-PRO catch1d_win_2D_update2,y_seqno
+PRO catch1d_win_2D_update2,y_seqno,REDO=REDO
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
   COMMON CATCH1D_2D_COM, data_2d
@@ -7845,6 +8153,9 @@ end
 
 	sel = scanData.image - 3
 
+	if !d.n_colors gt !d.table_size then device,decompose=0
+
+	if keyword_set(REDO) eq 0 then begin
 	CASE sel OF
 	0: data_2d.image = data_2d.d1(0,0:npts,0:y_seqno)
 	1: data_2d.image = data_2d.d2(0,0:npts,0:y_seqno)
@@ -7862,9 +8173,13 @@ end
 	13: data_2d.image = data_2d.d14(0,0:npts,0:y_seqno)
 	14: data_2d.image = data_2d.d15(0,0:npts,0:y_seqno)
 	ENDCASE
+	endif else begin
+	data_2d.image = data_2d.images(*,*,sel)
+	end
 	
 	TVSCL,congrid(data_2d.image, 200, 200)
 
+	if !d.n_colors gt !d.table_size then device,decompose=1
 	wset,old_win
 END
 
@@ -7928,6 +8243,7 @@ d15=0
 	end
 data_2d = { $
 	image : make_array(xdim,ydim), $
+	images : make_array(xdim,ydim,15), $
 	d1 : d1, $ 
 	d2 : d2, $ 
 	d3 : d3, $ 
@@ -8124,26 +8440,33 @@ if XRegistered('user_scale') ne 0 then begin
         end
 
 scanData.act_npts = scanData.readin_npts
+scanData.zoom = 1
 
   CASE Event.Value OF 
 
   'Zoom.Zoom To Box': BEGIN
 	zoom_to_box
  	END
+  'Zoom.Zoom Pan': BEGIN
+	zoom_in_out1,group=Event.top
+ 	END
   'Zoom.Zoom In/Out': BEGIN
 	zoom_in_out
+	zoom_in_out1,group=Event.top
  	END
   'Zoom.Calc Slopes': BEGIN
 	draw_dragLine
  	END
   'Zoom.Zoom Off (AutoScale)': BEGIN
+	scanData.zoom = 0
 	scanData.lastPlot = 1
 	UPDATE_PLOT, 1
  	END
   'Zoom.User Scale ...': BEGIN
-	scanData.lastPlot = 0
+	scanData.zoom = 0
+	scanData.lastPlot = 1
 	user_scale,GROUP=event.top
-;	UPDATE_PLOT, 0
+;	UPDATE_PLOT, 1
  	END
   ENDCASE
 end
@@ -8378,7 +8701,7 @@ end
 
         FNAME = ''
 
-filename = 'catch1d.trashcan.xdr'
+filename = scanData.trashcan
 
 if keyword_set(new) then begin
 	filename=''
@@ -8487,7 +8810,7 @@ if strlen(P) gt 1 then begin
 		catch1d_turnoffAutosave
 	end 
 
-
+write_config
 END
 
 PRO catch1d_newCheck,FNAME,old_path
@@ -8571,8 +8894,8 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	scanData.trashcan = FNAME
 	catch1d_readFileIndex,FNAME,errcode
 
-;        id = check_data_version(FNAME)
-;	if id ne 0 then return 
+        id = check_data_version(FNAME)
+	if id ne 0 then return 
 
 if scanData.XDR eq 0 then scanData.option = 0
 
@@ -8608,7 +8931,6 @@ end
 	
 	if w_plotspec_id.opened ne 0 then free_lun,w_plotspec_id.opened
 	w_plotspec_id.opened = 0 
-	
 	if scanData.viewonly eq 0 then begin
 	if scanData.XDR eq 1 then begin
 		catch1d_checkImageFile,scanData.trashcan+'.image',errcode
@@ -8838,6 +9160,7 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
 	END
 
   'File.Open ...': BEGIN
+	widget_control,/HOURGLASS
 	catch1d_append
 	catcher_setup,GROUP=Event.top
     END
@@ -9616,8 +9939,14 @@ end ;     end of if scanData.option = 1
   'PICK_IMAGE': BEGIN
 	scanData.image = Event.Index + 1
 	catch,status_error
-	if status_error ne 0 then return
+	if status_error ne 0 then begin
+	   if scanData.image gt 2 then catch1d_win_2D_update2,/redo else $
+                catch1d_win_2D_update1,/redo
+ 	   return
+	end
 	wdelete,!D.window - 1		; 2D image window
+	if scanData.image gt 2 then catch1d_win_2D_update2,/redo else $
+                catch1d_win_2D_update1,/redo
 	END
   'IMAGE_UPDATE': BEGIN
 	scanData.eof2d = Event.Index
@@ -9626,6 +9955,7 @@ end ;     end of if scanData.option = 1
 	scanData.XDR = Event.Index
 	END
   'CATCHER_REFRESH': BEGIN
+	scanData.zoom = 0
     	UPDATE_PLOT, scanData.lastPlot
 	END
   'PICK_PS': BEGIN
@@ -9637,10 +9967,16 @@ end ;     end of if scanData.option = 1
 	END
 
   'PICK_XAXIS': BEGIN
-	w_plotspec_id.x_axis_u = 0
-	w_plotspec_id.xcord = 0
-	if Event.Index eq 0 then w_plotspec_id.x_axis_u = 1 else $
-	w_plotspec_id.xcord = Event.Index - 1
+	if scanData.zoom eq 0 then  begin    ; no zoom
+	 w_plotspec_id.x_axis_u = 0
+	 w_plotspec_id.xcord = 0
+	 if Event.Index eq 0 then w_plotspec_id.x_axis_u = 1 else $
+	 w_plotspec_id.xcord = Event.Index - 1
+	 p1 = scanData.pa(0:scanData.req_npts-1,w_plotspec_id.xcord)
+         w_plotspec_limits(0) = p1(0)
+         w_plotspec_limits(1) = p1(scanData.req_npts-1)
+	endif else zoom_checkAxis,Event
+
 	setPlotLabels
 	if realtime_id.ind eq 1 then begin
 		realtime_id.no = 0
@@ -9963,8 +10299,8 @@ set_scan_field_init
 
 ; read in go_catcher2 for runtime version
 
-found = findfile('go_catcher2')
-if found(0) ne '' then read_config,'go_catcher2'
+; found = findfile('go_catcher2')
+; if found(0) ne '' then read_config,'go_catcher2'
 
 scanData.pvconfig = scanData.pv
 if scanData.debug eq 1 then begin
@@ -10009,6 +10345,7 @@ end
 		'','Otherwise use the "File" menu to set up the catcher file.', $
 		'Then use the "Setup" menu to set up the scan PV names.']
 		mes = widget_message(st,/Error)
+
 if strlen(scanData.y_pv) gt 1  and caSearch(scanData.y_pv+'.EXSC') eq 0 then begin
         pventry2_event
         end
@@ -10018,11 +10355,12 @@ if strlen(scanData.pv) gt 1  and caSearch(scanData.pv+'.EXSC') eq 0 then begin
         end
 		return
 		end
-	
-	catch1d_readFileIndex,scanData.trashcan
 
 WIDGET_CONTROL,/HOURGLASS
 
+        catch1d_readFileIndex,scanData.trashcan
+
+	
 if scanData.option eq 0 then begin
 ;	id = check_data_version(scanData.trashcan) 
 	if id eq 0 then catch1d_check_seqno 
@@ -10346,6 +10684,10 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;			 spawn,/noshell,rm,wc,index file etc...
 ;       12-03-03 bkc   - R3.0  Support old/new scan record
 ;       04-06-04 bkc   - R3.1  Support TrueColor devices
+;       10-12-04 bkc   - R3.2  Fix 24 bit realtime line color scheme
+;			 Add zoom pan left,right,up,down dialog
+;			 Plot1d plot options remember previous setting 
+;			 Modified PS_open.pro to fix PS ration problem
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10358,14 +10700,9 @@ COMMON font_block, text_font, graf_font, ps_font
 COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
 ; check for demo mode
- 
+LOADCT,39
 
   if XRegistered('MAIN13_1') NE 0 then return
-
-; text_font = '6x13'
-; graf_font = text_font
-; ps_font ='9x15'
-;Widget_Control, Default_Font= text_font
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -10375,7 +10712,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R3.1+)', $
+      TITLE='Scan Data Catcher (R3.2)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10405,18 +10742,6 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
   SETUPOPTIONSMENU = setupOptions( BASE68, UVALUE='SETUPOPTIONSMENU')
 
   PLOTOPTIONSMENU = plotOptions( BASE68, UVALUE='PLOTOPTIONSMENU')
-
-
-;  Btns_mode = [ $
-;    'Scan', $
-;    'View' ]
-;  BGROUP_mode = CW_BGROUP( BASE68, Btns_mode, $
-;      COLUMN=2, $
-;      FRAME=1, $
-;      LABEL_LEFT='Mode:', $
-;      EXCLUSIVE=1, $
-;      UVALUE='BGROUP_MODE')
-;  WIDGET_CONTROL, BGROUP_mode, SET_VALUE=0
 
   MenuHelp = [ $
       { CW_PDMENU_S,       3, 'Help' }, $ ;        0
@@ -10493,6 +10818,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
   MenuZoom = [ $
       { CW_PDMENU_S,       3, 'Zoom' }, $ ;        0
         { CW_PDMENU_S,       0, 'Zoom To Box' }, $ ;    1   
+        { CW_PDMENU_S,       0, 'Zoom Pan' }, $ ;        2
         { CW_PDMENU_S,       0, 'Zoom In/Out' }, $ ;        2
         { CW_PDMENU_S,       0, 'Calc Slopes' }, $ ;       3
         { CW_PDMENU_S,       0, 'Zoom Off (AutoScale)' }, $ ;       4
@@ -10637,7 +10963,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R3.1)'
+scanData.release = '(R3.2)'
 
 ; get start home work directory
 
