@@ -485,7 +485,8 @@ end ;  if else new=1
 	device,set_graphics_function=6
 
 	str = ['You are in ROI discrete pixel selection mode', $
-		'for region # ='+strtrim(region_no)]
+		'for region # ='+strtrim(region_no), $
+		'LMB to pick/unpick the pixel, RMB to stop ']
 r = dialog_message(str,/info)
 cursor,x,y,/device,/down
 
@@ -526,14 +527,18 @@ END
 
 PRO multiroi_help
 
-str = ['DEFROI_PICK allows the user flexiblly redefine the ROIs by', $
+str = [ 'For detail information, please refer','', $
+	'   http://www.aps.anl.gov/~cha/multiROI.html', '', $
+	'MULTIROI_PICK allows the user flexiblly redefine the ROIs by', $
 	'free-hand drawing and picking the pixel elements.', $ 
 	'Element selected is marked with hash line and associated ROI number', $
 	'','The function of each button are listed below:','', $
 	'Drawing Area- Draw the marked image area', $
 	'Msg Info    - Hint about mouse operation below the drawing area', $ 
-	'Done        - Close the multi-roi selection program', $
 	'Help...     - Show this on-line help', $
+	'Read ROIs...- Read a ROIs definition file', $
+	'Save ROIs...- Save / update the  ROIs definition file', $
+	'Tiff/Png/Pict   - Save the ROIs to a TIFF file', $
 	'Color...    - Change the IDL window color map ', $
 	'Refresh     - Refresh TV image', $
 	'ShowAll ROIs - Redraw and mark all the selected elements', $
@@ -542,7 +547,9 @@ str = ['DEFROI_PICK allows the user flexiblly redefine the ROIs by', $
 	'              in the scroll area', $
 	'Draw PolyROI - Redraw the PolyROI for a selected ROI #', $ 
 	'Modify ROI  - Select/unselect pixels for a selected ROI #', $ 
+	'               (LMB to pick/unpick pixel, RMB to stop) ', $
 	'Add ROI     - Add an additional ROI to the ROI # list', $
+	'               (LMB to pick/unpick pixel, RMB to stop) ', $
 	'Del ROI     - Delete the selected ROI', $
 	'Zoom Add    - Zoom a box region, pick pixel elements to be added to the ROI', $
 	'Zoom Del    - Zoom a box region, pick pixel elements to be deleted from the ROI', $
@@ -552,7 +559,9 @@ str = ['DEFROI_PICK allows the user flexiblly redefine the ROIs by', $
 	'Scroll Area - Display the ROI statistics if new ROI# is selected', $
 	'Save As ... - Save the statistic scroll window content to a disk file', $
 	'Print       - Print the statistic scroll window content to printer', $
-	'Clear       - Clear the statistic scroll window' $
+	'Clear       - Clear the statistic scroll window', $
+	'ROIsTIFF    - Show TIFF filename corresponding to ROIs filename ', $
+	'Done        - Close the multi-roi selection program' $
 	]
 	r = dialog_message(str,/info)
 END
@@ -824,9 +833,111 @@ WIDGET_CONTROL,/HOURGLASS
 	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
 		color=defroi_pickinfo.bg,/device
       END
+  'DEFROIPICK_ROIREAD': BEGIN
+	path=defroi_pickinfo.path
+	filename = dialog_pickfile(filter='*roi.pick*', $
+		path=defroi_pickinfo.path, Title='Read ROIs File',$
+		GET_PATH=gp,/READ,/MUST_EXIST)
+
+	if filename eq '' then return
+
+	defroi_pickinfo.roifile = filename
+
+	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=filename 
+	p1 = strpos(filename,!os.file_sep,/reverse_search)
+	name = strmid(filename,p1+1,strlen(filename)-p1)
+	defroi_pickinfo.tiffname = filename+'.tiff'
+	WIDGET_CONTROL,defroi_pickinfo.tiffwid,SET_VALUE=name+'.tiff'
+
+	xdr_open,unit,filename
+	xdr_read,unit,picke,ERROR=er
+	if er ne 0 then begin
+		xdr_close,unit
+		r = dialog_message('Error: wrong type of data picked',/error)
+		return
+	end
+	xdr_close,unit
+
+	xdr_open,unit2,'roi.pick',/write
+	xdr_write,unit2,picke
+	xdr_close,unit2
+
+	im = defroi_pickinfo.im0
+	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
+	defroi_pickinfo.picke = picke
+	nregion = max(picke)
+	if nregion gt 1 then begin
+	defroi_pickinfo.region_max =  nregion 
+	str = string( defroi_pickinfo.list(1:defroi_pickinfo.region_max))
+	WIDGET_CONTROL,defroi_pickinfo.listwid,set_value=str
+	end
+
+      END
+  'DEFROIPICK_ROISAVE': BEGIN
+	file0 = 'roi.pick'
+	path=defroi_pickinfo.path
+
+	file1 = defroi_pickinfo.roifile
+	p = strpos(file1,!os.file_sep,/reverse_search)
+	file = strmid(file1,p+1,strlen(file1)-p-1)
+
+	filename = dialog_pickfile(filter='*roi.pick*', $
+		path=defroi_pickinfo.path, Title='Save ROIs File',$
+		file=file1, $
+		GET_PATH=gp,/WRITE)
+
+	if filename eq '' then return
+
+	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=filename 
+	p1 = strpos(filename,!os.file_sep,/reverse_search)
+	name = strmid(filename,p1+1,strlen(filename)-p1)
+	defroi_pickinfo.roifile = filename
+	defroi_pickinfo.tiffname = filename+'.tiff'
+	WIDGET_CONTROL,defroi_pickinfo.tiffwid,SET_VALUE=name+'.tiff'
+
+	xdr_open,unit,'roi.pick'
+	xdr_read,unit,picke
+	xdr_close,unit
+
+	xdr_open,unit2,filename,/write
+	xdr_write,unit2,picke
+	xdr_close,unit2
+      END
+  'DEFROIPICK_ROITIFF': BEGIN
+      pngname = defroi_pickinfo.tiffname
+	type = defroi_pickinfo.tifftype
+      tvlct,r,g,b,/get
+      case type of 
+	0: write_tiff,pngname,reverse(TVRD(),2),red=r,green=g,blue=b 
+	1: write_png,pngname,TVRD(),r,g,b
+        2: write_pict,pngname,TVRD(),r,g,b
+      endcase
+; print,'pngname=',pngname
+      END
   'DEFROIPICK_TEXT': BEGIN
       Print, 'Event for DEFROIPICK_TEXT'
       END
+
+  'DEFROIPICK_SAVEIMG': BEGIN
+        type = WIDGET_INFO(Event.ID,/DROPLIST_SELECT)
+	name = defroi_pickinfo.roifile 
+        case type of
+        0: newname = name + '.tiff'
+        1: newname = name + '.png'
+        2: newname = name + '.pict'
+        endcase
+	p1 = strpos(newname,!os.file_sep,/reverse_search)
+	name = strmid(newname,p1+1,strlen(newname)-p1)
+        WIDGET_CONTROL,defroi_pickinfo.tiffwid,SET_VALUE = name
+	defroi_pickinfo.tiffname = newname
+	defroi_pickinfo.tifftype = type
+;print,'newname=',newname
+        END
+  'DEFROIPICK_TIFFNAME': BEGIN
+	WIDGET_CONTROL,Ev.Id,GET_VALUE=st
+	defroi_pickinfo.tiffname = st(0)
+      END
+
   'DEFROIPICK_TEXTSAVE': BEGIN
 	filename = dialog_pickfile(filter='*rois.rpt*', $
 		path=defroi_pickinfo.path, $
@@ -885,7 +996,7 @@ END
 
 
 
-PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg,comment=comment
+PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg,comment=comment,header=header
 ;+
 ; NAME: 
 ;    MULTIROI_PICK
@@ -919,6 +1030,7 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg,comment=comment
 ;   COMMENT: Specifies the comment about the image data
 ;
 ;    BG:     Specifies the background color, default is black
+;    HEADER: Specifies the header to be displayed 
 ;
 ; MODIFICATION HISTORY:
 ;      Written by:     Ben-chin Cha, Aug 4, 2000.
@@ -926,6 +1038,8 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg,comment=comment
 ;                      Replace the xdr read/write by the new method from the
 ;                      xdr_open.pro    
 ;		       Improve the efficiency for handling very large image data
+;      05-14-2002  bkc Add the option of read/save the multiple roi.pick file 
+;                      Add the option of saving Tiff/Png/Pict image file
 ;-
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
@@ -971,13 +1085,21 @@ graph_region,xl,yl,wd,ht,xsize,ysize
       MAP=1, $
       UVALUE='BASE4')
 
-  BUTTON25 = WIDGET_BUTTON( BASE4, $
-      UVALUE='DEFROIPICK_DONE', $
-      VALUE='Done')
-
   BUTTON24 = WIDGET_BUTTON( BASE4, $
       UVALUE='DEFROIPICK_HELP', $
       VALUE='Help...')
+
+  BUTTON35 = WIDGET_BUTTON( BASE4, $
+      UVALUE='DEFROIPICK_ROIREAD', $
+      VALUE='Read ROIs...')
+
+  BUTTON36 = WIDGET_BUTTON( BASE4, $
+      UVALUE='DEFROIPICK_ROISAVE', $
+      VALUE='Save ROIs...')
+
+  BUTTON36 = WIDGET_BUTTON( BASE4, $
+      UVALUE='DEFROIPICK_ROITIFF', $
+      VALUE='Tiff/Png/Pict')
 
   BUTTON24 = WIDGET_BUTTON( BASE4, $
       UVALUE='DEFROIPICK_COLOR', $
@@ -1044,6 +1166,9 @@ graph_region,xl,yl,wd,ht,xsize,ysize
       MAP=1, $
       UVALUE='BASE5')
 
+  if keyword_set(header) then $
+  label1 = WIDGET_LABEL(BASE5,VALUE=header)
+
   BASE5_0 = WIDGET_BASE(BASE5, $
       ROW=1, $
       MAP=1, $
@@ -1093,6 +1218,21 @@ graph_region,xl,yl,wd,ht,xsize,ysize
       MAP=1, $
       UVALUE='BASE8')
 
+  img_output = WIDGET_DROPLIST( BASE8,VALUE=['TIFF','PNG','PICT'], $
+      UVALUE = "DEFROIPICK_SAVEIMG",TITLE='ROIs')
+
+  TIFFFIELD = CW_FIELD( BASE8,VALUE='', $
+      ROW=1, /NOEDIT, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE=':', XSIZE=50, $
+      UVALUE='DEFROIPICK_TIFFNAME')
+
+  BUTTON25 = WIDGET_BUTTON( BASE5, $
+      UVALUE='DEFROIPICK_DONE', $
+      VALUE='Done')
+
+
   WIDGET_CONTROL, multiroi_pickBase, /REALIZE
 
   ; Get drawable window index
@@ -1104,8 +1244,9 @@ graph_region,xl,yl,wd,ht,xsize,ysize
   	cursor_val = '*** Query cursor image value, RMB to stop ***'
 
 defroi_pickinfo = { $
+	roifile : 'roi.pick', $      ; multiple roi.pick defined file
 	path : 'ROI'+ !os.file_sep, $
-	class : 'ROI'+ !os.file_sep, $
+	class : '', $                ; file class 
 	comment: '', $
 	help : 1, $
 	base : multiroi_pickBase, $
@@ -1118,6 +1259,9 @@ defroi_pickinfo = { $
 	csize : 1., $
 	offwid : offset_field, $
 	offset : 0., $
+	tiffwid : TIFFFIELD, $
+	tiffname : '', $            ; output roi.pick tiff file
+	tifftype : 0, $
 	cursor_val : cursor_val, $
 	xsize : xsize, $
 	ysize : ysize, $
@@ -1134,15 +1278,22 @@ defroi_pickinfo = { $
 	im0 : im $
 	}
 
-
 	if keyword_set(comment) then defroi_pickinfo.comment = comment
 	if keyword_set(bg) then defroi_pickinfo.bg = bg
 	if keyword_set(class) then begin
 		 defroi_pickinfo.class = class
 		 len = strpos(class,!os.file_sep,/reverse_search)
-		 if len ge 0 then $
+		 if len ge 0 then $ 
 		 defroi_pickinfo.path = strmid(class,0,len+1)
 	end
+
+; tiff and roi.pick setup
+
+	defroi_pickinfo.roifile = defroi_pickinfo.class+'roi.pick'
+	defroi_pickinfo.tiffname = defroi_pickinfo.class+'roi.pick.tiff'
+	len = strpos(defroi_pickinfo.tiffname,!os.file_sep,/reverse_search)
+	name = strmid(defroi_pickinfo.tiffname,len+1,strlen(defroi_pickinfo.tiffname)-len)
+	WIDGET_CONTROL,TIFFFIELD,SET_VALUE=name
 
 	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
 	defroi_pickinfo.picke = picke
