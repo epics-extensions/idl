@@ -131,7 +131,7 @@ COMMON COLORBAR, colorbar_data
       END
   ENDCASE
 
-;  WIDGET_CONTROL,Event.Top,SET_UVALUE=colorbar_data
+   WIDGET_CONTROL,Event.Top,SET_UVALUE=colorbar_data
    r = execute(colorbar_data.caller)
 
 END
