@@ -17,18 +17,19 @@ if !d.window ne -1 then wdelete
 
 device,retain=2
 
-arch = getenv('HOST_ARCH')
 private = getenv('EPICS_EXTENSIONS_PVT')
-print,'arch ',arch
 print,'private ',private
 
+arch = getenv('HOST_ARCH')
+if arch eq '' then arch = 'solaris-sparc'
 !path= '/usr/local/epics/extensions/bin/'+arch+':'+!path
+!path= '/usr/local/epics/extensions/idllib:'+!path
 if private ne '' then $
-!path= private + '/bin/'+arch + ':' + !path
+!path= private + '/idllib:' +private+'/bin/'+arch+':'+ !path
 
 private = getenv('EPICS_EXT_PVT')
 if private ne '' then $
-!path= private + '/bin/'+arch + '/idl:' + !path
+!path= private + '/idllib:' + !path
 
 print,!path
 ;
@@ -42,4 +43,5 @@ print,'Run ezcaIDLWidgets ...'
 .run ezcaIDLWidgets
 caInit
 caSetTimeout,0.001
+caPendIO,time=0.01,list_time=3.
 print,caVersion()
