@@ -1220,6 +1220,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 
 	WSET,ezfitData.image_area
         plot,ezfitData.x(0:ezfitData.width-1), ezfitData.y,PSYM=0,thick=2,$
+		color=ezfitData.table_size-1, $
                 xtitle='X', ytitle='Y', title=title
 	if XRegistered('POLYFITW_SETUP') then $
 	WIDGET_CONTROL,ezfitData.polyfit_label, $
@@ -1248,6 +1249,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 
 	WSET,ezfitData.image_area
         plot,ezfitData.y(0:ezfitData.height-1), ezfitData.zy,PSYM=0,thick=2, $
+		color=ezfitData.table_size-1, $
                 xtitle='Y', ytitle='Z', title=title
 	if XRegistered('POLYFITW_SETUP') then $
 	WIDGET_CONTROL,ezfitData.polyfit_label, $
@@ -1277,6 +1279,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 
 	WSET,ezfitData.image_area
         plot,ezfitData.x(0:ezfitData.width-1), ezfitData.zx,PSYM=0,thick=2, $
+		color=ezfitData.table_size-1, $
                 xtitle='X', ytitle='Z', title=title
 	if XRegistered('POLYFITW_SETUP') then $
 	WIDGET_CONTROL,ezfitData.polyfit_label, $
@@ -1358,6 +1361,7 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 
 	WSET,ezfitData.image_area
         plot,ezfitData.x(0:ezfitData.width-1), ezfitData.y,PSYM=0,thick=2,$
+		color=ezfitData.table_size-1, $
                 xtitle='X', ytitle='Y', title=title
 	if XRegistered('POLYFITW_SETUP') then $
 	WIDGET_CONTROL,ezfitData.polyfit_label, $
@@ -1406,6 +1410,7 @@ if XRegistered('GETVECTOR_MAIN13') then $
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
+if !d.n_colors gt 256 then device,decomposed=0
 device,retain=2
 
   GETVECTOR_MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
@@ -1844,15 +1849,67 @@ FUNCTION slope,X,Y
 		y = x
 		X = indgen(nx)
 	end
-	slopey = y*0
+	m = y*0
 	for i=1,nx-1 do begin
 		dx = x(i) - x(i-1)
 		if dx ne 0. then begin
-		slopey(i)= (y(i)-y(i-1))/dx
-;		print,i,x(i),y(i),slopey(i)
+		m(i)= (y(i)-y(i-1))/dx
+;		print,i,x(i),y(i),m(i)
 		end
 	end
-	return,slopey
+	return,m
+END
+
+PRO  getStatisticDeviation_1d,id1,y,mean,sdev,mdev,st
+        mean=0.
+        sdev=0.
+        mdev=0.
+        no = n_elements(y)
+        if no eq 0 then return
+        mean = total(y)/no
+        if no eq 1 then return
+        index = where(y gt mean, count)      ; check for constant function
+        mean = [mean,0.,0.,0.]
+        if count gt 0 then mean = MOMENT(y,mdev=mdev,sdev=sdev)
+
+st = id1
+st= [st+' ']
+        st = [st, '   Mean         = '+string(mean(0))]
+        st = [st, '   Standard Dev = '+string(sdev)]
+        st = [st, '   Mean Abs Dev = '+string(mdev)]
+        st = [st, '   Variance     = '+string(mean(1))]
+        st = [st, '   Skewness     = '+string(mean(2))]
+        st = [st, '   Kurtosis     = '+string(mean(3))]
+END
+
+PRO  get_statistic_1d,namelabel,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,st
+; p1 - x vector
+; d1 - y vector
+; call statistic_1d
+
+        statistic_1d,p1,d1,c_mass,x_peak,y_peak,y_hpeak,FWHM
+
+st = namelabel
+st= [st+' ']
+        st = [st, '   Peak  X='+strtrim(x_peak,1)+'  Y='+strtrim(y_peak,1)]
+        st = [st, '   H-Peak  Y='+strtrim(y_hpeak)]
+        st = [st, '   Centroid  '+ strtrim(c_mass,1)]
+        st = [st, '   FWHM      '+strtrim(FWHM,1)]
+
+if n_elements(x_peak) gt 0 then begin
+        largest = max(y_peak)
+        i_largest = 0
+        for i=0,n_elements(x_peak)-1 do begin
+                if y_peak(i) ge largest then begin
+                i_largest = i
+                goto, write_peak
+                end
+                end
+        write_peak:
+        xpeak = x_peak(i_largest)
+        ypeak = y_peak(i_largest)
+        end
+
 END
 
 ;
@@ -2050,7 +2107,7 @@ if keyword_set(FIT) eq 0 then begin
 		if y(i) eq peak then begin
 		x_peak = x(i)
 		y_peak = peak
-		if list then 	printf,unit,'Xmax,Ymax: ',x_peak, y_peak
+		if list then 	printf,unit,'Peak @x,y:',x_peak, y_peak
 		goto,append_close
 		end
 	end
@@ -2287,7 +2344,11 @@ if error_status ne 0 then begin
 	return
 end
 	if strlen(line) gt 0 then begin
+	if xcol lt 0 then begin
+	if nline eq 0 then x = indgen(lines)
+	endif else begin
 	if nline eq 0 then x = float(res(xcol)) else x = [x,res(xcol)]
+	end
 	rarray(*,nline) = float(res(start_col:end_col-1))
 	nline = nline+1
 	end
@@ -2420,11 +2481,11 @@ COMMON W_READASCII_BLOCK,readascii_info
 		ezfitData.J_index=0
 		ezfitDaTA.I_index=0
 	if ezfitData.dim eq 1 then begin
-		ezfitData.im = y
+		*ezfitData.im = y
                 ezfit_init1d,x,y
 	endif else begin
 		image = rarray
-		ezfitData.im = rarray
+		*ezfitData.im = rarray
                 ezfit_init2D,x,y,rarray
 	end
 
@@ -2466,12 +2527,12 @@ COMMON W_READASCII_BLOCK,readascii_info
 	'1D/2D         - Droplist to treat the data read in as 1D/2D data array', $
 	'ASCII...      - Use Xdisplayfile to display the content of ascii file', $
 	'Y Axis Line # - Specify the line # containing Y coordinates for 2D data ', $
-	'                default to 3 for 2D data, -1 if no Y value present ', $
+	'                default to 3 for 2D data,set to -1 if no Y value present ', $
 	'Start Line    - Specify the start line # to begin with, default 0', $
 	'Total Lines   - Specify the total lines be be read, default all', $
 	'Comment Char  - Specify the char the comment line to begin with, default ";"', $
 	'X Axis Column # - Specify the column # containing X coordinates', $
-	'                  default 0', $
+	'                  default 0, set to -1 if no X value present', $
 	'Start Column  - Specify the start column # to begin with', $
 	'                default 1 for 1D, default 2 tor 2D', $
 	'Total Columns - Specify the total columns be be read, default all', $
@@ -3248,11 +3309,11 @@ yfit = curvefit(x,y,Weights,a,sigma,function_name='lorentzian',/noderiv)
         comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d, x, curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		/symbol,GROUP=group,wtitle='Lorentzian Fit',report='fitting.rpt'
+		/symbol,GROUP=group,wtitle='Lorentzian Fit',report='lorentzian.rpt'
 
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
+        OPENW,unit,'lorentzian.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -3284,7 +3345,7 @@ yfit = curvefit(x,y,Weights,a,sigma,function_name='lorentzian',/noderiv)
 	printf,unit,'         X           Y           YFIT        YFIT - Y'
 	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i)
 	FREE_LUN,unit
-;	xdisplayfile,'fitting.rpt',title=title
+;	xdisplayfile,'lorentzian.rpt',title=title
 	end
 
 END
@@ -3443,23 +3504,23 @@ for i=0,N-1 do NEWA(*,i) = a(i*3:i*3+2)
 ; plot seperate lines
 if keyword_set(subplot) then begin
 ytemp = make_array(n_elements(x),N+2)
-ytemp(*,0) = yfit
-ytemp(*,1) = y
+ytemp(*,1) = yfit
+ytemp(*,0) = y
 for i=0,N-1 do begin
 	a = NEWA(*,i)	
 	lorentzian_curve,a,x,temp
 	ytemp(*,i+2) = temp
 end
-	plot1d,x,ytemp,/symbol,title=title,GROUP=group
+	plot1d,x,ytemp,/symbol,title=title,GROUP=group,wtitle='Decomposed Lorentzians'
 end
 
 
 	plot1d, x, curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		/symbol,GROUP=group,wtitle='Multiple Lorentzian Fit',report='fitting.rpt'
+		/symbol,GROUP=group,wtitle='Multiple Lorentzian Fit',report='lorentzian.rpt'
 
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
+        OPENW,unit,'lorentzian.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -3487,10 +3548,14 @@ end
         printf,unit,''
 	end
 
-	printf,unit,'         X           Y           YFIT      YFIT - Y '
-	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i)
+	format='('+strtrim(N+4,2)+'G15.7)'
+	format='(4G15.7,'+strtrim(N,2)+'G15.7)'
+	printf,unit,'         X            Y              YFIT          YFIT - Y  ||    MULTIPLE COMPONENTS'
+	for i=0,n_elements(x)-1 do begin
+		 printf,unit,format=format,x(i),y(i),yfit(i),yres(i),ytemp(i,2:2+N-1)
+	end
 	FREE_LUN,unit
-;	xdisplayfile,'fitting.rpt',title=title
+;	xdisplayfile,'lorentzian.rpt',title=title
 	end
 
 END
@@ -4455,7 +4520,7 @@ END
 PRO ezfit_init1d,x,y
 COMMON EZ_FIT_BLOCK,ezfitData,image
         ezfitData.x = x
-        ezfitData.im = y
+        *ezfitData.im = y
         ezfitData.y = y(*,ezfitData.J_index)
         ezfitData.dim = 1
         ezfitData.pick = 0
@@ -4485,7 +4550,7 @@ PRO ezfit_get2DData,F,image2
 COMMON EZ_FIT_BLOCK,ezfitData,image
 		ezfit_readImageData,xarray,yarray,image,filename=F 
 	if n_elements(xarray) eq 0 then return
-		ezfitData.im = image
+		*ezfitData.im = image
 		ezfit_init2D,xarray,yarray,image2
 		ezfitData.file = F
 END
@@ -4497,8 +4562,8 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 		ezfitData.width = n_elements(xarray) 
 		ezfitData.height = n_elements(yarray) 
 		ezfitData.dim = 2
-image2=make_array(ezfitData.width,ezfitData.height)
-image2(*,*)=image  ;ezfitData.im(0:ezfitData.width*ezfitData.height - 1)
+
+image2=*ezfitData.im ;(0:ezfitData.width-1,0:ezfitData.height - 1)
 END
 
 PRO ezfit_picktype,x,y
@@ -4572,6 +4637,7 @@ end
 		o_win = !D.window
 		WSET,ezfitData.image_area
 		plot,ezfitData.x(0:ezfitData.width-1), $
+		  thick=2,color=ezfitData.table_size-1, $
 		  xtitle='Index', ytitle='X', title='X vs Index'
 		WSET,o_win
 	end
@@ -4586,6 +4652,7 @@ end
 				ezfitData.J_index)
 		end
 		plot,ezfitData.x(0:ezfitData.width-1), ezfitData.y, $
+		  thick=2,color=ezfitData.table_size-1, $
 		  xtitle='X', ytitle='Y', title='Y vs X'
 		WSET,o_win
 	end
@@ -4604,6 +4671,7 @@ end
 	o_win = !D.WINDOW
 	WSET,ezfitData.image_area
 	plot,ezfitData.x(0:ezfitData.width-1), ezfitData.zx, $
+		  thick=2,color=ezfitData.table_size-1, $
 		xtitle='X', ytitle='Z', title=title 
 	WSET,o_win
         str = '       I    X Values         Zy Values'
@@ -4626,6 +4694,7 @@ end
 	o_win = !D.WINDOW
 	WSET,ezfitData.image_area
 	plot,ezfitData.y(0:ezfitData.height-1), ezfitData.zy, $
+		  thick=2,color=ezfitData.table_size-1, $
 		xtitle='Y', ytitle='Z', title=title 
 	WSET,o_win
         str = '       I    Y Values         Zx Values'
@@ -4639,9 +4708,11 @@ end
 	if XRegistered('GETVECTOR_MAIN13') then begin
 		o_win = !D.WINDOW
 		WSET,ezfitData.image_area
-		TVSCL,image
+		TVSCL,congrid(image,ezfitData.TV_width,ezfitData.TV_height)
 		WSET,o_win
 	endif else begin
+		sz = size(image)
+		if sz(0) eq 1 then return
 		ezfit_getvector,image,GROUP=Event.Top
 	end
     END
@@ -4795,8 +4866,8 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
         found = findfile(F)
         if found(0) ne '' then begin
                 ezfit_get2DData,F,image2
-;                if XRegistered('GETVECTOR_MAIN13') then $
-;                WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
+                if XRegistered('GETVECTOR_MAIN13') then $
+                WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
                 ezfit_getvector,image2,GROUP=Event.Top
         endif else begin
                 res=widget_message(F+ 'not found',/info,title='EZ_FIT Info', $
@@ -4947,7 +5018,10 @@ PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group,jpick=jpick,ipick=ipic
 ;	10-18-99	Add the support of weight factor   
 ;       01-06-00        Add the support of jpick, and ipick for image array
 ;       01-23-02        Upgrade the readascii user interface for 1D/2D data
-;       03-01-02        Modify multiple Lorenzian ROI user interface
+;       03-01-02        R1.6
+;                       Modify multiple Lorenzian ROI user interface
+;       04-30-02        Fix GetData menu features with fittin.bin data
+;                       Handle the case where the table_size is less than 256
 ;-
 
 COMMON EZ_FIT_BLOCK,ezfitData,image
@@ -4959,10 +5033,17 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 
 if XRegistered('EZFIT_MAIN13') eq 0 then begin
  
+;  get actual table size 
+;        tvlct,r,g,b,/get
+;        t_size = where(r eq 0 and g eq 0 and b eq 0)
+;        table_size = 256 - n_elements(t_size)+1
+	table_size = !d.table_size
+
 ezfitData = { $
 	file : '', $ ;	1D name: *.bin1d or   2D name: *.bin 
 	inpath : '', $ 
 	base : 0L, $
+	table_size : table_size, $
 	dim : 0, $		; 1 - 1d, 2 - 2d data
 	base_getvector:0L, $
 	image_area : 0, $       ; drawing are for getvector
@@ -4995,7 +5076,7 @@ ezfitData = { $
 	y : make_array(4000), $
 	zx: make_array(4000), $
 	zy : make_array(4000), $
-	im : make_array(1000,1000), $
+	im : ptr_new(/allocate_heap), $  ;make_array(1000,1000), $
 	TV_width: 300, $
 	TV_height: 300, $
 	x_mag: 1., $
@@ -5018,7 +5099,7 @@ if keyword_set(inpath) then ezfitData.inpath = inpath else ezfitData.inpath=p
 
 if keyword_set(im) then begin
 	image = im
-	ezfitData.im = im
+	*ezfitData.im = im
 	sz=size(im)
 	if keyword_set(xarray) eq 0 then xarray = indgen(sz(1))
 	if keyword_set(yarray) eq 0 then yarray = indgen(sz(2))
