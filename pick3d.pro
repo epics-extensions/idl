@@ -232,17 +232,17 @@ PRO PICK3D_2DMENU_Event, Event,pick3d_state
 	title=pick3d_state.class+':'+pick3d_state.detname(pick3d_state.pickDet-1) + ' (3D_2D Result)'
 
   CASE Event.Value OF
-  '2D Menu.Pick 2D...': BEGIN
+  '3D_2D Menu.Pick 2D...': BEGIN
 	pick2d,da2d,x,y,GROUP=Event.top,class=pick3d_state.class, $
 		path=pick3d_state.outpath
 	END
-  '2D Menu.PanImages...': BEGIN
+  '3D_2D Menu.PanImages...': BEGIN
 	sz = size(da2d)
 	def = pick3d_state.id_def(0:sz(3)-1,1)
 	panimage_sel,da2d,def,title= title+' (All Di)'
 	END
 
-  '2D Menu.CALIB2D...': BEGIN
+  '3D_2D Menu.CALIB2D...': BEGIN
 	sz = size(da2d)
 	def = pick3d_state.id_def(0:sz(3)-1,1)
 	panimage,da2d,def,title= title+' (All Di)'
@@ -254,7 +254,12 @@ PRO PICK3D_2DMENU_Event, Event,pick3d_state
 		xv = x, yv=y
 
     END
-  '2D Menu.CALIB1D...': BEGIN
+  '3D_2D Menu.Plot/Pick 1D...': BEGIN
+	x = *(pick3d_state.z)
+	sz = size(da1d)
+	plot1d,x,da1d,Group=Event.top,/data
+    END
+  '3D_2D Menu.CALIB1D...': BEGIN
 	da1d = *(pick3d_state.da1D)
 	sz = size(da1d)
 	def = make_array(sz(2),value=1,/int)
@@ -264,7 +269,7 @@ help,da1d,x,def
 ;	calibration_factor,da1d,def,   $ 
 ;		title=title,Group=Event.top else $
 	calibration_factor,da1d,def,   $ 
-		title=title,Group=Event.top, $
+		title='3D_2D (All 1D Di)',Group=Event.top, $
 		xv = x
        END
   ENDCASE
@@ -637,11 +642,12 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
   WIDGET_CONTROL,LIST10,SET_LIST_TOP=15
 
   MenuDesc496 = [ $
-      { CW_PDMENU_S,       3, '2D Menu' }, $ ;        0
+      { CW_PDMENU_S,       3, '3D_2D Menu' }, $ ;        0
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Pick 2D...' }, $ ;        2
-        { CW_PDMENU_S,       0, 'CALIB2D...' } $ ;        1
-;        { CW_PDMENU_S,       2, 'CALIB1D...' } $ ;        1
+        { CW_PDMENU_S,       0, 'CALIB2D...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'Plot/Pick 1D...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'CALIB1D...' } $ ;        1
 
   ]
 
