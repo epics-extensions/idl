@@ -63,6 +63,11 @@ error=0
 
 update:
 
+	NC = 8
+	ND = sz(3)
+	NR = ND / NC +1
+	NL = NR*NC -1
+
 	width = 60
 	height = 60
 	old_win = !D.window
@@ -85,11 +90,12 @@ if error_status then o_win=-1
 if o_win ne -1 then wdelete,o_win
 o_win = -1
 	if o_win lt 0 then begin
-		window,/free, xsize = 8*width, ysize=2*height, $
+		window,/free, xsize = NC*width, ysize=NR*height, $
 			title=title
-		for i=0,sz(3)-1 do begin
-		xi=(i mod 8)*width+width/2 - 5 
-		yi=height/2+(sz(3)-i)/8*height
+		for i=0,ND-1 do begin
+		ii = NL-i
+		xi=(i mod NC)*width+width/2 - 5 
+		yi=height/2+ii/NC*height
 		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
 		end
 	end
@@ -97,7 +103,7 @@ o_win = -1
 new_win = !D.window
 
 	wset,new_win
-	for sel=0,sz(3)-1 do begin
+	for sel=0,ND-1 do begin
 	if id_def(sel) gt 0 then begin
 	v_max = max(image_array(*,*,sel),min=v_min)
 	if v_max eq v_min then begin
@@ -111,8 +117,8 @@ new_win = !D.window
 	end
 
 
-	plots,[0,8*width],[height,height],/device
-	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+	for i=1,NR-1 do plots,[0,NC*width],[i*height,i*height],/device
+	for i=1,NC-1 do plots,[i*width,i*width],[0,NR*height],/device
 
 	if keyword_set(TIFF) then begin
 		tvlct,r,g,b,/get
