@@ -1109,7 +1109,7 @@ COMMON PRINTER_BLOCK,printer_info
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.5 1998/02/24 17:04:13 cha Exp $
+; $Id: view1d.pro,v 1.6 1998/02/24 17:19:17 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1278,7 +1278,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.5 1998/02/24 17:04:13 cha Exp $
+; $Id: view1d.pro,v 1.6 1998/02/24 17:19:17 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1909,6 +1909,14 @@ END
 
 PRO catch1d_get_pvtct
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+
+; 8 bit visual
+
+	if  !d.n_colors lt 16777216 then begin
+		tvlct,red,green,blue,/get
+	endif else begin
+
+; 24 bit visual
 	file = 'catch1d.tbl'
 	found = findfile(file)
 	if found(0) eq '' then begin
@@ -1916,9 +1924,13 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 		found1 = findfile(file)
 		if found1(0) eq '' then $
 		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-	end
+		end
 	restore,file
 	tvlct,red,green,blue
+	end
+
+; set ORIG color 
+
 	R_ORIG = red
 	G_ORIG = green
 	B_ORIG = blue
