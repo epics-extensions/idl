@@ -46,9 +46,6 @@ PRO PDMENUV3D_PANIMAGE_Event, Event, state
   'PanImage.PanImages.PanImages+RTIFF': begin
         view3d_panImage,state,tiff=tiff,/reverse,Group=state.base
         end
-  'PanImage.PanImages.PanImages+GIF': begin
-        view3d_panImage,state,gif=gif,Group=state.base
-        end
   'PanImage.PanImages.PanImages+PICT': begin
         view3d_panImage,state,pict=pict,Group=state.base
         end
@@ -58,7 +55,7 @@ PRO PDMENUV3D_PANIMAGE_Event, Event, state
   ENDCASE
 END
 
-PRO view3d_panImage,state,tiff=tiff,reverse=reverse,gif=gif,pict=pict,group=group
+PRO view3d_panImage,state,tiff=tiff,reverse=reverse,pict=pict,group=group
 	filename = state.file
 	rank = state.rank
 	kindex = state.k_listid
@@ -81,15 +78,12 @@ PRO view3d_panImage,state,tiff=tiff,reverse=reverse,gif=gif,pict=pict,group=grou
 	if keyword_set(REVERSE) then $
 	tiff = state.outpath+'TIFF'+!os.file_sep+state.class+ $
 		scanno+'.rtiff'
-	if keyword_set(GIF) then $
-	gif = state.outpath+'GIF'+!os.file_sep+state.class+ $
-		scanno+'.gif'
 	if keyword_set(PICT) then $
 	pict = state.outpath+'PICT'+!os.file_sep+state.class+ $
 		scanno+'.pict'
 
 	nw = state.panwin
-	panImage,data,id_def,new_win=nw,tiff=tiff,reverse=reverse,gif=gif,pict=pict,title=title
+	panImage,data,id_def,new_win=nw,tiff=tiff,reverse=reverse,pict=pict,title=title
 	state.panwin = nw
 
 END
@@ -379,7 +373,6 @@ str = ['', $
 'PanImage Menu      - displays all detectors for selected rank # & slice # ', $
 '     PanImages+TIFF  - saves pan image as TIFF file', $
 '     PanImages+RTIFF - saves pan image as reverse order TIFF file', $
-'     PanImages+GIF   - saves pan image as GIF file', $
 '     PanImages+PICT  - saves pan image as PICT file', $
 '     Calibration...  - runs calibration program ', $
 'Detector List      - selects the detecor #, default D1', $
@@ -419,13 +412,12 @@ step_mkdir:
 	found = findfile(state.outpath+'ASCII',count=ct)
 	if ct gt 0 then goto,step_init
 
-	r = dialog_message(['Please check the existence of ASCII,TIFF,GIF,', $
+	r = dialog_message(['Please check the existence of ASCII,TIFF,', $
 		'PICT,ROI,CALIB  subdirectory'],/error)
 	catch,error_status
 	if error_status ne 0 then goto,step_init
 	spawn, !os.mkdir + ' ' + state.outpath+'ASCII' + ' ' + $
 		state.outpath+'TIFF' + ' ' +$
-		state.outpath+'GIF' + ' ' +$
 		state.outpath+'PICT' + ' ' +$
 		state.outpath+'ROI' + ' ' +$
 		state.outpath+'CALIB'
@@ -762,7 +754,6 @@ Scan = { $
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+RTIFF' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages+GIF' }, $ ;        1
         { CW_PDMENU_S,       2, 'PanImages+PICT' }, $ ;        1
       { CW_PDMENU_S,       2, 'Calibration...' } $ ;        0
         ]
