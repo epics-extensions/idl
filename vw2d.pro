@@ -1,1259 +1,56 @@
-;
-;  To save platform independent data use the /XDR option on file open
-;
-;  u_openw, unit [,/XDR]  [,'filename']
-;  u_openr, unit [,/XDR]  [,'filename']
-;  u_write 
-;  u_read
-;  u_dump
-;  u_rewind, unit
-;
-; Examples: 
-;  u_openw, unit, 'filename'
-;  u_write, unit, x
-;  u_close, unit
-;
-;
-;  u_dump
-;
-;  u_openr, unit, 'filename'
-;  u_read, unit, x  &  print,x
-;  u_close, unit
-;
 
-;PRO DebugError
-;help,/struct,!error_state
-;END
-
-FUNCTION u_writePermitted,filename,VT=VT
-;
-; check for filename write permission
-;
-; existed
-	found = findfile(filename)
-	if found(0) ne '' then begin
-	ret=''
-	if keyword_set(VT) then $ 
-	read,ret,prompt='Overwrite the existed file - '+filename+' (Yes/No) ?' else $
-	ret= widget_message(['Do you want to overwrite the existed file : ',$
-		'','     '+filename], $
-			/question)
-	if strupcase(ret) eq 'NO' then return,-1
-	end
-; create new
-        CATCH,error_status
-;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
-	if error_status eq -215 or error_status eq -206 then begin
-		if keyword_set(VT) then $
-		read,ret,prompt=!err_string+string(!err) else $
-                ret=WIDGET_MESSAGE(!err_string + string(!err))
-                if n_elements(unit) then u_close,unit
-                return,-1
-        end
-	openw,1,filename
-	close,1
-	return,0
+PRO catch1d_get_pvtcolor,i,color
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+; 24 bits
+	if n_elements(R_ORIG) eq 0 then $
+	catch1d_get_pvtct
+	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
+;	plot,indgen(10),color=color
 END
 
-PRO u_rewind,unit
-;+
-; NAME:
-;       U_REWIND
-;
-; PURPOSE:
-;       This routine locates the LUN file pointer at the beginning of the 
-;       file.
-;
-; CALLING SEQUENCE:
-;
-;       U_REWIND, Unit
-;
-; INPUTS:
-;       Unit:     The LUN number to be rewind.
-;
-; OUTPUTS:
-;       None.
-;
-; EXAMPLE:
-;
-;        U_REWIND, unit
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       07-25-97      bkc  Rename routine rewind to u_rewind     
-;-
-point_lun,unit,0
+PRO catch1d_load_pvtct,ctfile
+	if n_params() eq 0 then restore,'catch1d.tbl' else $
+	restore,ctfile
+	tvlct,red,green,blue
+	xpalette
 END
 
-PRO u_openw,unit,filename,append=append,help=help,XDR=XDR,ERRCODE
-;+
-; NAME:
-;       U_OPENW
-;
-; PURPOSE:
-;       This routine assigns a LUN to the opened file for unformatted
-;       write only.
-;
-; CALLING SEQUENCE:
-;
-;       U_OPENW, Unit, 'filename' [,/Append] [,/XDR] [,/Help]
-;
-; INPUTS:
-;       filename: Specifies the filename to be created or opened for
-;                 data recording through using the U_WRITE command.
-;
-; OUTPUTS:
-;       Unit:     The LUN number to be associated with the opened file.
-;
-; KEYWORD PARAMETERS:
-;       APPEND:   This keyword specifies that the file is opened for 
-;                 data appending. If not specified, write on the unit
-;                 will replace the old file content by the new data.
-;       XDR:      This keyword specifies that the file is opened for 
-;                 writing data in platform-independent XDR binary form. 
-;       HELP:     If this keyword is set, a simple on line help is given.
-;
-; RESTRICTIONS:
-;       The data file should contain only consistant type of binary 
-;       objects: either native binary data or platform-independent 
-;       XDR data. No mixture type is allowed.
-;
-; EXAMPLE:
-;
-;        U_OPENW, unit, 'catch1d.trashcan'
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       xx-xx-xx      iii  comment     
-;-
-;
-if keyword_set(help) then goto, help1
-if n_elements(filename) eq 0 then filename='data.dat'
-ERRCODE=0
-        CATCH,error_status
-;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
-	if !err eq -215 or !err eq -206 then begin
-                ret=WIDGET_MESSAGE(!err_string + string(!err))
-                if n_elements(unit) then u_close,unit
-		ERRCODE=-99
-;		exit
-                return 
-        end
-
-if keyword_set(XDR) then begin
-	if keyword_set(append) then $
-	openw,/XDR,unit,filename,/GET_LUN,/APPEND else $
-	openw,/XDR,unit,filename,/GET_LUN  
-endif else begin
-	if keyword_set(append) then $
-	openw,unit,filename,/GET_LUN,/APPEND else $
-	openw,unit,filename,/GET_LUN  
-end
-
-if n_params() eq 0 then print,'unit=',unit
-return
-
-help1:
-	print,''
-	print,'Usage:  u_openw, unit, filename'
-	print,''
-	print,'This routine assigns a LUN to the opened file for write only.'
-	print,'        unit     - a LUN is returned by unit'
-	print,"        filename - optional, default to 'data.dat'" 
-	print,'e.g.'
-	print,'       u_openw,unit'
-	print,"       u_openw,unit,'data1.dat'"
-	print,''
+PRO catch1d_save_pvtct
+	tvlct,red,green,blue,/get
+	save,red,green,blue,file='catch1d.tbl'
 END
 
-PRO u_openr,unit,filename,help=help,XDR=XDR
-;+
-; NAME:
-;       U_OPENR
-;
-; PURPOSE:
-;       This routine assigns a LUN to the opened file for unformatted
-;       read only.
-;
-; CALLING SEQUENCE:
-;
-;       U_OPENR, Unit, 'filename' [,/XDR] [,/Help]
-;
-; INPUTS:
-;       filename: Specifies the filename to be read by the U_READ 
-;                 command.
-;
-; OUTPUTS:
-;       Unit:     The LUN number to be associated with the opened file.
-;
-; KEYWORD PARAMETERS:
-;       XDR:      This keyword specifies that the file is opened for 
-;                 reading data in platform-independent XDR binary form. 
-;       HELP:     If this keyword is set, a simple on line help is given.
-;
-; RESTRICTIONS:
-;       The data file should contain only consistant type of binary 
-;       objects: either native binary data or platform-independent 
-;       XDR data. No mixture type is allowed.
-;
-; EXAMPLE:
-;
-;        U_OPENR, unit, 'catch1d.trashcan'
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       xx-xx-xx      iii  comment     
-;-
-if keyword_set(help) then goto, help1
-if n_elements(filename) eq 0 then filename='data.dat'
+PRO catch1d_get_pvtct
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
-if keyword_set(XDR) then  $
-	openr,/XDR,unit,filename,/GET_LUN $
-else $
-	openr,unit,filename,/GET_LUN
+; 8 bit visual
 
-if n_params() eq 0 then print,'unit=',unit
-return
-
-help1:
-	print,''
-	print,'Usage:  u_openr, unit, filename '
-	print,''
-	print,'This routine assigns a LUN to the opened file for read only.'
-	print,'        unit     - a LUN is returned by unit'
-	print,"        filename - optional, default to 'data.dat'" 
-	print,'e.g.'
-	print,'       u_openr,unit'
-	print,"       u_openr,unit,'data1.dat'"
-	print,''
-END
-
-PRO u_close,unit
-;+
-; NAME:
-;       U_CLOSE
-;
-; PURPOSE:
-;       This routine closes a file LUN opened for unformmated I/O.
-;
-; CALLING SEQUENCE:
-;
-;       U_CLOSE, Unit
-;
-; INPUTS:
-;       Unit:     The LUN number to be closed.
-;
-; OUTPUTS:
-;       None.
-;
-; EXAMPLE:
-;
-;        U_CLOSE, unit
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       xx-xx-xx      iii  comment     
-;-
-close,unit
-free_lun,unit
-END
-
-;
-;  u_write, unit, array
-;
-PRO u_write,unit,array,help=help
-;+
-; NAME:
-;       U_WRITE
-;
-; PURPOSE:
-;       This routine writes an IDL data array to a file unit which is
-;       opened for unformatted write. It supports all IDL data type except the
-;       complex number and up to 2D array.  
-;
-; CALLING SEQUENCE:
-;
-;       U_WRITE, Unit, Var [,/Help]
-;
-; INPUTS:
-;       Unit:   The logic unit number returned by file open for unformatted
-;               write.
-;
-;       Var:    This variable holds the data  array to be written to
-;               the opened file, it can be scaler, vector, or 2D array.
-;	
-; KEYWORD PARAMETERS:
-;       HELP:   If this keyword is set, a simple on line help is given.
-;
-;
-; RESTRICTIONS:
-;       The data array can not be complex number. In order to make the
-;       data to be read by the U_READ routine, all the data saved must 
-;       be using this routine. 
-;
-; EXAMPLE:
-;
-;       Create the 'test.dat'  and write the variable X to the file
-;
-;         u_openw,unit,'test.dat'
-;         u_write, unit, X
-;         u_close,unit
-;
-;       Create or append X to the 'test.dat'  
-;
-;         u_openw,unit,'test.dat',/append
-;         u_write, unit, X
-;         u_close,unit
-;
-;       Create XDR platform independent data to the 'test.dat'  
-;
-;         u_openw,unit,/XDR,'test.dat'
-;         u_write, unit, X
-;         u_close,unit
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       05-30-97	bkc	Support opened file as XDR type data.
-;-
-;
-if keyword_set(help) then goto, help1
-if n_params() ne 2 then begin
-	print,'Usage: u_write, unit, array'
-	return
-end
-s = size(array)
-if (s(0) eq 0) and (s(1) eq 0) then return    	; undefined
-no = n_elements(s)
-if s(no-2) eq 7 then begin
-	len = strlen(array)
-	if no eq 4 then s = [s,len(0)] else $		; vector
-	if no eq 3 then s = [s,0,len]			; scalor
-endif else begin
-	if no eq 4 then s = [s,0] else $		; vector
-	if no eq 3 then s = [s,0,0]			; scalor
-end
-writeu,unit,s(0:4),array
-return
-
-help1:
-	print,''
-	print,'Usage:  u_write, unit, array'
-	print,''
-	print,'This routine writes an array variable to the referenced unit in'
-	print,'unformatted form.'
-	print,'       unit     - required, a LUN already opened'
-	print,"       array    - the array contents to be recorded" 
-	print,''
-	print,'Note:  For each array, two variables are written:'
-	print,'       the long(5) size info array, and the array itself.'
-	print,'       For string array each element must be exactly same size'
-	print,' e.g.'
-	print,'       u_write, unit, findgen(3,5)'
-	print,"       u_write, unit, ,['111','222','333']"
-	print,''
-END
-
-
-;
-; dump unfomatted data ( which was written by u_write)
-;
-PRO u_dump,norecord,filename,data=data,help=help,XDR=XDR
-ON_IOERROR,BAD
-if keyword_set(help) then goto, help1
-if n_elements(filename) eq 0 then filename='data.dat'
-
-if keyword_set(XDR) then $
-	openr,/XDR,unit,filename,/GET_LUN $
-else $
-	openr,unit,filename,/GET_LUN
-	
-s = lonarr(5)
-norecord = 0
-print,''
-print,'DUMP FILE : ',filename
-WHILE NOT EOF(unit) DO BEGIN
-norecord = norecord + 1
-u_read_set,unit,s,x
-print,''
-if keyword_set(data) then print,'<<',norecord,'>>  RECORDED SIZE & DATA:' else print,'<<',norecord,'>>  RECORDED SIZE INFO :'
-print,'SIZE=',s
-if keyword_set(data) then print,x
-ENDWHILE
-	goto, done
-BAD:
-	print,'Error encounted in'
-	print,!ERR_STRING
-done:
-free_lun,unit
-return
-
-help1:
-print,''
-print,'Usage: u_dump, /data, norecord, filename '
-print,''
-print,'This routine dump the unformatted data from a file which was recored by u_write'
-print,"       norecord - optional, if given it returns the number of records to the caller"
-print,"       filename - optional, default to 'data.dat'"
-print,"       /data    - optional, both size, and data arrays will be printed'"
-print,''
-print,' e.g.'
-print,''
-print,'       u_dump'
-print,"       u_dump,no,'data1.dat',/data"
-print,''
-END
-
-
-PRO u_read_set,unit,s,x,ERRCODE,help=help
-if n_params() lt 3 then begin
-	print,''
-	print,'Usage: u_read_set, unit, s, x'
-	print,''
-	print,'This routine reads a set of two varaibles: size and array '
-	print,'from the LUN unit. Note that the data must be recorded by the'
-	print,'u_write routine.'
-	print,'     where   S    LONG = Array(5), must be defined before calling this routine'
-	print,'             X    returned array'
-	print,'       ERRCODE    returned code, 0 for success, -99 for failure'
-	return
-	end
-
-CATCH,error_status
-if error_status  eq -229 or error_status eq -219 or error_status eq -184 then begin 
-	str = [ !err_string + string(!err),'', $
-		'Error: unable to read data, wrong type of file opened!!' ]
-	ret=WIDGET_MESSAGE(str)
-	return
-	end
-
-IF EOF(unit) THEN begin
-	print,'Error! Error! Error!'
-	print,'Error: wrong type or bad data encountered'
-	return 
-END
-readu,unit,s
-
-if (s(0) gt 1L) then begin	; two dim
-	type = s(3)
-	int = s(4)
-endif else if (s(0) eq 1) then begin    ; one dim
-	type = s(2)
-	int = s(3)
-endif else if (s(0) eq 0) then begin     ; scalor
-	type = s(1)
-	int = s(2)
-end
-;print,s
-;print,'type=',type, '  dim=',int
-int2 = int/s(1)
-case fix(type) of 
-	1: if (s(0) eq 2) then begin		; byte
-		x = make_array(s(1),s(2),/byte) 
-	   endif else begin
-		x = bytarr(fix(int))  	
-	   end
-	2: if (s(0) eq 2) then begin		; int
-		x = make_array(s(1),s(2),/int) 
-	   endif else begin
-		x = intarr(fix(int))  	
-	   end
-	3: if (s(0) eq 2) then begin		; long 
-		x = make_array(s(1),s(2),/long) 
-	   endif else begin
-		x = lonarr(fix(int))  	
-	   end
-	4: if (s(0) eq 2) then begin		; float
-		x = make_array(s(1),s(2),/float) 
-	   endif else begin
-		x = fltarr(fix(int))  	
-	   end
-	5: if (s(0) eq 2) then begin		; double 
-		x = make_array(s(1),s(2),/double) 
-	   endif else begin
-		x = make_array(fix(int),/double)  	
-	   end
-	6: if (s(0) eq 2) then begin		; complex
-		x = make_array(s(1),s(2),/complex) 
-	   endif else begin
-		x = make_array(fix(int),/complex)  	
-	   end
-	7: if (s(0) eq 2) then begin		; string
-		print,'Error u_write/u_read can only support single string array'
-		print,'size=',s
-		return
-	   endif else begin
-		x = make_array(fix(int),/string,value=string(replicate(32b,s(4))))  	
-	   end
-else: begin
-	print,'type=',type
-;		ret=WIDGET_MESSAGE('Error: wrong type of data read in!!')
-;		retall
-		return
-	end
-endcase
-
-	readu,unit,x
-ERRCODE = 0
-END
-
-
-PRO u_read,unit,x,ERRCODE,help=help
-;+
-; NAME:
-;       U_READ
-;
-; PURPOSE:
-;       This routine reads an unformatted data entity from a file unit which is
-;       opened for unformatted read. It supports all IDL data type except the
-;       complex number and up to 2D array.  
-;
-; CALLING SEQUENCE:
-;
-;       U_READ, Unit, Var [,ERRCODE ,/Help]
-;
-; INPUTS:
-;       Unit:   The logic unit number returned by file open for unformatted
-;               read.
-;	
-; KEYWORD PARAMETERS:
-;       HELP:   If this keyword is set, a simple on line help is given.
-;
-; OUTPUTS:
-;       Var:    This variable holds the right type of data obtained from 
-;               the opened file, it can be either 1D vector, or 2D array.
-;   ERRCODE:    This variable holds the error code for the u_read. It
-;               returns 0 if succeeded, returns -99 if failed.
-;
-; RESTRICTIONS:
-;       All the data must be created by the U_WRITE routine in order to be 
-;       read by this routine.
-;
-; EXAMPLE:
-;
-;       Read the first data entity from the 'test.dat' which was previously
-;       created by the U_WRITE routine.
-;
-;         u_openr,unit,'test.dat'
-;         u_read, unit, X
-;         u_close,unit
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       05-30-97	bkc	Support opened file as XDR type data.
-;       10-13-97	bkc	Add the ERRCODE to indicate success or failure.
-;-
-
-ERRCODE = -99
-if keyword_set(help) then goto, help1
-if n_params() lt 2 then begin
-	print,'Usage: u_read, unit, array'
-	return
-	end
-s = lonarr(5)
-IF NOT EOF(unit) THEN  u_read_set,unit,s,x,ERRCODE ;ELSE print,'EOF on unit ',unit
-return
-
-help1:
-	print,''
-	print,'Usage: u_read, unit, x'
-	print,''
-	print,'This routine reads an array from the LUN unit.'
-	print,'Note that the data must be recorded by the u_write routine.'
-	print,'       X    returned array'
-
-END
-
-
-PRO u_bi2xdr,filename,help=help,VT=VT
-;+
-; NAME:
-;       U_BI2XDR
-;
-; PURPOSE:
-;       This IDL routine converts native binary data into platform-independent
-;       XDR binary data. 
-;
-;       The input file should contain only pure native binary data.
-;       The output filename uses the input filename suffixed with '.xdr'.
-;
-; CALLING SEQUENCE:
-;
-;       U_BI2XDR, 'filename' [,/VT] [,/Help]
-;
-; INPUTS:
-;       filename:   The data file should contain pure binary data objects.
-;
-; OUTPUTS:
-;       filename.xdr:   Output file. 
-;                   It contains the converted XDR binary data objects.
-;
-; KEYWORD PARAMETERS:
-;       VT:     If a dumb terminal without X window server is used, 
-;               this option must be set, e.g. a telnet session.
-;       HELP:   If this keyword is set, a simple on line help is given.
-;
-; RESTRICTIONS:
-;       The input data file should contain pure binary data objects.
-;
-; EXAMPLE:
-;
-;        U_BI2XDR,'catch1d.trashcan'
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 05-30-97.
-;
-;       xx-xx-xx      iii  comment     
-;-
-;
-
-if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
-
-	found = findfile(filename)
-	if found(0) eq '' then begin
-		print,'Error: '+filename+' not found!'
-		return
-		end
-	if keyword_set(VT) then $
-	OK_WRITE = u_writePermitted(filename+'.xdr',/VT) else $
-	OK_WRITE = u_writePermitted(filename+'.xdr')
-	if OK_WRITE lt 0 then return
-
-        id=0
-        u_openr,unit,filename
-;        u_openw,unit2,filename+'.xdr',/XDR
-	openw,/XDR,unit2,filename+'.xdr',/GET_LUN  
-
-        WHILE NOT  EOF(unit) DO BEGIN
-        id = id + 1
-        u_read,unit,x
-	u_write,unit2,x
-        END
-        maxno = id
-        u_close,unit
-        u_close,unit2
-	if keyword_set(VT) then $
-	print,string(maxno)+' sets of binary objects saved in "'+ filename+'.xdr"' else $
-        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
-		filename+'.xdr"')
-
-	return
-
-help1:
-
-	print,''
-	print,'Usage: U_BI2XDR,"filename"'
-	print,''
-	print,'This program converts the pure binary data objects into XDR binary format.'
-	print,'The file "filename.xdr" created will be IDL platform independent.'
-	print,''
-END
-
-PRO u_xdr2bi,filename,help=help,VT=VT
-;+
-; NAME:
-;       U_XDR2BI
-;
-; PURPOSE:
-;       This IDL routine converts platform-independent XDR data into
-;       native binary data. 
-;
-;       The output filename uses the input filename suffixed with '.2bi'.
-;
-; CALLING SEQUENCE:
-;
-;       U_XDR2BI, 'filename' [,/VT] [,/Help]
-;
-; INPUTS:
-;       filename:   The data file should contain XDR binary data objects.
-;
-; OUTPUTS:
-;       filename.2bi:   Output file. 
-;                   It contains the converted native binary data objects.
-;
-; KEYWORD PARAMETERS:
-;       VT:     If a dumb terminal without X window server is used, 
-;               this option must be set, e.g. a telnet session.
-;       HELP:   If this keyword is set, a simple on line help is given.
-;
-; RESTRICTIONS:
-;       The XDR input file should be created by the u_write command.
-;
-; EXAMPLE:
-;
-;        U_XDR2BI,'catch1d.trashcan.xdr'
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 08-10-98.
-;
-;       xx-xx-xx      iii  comment     
-;-
-;
-
-if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
-
-	found = findfile(filename)
-	if found(0) eq '' then begin
-		print,'Error: '+filename+' not found!'
-		return
-		end
-	if keyword_set(VT) then $
-	OK_WRITE = u_writePermitted(filename+'.2bi',/VT) else $
-	OK_WRITE = u_writePermitted(filename+'.2bi')
-	if OK_WRITE lt 0 then return
-
-        id=0
-        u_openr,unit,filename,/XDR
-        u_openw,unit2,filename+'.2bi'
-
-        WHILE NOT  EOF(unit) DO BEGIN
-        id = id + 1
-        u_read,unit,x
-	u_write,unit2,x
-        END
-        maxno = id
-        u_close,unit
-        u_close,unit2
-	if keyword_set(VT) then $
-	print,string(maxno)+' sets of binary objects saved in "'+ filename+'.2bi"' else $
-        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
-		filename+'.2bi"')
-
-	return
-
-help1:
-
-	print,''
-	print,'Usage: U_XDR2BI,"filename"'
-	print,''
-	print,'This program converts the xdr data objects into native binary format.'
-	print,'A new file "filename.2bi" will be created.'
-	print,''
-END
-;
-; this routine is requied for generate the runtime executable
-;
-PRO os_init
-;+
-; NAME:
-;	OS_INIT
-;
-; PURPOSE:
-;       Defines the structure of main operating system variables. All the 
-;       operating system dependent varibles used in data catcher are 
-;       assembled in this routine. 
-;
-; CATEGORY:
-;       Global System Variables !os.
-;
-; CALLING SEQUENCE:
-;       OS_INIT
-;
-; PARAMETER FIELDS:
-;       ARCH:           IDL detected operating system architecture
-;       OS:             IDL detected operating system 
-;       OS_FAMILY:      IDL detected operating system family
-;       RELEASE:        IDL release number
-;       FONT:           Bold font used in highlight label in dialog
-;       DEVICE:         Default output device
-;       FILE_SEP:       Operating sytem file separator, '/' for unix '\' for W95
-;       CHMOD:          Command change file permission mode, 'chmod'
-;       MV:             Command rename file, 'mv' for unix, 'rename' for W95
-;       CP:             Command copy file, 'cp' for unix, 'copy' for W95
-;       RM:             Command remove file, 'rm' for unix, 'del' for W95
-;       LPR:            Command print PS file, 'lpr' for unix, 'print' for W95
-;       PRT:            Command print text file, 'enscript' for unix, 'print' for W95
-;       PRINTER:        Default printer name, '' 
-;       WC:             Command return line count, 'wc' for unix
-;
-; COMMON BLOCKS:
-;       COMMON SYSTEM_BLOCK
-;
-; SIDE EFFECTS:
-;       This routine defines the OS_SYSTEM structure and the global 
-;       system variable !os. All the system dependent varialbes used in
-;       data catcher and data viewer are kept in this routine.
-;
-; RESTRICTIONS:
-;       Current version works for Unix and W95 operating system. 
-;
-; PROCEDURE:
-;       Porting to other operating system, the corresponding
-;       fields in 'os.init' may need to be modified accordingly.
-;
-; EXAMPLE:
-;
-;               OS_INIT
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 6-01-97.
-;       xx-xx-xx iii  - comment
-;-
-@os.init
-END
-
-;
-; PS_open,'name.ps'               name defalut to idl
-;
-PRO PS_init
-COMMON PRINTER_BLOCK,printer_info
-COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
-
-if n_elements (printer_info) eq 0 then $
-  printer_info = { $
-	name: '', $
-	color: 1, $
-	reverse: 0, $
-	base: 0L, $
-	ptr_field:0L }
-; inherit from the parent process
-;if n_elements(r_curr) eq 0 then begin
-;	LOADCT,39  
-;	end
-END
-
-PRO PS_open,psfile,TV=TV
-;+
-; NAME:
-;       PS_OPEN
-;
-; PURPOSE:
-;       This routine sets the current graphics device to PostScript.
-;       and saves plot in a user specified PostScript file.
-;
-; CALLING SEQUENCE:
-;       PS_OPEN, 'myfile.ps' [,/TV]
-;
-; INPUTS:
-;       myfile.ps:  Specifies the PostScript filename to be saved.
-;
-; OUTPUTS:
-;       The PostScript graphic output is saved which can be sent to
-;       any PostScript printer or viewer. 
-;
-; KEYWORD PARAMETERS:
-;       TV:       Specifies whether reverse color video to be used in PS. 
-;
-; COMMON BLOCKS:
-;       COMMON PRINTER_BLOCK
-;       COMMON COLORS 
-;
-; RESTRICTIONS:
-;       The program 'PS_open.pro' must be loaded into IDL first before 
-;       calling this routine.
-;
-; EXAMPLE:
-;
-;        PS_OPEN, 'myfile.ps'
-;        tvscl,scan
-;        PS_CLOSE
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       07-28-97   bkc  Add the support for color PostScript
-;                       Add the support for reverse video
-;                       Add handling capability for different operating system
-;       05-15-98   bkc  Change the reverse video to reverse legend color for
-;                       2D TV plot, to get reverse video use the xloadct's
-;                       option, reverse feature  
-;-
-
-COMMON PRINTER_BLOCK,printer_info
-COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
-
-	PS_init
-	set_plot,'PS'
-	!P.FONT=0
-	if (n_elements(psfile) ne 0) then begin
-
-	if keyword_set(TV) then begin 
-
-	; use xloadct reverse video, reverse legend only  
-
-
-	    if printer_info.color gt 0 then $
-		device,filename=psfile,/color,bits=8, $
-			/Courier,/Bold, $
-			 yoffset=7, xsize=15, ysize=15  else  $
-		device,filename=psfile,/Courier,/Bold
+	if  !d.n_colors lt 16777216 then begin
+		tvlct,red,green,blue,/get
 	endif else begin
-	    if printer_info.color gt 0 then $
-		device,filename=psfile,/color,bits=8, $
-			/Courier,/Bold, $
-			yoffset=7, xsize=17.78, ysize=12.7  else $
-		device,filename=psfile,/Courier,/Bold
-	end
 
-	end
-END
-
-PRO PS_close
-;+
-; NAME:
-;       PS_CLOSE
-;
-; PURPOSE:
-;       This routine closes the PostScript output device and resets the
-;       the original system graphic device as the output plot device.
-;
-; CALLING SEQUENCE:
-;       PS_CLOSE
-;
-; INPUTS:
-;       None.
-;
-; OUTPUTS:
-;       None.
-;
-; KEYWORD PARAMETERS:
-;       None.
-;
-; COMMON BLOCKS:
-;       COMMON SYSTEM_BLOCK
-;       COMMON COLORS 
-;
-; RESTRICTIONS:
-;       The program 'PS_open.pro' must be loaded into IDL prior calling
-;       this routine. 
-;
-; EXAMPLE:
-;
-;        PS_OPEN, 'myfile.ps'
-;        tvscl,scan
-;        PS_CLOSE
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       07-28-97   bkc  Add the support for reverse PostScript color scheme. 
-;                       Add handling capability for different operating system
-;-
-
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
-
-	if !d.name eq 'PS' then begin
-	!P.FONT=-1
-	device,/close
-
-	r_curr = r_orig
-	g_curr = g_orig
-	b_curr = b_orig
-	TVLCT,r_orig,g_orig,b_orig
-
-	set_plot,OS_SYSTEM.device
-	end
-END
-
-PRO PS_enscript,fileName
-;+
-; NAME:
-;       PS_ENSCRIPT
-;
-; PURPOSE:
-;       This routine uses the system printing command to print
-;       an ASCII text file. On unix operating system the command
-;       'enscript -r' is used. 
-;
-; CALLING SEQUENCE:
-;       PS_ENSCRIPT, 'filename'
-;
-; INPUTS:
-;       filename : Specifies the ASCII filename to be printed.
-;
-; OUTPUTS:
-;       A copy of the specified file is sent to the user selected  
-;       printer.
-;
-; KEYWORD PARAMETERS:
-;
-; COMMON BLOCKS:
-;       COMMON SYSTEM_BLOCK
-;
-; RESTRICTIONS:
-;       The program 'PS_open.pro' must be loaded into IDL prior calling
-;       this routine. 
-;
-; EXAMPLE:
-;
-;        PS_ENSCRIPT, 'myfile'
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       07-28-97   bkc  Add handling capability for different operating system
-;-
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-
-	if n_elements(fileName) eq 0 then begin
-		print,'Usage: PS_enscript, <fileName>'
-		return
-	end
-	if strtrim(fileName,2) eq '' then begin
-		print,'Usage: PS_enscript, <fileName>'
-		return
-	end
-	if OS_SYSTEM.os_family eq 'unix' then $
-	spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer ,  '-r', fileName], /noshell else $
-	spawn,[OS_SYSTEM.prt, fileName, OS_SYSTEM.printer]
-END
-
-PRO PS_print,psfile
-;+
-; NAME:
-;       PS_PRINT
-;
-; PURPOSE:
-;       This routine uses the system printing command to print
-;       a PostScript or ASCII text file. On the unix operating 
-;       system the command 'lpr' is used. 
-;
-; CALLING SEQUENCE:
-;       PS_PRINT, 'myfile.ps'
-;
-; INPUTS:
-;       myfile:    Specifies either the PostScript or ASCII text filename 
-;                  to be printed.
-;
-; OUTPUTS:
-;       A copy of the specified file is sent to the user selected  
-;       printer.
-;
-; KEYWORD PARAMETERS:
-;
-; COMMON BLOCKS:
-;       COMMON SYSTEM_BLOCK
-;
-; RESTRICTIONS:
-;       The program 'PS_open.pro' must be loaded into IDL prior calling
-;       this routine. 
-;
-; EXAMPLE:
-;
-;        PS_PRINT, 'myfile.ps'
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 03-23-95.
-;
-;       07-28-97   bkc  Add handling capability for different operating system
-;       05-14-98   bkc  Add the checking for unreadable color on the PS plot
-;                       On unix if the color is too light use the gv to preview 
-;			pops up setup printer and info dialog
-;-
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-COMMON PRINTER_BLOCK,printer_info
-COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
-
-	if (n_elements(psfile) ne 0) then begin 
-		if strtrim(psfile,2) eq '' then begin
-			print,'Usage: PS_print, <filename>'
-			return
+; 24 bit visual
+	file = 'catch1d.tbl'
+	found = findfile(file)
+	if found(0) eq '' then begin
+		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
+		found1 = findfile(file)
+		if found1(0) eq '' then $
+		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
 		end
-	end else psfile = 'idl.ps'
-
-	if OS_SYSTEM.os_family eq 'unix' then begin
-        	str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile 
-		color = r_curr(0) + g_curr(0)*256L + b_curr(0)*256L ^2
-		if color ge 16777200 then begin 
-			temp = ['Warning:','',$
-			 'There may be problem of unreadable title or legend on PS plot.',$
-			'The ghostview is brought up for you to preview the PS plot.', $
-			'If the PS plot looks fine you may use the ghostview to send the',$
-			'print job and then close the ghostview and Printer Setup Dialog.',$
-			'','If you can not see the title and legend, please close', $
-			'the ghostview program first, try different color table or set the ',$
-			'Reverse_Legend_Color to "Y" in Printer Setup Dialog first then', $
-			'try Print again'] 
-			res=dialog_message(temp,/info,title='PS legend problem')
-			PS_printer
-			spawn,'gv '+psfile + ' &'
-		endif else spawn,str
-	endif else begin
-		str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
-	        spawn,str
+	restore,file
+	tvlct,red,green,blue
 	end
-	print,str
+
+; set ORIG color 
+
+	R_ORIG = red
+	G_ORIG = green
+	B_ORIG = blue
+
+	LOADCT,39
 END
 
-
-PRO PS_printer_Event, Event
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-COMMON PRINTER_BLOCK,printer_info
-
-  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
-
-  CASE Ev OF 
-
-  'PS_REVERSE': BEGIN
-	printer_info.reverse = Event.Index
-      END
-
-  'BGROUP3': BEGIN
-      CASE Event.Value OF
-      0: begin
-		Print,'Button B/W Pressed'
-		printer_info.color = 0
-	 end
-      1: begin
-		Print,'Button Color Pressed'
-		printer_info.color = 1
-	 end
-      ELSE: Message,'Unknown button pressed'
-      ENDCASE
-      END
-
-  'FIELD5': BEGIN
-      	WIDGET_CONTROL, printer_info.ptr_field, GET_VALUE=str
-	printer_info.name = strtrim(str(0),2)
-      END
-
-  'BGROUP7': BEGIN
-      CASE Event.Value OF
-      0: begin
-      		WIDGET_CONTROL, printer_info.ptr_field, GET_VALUE=str
-		printer_info.name = strtrim(str(0),2)
-      		WIDGET_CONTROL, printer_info.base, /DESTROY, BAD_ID=bad
-	 end
-      1: begin
-      		WIDGET_CONTROL, printer_info.base, /DESTROY, BAD_ID=bad
-	 end
-      ELSE: Message,'Unknown button pressed'
-      ENDCASE
-      END
-  ENDCASE
-
-if printer_info.name ne '' then begin
-	if OS_SYSTEM.os_family eq 'unix' then $
-	OS_SYSTEM.printer = '-P'+printer_info.name + ' ' else $
-	OS_SYSTEM.printer = printer_info.name 
-end
-
-END
-
-
-
-PRO PS_printer, GROUP=Group
-;+
-; NAME:
-;	PS_PRINTER
-;
-; PURPOSE:
-;       This widget dialog allows the user to set up PostScript printer
-;       and printer name to be used by the IDL session. Default setting
-;       is color PS using default printer.
-;
-; CATEGORY:
-;       Widgets.
-;
-; CALLING SEQUENCE:
-;       PS_PRINTER [,GROUP=Group]
-;
-; INPUTS:
-;       None.
-;	
-; KEYWORD PARAMETERS:
-;       GROUP:  The widget ID of the group leader of the widget. If this 
-;               keyword is specified, the death of the group leader results in
-;               the death of PS_PRINTER.
-;
-; OUTPUTS:
-;
-; COMMON BLOCKS:
-;       COMMON PRINTER_BLOCK
-;
-; SIDE EFFECTS:
-;       Initially the system printer is set to the user's default 
-;       printer. If a null printer name is specified, whatever the 
-;       system printer was previously set will be used. 
-;
-; RESTRICTIONS:
-;       The program 'PS_open.pro' must be loaded into IDL prior calling
-;       this routine. 
-;       
-; PROCEDURE:
-;      
-; EXAMPLE:
-;
-;               PS_PRINTER
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, 6-01-97.
-;       10-15-97 bkc  - Add droplist Y/N for reverse color option
-;                       Now it defaults to non reverse color option.
-;       05-14-98 bkc  - Remove the B/W option, use the xloadct to select B/W
-;                       Change reverse video to reverse legeng color if legend
-;                       is in white color 
-;-
-
-COMMON PRINTER_BLOCK,printer_info
-
-if XRegistered('PS_printer') then return
-
-  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
-
-  PS_init
-
-  junk   = { CW_PDMENU_S, flags:0, name:'' }
-
-  PS_printer_base = WIDGET_BASE(GROUP_LEADER=Group, $
-      TITLE='Setup Printer', $
-      ROW=1, $
-      MAP=1, $
-      UVALUE='PS_PRINTER')
-  printer_info.base = PS_printer_base 
-
-  BASE2 = WIDGET_BASE(PS_printer_base, $
-      COLUMN=1, $
-      MAP=1, $
-      UVALUE='BASE2')
-
-  LABEL3 = WIDGET_LABEL( BASE2, $
-;	FONT=!os.font, $
-      UVALUE='LABEL3', $
-      VALUE='Setup PS Printer')
-
-;  Btns167 = [ $
-;    'B/W', $
-;    'Color' ]
-;  BGROUP3 = CW_BGROUP( BASE2, Btns167, $
-;      ROW=1, $
-;      EXCLUSIVE=1, $
-;      LABEL_LEFT='Output PS', $
-;      UVALUE='BGROUP3')
-;  WIDGET_CONTROL,BGROUP3,SET_VALUE= printer_info.color
-
-  Btn168 = ['N','Y']
-  ps_reverse = WIDGET_DROPLIST(BASE2, VALUE=Btn168, $
-        UVALUE='PS_REVERSE',TITLE='Reverse Legend Color')
-  WIDGET_CONTROL,ps_reverse,SET_DROPLIST_SELECT=printer_info.reverse
-
-  FieldVal269 = [ $
-    '' ]
-  FIELD5 = CW_FIELD( BASE2,VALUE=FieldVal269, $
-      ROW=1, RETURN_EVENTS=1, $
-      STRING=1, $
-      TITLE='Printer Name', $
-      UVALUE='FIELD5', $
-      XSIZE=10)
-  printer_info.ptr_field = FIELD5  
-  if strtrim(printer_info.name,2) ne '' then $
-  WIDGET_CONTROL,FIELD5,SET_VALUE=printer_info.name
-
-  Btns342 = [ 'Accept', 'Cancel' ] 
-  BGROUP7 = CW_BGROUP( BASE2, Btns342, $
-      ROW=1, $
-      UVALUE='BGROUP7')
-
-  WIDGET_CONTROL, PS_printer_base, /REALIZE
-
-  XMANAGER, 'PS_printer', PS_printer_base
-END
 
 PRO rix2BenChin, Scan
 ON_ERROR,1
@@ -1630,582 +427,7 @@ DONE:
   return, res
 END
 
-@PS_open.pro
-
-
-PRO catch1d_get_pvtcolor,i,color
-COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
-; 24 bits
-	if n_elements(R_ORIG) eq 0 then $
-	catch1d_get_pvtct
-	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
-;	plot,indgen(10),color=color
-END
-
-PRO catch1d_save_pvtct
-	tvlct,red,green,blue,/get
-	save,red,green,blue,file='catch1d.tbl'
-END
-
-PRO catch1d_get_pvtct
-COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
-
-; 8 bit visual
-
-	if  !d.n_colors lt 16777216 then begin
-		tvlct,red,green,blue,/get
-	endif else begin
-
-; 24 bit visual
-	file = 'catch1d.tbl'
-	found = findfile(file)
-	if found(0) eq '' then begin
-		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		found1 = findfile(file)
-		if found1(0) eq '' then $
-		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		end
-	restore,file
-	tvlct,red,green,blue
-	end
-
-; set ORIG color 
-
-	R_ORIG = red
-	G_ORIG = green
-	B_ORIG = blue
-
-	LOADCT,39
-END
-
-
-PRO plot1d_replot,state
-COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
-
-	state.xsize = !d.x_size
-	state.ysize = !d.y_size
-	cl = state.color
-	psym = state.symbol
-	thick = state.thick
-	line = state.linestyle
-	y = state.y
-	s = size(y)
-
-; set xy margin
-
-	xmgin = state.xmargin
-	ymgin = state.ymargin 
-
-; one dim array 
-
-if !d.name ne 'PS' then WSET,state.winDraw
-!p.multi = [0,1,0,0,0]
-erase
-
-if !d.name eq 'PS' then cl = 0
-
-if state.yrange(0) eq state.yrange(1) then begin
-	dy =  state.yrange(0)/5
-	state.yrange(0) =  state.yrange(0) - 2*dy
-	state.yrange(1)=  state.yrange(1) + 3*dy
-end
-color = cl 
-if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
-if s(0) eq 1 then $
-	PLOT,state.x,state.y, COLOR=color, $
-		xrange=state.xrange, yrange = state.yrange, $
-		ylog=state.ylog, xlog=state.xlog, psym=psym, $
-		thick=thick, xthick=thick, ythick=thick,$
-		xstyle = state.xstyle, ystyle = state.ystyle, $
-		linestyle=line, $
-		xmargin=xmgin, ymargin=ymgin, $
-		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
-
-; two dim array - multiple curves
-
-if s(0) eq 2 and s(2) gt 1 then begin
-in_color = make_array(s(2),/int,value=cl)
-in_line = make_array(s(2),/int)
-in_symbol = make_array(s(2),/int)
-in_color(0)= cl
-in_line(0)= line
-in_symbol(0)=psym
-	PLOT,state.x,state.y,COLOR=color, $
-		xrange=state.xrange, yrange = state.yrange, $
-		ylog=state.ylog, xlog=state.xlog, $
-		thick=thick, xthick=thick, ythick=thick,$
-		linestyle=line, psym=psym, $
-		xmargin=xmgin, ymargin=ymgin, $
-		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
-	
-;	dcl = state.color / 16
-	dcl = !d.table_size-2
-	ncv = 4  ;7
-	colorlevel = dcl / ncv
-	for i= 1 ,s(2) - 1 do begin
-		if state.autocolor eq 1 then begin
-		ii = i / ncv
-		im = i MOD ncv
-		cl = dcl -ii -im*colorlevel
-		in_color(i) = cl
-		color = cl
-		; if 24 bits use cl_val
-        	if !d.n_colors eq 16777216 then begin
-                	catch1d_get_pvtcolor,cl,t_color
-                	color = t_color
-                	end
-
-		end
-		if psym gt 0 then psym = psym+1
-		if psym lt 0 then psym = psym-1
-
-; the symbol 2 is too light, skip it
-if i eq 2 and psym lt 0 then psym=psym-1
-if i eq 2 and psym gt 0 then psym=psym+1
-
-		if line gt 0 then line = line+1
-		in_line(i) = line
-		in_symbol(i) = psym 
-		z = y(0:s(1)-1,i)
-
-		if state.curvfit then begin
-			psym=7      ; if curve fitting is true
-		end
-		OPLOT,state.x,z,COLOR=color,linestyle=line, psym=psym mod 7, $
-			thick=thick 
-		psym = in_symbol(i)
-; print,i,psym,cl,line
-	end
-end
-
-; draw footnote comment
-
-if state.footnote ne 0 then begin
-
-	real_xl = 0.01*state.xsize
-	real_dy = !d.y_ch_size     ; character pixel height
-	real_yl = (state.footnote+1)*real_dy
-	for i=0,state.footnote -1 do begin
-	xyouts,real_xl,(real_yl-i*real_dy), state.comment(i), /DEVICE
-	end
-end
-
-; draw stamp comment
-	
-if state.stamp ne 0 then begin
-	st = systime(0)
-	xyouts,0.01*state.xsize, 1, st, /device
-	xyouts,0.75*state.xsize, 1, $
-		 'User Name:  '+getenv('USER'), /device
-end
-
-; draw legend
-
-if s(0) eq 2 and state.legendon gt 0 then begin
-
-	real_x1 = state.xylegend(0)*(!x.crange(1)-!x.crange(0)) + $
-		!x.crange(0)
-	real_y1 = state.xylegend(1)*(!y.crange(1)-!y.crange(0)) + $
-		!y.crange(0)
-	real_dy = 0.1 * (!y.crange(1)-!y.crange(0))
-
-	real_xl = real_x1 + 0.16*(!x.crange(1)-!x.crange(0))
-	real_yl = real_y1 - 0.5*real_dy
-
-	xyouts,real_x1,real_y1,'LEGEND'
-	oplot,[real_x1,real_xl],[real_yl,real_yl],thick=2
-
-	real_xl = real_x1 + 0.075*(!x.crange(1)-!x.crange(0))
-	real_xr = real_x1 + 0.1*(!x.crange(1)-!x.crange(0))
-
-	for i=0,n_elements(state.legend)-1 do begin
-
-	real_yl = real_y1 - (i*0.5+1)*real_dy
-
-	x=[real_x1,real_xl]
-	y=[real_yl,real_yl]
-	color = in_color(i)
-        ; if 24 bits use cl_val
-	if !d.n_colors eq 16777216 then begin
-	catch1d_get_pvtcolor,in_color(i),t_color
-	color = t_color
-	end
-
-	if psym ne 0 then $
-	oplot,x,y,linestyle=in_line(i),color=color,thick=2
-	oplot,x,y,linestyle=in_line(i),color=color,psym=in_symbol(i),thick=2
-
-	xyouts,real_xr,real_yl, state.legend(i)
-	end
-end
-
-END
-
-PRO plot1d_event,ev 
-
-; resize event
-
-;WIDGET_CONTROL, ev.top, GET_UVALUE = state, /NO_COPY
-WIDGET_CONTROL, ev.top, GET_UVALUE = state
-
-IF (ev.id EQ ev.top) then begin
-; plot1d the draw widget and redraw its plot;
-	WIDGET_CONTROL,state.id_draw, SCR_XSIZE=ev.x, SCR_YSIZE=ev.y
-
-	; if device is X
-	if !d.name ne 'PS' then  WSET,state.winDraw
-
-	plot1d_replot, state
-
-	WIDGET_CONTROL,ev.top,SET_UVALUE=state,/NO_COPY
-	return
-ENDIF
-
-WIDGET_CONTROL,ev.Id,GET_UVALUE=B_ev
-CASE B_ev OF
-'PLOT1D_PRINT': Begin
-	PS_open, 'idl.ps'
-	linestyle = state.linestyle
-	state.autocolor = 0
-	state.linestyle = 1
-	plot1d_replot, state
-	PS_close
-	PS_print, 'idl.ps'
-	state.autocolor = 1
-	state.linestyle = linestyle 
-	end
-'PLOT1D_CLOSE': begin
-	WIDGET_CONTROL,ev.top,BAD=bad,/DESTROY
-	end
-ENDCASE
-END
-
-PRO plot1d, x, y, id_tlb, windraw, $
-	title=title,xtitle=xtitle,ytitle=ytitle,color=color, $
-	symbol=symbol, thick=thick, linestyle=linestyle, $
-        xrange=xrange, yrange=yrange, xlog=xlog, ylog=ylog, $
-	xmargin=xmargin, ymargin=ymargin, stamp=stamp,$
-	legend=legend, xylegend=xylegend, $
-	width=width, height=height, $
-	comment=comment, cleanup=cleanup, $
-	curvfit=curvfit, $
-	xstyle=xstyle, ystyle=ystyle, $
-	wtitle=wtitle, button=button, GROUP=GROUP
-;+
-; NAME:
-;       PLOT1D
-;
-; PURPOSE:
-;       This routine provides a general purpose flexible cartesion plot
-;       package.  It provides simple to use automatic feature of labels,
-;       legend, comment, line style, symbols, and color options on plot.
-;
-;       The window generated by this routine will be resizable by the 
-;       window manager. 
-;
-;       Depress the 'Print' button will generate a postscript copy of the
-;       graph.
-;
-;       Normally it accepts two parameters X and Y. If the first parameter
-;       is not used then the data array is plotted on the ordinate versus 
-;       the point number on the abscissa.  Multiple curves (or variables) 
-;       can be stacked into the second parameter as a two dimensional array, 
-;       the first dimension gives the number of data points in each curve,
-;       the second dimension gives the number of curves to be plotted.
-;  
-;
-; CATEGORY:
-;       Widgets.
-;
-; CALLING SEQUENCE:
-;
-;       PLOT1D, [X,] Y [,ID_TLB]  [,ID_DRAW]
-;
-; INPUTS:
-;       X:      The vector array for X abscissa.
-;
-;       Y:      The Y data array for curve plot. The Y array can contain
-;               more than one curve, the first dimension gives the number
-;               of data to be plotted for the curve, the second dimension
-;               gives the number of curves to be plotted.
-;	
-; KEYWORD PARAMETERS:
-;       TITLE:  Set this keyword to specify the plot title string.
-;
-;       XTITLE: Set this keyword to specify the xtitle string.
-;
-;       YTITLE: Set this keyword to specify the ytitle string.
-;
-;       COLOR:  Set this keyword to specify the color number used
-;               in the plot routine.
-;
-;      CURVFIT: Set this keyword if two curves are plotted, first curve
-;               is the fitted curve, the second curve is data to be fitted. 
-;
-;       SYMBOL: Set this keyword to specify data plotted as symbol, set to -1
-;               data plot as symbol and connected with line.
-;
-;       XLOG:   Set this keyword to specify a logrithmic X axis.
-;
-;       YLOG:   Set this keyword to specify a logrithmic Y axis.
-;
-;       XRANGE: Set this keyword to specify the desired data range for 
-;               the X axis.
-;
-;       YRANGE: Set this keyword to specify the desired data range for 
-;               the Y axis.
-;
-;       XMARGIN: Set this keyword to specify the left and right margin, 
-;                default xmargin=[10,3]
-;
-;       YMARGIN: Set this keyword to specify the bottom and top margin 
-;                default ymargin=[5,3]
-;
-;       THICK:  Set this keyword to specify the line thickness for the
-;               axes and the line plot. 
-;
-;       LINESTYLE:  Set this keyword to turn on different line style used. 
-;
-;       XSTYLE:  Set this keyword to control x axis in IDL plot routine. 
-;
-;       YSTYLE:  Set this keyword to control y axis in IDL plot routine. 
-;
-;       LEGEND:  Set the legend strings corresponding to curves drawn.
-;
-;       XYLEGEND: Set the x,y location of the legend strings, % from the
-;                 lower left corner from the graph window, default 
-;                 xylegend=[0.75, 0.35].
-;
-;       COMMENT:  Set this keyword to write any footnotes on the graph.
-;
-;       STAMP:  Set this keyword to put the time stamp and user ID on the page. 
-;
-;       WTITLE: Set this keyword to specify the window title string,
-;               default to 'Plot1d'.
-;
-;       WIDTH:  The initial window width at the creation time, which 
-;               default to 350 pixel.
-;  
-;       HEIGHT: The initial window height at the creation time, which 
-;               default to 350 pixel.
-;
-;       GROUP:  The widget ID of the group leader of the widget. If this
-;               keyword is specified, the death of the group leader results 
-;               in the death of PLOT1D.
-;
-;       BUTTON: Set this keyword if no print and close buttons are desired
-;               for the PLOT1D widget.
-;
-;       CLEANUP: Set this keyword if the created window can no be closed by the
-;                window manager is desired.
-;
-; OPTIONAL_OUTPUTS:
-;       ID_TLB: The widget ID of the top level base returned by the PLOT1D. 
-;
-;       ID_DRAW: The widget ID of the drawing area used by the PLOT1D. 
-;
-; COMMON BLOCKS:
-;       None.
-;
-; SIDE EFFECTS:
-;       If more than one curves are stored in the Y array, it automatically
-;       uses different color for each curve. If the color keyword is set
-;       by the user, then the specified color will be used for the whole plot. 
-;
-; RESTRICTIONS:
-;       It is assumed that the X position array is the same for multiple
-;       curve plot. 
-;
-; EXAMPLES:
-;       Create a resizable line plot without any title or label 
-;       specification.
-;
-;           x = !pi * indgen(100)/25
-;           PLOT1D, x, sin(x)
-;
-;       Create a resizable line plot with title specifications. 
-;
-;           PLOT1D, x, sin(x), title='title', xtitle='xtitle', ytitle='ytitle'
-;
-;       Plot two curves with different linestyle and legend at default location.
-;
-;           x=indgen(100)
-;           y=make_array(100,2)
-;           y(0,0)=sin(x * !pi / 50)
-;           y(0,1)=cos(x * !pi / 50)
-;           PLOT1D,x,y,legend=['line1','line2'],/linestyle
-;
-;       Same as the above example plus symbol and a specified legend location.
-;
-;           x=indgen(100)
-;           y=make_array(100,2)
-;           y(0,0)=sin(x * !pi / 50)
-;           y(0,1)=cos(x * !pi / 50)
-;           PLOT1D,x,y,/linestyle,symbol=-1, $
-;              legend=['line1','line2'], xylegend=[0.5,0.9]
-;
-;       Plot x,y array plus two lines of comment and a time stamp on the graph.
-;     
-;           PLOT1D,x,y,comment=['Comment line1','Comment line2'],/stamp
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, Mar. 7, 1996.
-;
-;       04-26-96 bkc   Add the window cleanup keyword 
-;       10-28-96 bkc   Add the xstyle and ystyle keywords 
-;       07-01-97 bkc   Comment out LOADCT,39 inherit color from parent process 
-;       08-11-97 bkc   Add the curvfit support, only two curves allowed 
-;       12-22-97 bkc   Add the 24 bit color visual device support 
-;       09-04-98 bkc   Fix the plot problem due to ymax eq ymin
-;-
-
-;LOADCT,39
-
-; check any data provided
-
-n1 = n_elements(x)
-if n1 lt 2 then begin
-	print,'Error: No data specified.'
-	return
-	end
-xa = x
-
-if n_elements(y) eq 0 then begin
-	ya = xa
-	s = size(ya)
-	n1 = s(1)
-	xa = indgen(n1)
-endif else ya = y
-
-; check for input labels
-xsize=350
-ysize=350
-xl = ''
-yl =''
-ti = ''
-wti='Plot1d'
-cl = !d.table_size - 1
-leg =['']
-footnote = ''
-add_line=0
-if keyword_set(title) then ti = string(title)
-if keyword_set(xtitle) then xl = string(xtitle)
-if keyword_set(ytitle) then yl = string(ytitle)
-if keyword_set(wtitle) then wti = string(wtitle)
-if keyword_set(legend) then leg = string(legend)
-if keyword_set(comment) then footnote = string(comment)
-
-state = { $
-	id_draw:0L, $
-	winDraw:0L,$
-	autocolor: 1, $ 	; automatic use different color for each curve
-	color:cl, $
-	symbol: 0, $
-	curvfit: 0, $		; whether data is from curve fitting
-	xtitle:xl, $
-	ytitle:yl, $
-	title:ti, $
-	xstyle:0,$
-	ystyle:0,$
-	xsize:0,$
-	ysize:0,$
-	xlog: 0, $
-	ylog: 0, $
-	xmargin: [10,3], $
-	ymargin: [5,3], $
-	stamp: 0, $
-	footnote: 0, $
-	comment: footnote, $
-        xrange: [min(xa),max(xa)], $
-        yrange: [min(ya),max(ya)], $
-	legendon: 0, $
-	legend: leg, $
-	xylegend: [.75,0.35], $
-	thick: 2, $
-	linestyle: 0, $
-	x: xa, $
-	y: ya $
-	}
-
-if keyword_set(xstyle) then state.xstyle = xstyle 
-if keyword_set(ystyle) then state.ystyle = ystyle 
-
-if keyword_set(color) then begin
-	cl = long(color)
-	state.color = cl
-	state.autocolor = 0   ; use fixed color
-	end
-if keyword_set(symbol) then begin
-	state.symbol = symbol
-	end
-	psym = state.symbol
-if keyword_set(xlog) then state.xlog=1
-if keyword_set(ylog) then state.ylog=1
-if keyword_set(thick) then state.thick= thick
-if keyword_set(linestyle) then state.linestyle=1 
-if keyword_set(stamp) then state.stamp=1 
-if keyword_set(legend) then state.legendon = 1
-if keyword_set(xylegend) then begin 
-	if n_elements(xylegend) eq 2 then state.xylegend=xylegend
-	end
-if keyword_set(xrange) then begin 
-	if n_elements(xrange) eq 2 then state.xrange=xrange
-	end
-if keyword_set(yrange) then begin 
-	if n_elements(yrange) eq 2 then state.yrange=yrange
-	end
-if keyword_set(xmargin) then begin 
-	if n_elements(xmargin) eq 2 then state.xmargin=xmargin
-	end
-if keyword_set(comment) then begin
-	add_line = n_elements(comment)
-	state.footnote= add_line
-	ymargin=[5+add_line, 3]
-	end
-if keyword_set(ymargin) then begin 
-	if n_elements(ymargin) eq 2 then state.ymargin=ymargin
-	end
-
-if keyword_set(curvfit) then state.curvfit = 1
-
-if keyword_set(width) then xsize=width
-if xsize lt 350 then xsize=350
-if keyword_set(height) then ysize=height
-if ysize lt 350 then ysize=350
-
-; drawing with data 
-
-if keyword_set(CLEANUP) then $
-id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS, TLB_FRAME_ATTR=8) $
-else $
-id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS)
-;WIDGET_CONTROL,id_tlb,default_font='-*-Helvetica-Bold-R-Normal--*-120-*75-*'
-id_draw=WIDGET_DRAW(id_tlb,xsize=xsize,ysize=ysize, RETAIN=2)
-
-if keyword_set(button) eq 0 then begin
-id_tlb_row=WIDGET_BASE(id_tlb,/ROW)
-id_tlb_print = WIDGET_BUTTON(id_tlb_row,VALUE='Print',UVALUE='PLOT1D_PRINT')
-id_tlb_close = WIDGET_BUTTON(id_tlb_row,VALUE='Close',UVALUE='PLOT1D_CLOSE')
-end
-
-g_tlb=WIDGET_INFO(id_tlb,/geometry)
-
-WIDGET_CONTROL,id_tlb, /realize
-WIDGET_CONTROL,id_draw,get_value=windraw
-	state.winDraw = windraw
-	state.id_draw = id_draw
-	state.xsize = g_tlb.scr_xsize
-	state.ysize = g_tlb.scr_ysize
-	if !d.name ne 'PS' then WSET,windraw
-	
-	plot1d_replot, state
-
-WIDGET_CONTROL,id_tlb,set_uvalue=state,/no_copy
-xmanager,'plot1d',id_tlb,  GROUP_LEADER=GROUP, $
-	EVENT_HANDLER="plot1d_event"
-
-END
-; $Id: vw2d.pro,v 1.1 1998/12/22 19:56:24 cha Exp $
+; $Id: vw2d.pro,v 1.2 1999/01/14 23:40:07 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -2858,7 +1080,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.1 1998/12/22 19:56:24 cha Exp $
+; $Id: vw2d.pro,v 1.2 1999/01/14 23:40:07 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3024,455 +1246,6 @@ middle:
 	wait, .1		;Dont hog it all
 	endwhile
 end
-;+
-; NAME:
-;	cw_term
-;
-; PURPOSE:
-;      writtable text window widget
-;
-; CATEGORY:
-;	Compound widgets.
-;
-; CALLING SEQUENCE:
-;	widget_id = CW_TERM(parent)
-;
-; INPUTS:
-;       PARENT - The ID of the parent widget.
-;
-; KEYWORD PARAMETERS:
-;	BG_NAMES:	An array of strings to be associated with
-;			each button and returned in the event structure as VALUE.
-;	BGEVENT_FUNCT:	The name of an user-supplied event function 
-;			for the buttons. This function is called with the return
-;			value structure whenever a button is pressed, and 
-;			follows the conventions for user-written event
-;			functions.
-;	FONT:		The name of the font to be used for the text output 
-;			If this keyword is not specified, the default
-;			font is used.
-;	FRAME:		Specifies the width of the frame to be drawn around
-;			the base.
-;       FILENAME:       Copy contents of file into widget
-;       RESET:          Clear existing widget contents and write new value/file.
-;                       The parent widget is the existing widget id. 
-;	MAP:		If set, the base will be mapped when the widget
-;			is realized (the default).
-;	SCROLL:		If set, the base will include scroll bars to allow
-;			viewing a large text area through a smaller viewport.
-;	SET_VALUE:	The initial value of the text widget. This is equivalent
-;			to the later statement:
-;
-;			WIDGET_CONTROL, widget, set_value=value
-;
-;       TITLE:          New Window title
-;	UVALUE:         The user value for the compound widget
-;
-;	XSIZE:		The width of the text widget
-;	YSIZE:		The height of the text widget
-;
-; OUTPUTS:
-;       The ID of the created widget is returned.
-;
-; COMMON BLOCKS:
-;	None.
-;
-; SIDE EFFECTS:
-;
-; PROCEDURE:
-;	WIDGET_CONTROL, id, SET_VALUE=value can be used to change the
-;		current value displayed by the widget.
-;
-;	WIDGET_CONTROL, id, GET_VALUE=var can be used to obtain the current
-;		value displayed by the widget.
-;
-; MODIFICATION HISTORY:
-;  01  8-9-95  jps  	modified from idl's cw_tmpl.pro
-;-
-
-
-
-PRO cwterm_Save_Event, Event
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-
-  WIDGET_CONTROL,Event.Top,GET_UVALUE=info
-  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
-
-  CASE Ev OF 
-
-  'CWTERM_SAVEFILE': BEGIN
-      END
-  'CWTERM_SAVEACCEPT': BEGIN
-	WIDGET_CONTROL,info.newname, GET_VALUE=filename
-	if strtrim(filename(0),2) ne '' then begin
-	found = findfile(filename(0))
-	if found(0) ne '' then begin
-		WIDGET_CONTROL,info.base,/DESTROY
-		st = [ 'File: '+filename(0),' already existed!', $
-			'ASCII data saved in ',info.oldname]
-		res = widget_message(st,/info)
-		return
-	end
-	spawn,[OS_SYSTEM.cp, info.oldname, filename(0)],/noshell
-	WIDGET_CONTROL,info.base,/DESTROY
-;	res=widget_message('File: "'+filename(0)+'" saved',/info)
-	end
-      END
-  'CWTERM_SAVECANCEL': BEGIN
-	WIDGET_CONTROL,info.base,/DESTROY
-      END
-  ENDCASE
-END
-
-;
-; if filename specifies the default file name used by the cw_term, 
-;     it will be override by the textfield entered by the user
-;
-PRO cwterm_save_dialog, GROUP=Group,oldname=oldname, rename=rename
-
-  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
-
-  junk   = { CW_PDMENU_S, flags:0, name:'' }
-
-
-  cwterm_Save = WIDGET_BASE(GROUP_LEADER=Group, $
-	TITLE='CW_TERM Save File', $
-      ROW=1, $
-      MAP=1, $
-      UVALUE='cwterm_Save')
-
-  BASE2 = WIDGET_BASE(cwterm_Save, $
-      COLUMN=1, TITLE='CW_TERM SaveFile', $
-      MAP=1, $
-      UVALUE='BASE2')
-
-  FieldVal288 = [ $
-    '' ]
-  if n_elements(rename) then FieldVal288 = strtrim(rename,2)
-  FIELD3 = CW_FIELD( BASE2,VALUE=FieldVal288, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='File:', $
-      UVALUE='CWTERM_SAVEFILE', $
-      XSIZE=60)
-
-  BASE4 = WIDGET_BASE(BASE2, $
-      COLUMN=2, $
-      MAP=1, $
-      UVALUE='BASE4')
-
-  CWTERM_SAVE_BUTTON5 = WIDGET_BUTTON( BASE4, $
-      UVALUE='CWTERM_SAVEACCEPT', $
-      VALUE='Accept')
-
-  CWTERM_SAVE_BUTTON6 = WIDGET_BUTTON( BASE4, $
-      UVALUE='CWTERM_SAVECANCEL', $
-      VALUE='Cancel')
-
-  info = {  $
-	base : cwterm_Save, $
-	oldname: oldname, $
-	newname: FIELD3 $
-	}
-
-  WIDGET_CONTROL, cwterm_Save, SET_UVALUE=info
-  WIDGET_CONTROL, cwterm_Save, /REALIZE
-
-  XMANAGER, 'cwterm_Save', cwterm_Save
-END
-
-PRO term_set_value, id, value
-
-	; This routine is used by WIDGET_CONTROL to set the value for
-	; your compound widget.  It accepts one variable.  
-	; You can organize the variable as you would like.  If you have
-	; more than one setting, you may want to use a structure that
-	; the user would need to build and then pass in using 
-	; WIDGET_CONTROL, compoundid, SET_VALUE = structure.
-
-	; Return to caller.
-  ON_ERROR, 2
-
-	; Retrieve the state.
-   stash = WIDGET_INFO(id, /CHILD)
-   WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-
-    IF (N_ELEMENTS(value) NE 0) THEN BEGIN
-	   WIDGET_CONTROL, state.text_id, $
-				SET_VALUE=value, $
-				/APPEND, $
-				BAD_ID=bad_id, $
-				/NO_COPY
-    ENDIF
-   
-   WIDGET_CONTROL, stash, SET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-
-END
-
-
-
-FUNCTION term_get_value, id, value
-
-	; This routine is by WIDGET_CONTROL to get the value from 
-	; your compound widget.  As with the set_value equivalent,
-	; you can only pass one value here so you may need to load
-	; the value by using a structure or array.
-
-	; Return to caller.
-  ON_ERROR, 2
-
-	; Retrieve the structure from the child that contains the sub ids.
-  stash = WIDGET_INFO(id, /CHILD)
-  WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-
-	; Get the value here
-  WIDGET_CONTROL, state.text_id, GET_VALUE=ret, BAD_ID=bad_id
-
-  WIDGET_CONTROL, stash, SET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-  
-        ; Return the value here.
-  RETURN,ret
-END
-
-;-----------------------------------------------------------------------------
-
-FUNCTION term_event, event
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-
-  parent=event.handler
-
-  WIDGET_CONTROL, event.id, GET_UVALUE=Ev
-
-		; Retrieve the structure from the child that contains the sub ids.
-  stash = WIDGET_INFO(parent, /CHILD)
-  WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY,  BAD_ID=bad_id
-  fileName = state.win_file
-
-  CASE Ev OF 
-
-  'MAIN': BEGIN
-      END
-  'BGROUP':BEGIN
-	CASE event.value OF
-	  'Save...': BEGIN
-		if XRegistered('cwterm_Save') eq 0 then $
-		cwterm_save_dialog,GROUP=Event.id, $
-			rename=state.rename,oldname=fileName
-	      END
-	  'Close': BEGIN
-	      WIDGET_CONTROL, parent, DESTROY=1, BAD_ID=bad_id
-	      END
-	  'Clear': BEGIN
-		  WIDGET_CONTROL, state.text_id, SET_VALUE='', BAD_ID=bad_id
-	      END
-	  'Print': BEGIN
-		  ANS = WIDGET_MESSAGE('Are you sure ?',/QUESTION, $
-			/DEFAULT_NO, DIALOG_PARENT=Event.top)
-		  IF ANS EQ 'Yes' THEN BEGIN
-		  WIDGET_CONTROL, state.text_id, GET_VALUE=value, BAD_ID=bad_id
-			; open the scratch file for printing
-		  fileName = state.win_file
-		  OPENW, unit, fileName, /GET_LUN, ERROR=error	;
-	    	  IF error LT 0 THEN BEGIN		;OK?
-		     print, [ !err_string, ' Can not display ' + filename]  ;No
-		  ENDIF ELSE BEGIN	
-		     printf,unit, FORMAT='(A)',value
-	     	     FREE_LUN, unit			;free the file unit.
-		     if OS_SYSTEM.os_family eq 'unix' then begin
-		     spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, '-r', fileName], /noshell
-		     spawn,[OS_SYSTEM.rm, '-f', fileName], /noshell
-		     endif else begin
-		     spawn,[OS_SYSTEM.prt, fileName]
-		     spawn,[OS_SYSTEM.rm, fileName]
-		     end
-		  ENDELSE
-		  END
-	      END
-	   ELSE: 
-	ENDCASE
-      END
-  'TEXT': BEGIN
-      End
-  ENDCASE
-
-  WIDGET_CONTROL, stash, SET_UVALUE=state, /NO_COPY,  BAD_ID=bad_id
-
-  RETURN, { ID:parent, TOP:event.top, HANDLER:0L }
-END
-
-;-----------------------------------------------------------------------------
-
-FUNCTION cw_term, parent, SET_VALUE=value, $
-	COLUMN=column, TITLE=title, $
-	FILENAME=filename, $
-	RENAME = rename, $
-        RESET=reset, $
-	BG_NAMES = bg_names, BGEVENT_FUNCT = bg_efun, $
-	FONT=font, FRAME=frame, $
-	MAP=map, SENSITIVE=sense, $
-	ROW=row, SCROLL=scroll, SPACE=space, UVALUE=uvalue, $
-	XSIZE=xsize, YSIZE=ysize
-
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-
-  IF (N_PARAMS() LT 1) THEN MESSAGE, 'Must specify a parent for cw_term.'
-
-  ON_ERROR, 2					;return to caller
-
-	; Defaults for keywords
-  version = WIDGET_INFO(/version)
-  if (version.toolkit eq 'OLIT') then def_space_pad = 4 else def_space_pad = 3
-  IF NOT (KEYWORD_SET(append))  THEN append = 0
-  IF NOT (KEYWORD_SET(xsize)) THEN xsize = 80
-  IF NOT (KEYWORD_SET(ysize)) THEN ysize = 24
-  IF NOT (KEYWORD_SET(reset)) THEN reset = 0
-
-;  IF (N_ELEMENTS(value) eq 0) 	then value = ''
-  IF (N_ELEMENTS(Title) eq 0) 	 	then Title = ''
-  IF (N_ELEMENTS(column) eq 0) 		then column = 0
-  IF (N_ELEMENTS(frame) eq 0)		then frame = 0
-  IF (N_ELEMENTS(map) eq 0)		then map=1
-  IF (N_ELEMENTS(row) eq 0)		then row = 0
-  IF (N_ELEMENTS(scroll) eq 0)		then scroll = 0
-  IF (N_ELEMENTS(sense) eq 0)		then sense = 1
-  IF (N_ELEMENTS(uvalue) eq 0)		then uvalue = 0
-
-
-
-; File read section copied from XDISPLAYFILE utility
-;	Written By Steve Richards, December 1990
-;	Graceful error recovery, DMS, Feb, 1992.
-;       12 Jan. 1994  - KDB
-;               If file was empty, program would crash. Fixed.
-;       4 Oct. 1994     MLR Fixed bug if /TEXT was present and /TITLE was not.
-;      14 Jul. 1995     BKC Increased the max line to variable size.
-;      16 Jun. 1997     BKC Max line set to 10000, os system check.
-;      18 Dec. 1997     BKC add the save file event.
-
-  IF(KEYWORD_SET(filename)) THEN BEGIN
-
-    IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = filename     
-    OPENR, unit, filename, /GET_LUN, ERROR=i		;open the file and then
-    IF i LT 0 THEN BEGIN		;OK?
-	text = [ !err_string, ' Can not display ' + filename]  ;No
-    ENDIF ELSE BEGIN
-
-    y=10000
-    if OS_SYSTEM.os_family eq 'unix' then  spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
-
-	text = strarr(y(0))				;Maximum # of lines
-	i = 0L
-	c = ''
-	WHILE not eof(unit) do BEGIN
-		READF,unit,c
-		text(i) = c
-		i = i + 1
-		if i ge y(0) then goto,stopread
-	ENDWHILE
-    stopread:
-	value = text(0:(i-1)>0)  ;Added empty file check -KDB
-	FREE_LUN, unit			;free the file unit.
-    ENDELSE
-  ENDIF ELSE BEGIN
-    IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = 'Term'
-  ENDELSE
-
-  winFile = ''
-  if n_elements(filename) then winFile=filename
-  winTitle = title
- 
- IF reset EQ 0 THEN BEGIN
-
-  if n_elements(rename) then $
-	  state = { main_id:0L, group_leader:0L, $
-			rename : rename, $
-		    bgroup_id:0L, text_id:0L, win_file:winFile } else $
-	  state = { main_id:0L, group_leader:0L, $
-		    bgroup_id:0L, text_id:0L, win_file:winFile }
-
-	  MAIN = WIDGET_BASE( $
-			    GROUP_LEADER=parent, $
-			    UVALUE = uvalue, $
-			    TITLE=winTitle, $
-			    MAP=map, $
-			    EVENT_FUNC = "term_event", $
-			    FUNC_GET_VALUE = "term_get_value", $
-			    PRO_SET_VALUE = "term_set_value", $
-			    /COLUMN)
-		
-	  state.main_id = MAIN
-	  state.group_leader = parent
-
-	  ; Create text widget
-	  IF (N_ELEMENTS(font) EQ 0) THEN BEGIN
-	      state.text_id = WIDGET_TEXT( MAIN, $
-	      XSIZE=xsize, $
-	      YSIZE=ysize, $
-	      /NO_COPY, $
-	      SCROLL=scroll)
-	  ENDIF ELSE BEGIN
-	      state.text_id = WIDGET_TEXT( MAIN, $
-	      XSIZE=xsize, $
-	      YSIZE=ysize, $
-	      /NO_COPY, $
-	      SCROLL=scroll, $
-	      FONT=font)
-	  ENDELSE
-
-
-	  IF (N_ELEMENTS(value) NE 0) THEN $
-		WIDGET_CONTROL, state.text_id, SET_VALUE=value
-
-	  ; Standard control buttons
-	  N_BUTTONS = 3
-	  buttons = STRARR(N_BUTTONS+N_ELEMENTS(bg_names))
-	  buttons(0:N_BUTTONS-1) = ['Print','Clear','Close']
-
-	
-	  ; User control buttons
-	  IF N_ELEMENTS(bg_names) NE 0 THEN BEGIN
- 	   buttons(N_BUTTONS:N_BUTTONS+N_ELEMENTS(bg_names)-1) = bg_names(*)
-	  ENDIF
-
-	  ; Create control buttons
-	  state.bgroup_id = CW_BGROUP( MAIN, buttons, $
-				      /ROW, $
-				      /RETURN_NAME, $
-				      EVENT_FUNCT=bg_efun, $
-				      FRAME=frame, $
-				      UVALUE='BGROUP')
-
-	  ; Save out the initial state structure into the first childs UVALUE.
-	  WIDGET_CONTROL, WIDGET_INFO(MAIN, /CHILD), SET_UVALUE=state, /NO_COPY
-
-	  WIDGET_CONTROL, MAIN, /REALIZE 
-
-  ENDIF ELSE BEGIN
-		; Retrieve the structure from the child that contains the sub ids.
-	  IF  WIDGET_INFO(parent, /VALID_ID) THEN BEGIN
-	      stash = WIDGET_INFO(parent, /CHILD)
-	      WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-              state.win_file= winFile
-
-	      IF (N_ELEMENTS(value) eq 0) 	then value = ''	  
-
-	      WIDGET_CONTROL, state.text_id, SET_VALUE=value, BAD_ID=bad_id
-
-	      WIDGET_CONTROL, stash, SET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-	 ENDIF
-
-         MAIN = parent
-   ENDELSE
-
-	; value is all the user will know about the internal structure
-	; of your widget.
-  RETURN, MAIN
-
-END
-
-
-
 
 PRO show_cross,x,y,d_id,s_id
 if n_params() lt 4 then begin
@@ -5165,7 +2938,7 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 
 	pvs = pvs0
 	I = seqno + 4 
-	IF I ge 0 and I lt max_pidi-1 THEN BEGIN
+	IF I ge 0 and I lt max_pidi THEN BEGIN
 	if id_def(i,0) ne 0 then begin
 	detector = seqno
 	y_name = labels(i+max_pidi,0)
@@ -5563,10 +3336,8 @@ if XRegistered('view2d_normalize') then return
   XMANAGER, 'view2d_normalize', view2d_normalize
 END
 ;
-; catch2d.pro
+; vw2d.pro
 ;
-
-;@DCV2D_read.pro
 
 PRO REPLOT
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -5584,6 +3355,16 @@ xtitle='2D SCAN # '+strtrim(catch2d_file.scanno_current,2)+ $
 	', '+catch2d_file.x_desc +  $
 	', FILE:'+catch2d_file.name + $ 
 	',  USER:'+strupcase(getenv('USER')) 
+
+        ytitle = catch2d_file.y_desc
+
+        header_note1='MAX: ' + strtrim(view_option.z_max,2) + ' @ ('+ $
+                strtrim(catch2d_file.xarr(view_option.i_max),2) + ', ' + $
+                strtrim(catch2d_file.yarr(view_option.j_max),2) + ')'
+
+        header_note='MIN: ' + strtrim(view_option.z_min,2) + ' @ ('+ $
+                strtrim(catch2d_file.xarr(view_option.i_min),2) + ', ' + $
+                strtrim(catch2d_file.yarr(view_option.j_min),2) + ')'
 
 str = ['Selected Image File        : '+ catch2d_file.name] 
 str = [str,'Total Number of 2D Scans   : '+ string(catch2d_file.scanno_2d_last)]
@@ -5681,16 +3462,28 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	return
    end
 
+   shades = (image-view_option.z_min)/(view_option.z_max-view_option.z_min)*!d.table_size
+
 	CASE view_option.surface OF
-	2: begin
+	2: begin    ; light shaded
 		if view_option.versus then begin
 			if x_max lt ix then ix=x_max
 			if y_max lt iy then iy=y_max 
 			newim = image(x_min:ix,y_min:iy)
 			nx=x(x_min:ix)
 			ny=y(y_min:iy)
-			SHADE_SURF, newim,nx,ny  
+			SHADE_SURF, newim,nx,ny 
 		endif else SHADE_SURF, newimage
+	   end
+	6: begin
+		if view_option.versus then begin
+			if x_max lt ix then ix=x_max
+			if y_max lt iy then iy=y_max 
+			newim = image(x_min:ix,y_min:iy)
+			nx=x(x_min:ix)
+			ny=y(y_min:iy)
+			SHADE_SURF, newim,nx,ny ,shades=shades 
+		endif else SHADE_SURF, newimage, shades=shades
 	   end
 	3: begin
 			if x_max lt ix then ix=x_max
@@ -5739,12 +3532,19 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			newim = image(x_min:ix-1,y_min:iy-1)
 			nx=x(x_min:ix-1)
 			ny=y(y_min:iy-1)
-			SHOW3, newim 
+			SHOW3, newim , nx, ny
 		endif else SHOW3, newimage
 ;		SHOW3, newimage, sscale=2
 	   end
 	5: begin
-		XSURFACE, newimage, id
+		PLOT2D, newimage,id, $
+                        xarr=catch2d_file.xarr(0:catch2d_file.width-1), $
+                        yarr=catch2d_file.yarr(0:catch2d_file.height-1), $
+                        comment=[header_note1,header_note], $
+			wtitle='Plot2d(Xsurface)', $
+                        xtitle=xtitle, ytitle=ytitle, $
+                        title='D'+strtrim(catch2d_file.detector,2)+' - '+catch2d_file.z_desc
+;		XSURFACE, newimage, id
 		if n_elements(id) eq 0 then begin
 		w_warningtext,['Error: First close the old XSurface window',$
 			'       then select TV before select new image and XSURFACE'], $
@@ -5816,6 +3616,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		xrange = [ catch2d_file.xarr(x_min), catch2d_file.xarr(x_max)]
 		yrange = [ catch2d_file.yarr(y_min), catch2d_file.yarr(y_max)]
 		title = 'vs X,Y Values'
+		end
 
 
 		; for PS  get aspect ratio, outward tick marks 
@@ -5845,7 +3646,6 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
           xyouts,xdis,ydis,header_note,/device, color=t_color
 	end
 
-	ytitle = catch2d_file.y_desc
 	if strtrim(catch2d_file.z_desc,2) ne '' then $
 	title = catch2d_file.z_desc + ' - ' + title else $
 	title = 'D'+strtrim(catch2d_file.detector,2) + ' - '+title
@@ -5884,7 +3684,6 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			ytitle=ytitle, $
 			title=title, xstyle = 1, ystyle=1
 
-			end
 		end
 
 
@@ -5947,6 +3746,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		xrange = [ catch2d_file.xarr(x_min), catch2d_file.xarr(x_max)]
 		yrange = [ catch2d_file.yarr(y_min), catch2d_file.yarr(y_max)]
 		title = 'vs X,Y Values'
+		end
 
 
 		; for PS  get aspect ratio, outward tick marks 
@@ -6012,7 +3812,6 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			xrange=xrange, yrange=yrange,title=title, $
 			xtitle=xtitle, ytitle=ytitle, $
 			xstyle = 1, ystyle=1
-			end
 		end
 
 	   end
@@ -6021,87 +3820,6 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 END
 
-PRO scanimage_read_record,unit, view=view 
-COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
-COMMON CATCH2D_FILE_BLOCK,catch2d_file
-
-	IF EOF(unit) THEN RETURN
-
-	if (widget_ids.xsurface) then begin
-		WIDGET_CONTROL,widget_ids.xsurface,/DESTROY,BAD=bad
-		widget_ids.xsurface = 0L
-		end
-
-	; read pv names
-	u_read,unit,pvs
-	pvs = string(pvs)
-	catch2d_file.x_pv = pvs(0)
-	catch2d_file.y_pv = pvs(1) 
-	catch2d_file.file_1d = pvs(2) 
-	if n_elements(pvs) gt 3 then begin
-	catch2d_file.x_desc = pvs(3)
-	catch2d_file.y_desc = pvs(4) 
-	catch2d_file.z_desc = pvs(5) 
-	end
-;	print,string(pvs)
-	
-
-	; read seqno, dims
-
-	u_read,unit,x
-;	print,x
-	scanno_2d = x(4)
-
-;	width = x(1)
-;	height= x(2)
-	catch2d_file.scanno = x(0)
-	catch2d_file.width = x(1)
-	catch2d_file.height = x(2)
-	catch2d_file.detector = x(3) + 1
-	catch2d_file.scanno_current = x(4) 
-	if x(4) eq 0 then catch2d_file.scanno_current = 1    ; fix 0 2d # 
-	catch2d_file.y_req_npts = x(5)
-
-	; read x and y position array
-
-	u_read,unit,x
-	catch2d_file.xarr = x
-	u_read,unit,x
-	catch2d_file.yarr = x
-
-	; read image
-
-	u_read,unit,image
-	catch2d_file.image = image
-
-;	newImage = image(0:catch2d_file.width-1, 0:catch2d_file.height-1)
-	newImage = image
-	s = size(newImage)
-
-	; find the max only for 2D or 1D
-
-	if s(0) eq 2 then totalno = s(4) - 1
-	if s(0) eq 1 then totalno = s(3) - 1
-        view_option.z_max = newImage(0)
-	view_option.i_max = 0
-	view_option.j_max = 0
-	view_option.z_max = MAX(newImage,imax)
-	view_option.j_max = imax / s(1)
-	view_option.i_max = imax mod s(1) 
-	view_option.z_min = MIN(newImage,imax)
-	view_option.j_min = imax / s(1)
-	view_option.i_min = imax mod s(1) 
-	if view_option.fullcolor eq 0 then begin
-		view_option.k_max = view_option.z_max 
-		view_option.k_min = view_option.z_min 
-	end
-
-	if s(0) ne 2 then begin
-		w_warningtext,'Warning: data is not 2D image ',60,5,'VW2D Messaes'
-		end 
-
-	if keyword_set(view) then REPLOT
-END
 
 PRO viewscanimage_current
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
@@ -6295,7 +4013,7 @@ im(*,*) = image
 END
 
 
-PRO main13_2_Event, Event
+PRO VW2D_BASE_Event, Event
 
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
@@ -6468,22 +4186,12 @@ COMMON w_warningtext_block,w_warningtext_ids
 		w_warningtext,st, 60,3,title='VW2D Messages'
 		return
 		end
-	begin_seqno = catch2d_file.image_no(scanno-1)	
-	end_seqno = catch2d_file.image_no(scanno)	
-	seqno = begin_seqno + event.value
+	seqno = event.value
 
-	if seqno lt end_seqno then begin
 		catch2d_file.seqno = seqno
 		if XRegistered('w_warningtext') then $
 		WIDGET_CONTROL,w_warningtext_ids.base,BAD=bad,/DESTROY
 		viewscanimage_current
-	endif else begin
-		st = [ $
-		'No more image for SCAN #' + string(scanno), $
-		'Total number of images for this scan is ' + $
-		string(end_seqno - begin_seqno) ]
-		w_warningtext,st, 60,5,title='VW2D Messages'
-	end
 	END
   'CURSOR62_X': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=x
@@ -6540,7 +4248,7 @@ if x gt 0 and x lt catch2d_file.x_act_npts and y gt 0 and y lt catch2d_file.y_ac
 WIDGET_CONTROL,widget_ids.z_cursor,SET_VALUE=strtrim(z,2)
 END
 
-; DO NOT REMOVE THIS COMMENT: END main13_2
+; DO NOT REMOVE THIS COMMENT: END VW2D_BASE
 ; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
 
 
@@ -6599,25 +4307,28 @@ PRO VW2D, GROUP=Group, file=file
 ;       10-19-98 bkc   R3.13.1 new XDR save format
 ;       12-04-98 bkc   R1.2
 ;                      Fix the 2D image width problem due to aborted 2D scan
+;       12-15-98 bkc   Use color shade values for shade_surf plot
+;       01-12-99 bkc   Fix TV plot of Step # option
+;                      Fix the problem in plotting the last detector 
 ;-
 ;
 @os.init
 
-if XRegistered('main13_2') ne 0  then return
+if XRegistered('VW2D_BASE') ne 0 then return
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VW2D (R1.2)'
+  version = 'VW2D (R1.2a)'
 
-  main13_2 = WIDGET_BASE(GROUP_LEADER=Group, $
+  VW2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
       MAP=1, $
       TITLE= version, $
-      UVALUE='main13_2')
+      UVALUE='VW2D_BASE')
 
-  BASE68 = WIDGET_BASE(main13_2, $
+  BASE68 = WIDGET_BASE(VW2D_BASE, $
       COLUMN=2, $
       MAP=1, $
       TITLE='Top Menu Line', $
@@ -6672,7 +4383,7 @@ if XRegistered('main13_2') ne 0  then return
       UVALUE='BASE177')
 
 
-  Btns912 = ['TV','Eq.TV.AspRt','SURFACE','CONTOUR','SHOW3','XSURFACE']
+  Btns912 = ['TV','Eq.TV.AspRt','LIGHT_SHADE_SURF','CONTOUR','SHOW3','XSURFACE','SHADE_SURF']
 ;  Btns912 = ['TV','SURFACE','CONTOUR','SHOW3','XUSRFACE']
   surface_plot = WIDGET_DROPLIST(BASE177, VALUE=BTNS912, $
 	UVALUE='SURFACE_PLOT',TITLE='View as')
@@ -6688,7 +4399,7 @@ if XRegistered('main13_2') ne 0  then return
 
 ; add the view mode widgets
 
-  BASE185 = WIDGET_BASE(main13_2, $
+  BASE185 = WIDGET_BASE(VW2D_BASE, $
       ROW=1, MAP=1, $
 ;	FRAME=1, $
       TITLE='View btns', $
@@ -6703,7 +4414,7 @@ if XRegistered('main13_2') ne 0  then return
 
 ; add detectors
 
-  BASE186 = WIDGET_BASE(main13_2, $
+  BASE186 = WIDGET_BASE(VW2D_BASE, $
       ROW=1, $
       MAP=1, $
       TITLE='Detector btns', $
@@ -6729,13 +4440,13 @@ if XRegistered('main13_2') ne 0  then return
       ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
       UVALUE='IMAGE186')
 
-  BASE62 = WIDGET_BASE(main13_2, $
+  BASE62 = WIDGET_BASE(VW2D_BASE, $
       COLUMN=2, $
       MAP=1, $
       TITLE='Plot Area', $
       UVALUE='BASE62')
 
-  BASE62 = WIDGET_BASE(main13_2, $
+  BASE62 = WIDGET_BASE(VW2D_BASE, $
       COLUMN=2, $
       MAP=1, $
       TITLE='Plot Area', $
@@ -6797,13 +4508,13 @@ if XRegistered('main13_2') ne 0  then return
       VALUE='PROBE:')
   CURSOR62_XZ = WIDGET_BUTTON( CURSOR62_B4, $
       UVALUE='CURSOR62_XZ', VALUE='XZ')
-  CURSOR62_XZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=150)
+  CURSOR62_XZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
   CURSOR62_YZ = WIDGET_BUTTON( CURSOR62_B4, $
       UVALUE='CURSOR62_YZ', VALUE='YZ')
-  CURSOR62_YZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=150)
+  CURSOR62_YZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
 
 
-  BASE151 = WIDGET_BASE(main13_2, $
+  BASE151 = WIDGET_BASE(VW2D_BASE, $
       COLUMN=1, $
 ;      FRAME=2, $
       MAP=1, $
@@ -6880,7 +4591,7 @@ if XRegistered('main13_2') ne 0  then return
       UVALUE='VIEW2D_ZMAX', $
       XSIZE=8)
 
-  BASE129 = WIDGET_BASE(main13_2, $
+  BASE129 = WIDGET_BASE(VW2D_BASE, $
       ROW=1, FRAME=2, MAP=1, TITLE='Info Block', $
       UVALUE='BASE129')
 
@@ -6910,7 +4621,7 @@ if XRegistered('main13_2') ne 0  then return
       XSIZE=70, $
       YSIZE=5)
 
-  WIDGET_CONTROL, main13_2, /REALIZE
+  WIDGET_CONTROL, VW2D_BASE, /REALIZE
 
   ; Get drawable window index
 
@@ -6947,7 +4658,7 @@ catch2d_file.version = version
 	end
   end
 
-  XMANAGER, 'main13_2', MAIN13_2
+  XMANAGER, 'VW2D_BASE', VW2D_BASE
 
 END
 

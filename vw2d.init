@@ -4,7 +4,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
   widget_ids = {                  $ 
-      base        : MAIN13_2,     $
+      base        : VW2D_BASE,     $
       xsurface    : 0L,  $
       top_base    : BASE68,       $
       sel_base    : BASE185,       $
@@ -89,8 +89,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 ;	image	: make_array(512,512,/float) $
         }
   
-if !d.name eq 'X' then device,bypass_translation=0
-  device,retain=2
+  device,bypass_translation=0,retain=2
 
   view_option = { $
 	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
