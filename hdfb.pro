@@ -694,9 +694,9 @@ ENDIF
 print,'plottype',plot2d_state.plottype
 	 set_plot,'PS'
         !P.FONT=0
-        device,/Courier,/Bold
+        device,/Courier,/Bold, /color, bits=8
         plot2d_replot, plot2d_state
-        !P.FONT=1
+        !P.FONT=-1
         device,/close
         spawn,'lpr idl.ps'
         print,'Print idl.ps'
@@ -1373,6 +1373,57 @@ END
 
 
 
+
+PRO SDSVGname,names
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+
+if n_params() eq 0 then begin
+	str=['Usage:  Obj->[NX::]SDSVGname, names' $
+	]
+	xdisplayfile,text=str,title='NX::SDSVGname,names'
+	return
+end
+
+;	fid = HDF_OPEN(self.file)
+       fid = HDF_Query.fid
+
+;	sd_id = HDF_SD_START(self.file)
+	sd_id = HDF_Query.sd_id	
+
+
+	vgroup = -1
+	sds_vgname = '' 
+	for j=0,HDF_Query.numVG-1 do begin
+
+		vgroup = HDF_VG_GETID(fid,vgroup)
+		vg_id = HDF_VG_ATTACH(fid,vgroup)	
+		HDF_VG_GETINFO,vg_id,class=class,name=name,nentries=num_entries
+
+		if num_entries ge 1 then begin
+		HDF_VG_GETTRS,vg_id,tags,refs
+		id = -1
+		for i = 0,num_entries-1 do begin
+			if tags(i) eq 720 then begin
+			seq = HDF_SD_REFTOINDEX(sd_id,refs(i))
+			sd_ids = HDF_SD_SELECT(sd_id,seq)
+			HDF_SD_GETINFO,sd_ids, name=dname
+			if sds_vgname(0) eq '' then $
+			sds_vgname = name+'=>'+dname else $
+			sds_vgname = [sds_vgname, name + '=>' + dname]
+			HDF_SD_ENDACCESS,sd_ids
+			end
+		end
+		end
+		HDF_VG_DETACH,vg_id
+	end
+;	HDF_SD_END,sd_id
+;	HDF_CLOSE,fid
+
+	names= sds_vgname
+	help,sds_vgname
+print,names
+END
+
 PRO DumpHDFData, filename,startno, view=view, waittime=waittime 
 
 COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
@@ -1711,10 +1762,22 @@ type = s(n_elements(s)-2)
 		plot,[-1,-1],XStyle=4,YStyle=4
 		y1=min(data)
 		y2=max(data)*1.5
+		wide = 50
+		left = 30
+		bott = 50
+		space = 10+wide
+		newdata = congrid(data,wide,wide,s(3))
 		old_win = !d.window
 		!p.multi = [0,2,0,0,0]
 		!p.multi(0)=!p.multi(1)
-		for i=0,dim(2)-1 do TV, data(*,*,i) , i*(dim(0)+10)+50, 50 
+;		for i=0,dim(2)-1 do TV, newdata(*,*,i) , i*(wide+10)+50, 50 
+		last = dim(2) - 1
+		if last gt 11 then last = 11
+		for i=0,last do begin
+			id = i/6 
+			ip = i mod 6
+			TVSCL, newdata(*,*,i) , ip*space+left, id*space+bott
+		end
 		!p.multi(0)=!p.multi(1)-1
 		END
 		ELSE: HDF_scrolltext,'No plot supported for'+string(no)+'D data',60,3
@@ -2162,23 +2225,23 @@ COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
 if n_elements(filename) eq 0 then begin
 	print,'DumpHDFAN   dump the HDF file annotations and text attributes'
 	print,''
-	print,'USAGE:    DumpHDFAN, filename, tag [,/desc]'
+	print,'USAGE:    DumpHDFAN, filename [, /DESC | tag=tag ]'
 	print,'INPUT:'
 	print,'      filename   - required, input HDF file name'
-	print,'      tag        -  100 get file id'
-	print,'      tag        -  101 get file description'
-	print,'      tag        -  102 get tag identifier'
-	print,'      tag        -  103 get tag description'
-	print,'      tag        -  104 get data identifier'
-	print,'      tag        -  105 get data description'
 	print,'KEYWORD: '
 	print,'      /DESC      - if specified, dumps file id and desc found'
+	print,'      tag        -  100 get file id'
+	print,'      		-  101 get file description'
+	print,'                 -  102 get tag identifier'
+	print,'                 -  103 get tag description'
+	print,'                 -  104 get data identifier'
+	print,'                 -  105 get data description'
 	return
 	end
 
 
 
-fileid=hdf_open(filename,/read)
+fileid=hdf_open(filename)
 if fileid eq -1  then begin
 	print,'Error: HDF file "',filename,'" not found!'
 	return
@@ -2198,13 +2261,14 @@ if fileid eq -1  then begin
         dataString=[dataString," # of free palettes = " + string(numfpals)]
 
         dataString=[dataString,'==================================================']
-	numdesc = hdf_number(fileid,tag=100)
-        dataString = [dataString,' # of file identifier = '+string(numdesc)]
-        if numdesc gt 0 then begin
+
+	numfid = hdf_number(fileid,tag=100)
+        dataString = [dataString,' # of file identifier = '+string(numfid)]
+        if numfid gt 0 then begin
                 HDF_DFAN_GETFID,filename,fid,/first
                 dataString = [dataString,fid]
-                if numdesc gt 1 then $
-                        for i=1,numdesc-1 do begin
+                if numfid gt 1 then $
+                        for i=1,numfid-1 do begin
                         HDF_DFAN_GETFID,filename,fid
                 	dataString = [dataString,fid]
                         end
@@ -2212,6 +2276,7 @@ if fileid eq -1  then begin
 
         dataString=[dataString,'==================================================']
         numdesc = hdf_number(fileid,tag=101)
+help,numfpals,numfid,numdesc
         if numdesc gt 0 then begin
         dataString=[dataString,'',' # of file descriptor =  '+string(numdesc)]
 	dataString=[dataString,'','FILE_DESCRIPTOR # '+string(1)]
@@ -2225,12 +2290,9 @@ if fileid eq -1  then begin
                         end
         end
 
-	hdf_close,fileid	
-
 	WIDGET_CONTROL,HDF_Query_id.term,BAD_ID=bad,SET_VALUE=string(dataString)
 	if bad then HDF_Query_id.term = 0
 
-	return
 	end
 
 if n_elements(tag) eq 0 then begin
@@ -2242,41 +2304,42 @@ ON_IOERROR, EOD
 ; FDS tag =100
 if tag eq 100 or string(tag) eq 'FID' then begin 
 	numdesc = hdf_number(fileid,tag=100)
-	print,'N of file identifier = ',numdesc
+	dataString = 'N of file identifier = '+string(numdesc)
 	if numdesc gt 0 then begin
-		dataString = make_array(numdesc,/string)
         	HDF_DFAN_GETFID,filename,fid,/first
-		print,fid
-		dataString(0) = fid
+		dataString = [dataString,'','File id # 1']
+		dataString = [dataString,fid]
 		if numdesc gt 1 then $
 			for i=1,numdesc-1 do begin
        	 		HDF_DFAN_GETFID,filename,fid
-			print,fid
-			dataString(i) = fid
+			dataString = [dataString,'','File id # '+strtrim(i,2)]
+			dataString = [dataString,fid]
 			end
 		end
 	hdf_close,fileid
+	WIDGET_CONTROL,HDF_Query_id.term,BAD_ID=bad,SET_VALUE=string(dataString)
+	if bad then HDF_Query_id.term = 0
 	return
 	end
 
 ; FDS tag =101
 if tag eq 101 or  string(tag) eq 'FDS' then begin 
 	numdesc = hdf_number(fileid,tag=101)
-	print,'N of file descriptor =  ',numdesc
 	if numdesc gt 0 then begin
-		dataString = make_array(numdesc,/string)
-        	HDF_DFAN_GETFDS,filename,desc,/string,/first
-;        	HDF_DFAN_GETFDS,filename,desc,/first
-;		print,desc
-		dataString(0) = desc
-		if numdesc gt 1 then $
-		for i=1,numdesc-1 do begin
-        		HDF_DFAN_GETFDS,filename,desc,/string
-			print,desc
-			dataString(i) = desc 
-			end
-		end
+        dataString=[dataString,'',' N of file descriptor =  '+string(numdesc)]
+	dataString=[dataString,'','FILE_DESCRIPTOR # '+string(1)]
+                HDF_DFAN_GETFDS,filename,descs,/string,/first
+                dataString=[dataString,descs]
+                if numdesc gt 1 then $
+               	 	for i=1,numdesc-1 do begin
+                        HDF_DFAN_GETFDS,filename,descs,/string
+			dataString=[dataString,'FILE_DESCRIPTOR # '+string(i+1)]
+                        dataString=[dataString,descs]
+                        end
+        end
 	hdf_close,fileid
+	WIDGET_CONTROL,HDF_Query_id.term,BAD_ID=bad,SET_VALUE=string(dataString)
+	if bad then HDF_Query_id.term = 0
 	return
         end
 
@@ -3803,6 +3866,271 @@ if no lt 1 then return
   XMANAGER, 'HDFVD_DATA', MAIN13
 end
 END
+PRO VG,seq,tags,refs,ent_name,ent_type
+COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+
+	fid = HDF_Query.fid
+        vg_hdl = HDF_VG_ATTACH(fid,vgroup_ids(seq))
+        if vg_hdl gt 0 then begin
+        HDF_VG_GETINFO,vg_hdl,class=class,name=name,NENTRIES=NENTRIES
+	if nentries gt 0 then $
+        subVg,vg_hdl,NENTRIES,tags,refs,ent_name,ent_type,str
+        end
+        HDF_VG_DETACH,vg_hdl
+END
+
+PRO subVg,vgroup_id,num_en,tags,refs,att_name,att_type,str
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+
+; att_type = 1 VGroup subgroup
+;            2 VData 
+;            3 SDS data
+	str=''
+	att_name = strarr(num_en)
+	att_type = intarr(num_en)
+	HDF_VG_GETTRS,vgroup_id,tags,refs
+
+str = [str,string('tags:',tags,/print),string('refs:',refs,/print)]
+	id = -1
+	for i=0,num_en - 1 do begin
+;	id = HDF_VG_GETNEXT(vgroup_id,id)
+	id = refs(i)
+	vd = HDF_VG_ISVD(vgroup_id,id)
+	if vd then begin
+		nm=''
+		st = '     VDATA Attribute Entry # '+strtrim(i,2)
+		att_type(i) = 2
+		vd_id = HDF_VD_ATTACH(HDF_Query.fid,id)
+		if vd_id gt 0 then begin
+
+		HDF_VD_GET,vd_id,NAME=nm,fields=fields,nfields=nfields,ref=ref,tag=tag,size=sz
+		count= HDF_VD_READ(vd_id,vdata)
+		help,name,fields,nfields,ref,tag,sz,count,vdata,output=st0
+		st=[st,st0, string(string(vdata),/print)]
+ 
+		end 
+		str = [str,st]
+		HDF_VD_DETACH,vd_id
+	end
+	vg = HDF_VG_ISVG(vgroup_id,id)
+	if vg then begin
+		vg_id = HDF_VG_ATTACH(HDF_Query.fid,id)
+		; subgroup entry
+		if vg_id ne -1 then begin
+			att_type(i) = 1
+			HDF_VG_GETINFO,vg_id,NAME=nm
+			if n_elements(str) eq 0 then $
+			str = '     Attribute Entry # '+strtrim(i,2) + '     SUBGROUP name:'+ nm  else $
+			str = [str,'     Attribute Entry # '+strtrim(i,2) + '     SUBGROUP name:'+ nm ]
+		; group attribute entry
+		end
+		HDF_VG_DETACH,vg_id
+	end
+
+	sd_id = HDF_Query.sd_id
+        seq = HDF_SD_REFTOINDEX(sd_id,id)
+        if seq ge 0 then begin
+		att_type(i) = 3
+		; check for group attribute
+		st = '     SUBGROUP Attribute Entry # '+strtrim(i,2)
+
+                sds_id = HDF_SD_SELECT(sd_id,seq)
+                HDF_SD_GETINFO,sds_id,NAME=nm,type=type,Ndims=ndims,dims=dims
+;                HDF_SD_GETDATA,sds_id,data
+                HDF_SD_ENDACCESS,sds_id
+                if n_elements(nm) then st = st + '     name='+nm
+                if n_elements(data) then st = st + '     data='+string(data)
+		str = [str,st]
+        end
+
+	if att_type(i) eq 3 then nm = nm + '(SDS)'
+	if att_type(i) eq 1 then nm = nm + '(VGroup)'
+	if att_type(i) eq 2 then nm = nm + '(VData)'
+	att_name(i) = nm
+	end
+	str = [str,'']
+END
+
+PRO VGROUPLIST_MAIN13_Event, Event
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+COMMON VGROUPLIST_BLOCK,vgtree_id,p_name,p_class,p_ref,p_ent,c_ref,c_name,c_type,g_ref,g_name,g_type
+COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
+
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+
+  'PARENT_VGROUP': BEGIN
+      Print, 'Event for vgroup_parent'
+	VG,Event.index,tags,refs,ent_name,ent_type
+	c_name = ent_name
+	c_ref = refs
+	c_type = ent_type
+	vgtree_id.parent_idx = Event.index
+	WIDGET_CONTROL,vgtree_id.child,SET_VALUE=ent_name
+	WIDGET_CONTROL,vgtree_id.grandchild,SET_VALUE=''
+      END
+  'CHILD_VGROUP': BEGIN
+      Print, 'Event for vgroup_child'
+	WIDGET_CONTROL,vgtree_id.grandchild,SET_VALUE=''
+	vgtree_id.child_idx = Event.index
+	vgtree_id.child_ref = c_ref(Event.index)
+	vgtree_id.child_type = c_type(Event.index)
+	if vgtree_id.child_type eq 3 then begin
+		HDF_Query.seqno = HDF_SD_REFTOINDEX(HDF_Query.sd_id,vgtree_id.child_ref)
+	        ReadHDFOneRecord,HDF_Query.file, data, /view
+        	if HDF_Query.text gt 0 then datatotext,data
+		end
+	if vgtree_id.child_type eq 1 then begin
+	vg_id = HDF_VG_ATTACH(HDF_Query.fid,c_ref(Event.index))
+		if vg_id gt 0 then begin
+		HDF_VG_GETINFO,vg_id,name=name,class=class,NENTRIES=NENTRIES
+		if nentries gt 0 then begin
+		subVg,vg_id,NENTRIES,tags,refs,ent_name,ent_type,str
+		WIDGET_CONTROL,vgtree_id.grandchild,SET_VALUE=ent_name
+	g_ref = refs
+	g_name = ent_name
+	g_type = ent_type
+		if HDF_Query.text gt 0 then $
+		xdisplayfile,text=str,title='By VGroup List'
+		end
+		end
+	HDF_VG_DETACH,vg_id
+	endif
+      END
+  'GRANDCHILD_VGROUP': BEGIN
+      Print, 'Event for vgroup_grandchild'
+	vgtree_id.grandchild_idx = Event.index
+	vgtree_id.grandchild_ref = g_ref(Event.index)
+	vgtree_id.grandchild_type = g_type(Event.index)
+	if vgtree_id.grandchild_type eq 3 then begin
+		HDF_Query.seqno = HDF_SD_REFTOINDEX(HDF_Query.sd_id,vgtree_id.grandchild_ref)
+	        ReadHDFOneRecord,HDF_Query.file, data, /view
+        	if HDF_Query.text gt 0 then datatotext,data
+		end
+	if vgtree_id.grandchild_type eq 1 then begin
+	vg_id = HDF_VG_ATTACH(HDF_Query.fid,g_ref(Event.index))
+		if vg_id gt 0 then begin
+		HDF_VG_GETINFO,vg_id,name=name,class=class,NENTRIES=NENTRIES
+		if nentries gt 0 then begin
+		subVg,vg_id,NENTRIES,tags,refs,ent_name,ent_type,str
+		if HDF_Query.text gt 0 then $
+		xdisplayfile,text=str,title='GrandChild VGroup'
+		end
+;	WIDGET_CONTROL,vgtree_id.grandchild,SET_VALUE=ent_name
+;	WIDGET_CONTROL,vgtree_id.grandchild,SET_VALUE=''
+		end
+	HDF_VG_DETACH,vg_id
+	endif
+      END
+  'BUTTON16': BEGIN
+      Print, 'Event for Close'
+	WIDGET_CONTROL,Event.Top,/DESTROY
+      END
+  ENDCASE
+END
+
+
+; DO NOT REMOVE THIS COMMENT: END VGROUPLIST_MAIN13
+; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
+
+
+
+PRO VGROUPLIST, GROUP=Group
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+COMMON VGROUPLIST_BLOCK,vgtree_id,p_name,p_class,p_ref,p_ent
+COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
+
+  if XRegistered('VGROUPLIST_MAIN13') then return
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+  VGROUPLIST_MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
+	TITLE='** SELECT BY VGROUP LIST **', $
+      ROW=1,  MAP=1, $
+      UVALUE='VGROUPLIST_MAIN13')
+
+  BASE2 = WIDGET_BASE(VGROUPLIST_MAIN13, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE2')
+
+
+  BASE4 = WIDGET_BASE(VGROUPLIST_MAIN13, $
+      COLUMN=1, $
+      FRAME=2, $
+      MAP=1, $
+      UVALUE='BASE4')
+
+
+  vgroup = -1
+  p_name = strarr(HDF_Query.numVG)
+  p_class = strarr(HDF_Query.numVG)
+  p_ref = lonarr(HDF_Query.numVG)
+  p_ent = intarr(HDF_Query.numVG)
+  for i=0,HDF_Query.numVG-1 do begin
+	VGROUP=HDF_VG_GETID(HDF_Query.fid,vgroup)
+	VGROUP_ID=HDF_VG_ATTACH(HDF_Query.fid,VGROUP)
+	HDF_VG_GETINFO,VGROUP_ID,CLASS=CLASS,NAME=NAME,NENTRIES=NUM_ENTRIES
+	p_name(i) = name
+	p_class(i) = 'name='+ name + '  class=' + class
+	p_ref(i) = vgroup
+	p_ent(i) = NUM_ENTRIES
+  end
+
+  LIST5 = WIDGET_LIST( BASE4,VALUE=p_class, $
+      UVALUE='PARENT_VGROUP', $
+      YSIZE=5)
+
+  BASE6 = WIDGET_BASE(BASE4, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE6')
+
+  ListVal437 = ['                                '] 
+  LIST7 = WIDGET_LIST( BASE6,VALUE=ListVal437, $
+      UVALUE='CHILD_VGROUP', $
+      YSIZE=5,XSIZE=20)
+
+  ListVal482 = ['                                '] 
+  LIST8 = WIDGET_LIST( BASE6,VALUE=ListVal482, $
+      UVALUE='GRANDCHILD_VGROUP', $
+      YSIZE=5,XSIZE=20)
+
+
+  BASE14 = WIDGET_BASE(BASE4, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE14')
+
+  BUTTON16 = WIDGET_BUTTON( BASE14, $
+      UVALUE='BUTTON16', $
+      VALUE='Close')
+
+
+  vgtree_id = { $
+ 	  parent: List5,  $
+	  child: List7, $
+	  grandchild: List8, $
+	  parent_idx : 0, $         ; select index
+	  child_idx : 0, $
+	  grandchild_idx : 0, $
+	  parent_ref : 0, $         ; hdf ref  
+	  child_ref : 0, $
+	  grandchild_ref : 0, $
+	  parent_type : 1, $         ; group type 1,2,3 
+	  child_type : 0, $
+	  grandchild_type : 0 $
+	}
+
+  WIDGET_CONTROL, VGROUPLIST_MAIN13, /REALIZE
+
+  XMANAGER, 'VGROUPLIST_MAIN13', VGROUPLIST_MAIN13
+END
 
 
 
@@ -3904,6 +4232,9 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
       Print, 'Event for VG Slider:',seqno
       END
 
+  'HDF_VG_LIST': BEGIN
+	VGROUPLIST,GROUP=Event.top
+	END
   'HDF_VG_EXIT': BEGIN
       WIDGET_CONTROL,vgroupData_id.base,BAD_ID=bad,/DESTROY 
       WIDGET_CONTROL,HDF_Query_id.vg_term,BAD_ID=bad,/DESTROY 
@@ -4011,6 +4342,10 @@ WIDGET_CONTROL, HDF_VG_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.glevel
 	MIN=0,UVALUE='HDF_VG_SLIDER')
   vgroupData_id.slider = HDF_VG_SLIDER
   end
+
+  HDF_VG_LIST = WIDGET_BUTTON( BASE45, $
+      UVALUE='HDF_VG_LIST', $
+      VALUE='BY VGROUP LISTS')
 
   HDF_VG_EXIT= WIDGET_BUTTON( BASE45, $
       UVALUE='HDF_VG_EXIT', $
@@ -5463,6 +5798,12 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
         ReadHDFOneRecord,HDF_Query.file, data, /view
         if HDF_Query.text gt 0 then datatotext,data
       END
+  'SDS_DATA_NAME': BEGIN
+        HDF_Query.seqno = Event.index 
+        WIDGET_CONTROL,sdsData_id.seqwid, SET_VALUE= strtrim(Event.index,2)
+        ReadHDFOneRecord,HDF_Query.file, data, /view
+        if HDF_Query.text gt 0 then datatotext,data
+      END
   'SDS_DATA_EXIT': BEGIN
 	WIDGET_CONTROL,sdsData_id.base,/DESTROY,BAD_ID=bad
 	WIDGET_CONTROL,HDF_Query_id.terminal,/DESTROY,BAD_ID=bad
@@ -5480,14 +5821,17 @@ PRO HDFSDSDATA_init
 COMMON SDS_DATA_BLOCK, sdsData_id
   sdsData_id = {  $
 		base : 0L, $
+		sdsindex : 0, $
 		slider : 0L, $
 		seqwid : 0L $
 	}
+
 END
 
 
 PRO HDFSDSDATA,file,no,GROUP=Group
 COMMON SDS_DATA_BLOCK, sdsData_id
+COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -5499,6 +5843,15 @@ if no lt 1 then return
 
   if n_elements(sdsData_id) eq 0 then HDFSDSDATA_init
 
+        sdsnames = strarr(no)
+;	sdsvgname,sdsnames
+	for i=0,HDF_Query.numSDS-1 do begin
+	sds_id = HDF_SD_SELECT(HDF_Query.sd_id,i)
+	HDF_SD_GETINFO,sds_id,NAME=n
+	sdsnames(i) = n
+	HDF_SD_ENDACCESS,sds_id
+	end
+	
   if Xregistered('HDFSDSDATA') then $
 	WIDGET_CONTROL,sdsData_id.base,/DESTROY,BAD_ID=bad
 
@@ -5560,6 +5913,11 @@ if no gt 1 then begin
   sdsData_id.slider = SLIDER11
 end
 
+  ListVal738 = sdsnames
+  LIST4 = WIDGET_LIST( BASE2,VALUE=ListVal738, $
+      UVALUE='SDS_DATA_NAME', $
+      YSIZE=5)
+
   SDS_DATA_EXIT = WIDGET_BUTTON( BASE2, $
       UVALUE='SDS_DATA_EXIT', $
       VALUE='Close')
@@ -5619,7 +5977,7 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	WIDGET_CONTROL,HDF_Query_id.filename, SET_VALUE=HDF_Query.file
 
 	HDFInitData,file=F
-	DumpHDFAN,F,tag=100,dataString=d,/desc
+	DumpHDFAN,F,tag=101,dataString=d,/desc
 	if n_elements(d) then $
 	WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=d else $
 	WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=''
@@ -5662,7 +6020,7 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
 	if strlen(file) gt 1 then begin
 		HDFInitData,file=file
-		DumpHDFAN,file,tag=100,dataString=d,/desc
+		DumpHDFAN,file,tag=101,dataString=d,/desc
 		if n_elements(d) then $
 		WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=d else $
 		WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=''
