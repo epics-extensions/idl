@@ -596,7 +596,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.9 2001/04/04 21:22:05 cha Exp $
+; $Id: vw2d.pro,v 1.10 2001/04/04 21:37:34 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1249,7 +1249,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.9 2001/04/04 21:22:05 cha Exp $
+; $Id: vw2d.pro,v 1.10 2001/04/04 21:37:34 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -4939,7 +4939,7 @@ end
   COMMON DRAW62_Comm, DRAW62_Id
   WIDGET_CONTROL, DRAW62, GET_VALUE=DRAW62_Id
 
-@vw2d.init.R2.2
+@vw2d.init
 
   WIDGET_CONTROL, surface_plot, SET_DROPLIST_SELECT=view_option.surface
   WIDGET_CONTROL, BGROUP184, SET_DROPLIST_SELECT=view_option.user
