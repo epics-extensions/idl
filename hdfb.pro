@@ -229,8 +229,8 @@ end
 	end
 	if keyword_set(echo) then begin
 		det_def = make_array(nd,value=1)
-;		panimage,data,det_def,numd=10,detnm=dname
-		panimage_sel,data,det_def,detnm=dname
+		panimage,data,det_def,numd=10,detnm=dname
+;		panimage_sel,data,det_def,detnm=dname
 	end
 END
 
@@ -481,7 +481,7 @@ if keyword_set(view) then begin
 	WIDGET_CONTROL,HDF_Query_id.terminal,BAD_ID=bad,SET_VALUE=vdata
 
 	Print,'Displaying SData ' + unit
-;	loadct,2
+
 CASE no OF 
 	1: BEGIN
 	HDF_DFSD_DIMGET,0, LABEL=xl, UNIT=xu
@@ -730,19 +730,21 @@ type = s(n_elements(s)-2)
 		left = 30
 		bott = 50
 		space = 10+wide
-		newdata = congrid(data,wide,wide,s(3))
+		ht = HDF_Query_id.draw_ysize 
 		old_win = !d.window
 		!p.multi = 0
 ; only show first 12 images from the 3D data array
 		last = dim(2) - 1
 		if last gt 11 then last = 11
 		for i=0,last do begin
-			id = i/6 
-			ip = i mod 6
-;			TVSCL, newdata(*,*,i) , ip*space+left, id*space+bott
-	temp = newdata(*,*,i)
-	temp = fix(float(temp-y1)/(y2-y1)*!d.table_size)
-	TV,temp,  ip*space+left, id*space+bott
+		id = i/6 
+		ip = i mod 6
+		x0 = ip*space+left
+		y0 = ht -left - (id+1)*space
+		temp = congrid(data(*,*,i),wide,wide)
+		TVSCL,temp,x0,y0
+;	temp = fix(float(temp-y1)/(y2-y1)*!d.table_size)
+;	TV,temp,  ip*space+left, id*space+bott
 		end
 		END
 		ELSE: HDF_scrolltext,'No plot supported for'+string(no)+'D data',60,3
@@ -775,6 +777,7 @@ type = s(n_elements(s)-2)
 		if HDF_Query.real and HDF_Query.naxis gt 0 then begin
 		xv = indgen(sz(1))
 		if sz(1) eq n_elements(*HDF_Query.xarr) then xv = *HDF_Query.xarr
+		if sz(1) eq n_elements(*HDF_Query.yarr) then xv = *HDF_Query.yarr
 		plot1d,xv,data,title=str,wtitle=HDF_Query.file
 		endif else $
 		plot1d,data,title=str,wtitle=HDF_Query.file,xtitle='Index #'
@@ -804,7 +807,7 @@ type = s(n_elements(s)-2)
 	if sz(2) eq n_elements(*HDF_Query.xarr) then yv = *HDF_Query.xarr
 	if sz(3) eq n_elements(*HDF_Query.yarr) then zv = *HDF_Query.yarr
 	end
-		view3d_2D,data,0,xv,yv,zv,title=str ; ,/slicer3
+		view3d_2d,data,0,xv,yv,zv,title=str ; ,/slicer3
 	     END
 		ELSE: HDF_scrolltext,['Sorry, currently there is no separate plot window','supported for this type of data.'],60,3
 	ENDCASE
@@ -5011,21 +5014,31 @@ end
   HDF_Query.naxis = naxis
   axisnames = sdsnames(sl1)
 
+*HDF_Query.xarr=0
+*HDF_Query.yarr=0
+  if naxis eq 1 then begin
   iaxis = WIDGET_DROPLIST( BASE11,VALUE=axisnames, $
       UVALUE='SDS_DATA_IAXIS',title='X' )
   widget_control,iaxis,set_droplist_select=0
   SDS,data,seqno=sl1(0)
   *HDF_Query.xarr = data
+  end
+
   if naxis gt 1 then begin
   jaxis = WIDGET_DROPLIST( BASE11,VALUE=axisnames, $
       UVALUE='SDS_DATA_JAXIS',title='Y' )
+  widget_control,jaxis,set_droplist_select=0
+  SDS,data,seqno=sl1(0)
+  *HDF_Query.yarr = data
+  iaxis = WIDGET_DROPLIST( BASE11,VALUE=axisnames, $
+      UVALUE='SDS_DATA_IAXIS',title='X' )
 lll = 1
 nm1 = axisnames(0)
 ll = where(strmatch(axisnames,nm1) > 0)
 if n_elements(ll) gt 1 then lll = ll(1)
-  widget_control,jaxis,set_droplist_select=lll
+  widget_control,iaxis,set_droplist_select=lll
   SDS,data,seqno=sl1(lll)
-  *HDF_Query.yarr = data
+  *HDF_Query.xarr = data
   end
   SDS_DATA_AXIS = WIDGET_BUTTON( BASE11, $
       UVALUE='SDS_DATA_AXIS', $
@@ -5572,7 +5585,7 @@ PRO HDFB, filename, GROUP=Group
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
 
-loadct,2
+loadct,39
 
 HDF_Query = { $,
         fid :   0L, $
