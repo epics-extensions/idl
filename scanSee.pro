@@ -67,7 +67,12 @@ PRO DC_view_init, filename , DC_view_ids, print=print
 	WIDGET_CONTROL,DC_view_ids.list2DWID,SET_LIST_SELECT=DC_view_ids.detno-1
 	WIDGET_CONTROL,DC_view_ids.list1dWID,SET_LIST_SELECT=DC_view_ids.list_sel(0:DC_view_ids.sel_no-1)
 
+  	WIDGET_CONTROL, DC_view_ids.base1DWID1,SENSITIVE=1
+  	WIDGET_CONTROL, DC_view_ids.base1DWID2,SENSITIVE=1
+
 	if dim eq 3 then begin
+  	WIDGET_CONTROL, DC_view_ids.base1DWID1,SENSITIVE=0
+  	WIDGET_CONTROL, DC_view_ids.base1DWID2,SENSITIVE=0
         DC_view_ids.height = cpt(1)
 	if cpt(1) le 0 then DC_view_ids.height = num_pts(1)
         DC_view_ids.depth = cpt(2)
@@ -270,6 +275,18 @@ rank = state.rank
 slice = state.slice
 
   CASE Event.Value OF
+  '3D PanImage.Calibration...': begin
+	v->read,dim=dim,x=x,y=y,z=z
+        v->view3d_panImage,slice,rank,image_array
+	title = ' Axis:3D_2D PanImage Slice # '+strtrim(slice,2)
+	if rank eq 0 then title='X'+title
+	if rank eq 1 then title='Y'+title
+	if rank eq 2 then title='Z'+title
+        calibration_factor,image_array,state.def,xv=x,yv=y, $
+                classname=state.class,inpath=state.path, $
+                title=title,GROUP=Event.top
+
+	end
   '3D PanImage.PanImages+TIFF': begin
 	DC_viewOutputFilename,state,'.pan.','TIFF',filename
         v->view3d_panImage,slice,rank,tiff=filename,/reverse
@@ -614,6 +631,8 @@ loadct,39
 	base:0L,$
 	basefileWID: 0L,$
 	base2DWID: 0L,$
+	base1DWID1:0L, $
+	base1DWID2:0L, $
 	filenameWID : 0L, $
 	filenoWID : 0L, $
 	sliderWID: 0L, $
@@ -772,6 +791,9 @@ loadct,39
       MAP=1, $
       UVALUE='BASE13')
 
+  DC_view_ids.base1DWID1 = BASE12
+  DC_view_ids.base1DWID2 = BASE13
+
   BUTTON17 = WIDGET_BUTTON( BASE13, $
       UVALUE='VIEWSPEC_EZFIT', $
       VALUE='Ez_Fit...')
@@ -805,6 +827,7 @@ loadct,39
 
   Menu3DPANImage = [ $
       { CW_PDMENU_S,       1, '3D PanImage' }, $ ;        0
+        { CW_PDMENU_S,       0, 'Calibration...' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+PICT' }, $ ;        1
@@ -820,7 +843,7 @@ loadct,39
 
   LABEL90 = WIDGET_LABEL( BASE28_61, $
       UVALUE='LABEL90', /align_left, $
-      VALUE='Index #')
+      VALUE='Slice Index #')
   LIST15 = WIDGET_LIST( BASE28_61,VALUE=DC_view_ids.list(1:15), $
       UVALUE='VIEWSPEC_3DSELECT', $
       YSIZE=3)
@@ -897,6 +920,7 @@ endif else begin
 	print,DC_view_ids.filename
   end
 end
+  if n_elements(filename) eq 0 then filename='.scan' 
   found = findfile(filename,count=ct)
   if ct gt 0 then begin 
   DC_view_init,filename,DC_view_ids
