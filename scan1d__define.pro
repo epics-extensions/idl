@@ -4,6 +4,46 @@
 
 @u_read.pro
 @fit_statistic.pro
+@fixIndexFile.pro
+
+PRO readfixindex,indexfile,fsize,maxno,array
+
+	found = findfile(indexfile,count=ct)
+	if ct eq 0 then return
+
+	t = lonarr(5)
+	if !d.name eq 'WIN' then openr,unit1,indexfile,/get_lun,/XDR else $
+	openr,unit1,indexfile,/get_lun
+	
+	point_lun,unit1,0
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 7 then fname=''
+	readu,unit1,fname
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 3 then fsize=0L 
+	readu,unit1,fsize
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 2 then maxno=0 
+	readu,unit1,maxno
+	readu,unit1,t
+	if t(2) eq 3 then array = make_array(t(1),/long)
+	readu,unit1,array
+	free_lun,unit1
+	close,unit1
+
+END
+
+PRO scan1d::FixIndexFile,nowrite=nowrite,print=print
+
+	self.fptr = make_array(10000,/long)
+
+	WIDGET_CONTROL,/HOURGLASS
+	catch1d_newIndexFile,self.file,array,/XDR,nowrite=nowrite,print=print
+	maxno = n_elements(array)
+	self.fptr = array
+	self.maxno = maxno-1
+
+END
 
 PRO scan1d::Calibration,scanno,format=format,GROUP=group
 
@@ -213,15 +253,14 @@ end
 
 ; integer list
 
-temp = obj_new('scan1d',file=self.path +'/'+self.file) 
-
 	for i=0,n_elements(list)-1 do begin
-	temp->point_lun,list(i)-1
-	if keyword_set(nowin) then temp->read,/list,/nowin else $
-	temp->read,/list
+	if list(i) le self.maxno then begin
+	self->point_lun,list(i)-1
+	if keyword_set(nowin) then self->read,/list,/nowin else $
+	self->read,/list
+	endif else r=dialog_message(string(list(i))+' exceeds the maxno'+string(self.maxno),/error)
 	end
 
-obj_destroy,temp
 END
 
 
@@ -269,10 +308,10 @@ if !d.name eq 'X' then begin
                 U_OPENR,unit,filename
                 type = 0
         end
-end
-if  n_elements(version) eq 0 then begin
+	if  n_elements(version) eq 0 then begin
 	r=dialog_message('Error: wrong type of file entered!',/Error)
 	return
+	end
 end
 if !d.name eq 'WIN' then begin
         U_OPENR,unit,filename,/XDR
@@ -285,7 +324,7 @@ end
 	; get path
 
         self.file = filename
-        pos = rstrpos(filename,'/')
+        pos = rstrpos(filename,!os.file_sep)
         if pos gt 0 then begin
                 self.path = strmid(filename,0,pos)
                 self.file = strmid(filename,pos+1,strlen(filename))
@@ -545,6 +584,8 @@ file = self.file +'.'+suf0
 endif else file = list+'.txt'
 
 	report = file
+	pos = rstrpos(file,!os.file_sep)
+	report = strmid(file,pos+1,strlen(file)-pos-1)
 	sz=size(list)
 	if sz(n_elements(sz)-2) eq 7 then report = strtrim(list,2) 
 
@@ -606,68 +647,45 @@ PRO scan1d::scan_read_all,maxno
 unit = self.unit
 
 	status = FSTAT(unit)
-
-	indexFile = status.name + '.index'
-	size = status.size
-
-	self.file = status.name
-
-; check whether indexFile exist
-found = findfile(indexFile)
-if found(0) eq '' then begin
-	id = 0
-	self.fptr = make_array(10000,/long)
-	point_lun,unit,0
-
-	WHILE NOT  EOF(unit) DO BEGIN
-	id = id + 1
-		self->read
-		point_lun,-unit,pos
-		self.fptr(id) = pos
-	END
-	maxno = id	
-	self.maxno = maxno
-endif else begin
-
-; check file size change
-
-if self.file ne status.name then begin
-
-	id = 0
-	self.fptr = make_array(10000,/long)
-
-	WHILE NOT  EOF(unit) DO BEGIN
-	id = id + 1
-		self->read
-		point_lun,-unit,pos
-		self.fptr(id) = pos
-	END
-	maxno = id	
-	self.maxno = maxno
-
-endif else begin
-
-	if size gt self.size then begin
-
-	id = self.maxno
-	point_lun,unit,self.size
-        self.fptr(id) = self.size 
-
-	WHILE NOT  EOF(unit) DO BEGIN
-	id = id + 1
-		self->read
-		point_lun,-unit,pos
-		self.fptr(id) = pos
-	END
-	maxno = id	
-	self.maxno = maxno
-	endif else maxno = self.maxno 
-end
-end
 	self.seqno = 0
 	self.size = status.size
 	self.file = status.name
 
+	indexFile = status.name + '.index'
+	size = status.size
+
+	self_file = status.name
+
+u_rewind,unit
+; check whether indexFile exist
+found = findfile(indexFile)
+if found(0) eq '' then begin
+
+	id = 0
+	self.fptr = make_array(10000,/long)
+	point_lun,unit,0
+
+	if !d.name eq 'WIN' then begin
+	self->FixIndexFile,/print ;,/nowrite
+	return
+	end
+
+	WHILE NOT  EOF(unit) DO BEGIN
+	id = id + 1
+		self->read
+		point_lun,-unit,pos
+		self.fptr(id) = pos
+	END
+	maxno = id	
+	self.maxno = maxno
+endif else begin
+
+	readIndex,indexFile,fsize,maxno,array
+	self.fptr = array
+	self.maxno = maxno
+	self.size = fsize
+
+end
 END
 
 PRO scan1d::Point_lun,no
@@ -746,6 +764,7 @@ PRO scan1d::Readindex,filename
 
 ; check whether filename exists
 
+if n_elements(filename) eq 0 then filename = self.file
 fd = findfile(filename)
 IF fd(0) NE '' THEN BEGIN
 	
@@ -753,13 +772,15 @@ IF fd(0) NE '' THEN BEGIN
 
 found = findfile(indexfile)
 if found(0) ne '' then begin
-	U_OPENR,unit,indexfile
-	u_read,unit,name
-	u_read,unit,fsize
-	u_read,unit,maxno
-	u_read,unit,array
-	u_close,unit
-
+	if !d.name eq 'WIN' then $
+	readfixindex,indexfile,fsize,maxno,array else begin
+		u_openr,unit,indexfile
+		u_read,unit,fn
+		u_read,unit,fsize
+		u_read,unit,maxno
+		u_read,unit,array
+		u_close,unit
+	end
 	openr,1,filename
 	status = FSTAT(1)
 	close,1
@@ -768,7 +789,6 @@ if found(0) ne '' then begin
 	self.file = filename
 	self.size = fsize(0)
 	self.maxno = maxno(0)
-;	self.fptr(0:maxno(0)) = array
 	self.fptr = array
 	end
 ;	print,'***Read Index File: ',indexfile
@@ -786,15 +806,20 @@ end
         ; get dir
  
 	dir = ''
-	if self.path ne '' then dir = self.path+'/'
+	if self.path ne '' then dir = self.path+!os.file_sep 
 	CATCH,error_status
 	if error_status ne 0 then begin
        	 if self.path ne '' and self.home ne self.path then $
-       	 dir = self.home+'/' else $
-       	 dir = getenv('HOME')+'/'
+       	 dir = self.home+!os.file_sep  else $
+       	 dir = getenv('HOME')+!os.file_sep
 	end
 	openw,fw,dir+'1',/get_lun
 	close,fw
+	dir = dir + 'ASCII' 
+
+	fd = findfile(dir,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +dir
+	dir = dir + !os.file_sep
 	self.dir = dir
 ENDIF ELSE BEGIN
 	res=WIDGET_MESSAGE('Warning: file "' + filename + '" not found.',/info)
@@ -837,8 +862,9 @@ PRO scan1d::Writeindex,filename
 
 ; check file existence
 
-if !d.name eq 'WIN' then return
+; if !d.name eq 'WIN' then return
 
+if n_elements(filename) eq 0 then filename=self.file
 found = findfile(filename)
 if found(0) eq '' then return
 	openr,1,filename
@@ -850,13 +876,14 @@ if found(0) eq '' then return
 	if self.maxno gt 0 then begin
 
 	indexfile = self.file + '.index'
-	CATCH,error_status
-	if error_status lt 0 then return
-	U_OPENW,unit,indexfile
 
 	array = self.fptr(0:self.maxno)
 	array(self.maxno) = status.size
 
+	CATCH,error_status
+	if error_status lt 0 then return
+	if !d.name eq 'WIN' then U_OPENW,unit,ndexfile,/XDR else $
+	U_OPENW,unit,indexfile
 	u_write,unit,status.name
 	u_write,unit,status.size
 	u_write,unit,self.maxno
