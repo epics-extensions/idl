@@ -21,7 +21,7 @@ else if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	 set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif 
 
-if ${?EPICS_EXT_PVT} == 1 or ${?EPICS_EXTENSIONS_PVT} == 1 then
+if ( ${?EPICS_EXT_PVT} | ${?EPICS_EXTENSIONS_PVT} ) then
 	if  -e $PVT_LOC/ezcaIDL.so  then
         setenv  EZCA_IDL_SHARE $PVT_LOC/ezcaIDL.so
 	endif
