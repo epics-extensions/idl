@@ -1,4 +1,4 @@
-; $Id: catcher_v1.pro,v 1.42 1999/10/25 21:02:44 cha Exp $
+; $Id: catcher_v1.pro,v 1.43 2000/02/28 19:05:16 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -801,7 +801,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
-; $Id: catcher_v1.pro,v 1.42 1999/10/25 21:02:44 cha Exp $
+; $Id: catcher_v1.pro,v 1.43 2000/02/28 19:05:16 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -975,6 +975,132 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
+
+
+PRO RENAME_DIALOG_Event, Event
+COMMON RENAME_BLOCK,rename_ids
+
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+  'RENAME_PATH': BEGIN
+	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
+	len = strlen(pathdir(0))
+	found = findfile(pathdir(0),count=ct)
+	if ct eq 0 then spawn, !os.mkdir +' '+ pathdir(0)
+	END
+  'RENAME_DIALOGACCEPT': BEGIN
+	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
+	WIDGET_CONTROL,rename_ids.old_id,GET_VALUE=file1
+	WIDGET_CONTROL,rename_ids.new_id,GET_VALUE=file2
+	if strtrim(file2(0),2) eq '' then return
+	len = strlen(pathdir(0))
+	if strmid(pathdir(0),len-1,1) ne !os.file_sep then $
+		pathdir = pathdir(0)+!os.file_sep
+	found = findfile(pathdir(0),count=ct)
+	if ct eq 0 then spawn,!os.mkdir+ ' '+pathdir(0)
+	oldname = strtrim(file1(0),2)
+	found = findfile(oldname)
+	if found(0) eq '' then begin
+		st =[ 'Filename: ','',oldname,'', 'not found!']
+		res = dialog_message(st,/info)
+		return
+	end
+	newname = pathdir(0)+strtrim(file2(0),2)
+	found = findfile(newname)
+	if found(0) ne '' then begin
+		st =[ 'Filename: ','', newname,'','already exists!', $
+		    '','Do you want to over-write the old content?']
+		res = dialog_message(st,/question)
+		if res eq 'No' then return	
+	end
+	spawn,!os.mv + ' '+ oldname + ' '+newname +' &'
+	WIDGET_CONTROL,Event.Top,/DESTROY
+      END
+  'RENAME_DIALOGCANCEL': BEGIN
+	WIDGET_CONTROL,Event.Top,/DESTROY
+      END
+  ENDCASE
+END
+
+
+; DO NOT REMOVE THIS COMMENT: END RENAME_DIALOG
+; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
+
+
+
+PRO rename_dialog, pathdir,oldname,newname, GROUP=Group
+COMMON RENAME_BLOCK,rename_ids
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+
+  RENAME_DIALOG = WIDGET_BASE(GROUP_LEADER=Group, $
+      ROW=1, $
+      MAP=1, $
+	TITLE='Rename File ...', $
+      UVALUE='RENAME_DIALOG')
+
+  BASE2 = WIDGET_BASE(RENAME_DIALOG, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE2')
+
+  RENAME_OLD = CW_FIELD( BASE2,VALUE=oldname, $
+      ROW=1, $
+      STRING=1, $
+  ;    RETURN_EVENTS=1, $
+      TITLE='Old Filename:', $
+      UVALUE='RENAME_OLD', $
+      XSIZE=60)
+
+  RENAME_PATH = CW_FIELD( BASE2,VALUE=pathdir, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Dest Path:', $
+      UVALUE='RENAME_PATH', $
+      XSIZE=60)
+
+  new=''
+  if n_elements(newname) then new=newname
+  RENAME_NEW = CW_FIELD( BASE2,VALUE=new, $
+      ROW=1, $
+      STRING=1, $
+  ;    RETURN_EVENTS=1, $
+      TITLE='New Filename:', $
+      UVALUE='RENAME_NEW', $
+      XSIZE=60)
+
+  BASE5 = WIDGET_BASE(BASE2, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE5')
+
+  BUTTON6 = WIDGET_BUTTON( BASE5, $
+      UVALUE='RENAME_DIALOGACCEPT', $
+      VALUE='Accept')
+
+  BUTTON7 = WIDGET_BUTTON( BASE5, $
+      UVALUE='RENAME_DIALOGCANCEL', $
+      VALUE='Cancel')
+
+  rename_ids = { $
+	path: pathdir, $
+	oldname: oldname, $
+	newname: oldname, $
+	path_id: RENAME_PATH, $
+	old_id: RENAME_OLD, $
+	new_id: RENAME_NEW $
+	}
+
+  WIDGET_CONTROL, RENAME_DIALOG, /REALIZE
+
+  XMANAGER, 'RENAME_DIALOG', RENAME_DIALOG
+END
 
 PRO catch1d_get_pvtcolor,i,color
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
@@ -2885,6 +3011,12 @@ win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
 
    ;extract valid data from global arrays
 
+   ; If plotting before p1 was read ...
+   IF num_pts le 1 then begin
+	w_warningtext,'Error: You have to open input file first !'
+	return
+   END
+
    catch1d_check_xaxis,num_pts,p1,xmin,xmax
 
 ; check any data available 
@@ -3008,16 +3140,6 @@ if !d.name ne 'PS' then WSET, widget_ids.plot_area
 
    ;fake out PLOT to plot an empty axis
    junk = ['5','6']
-
-   ; If plotting before p1 was read ...
-;   IF ((STRLEN(scanData.pv) EQ 0) OR  $    gives problem when no config
-    IF (  (ymax LE ymin)             OR  $
-       ((MIN(p1) EQ 0) AND (MAX(p1) EQ 0))) THEN  BEGIN
-	p1=indgen(num_pts+1)
-	xmin=0
-	xmax=num_pts
-	if auto eq 1 then view1d_adjust_ranges,xmin,xmax
-   ENDIF
 
    ;Plot the axis w/o any waveforms
 
@@ -3205,9 +3327,10 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	   p1 = scanData.da(0:num_pts,i-4)
 	   xmin = MIN(p1)
 	   xmax = MAX(p1)
-	   if xmin eq xmax then begin
-		str='Warning: Maybe no data available for x-axis P'+ $
-			strtrim(i+1,2)+ ' array'
+	   if xmin eq xmax and w_plotspec_id.x_axis_u eq 0 then begin
+		str=['Warning: Constant value found for x-axis P'+ $
+			strtrim(i+1,2)+ ' vector', $
+		     '         If you desired, you may try Step # for Xaxis.']
 		w_warningtext,str
 	   end
 END
@@ -3268,8 +3391,8 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 ;
 ;  increase the xmin,xmax by +5%
 ;
-	if xmax eq xmin then dx = 1. else $
         dx = 0.05 *(xmax-xmin)
+        if dx le 1.e-15 then dx = 1.
         xmax = xmax + dx
         xmin = xmin - dx
 
@@ -6244,18 +6367,16 @@ COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
 	view1d_summary_id.start = start
 	view1d_summary_id.stop = stop
 
-	WIDGET_CONTROL,view1d_summary_ids.file, GET_VALUE=file
-	filename=strcompress(file(0),/remove_all)
+	filename = scanData.trashcan 
 	found = findfile(filename)
 if found(0) ne '' then  begin	
-	view1d_summary_id.file = filename
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
 	view1d_summary_id.outfile=strcompress(file(0),/remove_all)
 
 	;  use the data directory first if failed then home directory
 
-	report_path = scandata.path
-	save_outfile = scandata.path+view1d_summary_id.outfile
+	report_path = view1d_summary_id.outpath
+	save_outfile = report_path+view1d_summary_id.outfile
 
 ; quard trashcan
 	if save_outfile eq scandata.trashcan then begin
@@ -6288,14 +6409,6 @@ deepmove:
 		spawn,str
 	end
 
-	CATCH,error_status
-	if error_status ne 0 then begin
-		report_path = scandata.home + OS_SYSTEM.file_sep  ; '/'
-		save_outfile = report_path+view1d_summary_id.outfile
-		goto, RESETSENSE
-	end
-	openw,unit,save_outfile,/get_lun
-	u_close,unit
 RESETSENSE:
 
 ; save as one big file
@@ -6358,35 +6471,6 @@ COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
         ret = strpos('defgDEFG',scanData.code)
        if ret eq -1 then w_warningtext,'Error:   illegal format entered !!!'
 	END
-  'summary_file': BEGIN
-      Print, 'Event for Filename'
-	WIDGET_CONTROL, view1d_summary_ids.file, GET_VALUE=file 
-	filename=strcompress(file(0),/remove_all)
-	found = findfile(filename)
-	if found(0) ne '' then begin	
-	view1d_summary_id.file = filename
-
-	ln = check_data_version(filename,/nowid)
-	if ln ne 0 then begin
-		res = widget_message('Wrong type of data entered!',/Error)
-		return
-	end
-if scanData.XDR then U_OPENR,unit,view1d_summary_id.file,/XDR else $
-u_openr,unit,view1d_summary_id.file
-scan_read_all,unit,maxno
-free_lun,unit
-view1d_summary_id.start = maxno
-view1d_summary_id.stop = maxno
-
-	WIDGET_CONTROL,view1d_summary_ids.start, $ 
-		SET_VALUE=strtrim(view1d_summary_id.start,2)
-	WIDGET_CONTROL,view1d_summary_ids.stop, $
-		SET_VALUE=strtrim(view1d_summary_id.stop,2)
-	report_setup
-	outfile = view1d_summary_id.outfile
-	WIDGET_CONTROL, view1d_summary_ids.outfile, SET_VALUE= outfile
-	end
-      END
   'summary_start': BEGIN
 	WIDGET_CONTROL,view1d_summary_ids.start, GET_VALUE=start
 	if start gt 0 and start le w_viewscan_id.maxno then begin
@@ -6415,59 +6499,55 @@ view1d_summary_id.stop = maxno
 	report_setup
 	WIDGET_CONTROL, view1d_summary_ids.outfile, SET_VALUE= view1d_summary_id.outfile
 	END
+  'summary_outpath': BEGIN
+        WIDGET_CONTROL,view1d_summary_ids.outpath,GET_VALUE=path
+        outpath = strcompress(path(0),/remove_all)
+        len = strlen(outpath)
+        if strmid(outpath,len-1,1) ne !os.file_sep then  $
+		outpath=outpath+!os.file_sep
+        found = findfile(outpath,count=ct)
+        if ct eq 0 then spawn,!os.mkdir + ' '+ outpath
+        view1d_summary_id.outpath = outpath
+        WIDGET_CONTROL,view1d_summary_ids.outpath,SET_VALUE=outpath
+      END
+  'summary_outfile': BEGIN
+        WIDGET_CONTROL,view1d_summary_ids.outfile,GET_VALUE=file
+        view1d_summary_id.outfile = file(0)
+      END
   'summary_ok': BEGIN
 	  view1d_summary_generate
       END
   'summary_view': BEGIN
-	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
-	filename=strcompress(file(0),/remove_all)
+        WIDGET_CONTROL,view1d_summary_ids.outfile,GET_VALUE=file
+	view1d_summary_id.outfile = file(0)
+	filename = view1d_summary_id.outfile
 
-	; check the data directory first
-
-	view1d_summary_id.outfile = scanData.path + filename
-	found = findfile(view1d_summary_id.outfile)
+	outfile = view1d_summary_id.outpath + filename
+	found = findfile(outfile)
 	if found(0) ne '' then begin
-	  xdisplayfile,view1d_summary_id.outfile,width=110,GROUP=event.top 
+	  xdisplayfile,outfile,width=110,GROUP=event.top 
   		return
  	end
 
-	; check startup directory
-
-	found = findfile(filename)
-	if found(0) ne '' then $ 
-        xdisplayfile,filename,width=110,GROUP=event.top else  begin
 	  view1d_summary_generate
-	  xdisplayfile,view1d_summary_id.outfile,width=110,GROUP=event.top 
-	end
+	  xdisplayfile,outfile,width=110,GROUP=event.top 
 	END
 
   'summary_print': BEGIN
+        WIDGET_CONTROL,view1d_summary_ids.outfile,GET_VALUE=file
+	view1d_summary_id.outfile = file(0)
+	filename = view1d_summary_id.outfile
 
-	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
-	filename=strcompress(file(0),/remove_all)
-
-	; check the data directory first
-
-	view1d_summary_id.outfile = scanData.path + filename
-	found = findfile(view1d_summary_id.outfile)
+	outfile = view1d_summary_id.outpath + filename
+	found = findfile(outfile)
 	if found(0) ne '' then begin
 		if OS_SYSTEM.os_family eq 'unix' then $
-		str = OS_SYSTEM.prt+' '+OS_SYSTEM.printer+' -r '+view1d_summary_id.outfile else $
-		str = OS_SYSTEM.prt+' '+view1d_summary_id.outfie
+		str = !os.prt+' '+!os.printer+' -r '+outfile else $
+		str = !os.prt+' '+outfie
 		spawn,str+' &'
 		return
-	end
-
-	; check startup directory
-
-	found = findfile(filename)
-	if found(0) ne '' then 	begin 
-		if OS_SYSTEM.os_family eq 'unix' then $
-		str=OS_SYSTEM.prt+' '+OS_SYSTEM.printer+' -r '+filename else $
-		str=OS_SYSTEM.prt+' '+'+filename
-		spawn,str+' &'
 	endif else $
-		w_warningtext,['Error:','    '+filename+ '  not found!']
+		w_warningtext,['Error:','    '+outfile+ '  not found!']
 	END
   'summary_cancel': BEGIN
 	WIDGET_CONTROL, view1d_summary_ids.base , /DESTROY
@@ -6516,11 +6596,24 @@ if XRegistered('w_viewscan') ne 0 then begin
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
+  outpath = scanData.path +'ASCII'+!os.file_sep
+  catch,error_status
+  if error_status ne 0 then begin
+	cd, current=p
+	outpath = p +!os.file_sep+'ASCII'+!os.file_sep
+	found = findfile(outpath,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' '+outpath
+  end
+  openw,1,outpath+'.tmp'
+  close,1
+  ;spawn,!os.rm + ' '+outpath+'1.tmp'
+  
 view1d_summary_id = { $
 	start: 1, $
 	stop: 1, $
 	header: 0, $
 	separate: 0, $
+	outpath: outpath,  $
 	outfile: w_plotspec_array(3)+'.rep',  $
 	file: scanData.trashcan  $
 	}
@@ -6565,13 +6658,9 @@ WIDGET_CONTROL,summary_header,SET_VALUE=0
       XSIZE=8, $
       UVALUE='summary_format')
 
-  summary_file = CW_FIELD( BASE2,VALUE=view1d_summary_id.file, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS= 1, $
-      TITLE='Data file name: ', $
-      XSIZE=60, $
-      UVALUE='summary_file')
+  summary_file = WIDGET_LABEL( BASE2,/ALIGN_LEFT, $
+		VALUE='Source: '+view1d_summary_id.file)
+
 
   FieldVal388 = strtrim(view1d_summary_id.start,2)
   summary_start = CW_FIELD( BASE2,VALUE=FieldVal388, $
@@ -6598,11 +6687,13 @@ WIDGET_CONTROL,summary_header,SET_VALUE=0
       MAP=1, $
       UVALUE='BASE112')
 
-;  label = WIDGET_LABEL(BASE112,VALUE='Out Report File: ')
-;  summary_outfile = WIDGET_LABEL(BASE112,VALUE=view1d_summary_id.outfile)
+  summary_outpath = CW_FIELD( BASE2,VALUE=view1d_summary_id.outpath, $
+      ROW=1, XSIZE=60, /return_events, $
+      TITLE='Output file path: ', $
+      UVALUE='summary_outpath')
 
   summary_outfile = CW_FIELD( BASE2,VALUE=view1d_summary_id.outfile, $
-      ROW=1, XSIZE=60, $
+      ROW=1, XSIZE=60, /return_events, $
       TITLE='Output file name: ', $
       UVALUE='summary_outfile')
 
@@ -6636,6 +6727,7 @@ view1d_summary_ids = { $
 	base: view1d_summary_base, $
 	format: summary_format, $
 	file: summary_file, $
+	outpath: summary_outpath, $
 	outfile: summary_outfile, $
 	view: summary_view, $
 	print: summary_print, $
@@ -7714,8 +7806,8 @@ PRO PDMENU_VDATA_Event, Event
  	END
   'ViewData.2D ...': BEGIN
 	if scanData.XDR then $
-	view2d, GROUP= event.top, file=scanData.trashcan+'.image', /XDR else $
-	view2d, GROUP= event.top, file=scanData.trashcan+'.image'
+	view2d,/CA, GROUP= event.top, file=scanData.trashcan+'.image', /XDR else $
+	view2d,/CA, GROUP= event.top, file=scanData.trashcan+'.image'
  	END
   'ViewData.1D Overlay ...': BEGIN
 	if scanData.XDR then $
@@ -7857,20 +7949,49 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 	end
     END
 
-  'Statistic.FWHM on Y ...': BEGIN
+  'Statistic.FWHM on Y.All...': BEGIN
+        w_plotspec_id.statistic = 5
+	num_pts = scanData.act_npts-1
+	VX=scanData.pa(0:num_pts,0)
+	for i=0,14 do begin
+	IF (realtime_id.def(4+i) gt 0) THEN begin
+	VY=scanData.da(0:num_pts,i)
+	title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(scanData.scanno,2)
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+		title=title,group=Event.top
+	end
+	end
+    END
+  'Statistic.FWHM on Y.One...': BEGIN
         w_plotspec_id.statistic = 5
 	num_pts = scanData.act_npts-1
 	VX=scanData.pa(0:num_pts,0)
 	for i=0,14 do begin
 	IF (wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
 	VY=scanData.da(0:num_pts,i)
-	title='FWHM of Detector '+strtrim(i+1,2)
-	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot,title=title
+	title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(scanData.scanno,2)
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+		report='fwhm.rpt',title=title,group=Event.top
+	return
 	end
 	end
     END
 
-  'Statistic.FWHM on DY/DX ...': BEGIN
+  'Statistic.FWHM on DY/DX.All...': BEGIN
+        w_plotspec_id.statistic = 6
+	num_pts = scanData.act_npts-1
+	VX=scanData.pa(0:num_pts,0)
+	for i=0,14 do begin
+	IF (realtime_id.def(4+i) gt 0) THEN begin
+	VY=scanData.da(0:num_pts,i)
+	VY = slope(VX,VY)
+	title='FWHM of DY/DX of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(scanData.scanno,2)
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+		title=title,group=Event.top
+	end
+	end
+    END
+  'Statistic.FWHM on DY/DX.One...': BEGIN
         w_plotspec_id.statistic = 6
 	num_pts = scanData.act_npts-1
 	VX=scanData.pa(0:num_pts,0)
@@ -7878,8 +7999,10 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 	IF (wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
 	VY=scanData.da(0:num_pts,i)
 	VY = slope(VX,VY)
-	title='FWHM of DY/DX of Detector '+strtrim(i+1,2)
-	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot,title=title
+	title='FWHM of DY/DX of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(scanData.scanno,2)
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+		report='fwhm.rpt',title=title,group=Event.top
+	return
 	end
 	end
     END
@@ -9975,6 +10098,15 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;                        View report button automatically created report if not ;                        existed yet
 ;                        Add FWHM on Y and DY item in statistic menu
 ;                        Automatic load the first curve into the ez_fit program
+;                        Upgraded Plot1D plot package
+;       11-11-99 bkc   - R2.2.2c7
+;                        Plugin calibration program to panimage menu
+;                        PanImage menu supports saving TIFF/RTIFF/GIF images
+;                        Creating ASCII/TIFF/GIF/CALIB/ROI directory for saving
+;                        respective type of files
+;                        Increase X,Y vector array to 2001 in view2D
+;       01-27-00 bkc   - R2.2.2c7+
+;                        View2d R2.3g+ with set new 2D positions
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10004,7 +10136,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R2.2.2c6)', $
+      TITLE='Scan Data Catcher (R2.2.2c7+)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10135,8 +10267,12 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
         { CW_PDMENU_S,       0, 'None' }, $ ;        1
         { CW_PDMENU_S,       0, 'Peak/Centroid/FWHM on plot' }, $ ;        1
         { CW_PDMENU_S,       0, 'Peak/Centroid/FWHM ...' }, $ ;        1
-        { CW_PDMENU_S,       0, 'FWHM on Y ...' }, $ ;        1
-        { CW_PDMENU_S,       0, 'FWHM on DY/DX ...' }, $ ;        1
+        { CW_PDMENU_S,       1, 'FWHM on Y' }, $ ;        1
+        { CW_PDMENU_S,       0, 'One...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'All...' }, $ ;        1
+        { CW_PDMENU_S,       1, 'FWHM on DY/DX' }, $ ;        1
+        { CW_PDMENU_S,       0, 'One...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'All...' }, $ ;        1
         { CW_PDMENU_S,       2, 'Average/Deviation ...' } $ ;        1
   ]
 
@@ -10250,7 +10386,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R2.2.2c6)'
+scanData.release = '(R2.2.2c7+)'
 
 ; get start home work directory
 
