@@ -84,7 +84,7 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def,detnm=detnm,vers=vers
 	new_win : -1, $
 	multiwin : 1, $		  	; multiple window option
 	image_array: image_array, $
-	dstart : 15, $ 		; D01 start detector seq
+	dstart : 15, $ 		; D01 start detector seq 0/15
 	width : sz(1), $
 	height : sz(2), $
 	ndet: sz(3), $
@@ -277,7 +277,7 @@ PRO PANIMAGE_SEL_Event, Event
   ENDCASE
 
    WIDGET_CONTROL, Event.top, SET_UVALUE=panimageinfo
-   widget_control,/clear_events
+;   widget_control,/clear_events
 END
 
 
@@ -448,7 +448,8 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 END
 
 
-PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypos=ypos,tiff=tiff,reverse=reverse,labelon=labelon,png=png,pict=pict,xdr=xdr,error=error,ISEL=ISEL,NUMD=NUMD,DETNM=DETNM
+
+PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypos=ypos,tiff=tiff,reverse=reverse,labelon=labelon,png=png,pict=pict,xdr=xdr,error=error,ISEL=ISEL,NUMD=NUMD,DETNM=DETNM,reuse=reuse
 ;+
 ; NAME:
 ;	panImage
@@ -491,6 +492,7 @@ PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypo
 ;     DETNM:   Override the detname used
 ;     BID:     Return the top base widget id
 ;     WID:     Returns the window id number
+;     REUSE:   Specifies no new window desired,reuse the old window 
 ;
 ; EXAMPLE:
 ;     
@@ -516,7 +518,8 @@ error=0
 
 	if n_elements(sz) lt 5 then begin
 		st = "Dimension error!!  Image_array(W,H,N)"
-		r = dialog_message(st,/Error)
+;		r = dialog_message(st,/Error)
+		print,st
 		error = -1
 		return
 	end
@@ -552,41 +555,59 @@ update:
 		width = width * factor
 		height = height * factor
 	end
+	width1 = width+1
+	height1 = height+1
 
 	o_win = -1
 	if n_elements(new_win) then o_win = new_win
-catch,error_status
-if error_status ne 0 then begin
-help,!error_state,/st
-       o_win = -1
-      if !error_state.name eq  'IDL_M_CNTOPNFIL' then  begin
-        r = dialog_message([!error_state.msg,!error_state.sys_msg,$
-                string(!error_state.code)],/error)
-	return
+
+if keyword_set(reuse) eq 0 then begin
+	catch,error_status
+	if error_status ne 0 then begin
+	help,!error_state,/st
+        o_win = -1
 	end
-end
-if o_win ne -1 then wdelete,o_win
-o_win = -1
-	width1 = width+1
-	height1 = height+1
-	if o_win lt 0 then begin
-	if keyword_set(xpos) then $
+
+	if o_win ne -1 then wdelete,o_win
+	o_win = -1
+	  if keyword_set(xpos) then $
 		window,/free, xsize = NC*width1-1, ysize=NR*height1-1, $
 			xpos=xpos,ypos=ypos,title=title,RETAIN=2 $
-	else	window,/free, xsize = NC*width1-1, ysize=NR*height1-1, $
+	  else	window,/free, xsize = NC*width1-1, ysize=NR*height1-1, $
 			title=title,RETAIN=2
-		if n_elements(isel) gt 0 then begin
-		for i=0,ND-1 do begin
+	  if n_elements(isel) gt 0 then begin
+	     for i=0,ND-1 do begin
 		ii = NL-i
 		xi=(i mod NC)*width1+width/2 - 5 
 		yi=height/2+ii/NC*height1
 		xyouts, xi,yi,detname(i),/device
-		end
-		end
-	end
+	     end
+	  end
 
-new_win =!d.window 
+	new_win =!d.window 
+end
 
+catch,error_status
+if error_status ne 0 then begin
+	print,!error_state
+;	widget_control,/clear_events
+;	wset,old_win
+;	return
+	  if keyword_set(xpos) then $
+		window,/free, xsize = NC*width1-1, ysize=NR*height1-1, $
+			xpos=xpos,ypos=ypos,title=title,RETAIN=2 $
+	  else	window,/free, xsize = NC*width1-1, ysize=NR*height1-1, $
+			title=title,RETAIN=2
+	  if n_elements(isel) gt 0 then begin
+	     for i=0,ND-1 do begin
+		ii = NL-i
+		xi=(i mod NC)*width1+width/2 - 5 
+		yi=height/2+ii/NC*height1
+		xyouts, xi,yi,detname(i),/device
+	     end
+	  end
+	new_win =!d.window 
+end
 	wset,new_win
 	for sel=0,ND-1 do begin
 	if id_def(sel) gt 0 then begin
@@ -623,7 +644,7 @@ new_win =!d.window
 
 	panimage_outfiles,new_win,image_array,tiff=tiff,order=reverse,png=png,pict=pict,xdr=xdr
 
-widget_control,/clear_events
+;widget_control,/clear_events
 
 	catch,error_status
 	if error_status ne 0 then return
@@ -793,6 +814,6 @@ display_image:
 	if keyword_set(tiff) or keyword_set(png) or keyword_set(pict) or keyword_set(xdr) then $
 	panimage_outfiles,win,res_image,tiff=tiff,order=order,png=png,pict=pict,xdr=xdr
 
-widget_control,/clear_events
+;widget_control,/clear_events
 	wset,old_win
 END
