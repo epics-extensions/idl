@@ -7,21 +7,7 @@
 # This file is distributed subject to a Software License Agreement found
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
-set HOST_ARCH = `/usr/local/epics/startup/HostArch`
-setenv HOST_ARCH  $HOST_ARCH
-set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
-
-if ${?EPICS_EXTENSIONS_PVT} == 1 then 
-	set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
-endif
-
-setenv IDL_DEVICE X
-
-# source /usr/local/rsi/idl_5.3/bin/idl_setup
-source $PVT_LOC/idluserdir_setup
-cd $IDL_USERDIR
-
-setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
+source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
 
 set PRM=""
 if $1 != "" then 
@@ -34,12 +20,12 @@ echo ".run read_scan.pro.R2" >>! go_viewer
 echo ".run scanSee__define.pro" >>! go_viewer
 echo ".run scanSee.pro" >>! go_viewer
 echo "scanSee $PRM" >>! go_viewer
-if `isainfo -b` == 64 then
-	source /usr/local/rsi/idl_5.5/bin/idl_setup
-	idl -32 go_viewer
-else
-	source /usr/local/rsi/idl_5.3/bin/idl_setup
+#if `isainfo -b` == 64 then
+#	source /usr/local/rsi/idl_5.5/bin/idl_setup
+#	idl -32 go_viewer
+#else
+#	source /usr/local/rsi/idl_5.3/bin/idl_setup
 	idl go_viewer
-endif
+#endif
 rm go_viewer
 
