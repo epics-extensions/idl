@@ -1,0 +1,195 @@
+#!/bin/csh -f
+# 
+# usage: catcher [-h -v -n -D -c test.config -d test.trashcan -e test.env ] 
+#
+# Author: Ben-chin Cha
+# 
+
+if ("$1" == "-h" | "$1" == "-help") then
+	goto help:
+endif
+set x = "" ; set y = ""; set z=""; set w=""; set v=""
+set xf=""; set yf=""; set zf=""; set wf=""; set vf=""
+
+set HOST_ARCH = `/usr/local/epics/startup/HostArch`
+
+if ${?EPICS_EXTENSIONS_PVT} == 1 then
+	source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/ezcaidl_setup
+else
+	source $EPICS_EXTENSIONS/bin/$HOST_ARCH/ezcaidl_setup
+endif
+
+	source /usr/local/rsi/idl_5.4/bin/idl_setup
+	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl54"
+	if ${?EPICS_EXTENSIONS_PVT} == 1 then
+	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl54"
+	endif
+	if -e catcher.exe2.idl53 then
+	set exe = "-rt=catcher.exe2.idl54"
+	endif
+
+# echo $exe
+
+if -e catch1d.config then
+	cp catch1d.config catch1d.config.tmp
+endif
+
+while ( "$1" !=  "" )
+if ( "$1" == "-n" | "$1" == "-N" | "$1" == "-Nosave" ) then 
+	set w = 'nosave=1'
+	set wf = "scanData.nosave='1'"
+	shift
+
+else if ( "$1" == "-v" | "$1" == "-V" | "$1" == "-ViewOnly" ) then 
+	set v = 'viewonly=1'
+	set vf = "scanData.option='0'"
+	shift
+
+else if ( "$1" == "-D" ) then 
+	set exe =''
+	shift
+
+else if ( "$1" == "-c" | "$1" == "-d" | "$1" == "-e" ) then 
+	if ( "$2" == "") then 
+	echo "Usage: catcher [-h] [-v] [-n] [-D] [-c config_file] [-d data_file] [-e env_file]" 
+	echo ""
+	exit
+	endif
+
+   if ("$2" != "") then 
+   switch("$1")
+   case -config:  
+   case -c:  
+	set x = 'config''="'$2'"' 
+	set xf = "scanData.config=""'"$2"'"
+	if -e $2 then
+		cp $2 catch1d.config.tmp
+	else 
+		echo "; New configuration file '" $2 "' will be created." >! catch1d.config.tmp
+	endif
+	breaksw
+   case	-envfile:  
+   case -e:
+	set y = 'envfile''="'$2'"'
+	set yf = "scanData.envfile=""'"$2"'"
+	breaksw
+   case	-data:  
+   case	-d:  
+	set z = 'data''="'$2'"'
+	set zf = "scanData.trashcan=""'"$2"'"
+	breaksw
+   default:
+	breaksw
+   endsw
+   shift; shift
+   endif
+else 
+	echo "Usage: catcher [-h] [-v] [-n] [-D] [-c config_file] [-d data_file] [-e env_file]" 
+	echo ""
+	exit
+endif 
+end
+
+set xyz = "catcher_v1"
+	echo "" >! go_catcher
+
+if ("$x" != "") then
+	set xyz = $xyz','$x
+	echo $xf >>! go_catcher
+endif
+if ("$y" != "") then
+ 	set xyz = $xyz','$y
+	echo $yf >>! go_catcher
+endif
+if ("$z" != "") then
+	 set xyz = $xyz','$z
+	echo $zf >>! go_catcher
+endif
+if ("$w" != "") then
+	 set xyz = $xyz','$w
+	echo $wf >>! go_catcher
+   echo "scanData.y_handshake=' '" >>! go_catcher
+endif
+if ("$v" != "") then
+	 set xyz = $xyz','$v
+	echo $vf >>! go_catcher
+endif
+
+echo ".run catcher_v1" >! go_catcher
+echo ".run catch1d_user" >>! go_catcher
+echo $xyz >>! go_catcher
+
+echo exe $exe
+	idl -32 $exe go_catcher
+	rm go_catcher
+exit
+help::
+echo  ""
+echo NAME
+echo "      catcher - run the EPICS IDL data catcher with runtime license"
+echo ""
+echo SYNOPSIS
+echo "      catcher [-c file.config] [-d file.data] [-e file.env] [-h] [-n] [-v] [-D]"
+echo ""
+echo DESCRIPTION
+echo "     catcher provides the user with very flexible file specification"
+echo "     feature to startup the IDL data catcher program.  The data"
+echo "     catcher program is written in IDL 5.3, and ezcaIDL CA interface "
+echo "     routines which in terms uses EPICS 3.13.x channel access "
+echo "     library routines.  "
+echo "" 
+echo "     Currently, the data catcher can capture both 1D and 2D scan data"
+echo "     through setting monitor on the EPICS scan record. During data"
+echo "     acquisition it also provides real-time plotting. Post acquisition"
+echo "     it also provides simple 1D and 2D post data plot and analysis. "
+echo "     Each scan record can support up-to four positioners and fifteen"
+echo "     detectors."
+echo ""
+echo OPTIONS 
+echo "     -c fn  Assign the configuration file to be used. The file name"
+echo "            should begin with alphabetic character and must separate"
+echo "            with the option with a blank space. "
+echo ""
+echo "            If this option is not specified, the default file"
+echo "            'catch1d.config' will be used. At the normal completion"
+echo "            a new version of configuration will be saved or updated"
+echo "            in the directory where the data catcher was invoked."
+echo "" 
+echo "     -d fn  Assign the acquisition data file to be used. The file name"
+echo "            should begin with alphabetic character and must separate"
+echo "            with the option with a blank space."
+echo ""
+echo "            If this option is not specified, the default file "
+echo "            'catch1d.trashcan' will be used."
+echo "" 
+echo "     -e fn  Assign the environment file to be used. The file name"
+echo "            should begin with alphabetic character and must separate"
+echo "            with the option with a blank space. This file allows"
+echo "            additional environment variables to be saved with the "
+echo "            acquired scan data."
+echo ""
+echo "            If this option not specified, the default file"
+echo "            'catch1d.env' will be used. The default location of the"
+echo "            environment file is where the data catcher is invoked."
+echo "            If the same named environment file is found in the data"
+echo "            directory then that version overrides the default."
+echo ""
+echo "     -h     Generate this online help page."
+echo ""
+echo "     -n     Start the data catcher in no save mode, new scan data will"
+echo "            be captured in this mode but they will not be saved in file."
+echo "            Configuration file will not be updated."
+echo ""
+echo "     -v     Start the data catcher as view only mode, no new scan data"
+echo "            will be captured for this mode."
+echo "            Configuration file will not be updated."
+echo ""
+echo "     -D     This option overrides the using of default IDL run time license "
+echo "            by the developer IDL license at APS."
+echo ""
+echo EXAMPLES
+echo "     catcher -c test.config -d test.data -e test.env "
+echo "     catcher -c test.config "
+echo "     catcher -d test.dat"
+echo "     catcher -v "
+echo ""
