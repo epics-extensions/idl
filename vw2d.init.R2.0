@@ -84,10 +84,12 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	s_wid   : -1, $       ; window id for saved pixmap
 	xarr	: make_array(2001), $
 	yarr	: make_array(501), $
-	image	: make_array(1001,1001,/float) $
+	image	: make_array(1001,1001,/float), $
 ;	xarr	: make_array(512), $
 ;	yarr	: make_array(512), $
 ;	image	: make_array(512,512,/float) $
+	id_def	: make_array(85,/int), $
+	DPVS	: make_array(85,/string) $
         }
   
   device,bypass_translation=0,retain=2
