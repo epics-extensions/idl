@@ -98,6 +98,7 @@ if !d.name eq 'X' then device,bypass_translation=0,retain=2
   view_option = { $
 	roifile : '', $
 	rptfile : '', $
+	format : 'G17.7', $    ; ascii report format
 	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
         ncolors : !d.table_size-1, $   max color index 
 	pick_ref : 1, $   ; normalized against detector # 1
