@@ -1,0 +1,18 @@
+#!/bin/csh -f
+set HOST_ARCH = `/usr/local/epics/startup/HostArch`
+setenv HOST_ARCH  $HOST_ARCH
+set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
+
+if ${?EPICS_EXTENSIONS_PVT} == 1 then 
+	set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
+endif
+
+setenv IDL_DEVICE X
+
+setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
+
+echo ".run scan2d__define" >! go_viewer
+echo ".run dc2tiff" >>! go_viewer
+echo "dc2tiff" >>! go_viewer
+idl go_viewer
+rm go_viewer
