@@ -6,6 +6,41 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
+;
+;  convert byte array to strings
+;
+PRO BytesToStrings,inbyte,outstring,lrecl=lrecl,print=print
+if n_elements(inbyte) eq 0 then begin
+        print,''
+        print,"BytesToStrings  routine converts a byte array to a string array"
+        print,"               with the user specifyable lrecl."
+        print,''
+        print,"USAGE: BytesToStrings, inbyte, outstring [,lrecl=#,/print]
+        print,"INPUT:"
+        print,'        inbyte   - input byte array, required'
+        print,'OUTPUT:'
+        print,'       outstring - output string array'
+        print,'KEYWORD:
+        print,'       LRECL=#   - specifies the output string length,'
+        print,'                   # default to 80 if not specified.'
+       print,'       /PRINT    - print the string array generated'
+        print,''
+        return
+        end
+len = 80
+if n_elements(lrecl) gt 0 then len = lrecl
+s = size(inbyte)
+no = s(1)/len
+if s(1) gt (no*len) then no = no +1
+outstring = make_array(no,/string,value=string(replicate(32b,len)))
+for i=0,no-1 do begin
+        i1 = i*len & i2 = i1 + len - 1
+        if i2 gt (s(1)-1) then i2 = s(1)-1
+        outstring(i) = string(inbyte(i1:i2))
+        if keyword_set(print) then print,outstring(i)
+        end
+END
+
 PRO WC,filename,nline,ncol
 ; simulate unix command WC to read an ASCII file
 ; nline - return the total # of lines in file
