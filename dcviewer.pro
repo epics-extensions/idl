@@ -231,6 +231,10 @@ COMMON DCVIEWER_BLOCK,dcviewer_ids
   '1D_OVERLAY ...': BEGIN
 	view1d_overlay,GROUP=Event.Top 
       END
+  'BUTTON2': BEGIN
+	dnames = strtrim(indgen(15)+1,2)
+	assignname_read,dnames
+      END
   'BUTTON3': BEGIN
       Print, 'Event for VIEW1D ...'
 	found = findfile(dcviewer_ids.data)
@@ -403,7 +407,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
   end
 
   BASE2 = WIDGET_BASE(dcViewer, $
-      ROW=1, $
+      COLUMN=1, $
       MAP=1, $
       UVALUE='BASE2')
 
@@ -418,6 +422,10 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
   BUTTON1 = WIDGET_BUTTON( BASE2, $
       UVALUE='1D_OVERLAY ...',$
       VALUE='1D_OVERLAY ...')
+
+  BUTTON2 = WIDGET_BUTTON( BASE2, $
+      UVALUE='BUTTON2', $
+      VALUE='Assign Di Names for view2d ...')
 
   BUTTON4 = WIDGET_BUTTON( BASE2, $
       UVALUE='BUTTON4', $
