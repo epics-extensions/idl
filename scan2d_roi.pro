@@ -213,6 +213,33 @@ device,set_graphics_function=oldGraphFunc
 
 END
 
+PRO statistic_2dWriteFilter,statistic_2dids,lower_b,upper_b
+
+	im = *statistic_2dids.im0
+	bine = (im ge lower_b) and (im le upper_b)
+
+        len = strpos(statistic_2dids.file,"_roi")
+        if len ge 0 then class = strmid(statistic_2dids.file,0,len)
+	xdr_open,unit,class+'_roi.pickfltr',/write
+	xdr_write,unit,bine
+	xdr_write,unit,lower_b
+	xdr_write,unit,upper_b
+	xdr_close,unit
+END
+
+PRO statistic_2dReadFilter,statistic_2dids,lower_b,upper_b
+        len = strpos(statistic_2dids.file,"_roi")
+        if len ge 0 then class = strmid(statistic_2dids.file,0,len)
+	xdr_open,unit,class+'_roi.pickfltr'
+	xdr_read,unit,bine
+	xdr_read,unit,lower_b
+	xdr_read,unit,upper_b
+	xdr_close,unit
+
+;print,lower_b,upper_b
+;print,bine
+END
+
 PRO statistic_2dRange,statistic_2dids,im,lower_b,upper_b
 ; 
 ; extract the elements fall in between the selected range
@@ -227,6 +254,7 @@ PRO statistic_2dRange,statistic_2dids,im,lower_b,upper_b
 	yrange = [0,height-1]
 
 	bine = (im ge lower_b) and (im le upper_b)
+
 	nelem = long(total(bine))
 	if nelem gt 1 then begin
 		temp = make_array(nelem)
@@ -647,7 +675,8 @@ PRO scan2d_ROI_Event, Event
 	if len ge 0 then class = strmid(statistic_2dids.file,0,len+1)
 	im0 = *statistic_2dids.im0
 	WIDGET_CONTROL,Event.top,/DESTROY
-	multiroi_pick,im0,class=class,comment=statistic_2dids.comment  ;,Group=Event.top
+	multiroi_pick,im0,class=class,comment=statistic_2dids.comment, $
+		header=statistic_2dids.header(0)  ;,Group=Event.top
 	return
 	END
   'STATISTIC_2DBACKMODE': BEGIN
@@ -750,6 +779,19 @@ end
   'STATISTIC_2DREADROI': BEGIN
 	if statistic_2dids.back eq 0 then scan2d_ROI_readroi ,statistic_2dids
       END
+  'STATISTIC_2DREADFLTR': BEGIN
+	statistic_2dReadFilter,statistic_2dids,lower_b,upper_b
+	WIDGET_CONTROL,statistic_2dids.backid,SET_VALUE=lower_b
+	WIDGET_CONTROL,statistic_2dids.highid,SET_VALUE=upper_b
+	statistic_2dids.backave = lower_b
+	statistic_2dids.backave2 = upper_b
+	statistic_2dPlot,statistic_2dids
+      END
+  'STATISTIC_2DWRITEFLTR': BEGIN
+	WIDGET_CONTROL,statistic_2dids.backid,GET_VALUE=lower_b
+	WIDGET_CONTROL,statistic_2dids.highid,GET_VALUE=upper_b
+	statistic_2dWriteFilter,statistic_2dids,lower_b,upper_b
+      END
   'STATISTIC_2DREADPOLYROI': BEGIN
 	statistic_2dPlot,statistic_2dids
       END
@@ -847,6 +889,8 @@ scan2d_ROI_default, statistic_2dids
 	'                        ROI statistics based on the whole image area', $
 	'   ReadRectROI Button - Read ROI for either rectangle mode',$
 	'','Filter ROI: ', $
+	'           SaveFltr   - Save region defined by the low & high filters', $
+	'           ReadFltr   - Read region defined by the low & high filters', $
 	'           Low:       - Field to set low value',$
 	'           Slider     - Controls the low field value', $
 	'           High:      - Field to set high value',$
@@ -969,8 +1013,8 @@ end
 	printf,1,'total = ',statistic_2dids.roi_total
 	printf,1,'nelem = ',statistic_2dids.roi_nelem
 	printf,1,''
-	printf,1,'       N         I            J    IM(I,J)    IM(I,J)-ave   ROI'
-	printf,1,'         ---------------------------------------------------'
+	printf,1,'            N         I            J    IM(I,J)    IM(I,J)-ave   ROI'
+	printf,1,'         ------------------------------------------------------------'
 
 	im0 = *statistic_2dids.im0
 	ty = "    RECT"
@@ -1297,7 +1341,13 @@ back_versus = WIDGET_DROPLIST(BASE5, VALUE=Btns928, $
       MAP=1, $
       UVALUE='BASE4_back')
 
-  filter_label = WIDGET_LABEL(BASE4_back,value='Filter')
+  BUTTON18 = WIDGET_BUTTON( BASE4_back, $
+      UVALUE='STATISTIC_2DWRITEFLTR', $
+      VALUE='SaveFltr')
+  BUTTON19 = WIDGET_BUTTON( BASE4_back, $
+      UVALUE='STATISTIC_2DREADFLTR', $
+      VALUE='ReadFltr')
+
   FIELD27_back = CW_FIELD( BASE4_back,VALUE=statistic_2dids.backave, $
       ROW=1, $
       FLOAT=1, /RETURN_EVENTS, $
