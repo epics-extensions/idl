@@ -570,6 +570,10 @@ PRO scan2d::Print
 ;
 ; PURPOSE:
 ;       This method prints the current key variables for the object structure. 
+;       It prints the starting and data directory, image filename, total #
+;       of 2D scan, totol # of images, current 2D Scan #, detector #, and
+;       image seq # at current image pointer, and the image seq array to
+;       corresponding to detector 1.
 ;
 ; CALLING SEQUENCE:
 ;       Obj->[scan2d::]Print
@@ -950,8 +954,9 @@ PRO scan2d::panImage,scanno,factor
 ;     None.   
 ;
 ; RESTRICTION:
-;    Before calling scan2D::panImage the scan2D::read 
-;    should have been called previously.
+;    For a given 2D scan, before calling scan2D::panImage the scan2D::read 
+;    should have been called for one of the detectors in order to
+;    figure out the dimensions of the image objects.
 ;
 ; EXAMPLE:
 ;    Following example shows how to get the panImage of all detectors 
