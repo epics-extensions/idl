@@ -16,6 +16,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
       x_max       : FIELD159,     $
       x_min       : FIELD161,     $
       info        : TEXT133,	  $
+      textdata    : 0L,	  $
       z_max	:  CURSOR62_MAX, $
       x_cursor	:  CURSOR62_X, $
       y_cursor	:  CURSOR62_Y, $
@@ -57,14 +58,14 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	yprof : -1, $   ; yz profile window
 	xzdraw : 0, $   ; xz draw area
 	yzdraw : 0, $   ; yz draw area
-	xzline_x : [0,0],$
-	xzline_z : [0,0],$
-	xzline_xo : [0,0],$
-	xzline_zo : [0,0],$
-	yzline_y : [0,0],$
-	yzline_z : [0,0],$
-	yzline_yo : [0,0],$
-	yzline_zo : [0,0],$
+	xzline_x :  [0.,0.],$
+	xzline_z :  [0.,0.],$
+	xzline_xo : [0.,0.],$
+	xzline_zo : [0.,0.],$
+	yzline_y :  [0.,0.],$
+	yzline_z :  [0.,0.],$
+	yzline_yo : [0.,0.],$
+	yzline_zo : [0.,0.],$
 	xarr	: make_array(512), $
 	yarr	: make_array(512), $
 	image	: make_array(512,512,/float) $
