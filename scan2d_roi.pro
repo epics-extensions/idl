@@ -568,7 +568,7 @@ PRO PDMENU13_Event,statistic_2dids, Event
 END
 
 
-PRO PDMENU3_Event,statistic_2dids, Event
+PRO ROI2D_PDMENU3_Event,statistic_2dids, Event
 
   CASE Event.Value OF
 
@@ -929,7 +929,7 @@ scan2d_ROI_default, statistic_2dids
   	xdisplayfile,'',title='Help... 2D ROI',text=st, GROUP=Event.Top
       END
   ; Event for PDMENU3
-  'PDMENU3': PDMENU3_Event,statistic_2dids, Event
+  'ROI2D_PDMENU3': ROI2D_PDMENU3_Event,statistic_2dids, Event
   'PDMENU13': PDMENU13_Event,statistic_2dids, Event
   ENDCASE
 
@@ -1510,8 +1510,8 @@ MenuDesc167 = [ $
         { CW_PDMENU_S,       0, 'New...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Open...' } $ ;        2
   ]
-  PDMENU3 = CW_PDMENU( BASE4_file2, MenuDesc167, /RETURN_FULL_NAME, $
-      UVALUE='PDMENU3')
+  ROI2D_PDMENU3 = CW_PDMENU( BASE4_file2, MenuDesc167, /RETURN_FULL_NAME, $
+      UVALUE='ROI2D_PDMENU3')
 
 statistic_filename2 = WIDGET_TEXT(BASE4_file2,VALUE=statistic_2dids.rpt, $
 		XSIZE=60, /EDITABLE, UVALUE='STATISTIC_2DFILE2')
