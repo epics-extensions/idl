@@ -645,7 +645,7 @@ END
 ;
 ; inorder to support TV,SURFACE,CONTOUR, the common block is required
 ;
-PRO MAIN13_Event, Event
+PRO Plot2dMAIN13_Event, Event
 COMMON PLOT2D_BLOCK,plot2d_state
 ;  WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
 
@@ -711,7 +711,7 @@ ENDIF
 END
 
 
-; DO NOT REMOVE THIS COMMENT: END MAIN13
+; DO NOT REMOVE THIS COMMENT: END Plot2dMAIN13
 ; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
 
 
@@ -820,6 +820,7 @@ COMMON PLOT2D_BLOCK,plot2d_state
 ;       Written by:     Ben-chin Cha, Dec 16, 1998.
 ;       12-22-1998      Add zoom in/out button to control X, Y margins
 ;       01-15-1999      Allow 5 comment lines on plot
+;                       Replace base widget MAIN13 by Plot2dMAIN13
 ;
 ;-
 
@@ -948,14 +949,14 @@ if keyword_set(comment) then begin
         plot2d_state.comment(0) = plot2d_state.comment(0)+ $
 		' (Max='+strtrim(maxvl,2) + ', Min='+strtrim(minvl,2)+')'
 
-  MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
+  Plot2dMAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       /TLB_SIZE_EVENTS, $	; resizable window
       /COLUMN, $
       MAP=1, $
       TITLE=wti, $
-      UVALUE='MAIN13')
+      UVALUE='Plot2dMAIN13')
 
-  BASE1 = WIDGET_BASE(MAIN13, /ROW)
+  BASE1 = WIDGET_BASE(Plot2dMAIN13, /ROW)
   Btns111 = [ $
     'TV', $
     'SURFACE', $
@@ -964,9 +965,9 @@ if keyword_set(comment) then begin
   BGROUP2 = CW_BGROUP( BASE1, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
 
-  DRAW3 = WIDGET_DRAW( MAIN13, XSIZE=xsize, YSIZE=ysize, RETAIN=2)
+  DRAW3 = WIDGET_DRAW( Plot2dMAIN13, XSIZE=xsize, YSIZE=ysize, RETAIN=2)
 
-  BASE2 = WIDGET_BASE(MAIN13, /ROW)
+  BASE2 = WIDGET_BASE(Plot2dMAIN13, /ROW)
 
   Btns361 = [ $
     'Print', $
@@ -977,9 +978,9 @@ if keyword_set(comment) then begin
       ROW=1, $
       UVALUE='BGROUP6')
 
-  g_tlb = WIDGET_INFO(MAIN13,/geometry)
+  g_tlb = WIDGET_INFO(Plot2dMAIN13,/geometry)
 
-  WIDGET_CONTROL, MAIN13, /REALIZE
+  WIDGET_CONTROL, Plot2dMAIN13, /REALIZE
 
   ; Get drawable window index
 
@@ -988,7 +989,7 @@ if keyword_set(comment) then begin
 
   ;surface, data
 
-  tlb = MAIN13
+  tlb = Plot2dMAIN13
   win = DRAW3
 	
 	plot2d_state.base = tlb 
@@ -999,7 +1000,7 @@ if keyword_set(comment) then begin
 
   	plot2d_replot, plot2d_state
 
-  WIDGET_CONTROL, MAIN13, SET_UVALUE=plot2d_state
+  WIDGET_CONTROL, Plot2dMAIN13, SET_UVALUE=plot2d_state
 
-  XMANAGER, 'MAIN13', MAIN13,/NO_BLOCK
+  XMANAGER, 'Plot2dMAIN13', Plot2dMAIN13,/NO_BLOCK
 END
