@@ -38,7 +38,8 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
   catch2d_file = {                $
 	version : '', $
 	home    : h, $
-	path    : h+'/', $
+	path    : h+!os.file_sep,   $ ;'/', $
+	outpath : h+!os.file_sep, $
         name    : 'catch1d.trashcan.image',           $
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
