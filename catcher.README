@@ -1,3 +1,147 @@
+                        CATCHER R2.2.0  RELEASE NOTE 
+                        ==========================
+
+Strart from this version, the IDL 5.0.2  will be used by the catcher.
+
+   New features:
+	- Supports both XDR and native binary data format
+	- Supports 24 bit visual display
+	- Supports various curve fitting routines
+	- 2D realtime image display supports small/large/single detector 
+	  selection
+	- Add feature of automatic figure out bad file selected by user
+	- Loosen the restriction of checking the Y scan PV name entered
+	  by user
+	- Use private color table catch1d.tbl saved by IDL 5.0.2 for 1D plot
+	- Load private color table once only, shares the common color block 
+	  with view1d, view2d, view1d_overlay
+	- Use the user specifiable environment variable IDL_NCOLORS to set 
+	  number of colors used by IDL for 8 bit visual devices 
+	- For 8 bit visual display, runtime version uses 32 colors, 
+          developer version uses as many as IDL_NCOLORS as set by user or 
+	  as many as available
+	- For 24 bit visual display always use 256 colors
+	- Increased the support image size to 1000x1000
+   Bug fixed:
+	- Fixed the problem of x axis exceeds 32,768
+	- Fixed the problem in realtime plot due to acquired NPTS exceeding 1724
+	- Fixed the problem in standard deviation calc if ymax occurs at y(0)
+	- Fixed the scale problem in automatic YLOG plot 
+	- Fixed the problem in 2D header for 1D scan plot
+
+<<catcher /NOSAVE>>
+
+If a user wants to run multiple copies of data catcher which operates
+with the same configuration file and output data file, the user has to
+explicitly to specify the nosave option in running the second copy of data
+catcher, i.e.
+
+	catcher -n
+
+<<File->Quit>>
+
+Always terminate the data catcher through the File->Quit menu. 
+Obnormal termination of data catcher like the system reboot or xkill 
+may cause the data catcher failed to save the 2D image. Normally the 
+'File' menu becomes active at the end of scan or the abortion of a scan.
+When the 'File' menu is not accesible, this indicates either the scan is 
+going on or not properly stopped. 
+
+If no scan is going on and data catcher appears hung and 'File' menu is
+not accessible. In order to make the File menu active, a user can use 
+the Setup->Scan menu to open the scan setup dialog. To press the 
+appropriate 'Stop' button to abort either 2D or 1D scan accordingly. 
+Then the 'File' menu will be accessible by the user.
+
+<<24 Bit Visual Device>>
+
+The color table strategy has been changed in this release. The run-time
+version still uses 32 colors. The developer version will allow the user
+to use as many colors as avaialbe in the color table. 
+
+For 24 bit graphic device, the color table size used by the IDL 5.0.2 
+is 256. Special code is added to take care the 24 bit visual devices. 
+
+If the 24 bit visual device is detected by IDL, then the default 
+'catch1d.tbl' color table will be used which uses 256 colors.
+
+If the 8 bit visual device is detected, then the whatever color table
+is available at the startup time will be used. A user can use the
+environment variable IDL_NCOLORS to reduce the number of colors to be
+used by the IDL to avoid the flashing problem. The earlier version of 
+data catcher uses 32 colors.
+
+<<IDL_NCOLORS>>
+
+A new environment variable IDL_NCOLORS is used by the data catcher R2.2.0.
+For 8 bit visual device the number of colors available to the application
+often is less than 256. In order to avoid the visual device flashing 
+problem, the smaller value of IDL_NCOLORS can be set by the user.
+
+The run-time version of data catcher R2.2.0 still use 32 colors. The
+developer version of data catcher R2.2.0 allows the user to set the
+IDL_NCOLORS to use for 8 bit visual display.
+
+<<2D ASCII ...>>
+
+Previously the 2D ASCII image data are saved in 'view2d_data.txt'
+file. Start from this version, the user has the option of override
+the default file name 'view2d_data.txt'. The convention of ASCII 
+file will be the image filename suffixed with the 4 digit image 
+number. 
+
+<<1D Summary Report>>
+
+Fixed the problem for summary report in view1d program. It tries the 
+data directory first, if failed then it tries the start up directory,
+if it still failed then it finally tries the user's home directory. 
+In order to be able to generate the summary report in the data 
+directory, the user has to have the write permission in the data
+directory. 
+
+<<BIN/XDR Format>>
+
+Starting from this release, data catcher suppots both native binary and 
+XDR binary data format. Both XDR and native binary 1D scan data can be 
+saved by the data catcher. The 2D image data is always saved in native 
+binary format. The default catch1d.trashcan.xdr file will be saved in 
+XDR format.
+
+In IDL data catcher no mix of XDR or binary data type is allowed in a file. 
+
+If the data file is created by the File->New or File->Open  of catcher
+then the native binary format will be used. 
+ 
+If the new data acquisition file is created by the configuration file
+directly instead of using the File->New or File->open menu then the 
+file will be saved in platform independent XDR binary format.
+
+Now the data catcher and data viewer has an indicator Bin/XDR to indicates
+whether the data file is in native binary format or the platform independent
+XDR format.
+
+<<Index file>>
+
+In case of any problem reading the old file. The very first thing to try to
+fix the problem is to rename the old index file to something else and 
+restart the catcher again then a new version of index file will be created.
+The problem due to bad index file should go away.
+
+<<PS Output>>
+
+Starting from this release, the postscript output for the View2d will not
+use the reverse video anymore. It will use the true color unless the user
+explicitly specifies that the reverse color is desired in the PS printer 
+setup dialog. 
+
+<<Fitting>>
+
+Accessing the Ez_fit curve fitting package is added in the data catcher 
+and data viewer.
+
+The user interface for curve fitting will be documented in the Ez_fit 
+documentation.
+ 
 
                         CATCHER R2.1  RELEASE NOTE 
                         ==========================
