@@ -33,8 +33,10 @@ ON_ERROR,0 ;,1
 	IF rank EQ 2 THEN BEGIN
     *gData.pa1D  = *(*Scan.pa)[1]
     *gData.da1D  = *(*Scan.da)[1]
-    *gData.pa2D  = *(*Scan.pa)[0]
-    *gData.da2D  = *(*Scan.da)[0]
+if ptr_valid(gData.pa2D) eq 0 then *gData.pa2D  = ptr_new(/ALLOCATE_HEAP)
+if ptr_valid((*Scan.pa)[0]) then *gData.pa2D  = *(*Scan.pa)[0] 
+if ptr_valid(gData.da2D) eq 0 then *gData.da2D  = ptr_new(/ALLOCATE_HEAP)
+if ptr_valid((*Scan.da)[0]) then *gData.da2D  = *(*Scan.da)[0] 
 	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
 	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
   ENDIF
@@ -57,6 +59,8 @@ PRO free_scanAlloc,Scan
 
   rank = *Scan.dim
 
+  ptr_free,Scan.timestamp1
+  ptr_free,Scan.timestamp2
   ptr_free,Scan.scanno
   ptr_free,Scan.dim
   ptr_free,Scan.npts
@@ -106,6 +110,7 @@ ON_IOERROR, BAD
   name=''
   time=''
   readu,lun,name,time
+  *Scan.timestamp2 = time
   
   nb_pos=0
   nb_det=0
@@ -237,6 +242,7 @@ ON_IOERROR, BAD
   name=''
   time=''
   readu,lun,name,time
+  *Scan.timestamp1 = time
   (*Scan.pv)[rank-1]=name
   
   nb_pos=0
@@ -469,6 +475,8 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 
   if n_elements(Scan) eq 0 then $
   Scan = { $
+  	timestamp1: ptr_new(/allocate_heap), $ 
+  	timestamp2: ptr_new(/allocate_heap), $ 
   	scanno	: ptr_new(/allocate_heap), $  ;0L, $
   	dim	: ptr_new(/allocate_heap),     $  ;0, $
   	npts	: ptr_new(/allocate_heap),   $  ;[0,0], $
@@ -495,6 +503,8 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
   readu,lun, isRegular
   readu,lun, env_fptr
 
+  *Scan.timestamp1=''
+  *Scan.timestamp2=''
   *Scan.scanno=tmp.scanno
   *Scan.dim= tmp.rank
   *Scan.npts= reverse(npts)
@@ -570,7 +580,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.28 2002/09/18 20:43:20 cha Exp $
+; $Id: DC.pro,v 1.29 2002/12/04 23:55:39 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1469,7 +1479,6 @@ if auto eq 1 and n_elements(st) gt 0  and widget_ids.statistic gt 1 then begin
 	xdis = 0.01 * !d.x_size
 	ydis = 1.2*!d.y_ch_size
 	xyouts,xdis,ydis,footer_note,/device
-
 
 	len = strlen( strtrim(w_plotspec_array(4)))
 	footer_note = strmid(strtrim(w_plotspec_array(4)),30,len-30)
@@ -2863,6 +2872,8 @@ if strlen(scanData.filemax) gt 1 then $
 		scanData.path = y
 	end
 
+	scanData.trashcan = scanData.path+w_plotspec_array(3)
+
 	st = "scanData.path='"+scanData.path+"'"
         printf,unit,st
 	st = "scanData.trashcan='"+w_plotspec_array(3)+"'"
@@ -2935,9 +2946,8 @@ END
 
 
 ;
-; Auto Save File For catch1d_setup.pro
 ;
-;  Wed Apr  3 11:04:10 CST 1996
+;  Sept 30, 2002  bkc fix scanData.path
 ;
 
 
@@ -3027,8 +3037,13 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
        prefix = str_sep(scanData.pv,':')
 ;        ln = caget(prefix[0]+':saveData_fullPathName',pd)
         ln = cagetArray(prefix[0]+':saveData_fullPathName',pd)
-	if !d.name eq 'X' then $
-        if ln eq 0 then scanData.path = string(pd(1:99))
+	if !d.name eq 'X' then begin
+        	if ln eq 0 then begin
+		path = strtrim(pd,2)
+		sp = strpos(path,!os.file_sep,2)
+		scanData.path = string(pd(sp:99))
+		end
+	end
 
 	write_config
 
@@ -3196,7 +3211,7 @@ if error_status ne 0 then return
 	realtime_pvnames(18)=scanData.pv+'.DFCV'
 	; add 01-70 PV
 	pvs = '.D' + strtrim(indgen(61)+10,2) +'CV'
-	pvs = ['.D01CV','.D02CV','.D03CV','.D04CV','.D05CV','D06CV','.D07CV','.D08CV','.D09CV',pvs]
+	pvs = ['.D01CV','.D02CV','.D03CV','.D04CV','.D05CV','.D06CV','.D07CV','.D08CV','.D09CV',pvs]
 ;	for i=1,70 do realtime_pvnames(18+i) = scanData.pv+pvs(i-1)
 	for i=1,scanData.lastDet(0)-15 do realtime_pvnames(18+i) = scanData.pv+pvs(i-1)
 	end
@@ -5007,7 +5022,7 @@ PRO scanimage_cleanup
 	heap_gc
 END
 
-PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet
+PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet,timestamp=timestamp
 
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
@@ -5031,6 +5046,7 @@ gData = { $
 ; help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,pa2d,da1d,da2d
 
 	scanno = read_scan(filename,Scan,pickDet=pickDet,header=header,lastDet=lastDet)
+	timestamp=*Scan.timestamp1
 	*gData.scanno = scanno
 
 	if scanno lt 0 then return
@@ -5292,8 +5308,11 @@ if id lt 0 then begin
 	DetMax = [85, 1, 1]  ;scanData.lastDet
 
 	scanno = read_scan(scanData.trashcan,Scan,pickDet=pickDet) ;, lastDet=DetMax)
+	w_plotspec_array(4) = *Scan.timestamp1
 
-	if scanno lt 0 then begin   ; a new file is picked
+; loose the error check
+; if read error with partially data try to plot it anyway
+	if n_elements(*Scan.scanno) lt 1 then begin   ; a new file is picked
 	scanData.y_scan = 0
 	scanData.y_seqno = 0
 	scanData.scanno = scanno
@@ -5302,6 +5321,8 @@ if id lt 0 then begin
 		'Use the ','', $
 		'File->Open... to pick a new file']
 	r = dialog_message(/error,st)
+print,scanData.path
+print,scanData.trashcan
 	return
 	end
 
@@ -5327,13 +5348,13 @@ if id lt 0 then begin
 	goto, populate
 	endif else begin
 
-	scanimage_alloc,scanData.trashcan, gD, scanno,pickDet=pickDet   ;, lastDet=DetMax
+	scanimage_alloc,scanData.trashcan, gD, scanno,pickDet=pickDet,timestamp=timestamp   ;, lastDet=DetMax
+	w_plotspec_array(4) = timestamp
 
 ;print,'ALLOC gD'
 	if scanno lt 0 then return
 	end
 end ; seq_no > 0
-
 	scanno = *(*gD).scanno
 	dim = *(*gD).dim
 	num_pts = *(*gD).num_pts
@@ -5364,6 +5385,10 @@ populate:
 	end
 
 	scanData.dim = dim
+
+; make sure 3D scan have correct image_array returned  before continuation
+sz = size(da2D)
+if dim eq 3 and sz(0) ne 3 then return
 
 ; check the header for the file if the the seq_no is set to le 0
 IF seq_no LE 0 THEN BEGIN
@@ -5415,7 +5440,7 @@ IF seq_no LE 0 THEN BEGIN
 
 ;  bring up the panimage window for 2D
 
-	if dim ge 2 then begin
+	if dim ge 2 and n_elements(da2D) gt 3 then begin
 
 	scanData.scanno_2d = scanno
 ;	if dim eq 2 then $
@@ -5452,8 +5477,8 @@ if dim ge 2 then begin
 	if seq_no le 0 then seq_no = maxno ; cpt[1]
 	scanData.y_seqno = seq_no - 1
 	if scanData.y_seqno lt 0 then  scanData.y_seqno=0
-end
 yvalue = pa1D(scanData.y_seqno,0)
+end
 
 if dim eq 1 and seq_no lt 0 then seq_no = 1
 next_seq_no = seq_no + 1
@@ -5477,7 +5502,7 @@ if dim eq 3 then ndet = scanData.lastDet(1)
 ; print,scanno,dim,cpt,num_pts
 ; print,scanData.lastDet
 
-sz3 = size(da3D)
+; sz3 = size(da3D)
 sz = size(da2D)
 if dim eq 3 and sz(0) eq 3 then ndet = sz(3)
 
@@ -7224,7 +7249,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
 	suffix = scanData.suffix   ;'.scan'
 
-	r = strpos(scanData.trashcan,'_')
+	r = rstrpos(scanData.trashcan,'_')
 	user = strmid(scanData.trashcan,0,r+1)
 
         found = findfile(scanData.path+'*'+scanData.suffix+'*',count=ct)
@@ -7233,8 +7258,8 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
         if sp gt -1 then sp=sp+1
         prefix = strmid(user,sp,len-sp)
         num = 0
-        for i=0,n_elements(found)-1 do begin
         len1 = strlen(prefix)
+        for i=0,n_elements(found)-1 do begin
         rp = strpos(found(i),prefix)
         rp1 = rstrpos(found(i),suffix)
         if rp ge 0 and rp1 gt len1 then begin
@@ -7261,6 +7286,8 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	w_plotspec_id.grid = 0
 	w_plotspec_id.errbars = 0
 	w_plotspec_id.xcord = 0
+
+WIDGET_CONTROL,/HOURGLASS
 
 	if scanData.bypass3d then scan_read,1,-1,-1,maxno,pickDet=-1 else $
 	scan_read,1,-1,-1,maxno    ; plot the last scan
@@ -7427,7 +7454,6 @@ PRO PRINTMENU_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
   COMMON CATCH1D_2D_COM, data_2d, gD
-  if *(*gD).dim gt 2 then return 
 
   CASE Event.Value OF 
 
@@ -8008,7 +8034,7 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 	end
 
  	w_plotspec_id.scan = 0
-;	after_scan
+;	after_sys_scan
 	end
 
 ;
@@ -8038,7 +8064,10 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 		end
 
 	if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 and $
-		scanData.realtime eq 1 then scanData.realtime = 0
+		scanData.realtime eq 1 then begin
+		scanData.realtime = 0
+		after_sys_scan
+		end
 
 end
       ENDELSE
@@ -8124,8 +8153,11 @@ end ;     end of if scanData.option = 1
 	end
 	END
 
+  'DC_AUTOSCAN': BEGIN
+	user_scan_init,group=Event.top
+	END
   'DC_REFRESH': BEGIN
-	UPDATE_PLOT,scanData.lastPlot
+	if w_plotspec_id.scan eq 0 then UPDATE_PLOT,scanData.lastPlot
 	END
   'DC_BYPASS3D': BEGIN
 	scanData.bypass3d = Event.Index
@@ -8602,6 +8634,10 @@ print,'Outpath: ',scanData.outpath
 	scanData.trashcan = scanData.path + w_plotspec_array(3)
 	w_viewscan_id.file = scanData.trashcan
 
+	r = dialog_message(['Is it OK to start scanSee with filename:','',$
+			scanData.trashcan,''],/question)
+	if r eq 'No' then return
+
 	if scanData.option ne 0 and  strlen(scanData.pv) lt 2 then begin
 	st = [ $
 	'Note:  ', $
@@ -8627,6 +8663,8 @@ print,'Outpath: ',scanData.outpath
 		if ferr ne 0 then return
 		end
 	
+	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
+
 WIDGET_CONTROL,/HOURGLASS
 
 	if scanData.bypass3d then scan_read,1,-1,-1,maxno,dim,pickDet=-1 else $
@@ -8671,7 +8709,7 @@ END
 
 
 
-PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
+PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,Autoscan=autoscan
 ;+
 ; NAME:
 ;       DC
@@ -8688,6 +8726,7 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;       Group:       Parent group id 
 ;       Config:      Specifies the configuration file, default to DC.config
 ;       Data:        Specifies the input file name for scan data
+;	AutoScan:    Start with autoscan option
 ;
 ; EXAMPLE:
 ;
@@ -8761,6 +8800,9 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;                       Bypass the read of 3D data in read_scan.pro
 ;			Add ViewData->IMAGE2D... to view image_array by IMAGE2D
 ;			for loaded 2D or 3D scan file 
+;       11-01-2002 bkc  R2.5.3
+;			Add the AutoScan option
+;			Add the read of timestamp of each line scan 
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8784,7 +8826,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R2.5.2)', $
+      TITLE='scanSee ( R2.5.3)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -8976,6 +9018,8 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
   WIDGET_CONTROL,pick_xaxis,set_droplist_select = 1
   
   refresh = WIDGET_BUTTON(BASE144_2,value='Refresh',UVALUE='DC_REFRESH')
+if keyword_set(autoscan) then $
+  autoscan = WIDGET_BUTTON(BASE144_2,value='AutoScan...',UVALUE='DC_AUTOSCAN')
 
   label145 = widget_label(BASE144_3,value='Images')
   ; add sublist panimage
@@ -9028,7 +9072,7 @@ if keyword_set(data) then w_plotspec_array(3) = data
 
   catch1d_scanInitSetup
 
-WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
+; WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
 
   XMANAGER, 'MAIN13_1', MAIN13_1, CLEANUP='catcher_close'
 ;  XMANAGER, 'MAIN13_1', MAIN13_1, CLEANUP='catcher_close',NO_BLOCK=0
