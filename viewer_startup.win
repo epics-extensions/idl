@@ -1,0 +1,11 @@
+;device,decompose=0
+loadct,39
+@os.init
+; run ezcaIDL is required for vw2d,/CA under idlde
+; .run u_read
+.run ez_fit
+.run readScan
+.run read_scan.pro.R2
+.run scanSee__define.pro
+.run scanSee
+scanSee
