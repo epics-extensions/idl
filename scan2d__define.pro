@@ -722,14 +722,18 @@ code = 0
 	end
 END
 
-PRO scan2d::View,no,scanno=scanno,detector=detector,noread=noread
+PRO scan2d::View,no,scanno=scanno,detector=detector,noread=noread,noplot=noplot
 ;+
 ; NAME:
 ;	scan2d::View
 ;
 ; PURPOSE:
-;       This method lets the user view any valid 2D image from the 2D 
-;       image file.
+;       This method lets the user view any valid 2D image from the 2D data
+;       catcher image file.
+; 
+;       It also automatically pops up the flexible 2D plot package, it allows
+;       the user view 2D image in TV, SURFACE, CONTOUR, and SHADE_SURF and
+;       generated the printer copy from the PS file, idl.ps, if desired.
 ;
 ; CALLING SEQUENCE:
 ;       Obj->[scan2d::]View, No, SCANNO=scanno, DETECTOR=detector, NOREAD=noread
@@ -745,6 +749,7 @@ PRO scan2d::View,no,scanno=scanno,detector=detector,noread=noread
 ;                If not specified, and SCANNO is given, detector 1 is assumed.
 ;     NOREAD:    If specified, no reading from the file pointer is done, 
 ;                only plot the current object is performed.
+;     NOPLOT:    If specified, no 2D flexible plotting package available.
 ;
 ; EXAMPLE:
 ;     Example 1 reads and plots the 135th image from the 'junk2.image'
@@ -760,7 +765,8 @@ PRO scan2d::View,no,scanno=scanno,detector=detector,noread=noread
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Jan 19, 1998.
-;	xx-xx-xxxx      comment
+;	12-16-1998      Add flexible 2D TV, SURFACE, CONTOUR,SHADE_SURF 
+;                       plot option
 ;-
 
 if keyword_set(noread) then goto,plotonly 
@@ -810,13 +816,19 @@ window,0,xsize=500,ysize=500,title='scan2d Object'
 	xrange=[self.xarr(0), self.xarr(w-1)]
 	yrange=[self.yarr(0), self.yarr(h-1)]
 
-	TVSCL,congrid(im,!d.x_size -100,!d.y_size-100),50,50
+	TVSCL,congrid(im,!d.x_size -160,!d.y_size-160),80,80
 
 	plot,xrange=xrange,yrange=yrange,/nodata,[-1,-1],/noerase, $
-		pos=[50./!d.x_size, 50./!d.y_size, $
-		 (!d.x_size-50.)/!d.x_size, (!d.y_size-50.)/!d.y_size], $
+		pos=[80./!d.x_size, 80./!d.y_size, $
+		 (!d.x_size-80.)/!d.x_size, (!d.y_size-80.)/!d.y_size], $
 		xstyle=1, ystyle=1, xtitle=self.x_desc, ytitle=self.y_desc, $
 		title=self.z_desc + 'D'+ strtrim(self.detector,2)
+
+	if keyword_set(noplot) then return
+	plot2d,im, xarr=self.xarr(0:w-1), yarr=self.yarr(0:h-1), $
+		comment=[header_note1,header_note], $
+		xtitle=self.x_desc, ytitle=self.y_desc, $
+                title=self.z_desc + 'D'+ strtrim(self.detector,2)
 
 END
 
