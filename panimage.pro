@@ -193,18 +193,8 @@ PRO PANIMAGE_SEL_Event, Event
 	PANIMAGE_SEL_accept,ret_conv,title,panimageinfo
 	panimageinfo.sel_list = ret_conv 
       END
-  'PANIMAGE_PSPRINT': BEGIN
-		old_win = !d.window
-		if panimageinfo.new_win gt 0 then begin
-		wset,panimageinfo.new_win
-		arr = TVRD()
-    		PS_open,'idl.ps',/TV,yoffset=1.
-		TV,arr
-		PS_close
-		PS_print,'idl.ps'
-		wset,old_win
-		end
-		return
+  'PANIMAGE_COLOR': BEGIN
+	xloadct
       END
   'PANIMAGE_ACCEPT': BEGIN
 	WIDGET_CONTROL,panimageinfo.tiff_id,GET_VALUE=name
@@ -282,6 +272,7 @@ PRO PANIMAGE_SEL_Event, Event
   ENDCASE
 
    WIDGET_CONTROL, Event.top, SET_UVALUE=panimageinfo
+   widget_control,/clear_events
 END
 
 
@@ -387,8 +378,8 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
       UVALUE = "PANIMAGE_ACCEPT")
   pan_all = WIDGET_BUTTON( BASE2_20,VALUE=" All ", $
       UVALUE = "PANIMAGE_ALL")
-  pan_print = WIDGET_BUTTON( BASE2_20,VALUE="Print", $
-      UVALUE = "PANIMAGE_PSPRINT")
+  pan_color = WIDGET_BUTTON( BASE2_20,VALUE="Color...", $
+      UVALUE = "PANIMAGE_COLOR")
   pan_cancel = WIDGET_BUTTON( BASE2_20,VALUE=' Close', $
       UVALUE = "PANIMAGE_CANCEL")
 
@@ -507,6 +498,7 @@ PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypo
 ;			add ascii report button etc..
 ;-
 
+widget_control,/hourglass
 error=0
 	if n_elements(image_array) eq 0 then begin
 		st = "Usage: panImage,image_array,title='description',tif=..."
@@ -626,6 +618,8 @@ new_win =!d.window
 
 	panimage_outfiles,new_win,image_array,tiff=tiff,order=reverse,png=png,pict=pict,xdr=xdr
 
+widget_control,/clear_events
+
 	catch,error_status
 	if error_status ne 0 then return
 	wset,old_win
@@ -685,6 +679,7 @@ PRO panimage_slider,image_array,id_def,factor,numd=numd,title=title,Group=Group,
 ;	xx-xx-xxxx bkc  comment
 ;-
 
+widget_control,/hourglass
 error=0
 if n_elements(image_array) eq 0 then begin
 	st = "Usage: panImage_slider,numd=numd,image_array,id_def,..."
@@ -793,5 +788,6 @@ display_image:
 	if keyword_set(tiff) or keyword_set(png) or keyword_set(pict) or keyword_set(xdr) then $
 	panimage_outfiles,win,res_image,tiff=tiff,order=order,png=png,pict=pict,xdr=xdr
 
+widget_control,/clear_events
 	wset,old_win
 END
