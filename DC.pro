@@ -517,7 +517,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.17 2001/06/18 16:51:29 cha Exp $
+; $Id: DC.pro,v 1.18 2001/06/21 19:10:38 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2737,7 +2737,7 @@ if n_elements(filename) eq 0 then return
         P=''
         for i=0,len-1 do begin
         is = len-1 -i
-        if string(x(is)) eq !os.file_sep then begin
+        if string(x(is)) eq !os.file_sep  then begin
                 P = strmid(filename,0,is+1)
                 F = strmid(filename,is+1,len-is)
                 return
@@ -2896,6 +2896,7 @@ if newpv eq '' then scanData.y_pv = newpv
       END
   'CATCHER_SETUP_DONE': BEGIN
        prefix = str_sep(scanData.pv,':')
+;        ln = caget(prefix[0]+':saveData_fullPathName',pd)
         ln = cagetArray(prefix[0]+':saveData_fullPathName',pd)
         if ln eq 0 then scanData.path = string(pd(1:99))
 	write_config
@@ -3177,6 +3178,8 @@ if caSearch(scanData.pv) ne 0 then begin
 	return
 	end
 
+;	ln = caget(scanData.pv+'.NPTS',pd)
+;	ln = caget(scanData.pv+'.MPTS',mpts)
 	ln = cagetArray([scanData.pv+'.NPTS', scanData.pv+'.MPTS'],pd,/short)
 	mpts = pd(1) 
 	scanData.req_npts = pd(0)
@@ -3643,10 +3646,11 @@ if realtime_id.def(w_plotspec_id.xcord) eq 2 then begin
         x_rn = realtime_pvnames
 
         xmax = realtime_id.xmax
+;        ln = caget(x_rn(w_plotspec_id.xcord),pd)
         ln = cagetArray(x_rn(w_plotspec_id.xcord),pd)
         if ln eq 0 and pd(0) gt xmax then begin
                 xmin=0
-                xmax=pd(0)
+                xmax=pd
                 dx = 0.1 * pd(0)
                 realtime_id.xmax = xmax + dx
                 realtime_id.xmin = xmin - dx
@@ -3725,8 +3729,9 @@ ENDCASE
 	2: x_dn = scanData.pv+'.P3PA'
 	3: x_dn = scanData.pv+'.P4PA'
 	ENDCASE
+;	ln = caget(x_dn, pd, max=scanData.req_npts)
 	ln = cagetArray(x_dn, pd, max=scanData.req_npts)
-	x = pd(0)
+	x = pd
 	if x_dv(4) gt 0. then begin
 	dx = MAX(x) - MIN(x)
 	xmax = MAX(x) + x_dv(2)  
@@ -7567,6 +7572,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
 if scanData.pvfound eq -1 then return
 
+;	ln = caget(scanData.y_pv+'.P1PV',s1)
 	ln = cagetArray(scanData.y_pv+'.P1PV',s1)
 	if ln eq 0 and s1(0) eq ''  then $ 
 	begin
@@ -8177,14 +8183,21 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	prefix = str_sep(scanData.pv,':')
 
 	if n_elements(st) eq 0 or keyword_set(get) then begin
-	nm = prefix[0]+':saveData_scanNumber'
-	ln = cagetArray(nm,pd)
-	err = ln
+	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_message']
+	callno = 0
+	ln = cagetArray(nm,pd,/string)
 	if ln ne 0 then return
-	scanData.filemax = pd - 1
-	st = strtrim(scanData.filemax,2)
-	scanData.fileno = scanData.filemax
-	end
+	err = ln
+	no = fix(pd(0))
+	scanData.fileno = no 
+	if scanData.filemax lt no then scanData.filemax = no 
+	st = strtrim(no,2)
+
+	tn = str_sep(pd(1),": ")             ; works only if ': ' is strue
+	if n_elements(tn) gt 1 then begin
+	  filename = tn(1) 
+	endif else begin
+	print,"***saveData_message busy*** scan #",no
 
 	if scanData.fileno lt 10000 then begin
 	str='0000'
@@ -8194,7 +8207,13 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	strput,sss,st,len0-len
 	endif else sss = st
 
-	filename = prefix[0]+':_'+sss+scanData.suffix   ;'.scan'
+	filename = prefix[0]+'_'+sss+scanData.suffix   ;'.scan'
+	if scanData.suffix eq '.scan' then $ 
+	filename = prefix[0]+':_'+sss+scanData.suffix  
+	end
+
+	end
+
 	scanData.trashcan = scanData.path + filename
 	w_plotspec_array(3) = filename
 	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
@@ -8289,6 +8308,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
   	read_config
 
         po = strpos(w_plotspec_array(3),'.',/reverse_search)
+	if po gt 0 then $
         scanData.suffix = strmid(w_plotspec_array(3),po, $
 		strlen(w_plotspec_array(3))-po)
 
