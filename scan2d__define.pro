@@ -59,7 +59,156 @@ PRO parse_num,instring,res,sep1=sep1,sep2=sep2
         end
 END
 
-PRO scan2d::ASCII,list,nowin=nowin
+PRO scan2d::ASCII1D,lineno,endno=endno,all=all,nowin=nowin,format=format,group=group
+;+
+; NAME:
+;	scan2d::ASCII1D
+;
+; PURPOSE:
+;       This method allows the user to extract all detectors data 
+;       from a 2D scan. The name convention of ASCII file will be the 
+;       image file suffixed with its corresponding 1D scan sequence number.
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]ASCII1D [,Lineno] [,Endno=endno] [,/ALL] $
+;                  [,/NOWIN]  [,FORMAT=format] [,GROUP=group]
+;
+; ARGUMENTS:
+;     Lineno:    Specifies the 1D line scan # to be extracted from a 
+;                given 2D scan.
+;
+; KEYWORDS:
+;     ENDNO:     If specified, ASCII files from the 1D scan lineno to the
+;                endno will be created
+;     ALL:       If specified, ASCII files for all 1D scan lines from a 
+;                given 2D scan will be created.
+;     NOWIN:     If specified, only the ASCII files will be created but the
+;                xdisplayfile window will not be shown. 
+;     FORMAT:    If specified, override the default output format
+;     GROUP:     Specifies the parent group ID, the destroy of parent window 
+;                results the destroy of this child window
+;
+; EXAMPLE:
+;     Example 1 extracts the 10th scan line from the current 2D scan. 
+;     Example 2 generates all the 1D scan data file without displaying window. 
+;     Example 3 extracts the 1D scan 3 to 5 from the current 2D scan.
+;
+;         v2->ASCII1D,10
+;         v2->ASCII1D,/ALL,/NOWIN
+;         v2->ASCII1D,3,endno=5
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, Feb 18, 2000.
+;       xx-xx-xxxx  xxx comment   
+;-
+
+
+scanno = self.scanno_current
+
+	self->Images,scanno,image_array,def,vmax,vmin,zdesc=zdesc,panimage=panimage,print=print
+
+help,zdesc
+print,zdesc
+	if n_elements(lineno) eq 0 then lineno=1
+	if lineno gt self.height then begin
+		r = dialog_message(['v->ascii1d, lineno', $
+			'Lineno can not exceeds '+string(self.height)],/error)
+		return
+	end
+w = self.width
+h = self.height
+px = self.xarr(0:w-1)
+py = self.yarr(0:h-1)
+
+	fmt = 'F18.8'
+	ifmt = strmid(fmt,1,strpos(fmt,'.')-1)
+	wd = fix(ifmt)
+	nd = ceil(total(def))
+	st0 = string(replicate(32b,(2+nd)*wd))
+	
+	sthd = st0
+	sthd2 = st0
+	strput,sthd,';',0
+	strput,sthd,'I',6
+	strput,sthd,'P1',wd
+	strput,sthd2,';',0
+	strput,sthd2,self.x_desc,wd
+	ip = 10 + wd
+	ji = 0
+	for j=0,nd-1 do begin
+		if def(j) gt 0 then begin
+		dip = ip + ji*wd
+		st1 = 'D'+strtrim(j+1,2)
+		st2 = zdesc(j)
+		strput,sthd,st1,dip
+		strput,sthd2,st2,dip
+		ji = ji+ 1
+		end
+	end
+
+
+	dir = self.outpath + 'ASCII' + !os.file_sep
+
+	startno = lineno
+	if n_elements(endno) eq 0 then endno = lineno
+	if keyword_set(all) then begin
+		startno=1
+		endno = self.height
+	end
+
+	for lineno = startno,endno do begin
+
+	seqno = self.scanno-self.height+lineno
+	fileSeqString,seqno,suf0
+
+	outfile = dir+self.name+'.S'+suf0
+	openw,unit,outfile,/get_lun
+	printf,unit,'; 1D ASCII detector data extracted from the image arrays'
+	printf,unit,'; 2D Scan # :',strtrim(scanno,2), $
+		',    width='+strtrim(w,2), $
+		',    height='+strtrim(h,2), $
+		',    1D Scan Line # :',lineno
+	printf,unit,'; 1D scan Line #  @ y(',strtrim(lineno-1,2),') = ',py(lineno-1)
+	printf,unit,'; Equivalent 1D Scan # :',seqno
+	printf,unit,sthd
+	printf,unit,sthd2
+
+	for i=0,w-1 do begin
+	st = st0
+	strput,st,string(i),0
+	strput,st,strtrim(px(i),2),10
+	ip = 10 + wd
+	ji = 0
+	for j=0,n_elements(def)-1 do begin
+		if def(j) gt 0 then begin
+		dip = ip + wd*ji
+		st1 = strtrim(image_array(i,lineno-1,j),2)
+		strput,st,st1,dip
+		ji = ji+1
+		end
+	end
+	printf,unit,st
+	end
+	free_lun,unit
+	close,unit
+	
+	if keyword_set(nowin) eq 0 then $
+	xdisplayfile,outfile,group=group
+
+	end
+END
+
+PRO scan2d::ASCII2D,detno,format=format,group=group
+
+	detector = 1
+	if n_elements(detno) then detector = detno
+	list = self.image_no(self.scanno_current-1)+detector
+	self->ascii,list,format=format,GROUP=group
+
+END
+
+
+PRO scan2d::ASCII,list,nowin=nowin,format=format,GROUP=group
 ;+
 ; NAME:
 ;	scan2d::ASCII
@@ -71,7 +220,7 @@ PRO scan2d::ASCII,list,nowin=nowin
 ;       image number.
 ;
 ; CALLING SEQUENCE:
-;       Obj->[scan2d::]ASCII, List, /NOWIN
+;       Obj->[scan2d::]ASCII, List, /NOWIN  [,FORMAT=format]
 ;
 ; ARGUMENTS:
 ;     List:      List is used to specify the sequence of image files to be
@@ -85,6 +234,9 @@ PRO scan2d::ASCII,list,nowin=nowin
 ; KEYWORDS:
 ;     NOWIN:     If specified, only the ASCII files will be created but the
 ;                xdisplayfile window will not be shown. 
+;     FORMAT:    If specified, override the default output format
+;     GROUP:     Specifies the parent group ID, the destroy of parent window 
+;                results the destroy of this child window
 ;
 ; EXAMPLE:
 ;     Example 1 creates the ASCII data files for the image [10,20,30] from the
@@ -101,11 +253,11 @@ PRO scan2d::ASCII,list,nowin=nowin
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Jan 19, 1998.
-;	xx-xx-xxxx      comment
+;       01-21-2000      Use current image # of the defined object 
 ;-
 
 
-if n_elements(list) lt 1 then return
+if n_elements(list) lt 1 then  list = self.seqno
 
 ; parse the string list
 
@@ -121,18 +273,14 @@ end
 
 ; integer list
 
-if self.path eq '' then $
-temp = obj_new('scan2d',file=self.name) else $
-temp = obj_new('scan2d',file=self.path +'/'+self.name) 
 
 	for i=0,n_elements(list)-1 do begin
-	temp->point_lun,list(i)-1
-	temp->read
-	if keyword_set(nowin) then temp->datatotext,/outfile,/nowin else $
-	temp->datatotext,/outfile
+	self->point_lun,list(i)-1
+	self->read
+	if keyword_set(nowin) then self->datatotext,/outfile,/nowin,Group=group else $
+	self->datatotext,/outfile,Group=group
 	end
 
-obj_destroy,temp
 END
 
 
@@ -322,7 +470,7 @@ obj_destroy,cv2
 	obj_destroy,cv3
 END
 
-PRO scan2d::dataToText,data,px,py,title=title,unit=unit,outfile=outfile,nowin=nowin
+PRO scan2d::dataToText,data,px,py,title=title,unit=unit,outfile=outfile,nowin=nowin,format=format,GROUP=group
 ;+
 ; NAME:
 ;	scan2d::DataToText
@@ -357,6 +505,8 @@ PRO scan2d::dataToText,data,px,py,title=title,unit=unit,outfile=outfile,nowin=no
 ;                '.txt' will be used by the text file. 
 ;
 ;     NOWIN:     If specified, the xdisplayfile window will not be shown. 
+;     FORMAT:    If specified, override the default F17.7 format. 
+;     GROUP:     Specifies the parent group widget ID.
 ;
 ; EXAMPLE:
 ;     Following example reads and plots the 135th image from file 'junk2.image'
@@ -373,6 +523,8 @@ PRO scan2d::dataToText,data,px,py,title=title,unit=unit,outfile=outfile,nowin=no
 ;      05-15-1998  bkc  Catch error for openw
 ;      05-11-1998  bkc  Add fileSeqString routine, add suffix '.txt' to seqno
 ;                       If outfile specified, no directory check will be done.
+;      02-17-2000  bkc  Add format keyword, default suffix use scan # and
+;                       detector#  '.S#D#' 
 ;-
 
 
@@ -391,9 +543,9 @@ title = '2D Scan # '+string(self.scanno_current) + $
 if keyword_set(outfile) then begin
 sz = size(outfile)
 if sz(n_elements(sz)-2) ne 7 then begin 
-fileSeqString,no,suf0
-file = self.name+'.'+ suf0+'.txt'
-endif else file = outfile+'.txt'
+suf0 = ''; fileSeqString,no,suf0
+file = self.name+'.'+ suf0+ '.txt'
+endif else file = outfile+ '.txt'
 end
 
 if n_elements(data) eq 0 then begin
@@ -414,35 +566,28 @@ type = s(n_elements(s)-2)
 T1='' & T2=''
 if n_elements(title) ne 0 then T1 = title
 if n_elements(unit) ne 0 then T2 = unit 
-s1 = '  data('+strtrim(dim(0),2)
+s1 = ';    data('+strtrim(dim(0),2)
 for i=1,no-1 do begin
 	s1 = s1 + ',' + strtrim(dim(i),2)
 end
 s1 = s1 + ')'
 
-st = ['; ' + T1 + T2 + s1 ]
+st = ['; ' + T1 + T2 ]
 
-; if outfile not specified
-;      first try data directory
-;       then try starting directory
-;       then user home directory
-;
-if keyword_set(outfile) eq 0 then begin
-dir = ''
-if self.path ne '' then dir = self.path+'/'
+r = strpos(filename,!os.file_sep)
+if r lt 0 then begin
 
-CATCH,error_status
-if error_status ne 0 then begin
-	if self.path ne '' and self.home ne self.path then $
-	dir = self.home+'/' else $
-	dir = getenv('HOME')+'/'	
-end
-openw,fw,dir+filename,/get_lun
-endif else begin
-openw,fw,filename,/get_lun
-end
+dir = self.outpath + 'ASCII' + !os.file_sep
+found = findfile(dir,count=ct)
+if ct eq 0 then spawn,!os.mkdir + ' '+dir
+
+report = dir+filname
+endif else report = filename
+
+openw,fw,report,/get_lun
 
 printf,fw,st
+printf,fw,s1
 printf,fw, '; ------------------------------'
 
 ;
@@ -465,28 +610,33 @@ printf,fw, '; ------------------------------'
 ;
 ;  other type 
 ;
+
+	fmt = 'F17.7'
+	if keyword_set(format) then fmt = format
+	ifmt = 'I'+strmid(fmt,1,strpos(fmt,'.')-1)
+
 if no eq 1 then begin
-	f1 = '(I,f17.7)'
+	f1 = '(I,'+fmt+')'      ; f1 = '(I,'+fmt+')'
 	for j=0,dim(0)-1 do begin
 	printf,fw,format=f1,j,data(j)
 	end
 	free_lun,fw
 	if keyword_set(nowin) then return
-	xdisplayfile,dir+filename
+	xdisplayfile,report    ;dir+filename
 ;	id = CW_TERM(widget_ids.textdata,filename=filename,/reset)
 	return
 end
 
 
 if no eq 2 then begin
-	f0 = '(";              (yvalues)",'+ '5000(f17.7,:))'
+	f0 = '(";              (yvalues)",'+ '5000('+fmt+',:))' 
 	if n_elements(py) gt 0 then printf,fw,format=f0,py
 	if n_elements(py) gt 0 then begin
-		f1 = '(f17.7,I,'+strtrim(dim(1),2)+'(f17.7))' 
-		f0 = '(";                   \ Y",'+strtrim(dim(1),2)+'I17,/,";                  X \",/,";      (xvalues)")'
+		f1 = '('+fmt+',I,'+strtrim(dim(1),2)+'('+fmt+'))' 
+		f0 = '(";                   \ Y",'+strtrim(dim(1),2)+ifmt+',/,";                  X \",/,";      (xvalues)")'
 		endif else begin
-		f0 = '(";    \ Y",'+strtrim(dim(1),2)+'I17,/,";   X \",/)'
-		f1 = '(I,'+strtrim(dim(1),2)+'(f17.7))' 
+		f0 = '(";    \ Y",'+strtrim(dim(1),2)+ifmt+',/,";   X \",/)'
+		f1 = '(I,'+strtrim(dim(1),2)+'('+fmt+'))' 
 		end
 	printf,fw,format=f0,indgen(dim(1))
 	newdata = transpose(data)
@@ -500,7 +650,7 @@ if no eq 2 then begin
 	end
 	free_lun,fw
 	if keyword_set(nowin) then return
-	xdisplayfile,dir+filename
+	xdisplayfile,report    ;dir+filename
 ;	id = CW_TERM(widget_ids.textdata,filename=filename,/reset)
 	return
 end
@@ -508,7 +658,7 @@ end
 
 if no eq 3 then begin
 	f0 = '("J =    ",'+strtrim(dim(1),2)+'I10,/)'
-	f1 = '(I,'+strtrim(dim(1),2)+'f17.7)'
+	f1 = '(I,'+strtrim(dim(1),2)+''+fmt+')'
 	ij=dim(0)*dim(1)
 	newdata = make_array(dim(0),dim(1))
 	for k=0,dim(2)-1 do begin
@@ -532,7 +682,7 @@ if no eq 3 then begin
 	end
 	free_lun,fw
 	if keyword_set(nowin) then return
-	xdisplayfile,dir+filename
+	xdisplayfile,report    ;dir+filename
 ;	id = CW_TERM(widget_ids.textdata,filename=filename,/reset)
 	return
 end
@@ -670,6 +820,148 @@ print,'Selected Image File        : ', filename
 print,'Total Number of 2D Scans   : ', self.scanno_2d_last
 print,'Total Number of Images     : ', self.maxno
 
+END
+
+PRO scan2d::Next,seqno,filename,error=error
+;+
+; NAME:
+;       scan2d::Next
+;
+; PURPOSE:
+;       This method points to the next set of 2D scan images or to the 
+;       specified 2D scan seqno set of 2D images.
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]Next [,Seqno] [,Filename] [,ERROR=error]
+;
+; ARGUMENTS:
+;     SEQNO     - jumps to the specified 2D scan # if it is specified.
+;     FILENAME  - returns the opened filename
+;
+; KEYWORD:
+;     ERROR     - returns the error code, non-zero if error found
+;
+; EXAMPLE:
+;    Example points to the next set of 2D scan images.
+;    Example 2 jumps to the 2D scan number 10. 
+;
+;         v2->Next
+;         v2->Next,10
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, Feb 19, 2000.
+;       xx-xx-xxxx      comment
+;-
+
+        error=0
+	if n_elements(seqno) eq 0 then seqno = self.scanno_current + 1
+	 self->panimage,seqno,error=error
+	filename = self.name
+END
+
+PRO scan2d::Prev,seqno,filename,error=error
+;+
+; NAME:
+;       scan2d::Prev
+;
+; PURPOSE:
+;       This method points to the prev set of 2D scan images or to the 
+;       specified 2D scan seqno set of 2D images.
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]Prev [,Seqno] [,Filename] [,ERROR=error]
+;
+; ARGUMENTS:
+;     SEQNO     - jumps to the specified 2D scan # if it is specified.
+;     FILENAME  - returns the opened filename
+;
+; KEYWORD:
+;     ERROR     - returns the error code, non-zero if error found
+;
+; EXAMPLE:
+;    Example points to the previous set of 2D scan images.
+;    Example 2 jumps to the 2D scan number 10. 
+;
+;         v2->Prev
+;         v2->Prev,10
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, Feb 19, 2000.
+;       xx-xx-xxxx      comment
+;-
+
+        error=0
+	if n_elements(seqno) eq 0 then seqno = self.scanno_current - 1
+	 self->panimage,seqno,error=error
+	filename = self.name
+END
+
+PRO scan2d::First,filename,error=error
+;+
+; NAME:
+;       scan2d::First
+;
+; PURPOSE:
+;       This method points to the first set of 2D scan images 
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]First [,Seqno] [,Filename] [,ERROR=error]
+;
+; ARGUMENTS:
+;     SEQNO     - specifies/returns the 2D scanno
+;     FILENAME  - returns the opened filename
+;
+; KEYWORD:
+;     ERROR     - returns the error code, non-zero if error found
+;
+; EXAMPLE:
+;    Example points to the first set of 2D scan images.
+;
+;         v2->First
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, Feb 19, 2000.
+;       xx-xx-xxxx      comment
+;-
+
+        error=0
+	 self->panimage,1,error=error
+	filename = self.name
+	seqno = 1 
+END
+
+PRO scan2d::Last,seqno,filename,error=error
+;+
+; NAME:
+;       scan2d::Last
+;
+; PURPOSE:
+;       This method points to the last set of 2D scan images 
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]Last [,Seqno] [,Filename] [,ERROR=error]
+;
+; ARGUMENTS:
+;     SEQNO     - specifies/returns the 2D scanno
+;     FILENAME  - returns the opened filename
+;
+; KEYWORD:
+;     ERROR     - returns the error code, non-zero if error found
+;
+; EXAMPLE:
+;    Example points to the last set of 2D scan images.
+;
+;         v2->Last
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, Feb 19, 2000.
+;       xx-xx-xxxx      comment
+;-
+
+        error=0
+	 self->panimage,self.scanno_2d_last,error=error
+	filename = self.name
+	seqno = self.scanno_2d_last
 END
 
 PRO scan2d::Read,view=view,width=width,height=height,detector=detector,scanno_2d=scanno_2d,x=x,y=y,im=im
@@ -932,6 +1224,14 @@ code = 0
 	end
 END
 
+PRO scan2d::View2d,detno,plot=plot,group=group
+	scanno = self.scanno_current
+	imageno = self.image_no(scanno-1) + detno 
+	self->point_lun,imageno-1
+	self->view,/noplot
+END
+
+
 PRO scan2d::View,no,scanno=scanno,detector=detector,noread=noread,noplot=noplot,type=type,winId=winId
 ;+
 ; NAME:
@@ -1028,10 +1328,17 @@ if keyword_set(winid) then wset,winid else $
 
 	TVSCL,congrid(im,!d.x_size -160,!d.y_size-160),80,80
 
-	plot,xrange=xrange,yrange=yrange,/nodata,[-1,-1],/noerase, $
+        xstyle = 1
+        ystyle = 1
+        if yrange(0) eq yrange(1) then ystyle = 4
+        if xrange(0) eq xrange(1) then xstyle = 4
+
+	plot,xrange=xrange,yrange=yrange,/nodata, $
+		[-1+yrange(0),-1+yrange(0)],/noerase, $
 		pos=[80./!d.x_size, 80./!d.y_size, $
 		 (!d.x_size-80.)/!d.x_size, (!d.y_size-80.)/!d.y_size], $
-		xstyle=1, ystyle=1, xtitle=self.x_desc, ytitle=self.y_desc, $
+		xstyle=xstyle, ystyle=ystyle, $
+		xtitle=self.x_desc, ytitle=self.y_desc, $
 		title=self.z_desc + 'D'+ strtrim(self.detector,2)
 	colorbar,[min(im),max(im)]
 
@@ -1183,7 +1490,7 @@ PRO scan2d::Point_lun,seqno
 END
 
 
-PRO scan2d::panImage,scanno,factor ,new_win=new_win
+PRO scan2d::panImage,scanno,factor,seqno=seqno,new_win=new_win, tiff=tiff,reverse=reverse,gif=gif,pict=pict,error=error
 ;+
 ; NAME:
 ;	scan2d::panImage
@@ -1194,14 +1501,19 @@ PRO scan2d::panImage,scanno,factor ,new_win=new_win
 ;       calculated from the current 2D image sequence number.
 ;
 ; CALLING SEQUENCE:
-;       Obj->[scan2d::]panImage [,Scanno] [,Factor]
+;       Obj->[scan2d::]panImage [,Scanno] [,Factor] [,TIFF='tifname',/reverse]
+;                 [,GIF='gifname']
 ;
 ; ARGUMENTS:
 ;  Scanno:  Specifies the 2D scan # 
 ;  Factor:  Optional input, to specify the panImage window ratio factor 
 ;
 ; KEYWORDS:
-;     None.   
+;     GIF   : specifies the output gif filename. If specified the
+;              panImage window will be saved in the gif output file.
+;     TIFF   : specifies the output tiff filename. If specified the
+;              panImage window will be saved in the tiff output file.
+;     REVERSE: specifies whether the reverse tiff should be saved.
 ;
 ; EXAMPLE:
 ;    Following example shows how to get the panImage of all detectors 
@@ -1216,9 +1528,10 @@ PRO scan2d::panImage,scanno,factor ,new_win=new_win
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Nov 19, 1998.
-;	xx-xx-xxxx      comment
+;	11-23-99  bkc  add option of saving panImage as TIFF/GIF file 
 ;-
 
+error=0
 unit = self.opened
 seq = self.scanno_current
 if n_elements(scanno) then seq = scanno 
@@ -1226,10 +1539,12 @@ last = self.scanno_2d_last
 
 if unit le 0 then begin
 	res=WIDGET_MESSAGE('Error: no image file loaded in')
+	error=-1
 	return
 end
 if seq lt 1 or seq gt self.scanno_2d_last then begin
 	res=WIDGET_MESSAGE('Error: outside range 2D scanno entered')
+	error=-1
 	return
 end
 
@@ -1273,6 +1588,9 @@ update:
 		height = height * factor
 	end
 
+catch,error_status
+if error_status then self.win=-1
+if self.win ne -1 then wdelete,self.win
 self.win = -1
 	if self.win lt 0 then begin
 		window,/free, xsize = 8*width, ysize=2*height, $
@@ -1305,12 +1623,200 @@ self.win = new_win
 	plots,[0,8*width],[height,height],/device
 	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
 
+	if keyword_set(TIFF) then begin
+		tvlct,r,g,b,/get
+		tiffname = strtrim(tiff,2)
+	 	if keyword_set(reverse) then $
+		write_tiff,tiffname,reverse(TVRD(),2),1,red=r,green=g,blue=b $
+		else write_tiff,tiffname,TVRD(),red=r,green=g,blue=b
+	end
+
+	if keyword_set(GIF) then begin
+		tvlct,r,g,b,/get
+		gifname = strtrim(gif,2)
+		write_gif,gifname,TVRD(),r,g,b
+		write_gif,gifname,/close
+	end
+
+        if keyword_set(PICT) then begin
+                tvlct,r,g,b,/get
+                gifname = strtrim(pict,2)
+                write_pict,gifname,TVRD(),r,g,b
+        end
+
 	wset,old_win
 	self.seqno = self.image_no(seq-1)+self.detector
 	self->point_lun,self.seqno
 
 ;	print,self.seqno,new_win,self.win,old_win
 
+END
+
+PRO scan2d::Images,scanno,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage,print=print,zdesc=zdesc
+;+
+; NAME:
+;       scan2d::IMAGES
+;
+; PURPOSE:
+;       For a given 2D scan number this method allows the user to extract the 
+;       image_array for all the detectors from a 2D catcher file.
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]IMAGES, Scanno, Image_array, Def, Vmax, Vmin,/PAN ,/PRINT
+;
+; ARGUMENTS:
+;       Scanno:        Specifies the 2D scan # to be extracted.
+;       Image_array:   Image_array(*,*,15) is used to return all 15 detectors 
+;                      image array for a picked 2D scan
+;       Def[15]:       If specified, it returns the detector definition array
+;                      for a scan record. 1 is defined, 0 is not defined
+;       Vmax[15]:      If specified, it returns the maximum value of the 2D
+;                      detector image array
+;       Vmin[15]:      If specified, it returns the minimum value of the 2D
+;                      detector image array
+; 
+; KEYWORDS:
+;	PANIMAGE:      If specified, the panimage window of the 2D scanno
+;                      will be displayed.
+;       X:             If specified, it returns the X vector
+;       Y:             If specified, it returns the Y vector
+;       PRINT:         If specified, the Def, Vmax, Vmin vectors will be
+;                      printed.
+;       ZDESC:         If specified, it returns the detector description array
+; EXAMPLE:
+;    This example extracts all the detector images for the 2D scan # 15 from
+;    the 2D image file 'junk2.image'. The panimage window is desired to
+;    show the 2D scanno read in.
+;    The object v2 need to be defined only if it is not yet defined.
+;
+;        v2 = obj_new('scan2d',file='junk2.image')
+;        v2->IMAGES, 15, image_arrays, /PAN
+;
+; MODIFICATION HISTORY:
+;        Written by:     Ben-chin Cha, Nov 9, 1999.
+;        xx-xx-xxxx      comment
+;-
+; for a given scanno it returns the
+;  image_array(width,height,15)
+;  def(15)  - vector for detector defined
+;  vmax(15) - vector for image max
+;  vmin(15) - vector for image min
+
+unit = self.opened
+seq = self.scanno_current
+if n_elements(scanno) then seq = scanno 
+xdim = self.width 
+ydim = self.y_req_npts
+last = self.scanno_2d_last
+
+if unit le 0 then begin
+	res=WIDGET_MESSAGE('Error: no image file loaded in')
+	return
+end
+if seq lt 1 or seq gt self.scanno_2d_last then begin
+	res=WIDGET_MESSAGE('Error: outside range 2D scanno entered')
+	return
+end
+
+	seqno = self.image_no(seq-1)
+
+	point_lun, unit, self.fptr(seqno)
+
+	image_array  = make_array(xdim,ydim,15,/float)
+	def = make_array(15,value=0)
+
+	vmin = make_array(15,/float)
+	vmax = make_array(15,/float)
+	zdesc = make_array(15,/string)
+	scanno_2d = seq
+	for i=0,14 do begin
+		if EOF(unit) eq 1 then goto,update
+		u_read, unit, pvs
+		u_read, unit, nos
+		if nos(4) ne seq then goto,update
+		u_read, unit, x
+		u_read, unit, y
+		u_read, unit, t_image
+		if def(nos(3)) eq 0 then begin
+		def(nos(3)) = 1
+		image_array(*,*,nos(3)) = t_image
+		rmax = max(t_image,min=rmin)
+		vmax(nos(3)) = rmax
+		vmin(nos(3)) = rmin
+
+        pvs = string(pvs)
+        if n_elements(pvs) gt 3 then begin
+		zdesc(nos(3)) = strtrim(pvs(5),2)
+        end
+
+		end
+	end
+
+update:
+
+
+	if keyword_set(panimage) then self->panimage
+	if keyword_set(print) then begin
+	print,def
+	print,vmax	
+	print,vmin
+	end
+END
+
+PRO scan2d::Calibration,scanno,format=format,GROUP=group
+;+
+; NAME:
+;       scan2d::CALIBRATION
+;
+; PURPOSE:
+;       This method calls the 2D image calibration program for a given
+;       2D scanno. It allows the user flexiblely to select the images
+;       and define the calibration function, calculate and displaying
+;       the resultant image.
+;
+;       If the 2D scanno # is not specified, then the current 2D scan 
+;       sequence number is assumed.
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]CALIBRATION [,Scanno]
+;
+; ARGUMENTS:
+;  Scanno:     Specifies the 2D scan sequence #
+;
+; KEYWORDS:
+;    FORMAT    Specifies the calibration output format.
+;    GROUP:    Specifies the parent widget ID..
+;
+; EXAMPLE:
+;     Following example calls the image calibration program for the 
+;     2D scanno 10 from the image file 'junk2.image'
+;     The object v2 need to be defined only if it is not yet defined.
+;
+;     	v2 = obj_new('scan2d',file='junk2.image')
+;	v2->Calibration,10
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, Nov 11, 1999.
+;	xx-xx-xxxx      comment
+;
+;-
+
+	if n_params() eq 0 then scanno = self.scanno_current
+	if scanno gt 0 and scanno le self.scanno_2d_last then begin		
+
+	seqno = self.image_no(scanno-1)
+	point_lun, self.opened, self.fptr(seqno)
+	self->read,x=x,y=y
+	self->images,scanno,image_array,def,/PANIMAGE
+
+	path = self.path
+	ln = strlen(self.path) 
+	if ln gt 0 and strmid(self.path,ln-1,1) ne !os.file_sep then $
+		path = self.path + !os.file_sep
+	calibration_factor,image_array,def,xv=x,yv=y,format=format, $
+		classname=self.name,inpath=path, $ ;scanno=self.scanno, $
+		title='  SCAN # '+strtrim(scanno,2),GROUP=group
+	endif else print,'Error: scanno out of range'
 END
 
 PRO scan2d::ROI,no,debug=debug,header=header,comment=comment,_extra=e
@@ -1624,13 +2130,18 @@ end
 	xdisplayfile,reportname
 END
 
-PRO scan2d::delete
-	free_lun,self.unit
+PRO scan2d::Delete
 	obj_destroy,self
 END
 
-PRO scan2d::cleanup
-	self->delete
+PRO scan2d::Cleanup
+	if self.unit then free_lun,self.unit
+	catch,error_status
+	if error_status ne 0 then goto,reset
+	if self.win ne -1 then wdelete,self.win
+reset:
+	self.unit=0
+	self.win = -1
 END
 
 FUNCTION scan2d::Init,file=file
@@ -1642,12 +2153,30 @@ device,decompose=0   ; required for 24 bits
 	cd,current=h
 	self.home = h
 	self.win = -1
+
+; if outfile not specified
+;      first try data directory
+;       then try starting directory
+;       then user home directory
+;
+	dir = ''
+	if self.path ne '' then dir = self.path+!os.file_sep 
+
+	CATCH,error_status
+	if error_status ne 0 then begin
+	if self.path ne '' and self.home ne self.path then $
+	dir = self.home+!os.file_sep else $
+	dir = getenv('HOME')+!os.file_sep 
+	end
+	openw,1,dir+'.tmp'
+	close,1
+	self.outpath = dir
         return,1
 END
  
 PRO scan2d__define
+; increase max image size to 2000x2000
  
-;  catch2d_file = {                $
 struct = { scan2d, $
 	unit	: -1, $
 	type	: 0, $
@@ -1655,6 +2184,7 @@ struct = { scan2d, $
 	version : '', $
 	home    : '', $
 	path    : '', $
+	outpath : '', $
         name    : 'catch1d.trashcan.image',           $
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
@@ -1696,8 +2226,8 @@ struct = { scan2d, $
 	yzline_yo : [0.,0.],$
 	yzline_zo : [0.,0.],$
 	s_wid   : -1, $       ; window id for saved pixmap
-	xarr	: make_array(1000), $
-	yarr	: make_array(1000), $
-	image	: make_array(1000,1000,/float) $
+	xarr	: make_array(2001), $
+	yarr	: make_array(2001), $
+	image	: make_array(2000,2000,/float) $
         }
 END 
