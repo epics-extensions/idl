@@ -234,9 +234,6 @@ COMMON DCVIEWER_BLOCK,dcviewer_ids
   'PROMPT_IDL': begin
 	commandtext_dialog,GROUP=Event.top
 	end
-  'FIX24BITS': BEGIN
-	device,bypass_translation=0
-      END
   '1D_OVERLAY ...': BEGIN
 	view1d_overlay,GROUP=Event.Top 
       END
@@ -375,10 +372,6 @@ PRO dcViewer,data=data,file=file, XDR=XDR, GROUP=Group
 COMMON DCVIEWER_BLOCK,dcviewer_ids
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
-;   LOADCT,39      ;inherit from the parent
-        if n_elements(R_ORIG) eq 0 then $
-        catch1d_get_pvtct
-
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
@@ -425,10 +418,6 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
       COLUMN=1, $
       MAP=1, $
       UVALUE='BASE2')
-
-;  FIX24BITS = WIDGET_BUTTON( BASE2, $
-;      UVALUE='FIX24BITS', $
-;      VALUE='FIX24BITS')
 
   BUTTON3 = WIDGET_BUTTON( BASE2, $
       UVALUE='BUTTON3', $
