@@ -176,9 +176,10 @@ print,c_color
 	polyfill,xv,yv,color = c_color,/device
 END
 
-PRO defroi_refresh,im,width=width,height=height,xpos=xpos,ypos=ypos,print=print,charsize=charsize
+PRO defroi_refresh,im,width=width,height=height,xpos=xpos,ypos=ypos,print=print,charsize=charsize,background=background
 
 	graph_region,xl,yl,wd,ht
+	if keyword_set(background) then erase,background else $
 	erase
 	TVSCL,congrid(im,wd,ht),xl,yl
 	
@@ -954,15 +955,14 @@ WIDGET_CONTROL,/HOURGLASS
 	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=''
       END
   'DEFROIPICK_BACKGROUND': BEGIN
-	WIDGET_CONTROL,defroi_pickinfo.slider,GET_VALUE=bg
-	defroi_pickinfo.bg = bg
-	erase,bg
-	defroi_refresh,defroi_pickinfo.im0
-	picke = defroi_pickinfo.picke
-	im = defroi_pickinfo.im0
-	device,set_graphics_function=3
-	defroi_listall,im,picke,charsize=1
-	device,set_graphics_function=6
+;	WIDGET_CONTROL,defroi_pickinfo.slider,GET_VALUE=bg
+;	defroi_pickinfo.bg = bg
+;	defroi_refresh,defroi_pickinfo.im0
+;	picke = defroi_pickinfo.picke
+;	im = defroi_pickinfo.im0
+;	device,set_graphics_function=6
+;	defroi_listall,im,picke,charsize=1
+;	device,set_graphics_function=3
       END
   'DEFROIPICK_OFFSET': BEGIN
 	WIDGET_CONTROL,defroi_pickinfo.offwid,GET_VALUE=str
@@ -1202,9 +1202,9 @@ graph_region,xl,yl,wd,ht,xsize,ysize
       UVALUE='DEFROIPICK_TEXTCLEAR', $
       VALUE='Clear')
 
-  label2 = WIDGET_LABEL(BASE7,VALUE='  Bg color:')
-  Slider = WIDGET_SLIDER( BASE7, MAX=!d.table_size-2, MIN=0,/scroll, $
-      UVALUE='DEFROIPICK_BACKGROUND')
+;  label2 = WIDGET_LABEL(BASE7,VALUE='  Bg color:')
+;  Slider = WIDGET_SLIDER( BASE7, MAX=!d.table_size-2, MIN=0,/scroll, $
+;      UVALUE='DEFROIPICK_BACKGROUND')
 
   BASE8 = WIDGET_BASE(BASE5, $
       ROW=1, $
@@ -1264,7 +1264,7 @@ defroi_pickinfo = { $
 	ht : ht, $
 	scale : [wd/sz(1),ht/sz(2)], $
 	bg : 0, $
-	slider : slider, $
+;	slider : slider, $
 	region_id : 1, $
 	region_max : 1, $
 	picke: make_array(n_elements(im),/long), $
