@@ -256,6 +256,10 @@ PRO view3d_2Dredisplay,state,Event
 
 END
 
+PRO EHANDLER,EV
+widget_control,/destroy,EV.TOP
+END
+
 PRO VIEWDRV3D_Event, Event
 
 
@@ -293,6 +297,27 @@ PRO VIEWDRV3D_Event, Event
 	state.display = -1
 	view3d_2Dredisplay,state,Event
 	state.display = odisplay
+	END
+  'VIEW3D_IMAGE_ANIMATE': BEGIN
+	H = *state.data
+	sz = size(H)
+	if sz(0) eq 3 then begin
+	base = widget_base(title=state.title)
+	no = sz(1)
+	if state.rank eq 1 then no = sz(2)
+	if state.rank eq 2 then no = sz(3)
+ 	animate = cw_animate(base,100,100,no)
+	widget_control,/realize,base
+	for i=0,no-1 do begin
+		if state.rank eq 0 then im =reform(H(i,*,*),sz(2),sz(3))
+		if state.rank eq 1 then im =reform(H(*,i,*),sz(1),sz(3))
+		if state.rank eq 2 then im =reform(H(*,*,i),sz(1),sz(2))
+		im = congrid(im,100,100)
+		cw_animate_load,animate,frame=i,image=bytscl(im)
+	end
+	cw_animate_run,animate
+	xmanager,'CW_ANIMATE Demo',base,event_handler='EHANDLER'
+	end
       END
   'VIEW3D_IMAGE_SLICE': BEGIN
       END
@@ -327,6 +352,7 @@ PRO VIEWDRV3D_Event, Event
 	'','        ** Selection of Slice # **', $
 	'List    - select the desired slice pass to the display option', $
 	'','        ** 2D Image Area **', $
+	'Animate... - show movie of images of the picked rank axis', $
 	'Draw Area  - show the image of the selected axial slice', $
 	'Slider Bar - pre-view of the axial slice images', $
 	'','        ** Control Buttons **', $
@@ -492,6 +518,8 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
       COLUMN=1, $
       MAP=1, $
       UVALUE='BASE19')
+  BUTTON20 = WIDGET_BUTTON( BASE19, UVALUE='VIEW3D_IMAGE_ANIMATE', $
+      VALUE=' Animate... ')
   draw18 = WIDGET_DRAW(BASE19,xsize=100,ysize=100, $
 	RETAIN=2, UVALUE='VIEW3D_IMAGE_SLICE')
   slider = WIDGET_SLIDER(BASE19,MAXIMUM=sz(rank+1)-1,MINIMUM=0,VALUE=0, $
