@@ -185,7 +185,7 @@ PRO readScanFile,filename,gD,scanno
 END
 
 
-PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=height,scanno=scanno,xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv,plot=plot,group=group
+PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=height,scanno=scanno,xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv,plot=plot,group=group,dname=dname
 ;+
 ; NAME:
 ;       SCAN2DDATA
@@ -203,6 +203,7 @@ PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=hei
 ;       dN:          Speicifies the desired image number, i.e. detector number.
 ;
 ; KEYWORD PARAMETERS:
+;       Dname:       If specified, overrides the detector name
 ;       View:        If specified, the TVSCL of the 2D image is plotted.
 ;       Plot:        If specified, the 2D image plot program is called.
 ;       Xarr:        Returns the positioner 1 vector of X scan
@@ -334,11 +335,14 @@ PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=hei
 	ystyle = 1
 	if yrange(0) eq yrange(1) then ystyle = 4
 	if xrange(0) eq xrange(1) then xstyle = 4
+
+	if keyword_set(dname) then title = xpv + dname else $
+	title=xpv + 'D'+ strtrim(seq,2)
         plot,xrange=xrange,yrange=yrange,[-1+yrange(0),-1+yrange(0)],/noerase, $
                 pos=[50./!d.x_size, 50./!d.y_size, $
                  (!d.x_size-50.)/!d.x_size, (!d.y_size-50.)/!d.y_size], $
                 xstyle=xstyle, ystyle=ystyle, xtitle=xdesc, ytitle=ydesc, $
-                title=xpv + 'D'+ strtrim(seq,2)
+                title=title
  
 	end
 
@@ -346,7 +350,7 @@ PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=hei
         plot2d,im, xarr=xarr, yarr=yarr, $
                 comment=[header_note1,header_note], $
                 xtitle=xdesc, ytitle=ydesc, $
-                title=xpv + 'D'+ strtrim(seq,2), group=group
+                title=title, group=group
 
 	endif else begin
 		res = dialog_message('Error: not a 2D scan!',/Error)
