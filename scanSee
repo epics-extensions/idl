@@ -19,8 +19,9 @@ cd ${IDL_USERDIR}
 	endif
 
 if ( "$1" == "" ) then
+setenv IDL_NCOLORS 32
 if `isainfo -b` == 64 then
-	source /usr/local/rsi/idl_5.4/bin/idl_setup
+	source /usr/local/rsi/idl_5.5/bin/idl_setup
 	idl -32 $exe
 else
 	source /usr/local/rsi/idl_5.3/bin/idl_setup
