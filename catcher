@@ -20,7 +20,7 @@ else
 	source $EPICS_EXTENSIONS/bin/$HOST_ARCH/setup_ezcaIDL
 endif
 
-#	source /usr/local/rsi/idl_5.1/bin/idl_setup
+	source /usr/local/rsi/idl_5.1/bin/idl_setup
 	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl51"
 	if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl51"
