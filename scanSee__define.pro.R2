@@ -305,7 +305,7 @@ class=class,outpath=outpath
 
 END
 
-PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,pict=pict,group=group,SEL=SEL
+PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,pict=pict,xdr=xdr,group=group,SEL=SEL
 ;+
 ; NAME:
 ;       scanSee::VIEW3D_PANIMAGE
@@ -377,17 +377,19 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,pict=pict
 	scanno = scanno + '_'+strtrim(kindex,2)
 	title = '3D Scan #'+strtrim(self.scanno,2)+scanno
 
+	class = self.name
+
 	if keyword_set(TIFF) then $
-	tiff = self.outpath+'TIFF'+!os.file_sep+self.class+ $
+	tiff = self.outpath+'TIFF'+!os.file_sep+class+ $
 		scanno+'.tiff'
 	if keyword_set(REVERSE) then $
-	tiff = self.outpath+'TIFF'+!os.file_sep+self.class+ $
+	tiff = self.outpath+'TIFF'+!os.file_sep+class+ $
 		scanno+'.rtiff'
 	if keyword_set(XDR) then $
-	xdr = self.outpath+'XDR'+!os.file_sep+self.class+ $
+	xdr = self.outpath+'XDR'+!os.file_sep+class+ $
 		scanno+'.xdr'
 	if keyword_set(PICT) then $
-	pict = self.outpath+'PICT'+!os.file_sep+self.class+ $
+	pict = self.outpath+'PICT'+!os.file_sep+class+ $
 		scanno+'.pict'
 
 	nw = self.win
@@ -437,7 +439,7 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, April 4, 2000.
-;       xx-xx-xxxx      comment
+;       12-01-2000      Add scan # to title
 ;
 ;-
 
@@ -452,7 +454,7 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 	da3d = *(*self.gD).da3D
 	data = da3d(*,*,*,detector-1)
 
-	if keyword_set(title) eq 0 then title='scan3D_2D Slicer: Detector '+strtrim(detector,2)
+	if keyword_set(title) eq 0 then title='3D Scan# '+strtrim(self.scanno,2)+', Detector '+strtrim(detector,2)
 	view3d_2d,data,group=group,title=title,slicer3=slicer3
 END
 
@@ -1506,13 +1508,13 @@ PRO scanSee::Delete
 ;       xx-xx-xxxx      comment
 ;-
 
-catch,error_status
-if error_status then goto,delstep
-	if self.win gt 0 then wdelete,self.win
-delstep:
-	self.win = -1
+
 	scanimage_free,self.gD
 	obj_destroy,self
+
+	catch,error_status
+	if error_status ne 0 then return
+	wdelete,0
 END
 
 PRO scanSee::Cleanup
