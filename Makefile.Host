@@ -14,11 +14,15 @@ DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt \
 	DC_help.txt \
 	scanSee.README vw2d_help.txt pick3d_help.txt
 
-SCRIPT1 = ezcaidl_startup.pro \
+IDLS = ezcaidl_startup.pro \
 	os.init PS_open.pro u_read.pro cw_term.pro plot1d.pro plot2d.pro \
 	colorbar.pro rename_dialog.pro scan2d_roi.pro xdisplayfile.pro \
 	fit_statistic.pro calibration_factor.pro calibra_pick1d.pro \
 	calibdrv.pro scanSee__define.pro scanSee.pro \
+	scanSee.exe2.idl55 \
+	catcher.exe2.idl53 \
+ 	dc2ins_2d dc2ins_1d \
+	go_scan1d  go_scan2d \
 	dc2tiff.pro scan2d_convert.pro \
 	ez_fit.pro catch1d.tbl fixIndexFile.pro \
 	catcher_v1.pro catcher_v1.init toImage.pro \
@@ -30,33 +34,31 @@ SCRIPT1 = ezcaidl_startup.pro \
 	dc2hdf.pro image.pro image2d.pro \
 	hdfb.pro NX__define.pro nexus_scan.pro \
 	DC.init DC.pro vw2d.init vw2d.pro vw2d.bm view3d_slicer.pro \
-	readScan.pro read_scan.pro \
+	readScan.pro read_scan.pro user_scan.pro \
 	multiroi_pick.pro read_scan.pro.R2 xdr_open.pro \
 	pick3d.pro view3d_2dsum.pro pick2d.pro \
  	view3d_2d.pro panimage.pro \
+	mda2vol.pro \
 	memtest.pro scansee_overlay.pro assignname_read.pro scansee_browser.pro
+#	volviewer.pro volviewer_eventcb.pro volume_animator.pro \
 
-SCRIPT2 = ezcaidl_setup idluserdir_setup \
+SCRIPTS_DEFAULT = ezcaidl_setup idluserdir_setup \
 	calibra scanBrowser \
 	dc2tiff \
 	ezfit \
 	catcher toimage \
-	catcher.exe2.idl53 \
-	go_scan1d \
-	go_scan2d \
-	viewer \
+	viewer mda2vol \
 	dc2hdf img \
 	hdfb NX \
-	scanSee vw2d scanSee.exe2.idl53 \
+	scanSee vw2d \
 	SB \
- 	dc2ins_2d dc2ins_1d \
 	pick3d 
+#	volviewer \
 
-ifdef WIN32
-SCRIPTS = $(SCRIPT1)
-else
-SCRIPTS = $(SCRIPT1) $(SCRIPT2)
-endif
+#SCRIPTS_WIND32 = -nil-
+SCRIPTS_WIND32 = go_DC go_NX go_SB go_img go_pick3d \
+		go_scanBrowser go_vw2d \
+		ezcaidl_startup.win viewer_startup.win
 
 include $(TOP)/config/RULES.Host
 
