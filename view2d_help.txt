@@ -217,10 +217,13 @@ This button saves a ASCII file 'view2d_data.txt' in the startup directory,
 which shows image data corresponding to x, y values. Then it pops up 
 a scroll terminal to show the contents of the ASCII file. 
 
+A text field is provided which allows the user to control the column format
+for the display output.
 
-			   Refresh Button
 
-Press the 'Refresh' button turns off the zoom mode and the TV 
+			   ReNew Button
+
+Press the 'ReNew' button turns off the zoom mode and the TV 
 image will be drawn in the original VIEW2D default setting.
 
 
@@ -263,6 +266,22 @@ Click the right mouse button again will zoom the region enclosed by the
 bounding box. 
 
 
+			    --IMAGE-- Values Area 
+
+This area consists of values of Min Z, Max Z, Cursor @ X, Cursor @Y,
+and  Z at cursor. 
+
+
+			    Set New P1PV & P1CP
+ 
+If view2d is running from the data catcher two additional push buttons 
+'Set New P1PV' and 'Set NewP1CP' are available. Press the 'Set New P1PV' 
+button will move the positioner P1PV of scan1 and scan2 records to the 
+cursor @ X, Y value respectively.  Press the 'Set New P1CP' button 
+will set the center position of the positioner P1 of scan1 and scan2
+records to the cursor @ X, Y value respectively.
+
+
 			    PROBE XZ Button
 
 The XZ button turns on the XZ query mode, a user must use the left mouse
@@ -284,7 +303,7 @@ button terminates this query mode.
 
 Four text fields Xmin, Xmax, Ymin, Ymax are settable by the user
 which specifies the image index ranges shown in the drawing area. 
-The default user plot range is Ymin=0, Ymax=100, Xmin=0, Xmax=100. 
+The default user plot range is same as the 2D image dimension. 
 The new value will be in effect as soon as the carriage return
 is pressed.
 
@@ -304,13 +323,34 @@ above Zmax will be shown in same color as Zmax.
 
 
 
-                             PanImages Button
+                             PanImage Menu 
 
-The PanImages Button pops up / updates the image-strip window to show 2D 
-image of all detectors defined. Each detector has its own 2D TV image
-based on its own data range. If no data available for the detector 
-the text 'Di' is drawn instead. For detailed TV image use the image
-button to select the desired detecor.
+The PanImages sub menu provides the option of popping up / save TIFF or GIF
+of the image-strip window to show 2D image of all detectors defined. Each 
+detector has its own 2D TV image based on its own data range. If no data 
+available for the detector the text 'Di' is drawn instead. For detailed 
+TV image use the image button to select the desired detecor.
+
+The Calibration... option calls the image calibration program for user.
+
+
+                             2D-ROI Menu 
+
+The 2D-ROI menu consists of entries of various functions of generating 
+2D region of interest reports: Help..., ViewRpt..., AppendRpt..., 
+ReplaceRpt..., and RenameRpt...  
+
+Any of the entry item will invoke the 2D-ROI program for user.  The ROI 
+definition file name is suffixed with '_roi.txt', the ROI report file 
+name is suffixed with '_roi.rpt'.
+
+Help...         Pop up the help info window of 2D-ROI program
+ViewRpt...      Select the desired ROI report for display
+AppendRpt...    Append new ROI report to the current ROI report setting
+ReplaceRpt...   Replace the content of the current setting ROI report
+                by the new report calculation
+RenameRpt...    Rename the current ROI report to a new name
+
 
 
 			    Information Block
