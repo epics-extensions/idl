@@ -1,3 +1,42 @@
+                        CATCHER 1.5.5 RELEASE NOTE 
+                        ==========================
+<< medm setup>>
+
+Running data catcher from the MEDM screen, the shell escape command 
+should set like the following:
+
+	cd ../idl; xterm -e catcher -D &	(developer license)
+	cd ../idl; xterm -e catcher &		(runtime license)
+
+<<ViewData Menu>>
+
+A new option "View1D Overlay ..." dialog is added. This program allows
+the user to enter a list of scans to be (overlay) plotted togather.
+The plot window is resizable by the window manager.
+
+<<Plot Option>>
+
+A new option "Auto Scale (Y>0)" is added to the Y scale menu. This option 
+allows the user to use the automatic scale but only plotting the (Y>0) data.
+
+<<Print->Report ...>>
+
+A new option "Separate ASCII Report" is added to the report generation
+dialog. If this option is turned on, separate ASCII report will be 
+generated for each scan for the selected scan ranges.
+
+The default saved report directaory is the same as the data directory. 
+If it is not writable by the user, the startup directory will be used.
+
+
+<<Plot Heading>>
+
+The 1D plot header now reflects whether the scan is produced by the 
+1D scan or 2D scan.  For 2D scan the Y value at the moment of scan is 
+also shown on the plot title and the plot header line. For pure 1D
+scan no Y value is shown on the plot.
+
+
                         CATCHER 1.5.4 RELEASE NOTE 
                         ==========================
 
@@ -16,9 +55,9 @@ be written in the 'output.lis' file. If the file 'output.list' does exist
 it will be over-written.  If the file 'output.lis' does not exist it will 
 be created.
 
-	catcher >! output.lis & 		(use runtime license)
+	catcher >! output.lis  			(use runtime license)
 
-	catcher -D >! output.lis & 		(use developer license)
+	catcher -D >! output.lis  		(use developer license)
 
 On the sun5  Solaris system if the redirection of standard output is not 
 specified on the command line, the background job will be stopped by
