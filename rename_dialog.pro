@@ -1,4 +1,5 @@
 
+
 PRO RENAME_DIALOG_Event, Event
 COMMON RENAME_BLOCK,rename_ids
 
@@ -9,11 +10,8 @@ COMMON RENAME_BLOCK,rename_ids
   'RENAME_PATH': BEGIN
 	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
 	len = strlen(pathdir(0))
-	found = findfile(pathdir(0))
-	if found(0) eq '' then begin
-	st = 'mkdir '+ pathdir(0)
-	spawn,st,result
-	end
+	found = findfile(pathdir(0),count=ct)
+	if ct eq 0 then spawn, !os.mkdir +' '+ pathdir(0)
 	END
   'RENAME_DIALOGACCEPT': BEGIN
 	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
@@ -23,6 +21,8 @@ COMMON RENAME_BLOCK,rename_ids
 	len = strlen(pathdir(0))
 	if strmid(pathdir(0),len-1,1) ne !os.file_sep then $
 		pathdir = pathdir(0)+!os.file_sep
+	found = findfile(pathdir(0),count=ct)
+	if ct eq 0 then spawn,!os.mkdir+ ' '+pathdir(0)
 	oldname = strtrim(file1(0),2)
 	found = findfile(oldname)
 	if found(0) eq '' then begin
@@ -38,7 +38,7 @@ COMMON RENAME_BLOCK,rename_ids
 		res = dialog_message(st,/question)
 		if res eq 'No' then return	
 	end
-	spawn,!os.mv + ' '+ oldname + ' '+newname +' &',res
+	spawn,!os.mv + ' '+ oldname + ' '+newname +' &'
 	WIDGET_CONTROL,Event.Top,/DESTROY
       END
   'RENAME_DIALOGCANCEL': BEGIN
