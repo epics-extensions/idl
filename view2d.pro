@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.32 2001/03/30 23:23:45 cha Exp $
+; $Id: view2d.pro,v 1.33 2001/04/04 22:23:32 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1607,6 +1607,11 @@ update:
 		if keyword_set(ref) then im = image_array(*,*,i)/im_ref	
 		if statistic_2dids.back eq 2 then begin
 			nelem = n_elements(arr)
+	if nelem eq 0 then begin
+		r = dialog_message('You have to define polygon ROI first',/info)
+		close,1
+		return
+	end
 			temp = make_array(nelem)
                 	for ij=0,nelem-1 do begin
 			j = arr(ij) / xdim
