@@ -1,4 +1,4 @@
-; $Id: view1d.pro,v 1.15 1999/09/22 19:52:42 cha Exp $
+; $Id: view1d.pro,v 1.16 1999/10/25 22:12:30 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -172,7 +172,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.15 1999/09/22 19:52:42 cha Exp $
+; $Id: view1d.pro,v 1.16 1999/10/25 22:12:30 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -391,6 +391,61 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
+@fit_statistic.pro
+
+PRO  getStatisticDeviation_1d,id1,y,mean,sdev,mdev,st
+	mean=0.
+	sdev=0.
+	mdev=0.
+	no = n_elements(y)
+	if no eq 0 then return 
+	mean = total(y)/no
+	if no eq 1 then return
+	index = where(y gt mean, count)      ; check for constant function 
+	mean = [mean,0.,0.,0.]
+	if count gt 0 then mean = MOMENT(y,mdev=mdev,sdev=sdev)
+
+st = [' Detector '+strtrim(id1+1,1)]
+st= [st+' ']
+        st = [st, '   Mean         = '+string(mean(0))]
+        st = [st, '   Standard Dev = '+string(sdev)]
+        st = [st, '   Mean Abs Dev = '+string(mdev)]
+        st = [st, '   Variance     = '+string(mean(1))]
+        st = [st, '   Skewness     = '+string(mean(2))]
+        st = [st, '   Kurtosis     = '+string(mean(3))]
+END
+
+PRO  getStatistic_1d,id1,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,st
+
+; call statistic_1d
+
+        statistic_1d,p1,d1,c_mass,x_peak,y_peak,y_hpeak,FWHM
+
+st = [' Detector '+strtrim(id1+1,1)]
+st= [st+' ']
+        st = [st, '   Peak  X='+strtrim(x_peak,1)+'  Y='+strtrim(y_peak,1)]
+;       st = [st, '   H-Peak  Y='+strtrim(y_hpeak)]
+        st = [st, '   Centroid  '+ strtrim(c_mass,1)]
+        st = [st, '   FWHM      '+strtrim(FWHM,1)]
+
+if n_elements(x_peak) gt 0 then begin
+	largest = max(y_peak)
+	i_largest = 0
+	for i=0,n_elements(x_peak)-1 do begin
+		if y_peak(i) ge largest then begin 
+		i_largest = i
+		goto, write_peak
+		end
+		end
+	write_peak:
+	xpeak = x_peak(i_largest)
+	ypeak = y_peak(i_largest)
+	end
+
+END
+
+
+
 ;
 ;  figure out the ~ file name
 ; only work for unix system and HOME is defined
@@ -459,469 +514,6 @@ end
 	if n(0) gt 0 then begin
 	u_read,unit,ze
 	end
-END
-
-
-PRO  getStatisticDeviation_1d,id1,y,mean,sdev,mdev,st
-	mean=0.
-	sdev=0.
-	mdev=0.
-	no = n_elements(y)
-	if no eq 0 then return 
-	mean = total(y)/ no
-	if no eq 1 then return
-	index = where(y gt mean, count)      ; check for constant function 
-	mean = [mean,0.,0.,0.]
-	if count gt 0 then mean = MOMENT(y,mdev=mdev,sdev=sdev)
-
-st = [' Detector '+strtrim(id1+1,1)]
-st= [st+' ']
-        st = [st, '   Mean         = '+string(mean(0))]
-        st = [st, '   Standard Dev = '+string(sdev)]
-        st = [st, '   Mean Abs Dev = '+string(mdev)]
-        st = [st, '   Variance     = '+string(mean(1))]
-        st = [st, '   Skewness     = '+string(mean(2))]
-        st = [st, '   Kurtosis     = '+string(mean(3))]
-END
-
-PRO  getStatistic_1d,id1,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,st
-
-; call statistic_1d
-
-        statistic_1d,p1,d1,c_mass,x_peak,y_peak,y_hpeak,FWHM
-
-st = [' Detector '+strtrim(id1+1,1)]
-st= [st+' ']
-;       st = [st, '   H-Peak  Y='+strtrim(y_hpeak)]
-        st = [st, '   Peak Y='+strtrim(y_peak,1)]
-	st = [st, '      @ X='+strtrim(x_peak,1)]
-        st = [st, '   Centroid  @ X='+strtrim(c_mass,1)]
-        st = [st, '   FWHM          '+strtrim(FWHM,1)]
-
-if n_elements(x_peak) gt 0 then begin
-	largest = max(y_peak)
-	i_largest = 0
-	for i=0,n_elements(x_peak)-1 do begin
-		if y_peak(i) ge largest then begin 
-		i_largest = i
-		goto, write_peak
-		end
-		end
-	write_peak:
-	xpeak = x_peak(i_largest)
-	ypeak = y_peak(i_largest)
-	end
-
-END
-
-
-
-PRO scan_read_extract,data,startno=startno,endno=endno,max=max,positioner=positioner,detector=detector,header=header,infile=infile,outfile=outfile,help=help
-COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
-COMMON view1d_warningtext_block,view1d_warningtext_ids
-
- in = keyword_set(infile)
- out = keyword_set(outfile)
- ht1 = keyword_set(startno)
- ht2 = keyword_set(endno)
- no = keyword_set(max)
- position = keyword_set(positioner) 
-if position eq 0 then positioner = 0
- detect = keyword_set(detector) 
-if detect eq 0 then detector = 0
- header = keyword_set(header)
-
-if no le 0 then begin
-	print,'ERROR: MAX=n must be specified!'
-	goto,help 
-	end
-
-if ht1 and ht2 then begin
-numstep = endno-startno+1
-
-if numstep le 0 then begin
-	print,'ERROR: illegal startno, endno  range entered!'
-	goto,help
-	end
-end
-
-data = make_array(max, numstep, /float)
-
-if in le 0 then filename = 'catch1d.trashcan' else $
-	filename = string(infile)
-	unit2=-99
-
-if out then begin
-	st = 'Extracting subset data from the " '+filename+' ".' 
-	st = [st,' Extracted data will be writen to " '+outfile+' ".']
-	st = [st,' Enter Y/N, default to Yes.']
-	if header eq 0 then st = [st,'','No header, only 2D data image saved.']
-	st2 = 'Ok to write extracted data to '+outfile	
-	view1d_warningtext_ids.answer = 'Y'
-	view1d_warningtext,st,quest=st2
-	if view1d_warningtext_ids.answer eq 'Y' then begin
-		if V1D_scanData.XDR eq 1 then U_OPENW,unit2,outfile,/XDR else $ 
-		U_OPENW,unit2,outfile 
-		end
-	end
-
-; position record to the startno
-
-	id = startno
-	if V1D_scanData.XDR eq 1 then U_OPENR,unit,filename,/XDR else $
-	U_OPENR,unit,filename
-	for i=1,id-1 do begin
-	if EOF(unit) then begin
-		print,'EOF!  Last record is',i-1
-		return
-		end
-	scan_read_record,unit
-	end
-	
-; extract read loop through startno - endno
-
-	WHILE id le endno and NOT  EOF(unit) DO BEGIN
-                scan_read_record,unit,version,pv,num_pts,FA,x,y,n,ze
-;print,id,num_pts(0)+1
-;help,FA
-
-; if header is set then write the subset to outfile
-
-	if header and unit2 gt 0 then begin
-		y(11) = y(11) - startno
-		y(12) = 1
-		x(3) = outfile
-
-	nx = n_elements(x)
-	for i=0,nx-1 do begin
-	len = strlen(x(i))
-	if len lt 60 then x(i)=  x(i) + string(replicate(32b,60-len))
-	end
-
-	nx = n_elements(ze)
-	for i=0,nx-1 do begin
-	len = strlen(ze(i))
-	if len lt 110 then ze(i)=  ze(i) + string(replicate(32b,110-len))
-	end
-
-; scan_mode_write,unit2
-
-        u_write,unit2,version(0)
-        u_write,unit2,pv(0)
-        u_write,unit2,num_pts(0)
-	s = size(FA)
-	for i=0,s(2)-1 do begin
-		px = FA(*,i)
-        	u_write,unit2,px
-	end
-        u_write,unit2,x
-        u_write,unit2,y
-        u_write,unit2,n(0)
-        if n(0) gt 0 then u_write,unit2,ze
-
-	end
-
-; subset is limited by max
-
-subset = num_pts(0)
-if subset ge max then subset = max-1
- 
-; default to detector 1
-
-	i1 = 0
-	if position and positioner gt 0 then begin
-		i1 = positioner - 1 
-		data(0:subset, id-startno) = FA(0:subset, i1)
-	end
-	if detect and detector gt 0     then begin
-		i1 = detector - 1
-		data(0:subset, id-startno) = FB(0:subset, i1)
-	end
-
-        id = id + 1
-        END
-
-	if header eq 0 and unit2 gt 0 then begin
-		dims = [max,numstep]
-		u_write,unit2,dims
-		u_write,unit2,data
-		end
-
-	u_close,unit
-	if unit2 gt 0 then u_close,unit2
-	return
-
-; on line help
-
-help: 
-	begin
-	print,''
-	print,'This routine extracts scan data for a given detector/positioner '
-	print,'from the "catch1d.trashcan" or from a user specified input file.'
-	print,'It defaults to extract scan data for detector #1. '
-	print,''
-	print,'Usage: scan_read_extract,data,startno=s,endno=e,max=n,positioner=i,detector=j,$'
-	print,'          infile="in",outfile="out",/header'
-	print,''
-	print,'   DATA          -  output 2D data array'
-	print,'   STARTNO=s     -  Start record no'
-	print,'   ENDNO=e       -  End record no, endno > startno'
-	print,'   MAX=n         -  Maximum dimension'
-	print,'   POSITIONER=i  -  Extract i-th positoner data'
-	print,'   DETECTOR=j    -  Extract j-th detector data'
-	print,'   INFILE="in"   -  Input 1D data file, default "catch1d.trashcan"'
-	print,'   OUTFILE="out" -  If specified, the extracted data will be saved as "out".'
-	print,'   /HEADER       -  If specified the complete data will be saved.'
-;	print,'                    If not specified, the 2D "data" array is saved.'
-	return
-	end
-END
-
-
-;
-; find  fwh_max, c_mass, peak for a given x,y array
-;
-PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm,fwhm_xl,fwhm_wd, $
-	FIT=FIT,XINDEX=XINDEX,LIST=LIST
-
-xindex = keyword_set(XINDEX)
-list = keyword_set(LIST)
-
-nx = n_elements(x)
-a=make_array(nx,/float)
-da=make_array(nx,/float)
-ny=make_array(nx,/float)
-slopey=make_array(nx,/float)
-
-ymin = min(y)
-ymax = max(y)
-ny = y - ymin
-
-peak = ymax
-hpeak = 0.5 * max(ny)
-y_hpeak= hpeak + ymin
-
-; area = int_tabulated(x,ny)
-; harea = 0.5 * area
-
-d0=0
-for i=1,nx-1 do begin
-	dx = x(i) - x(i-1)
-	if dx ne 0. then begin
-	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
-	d0 = d0 + da(i)
-	a(i) = d0
-	slopey(i)= (ny(i)-ny(i-1))/dx
-	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
-	end
-end
-
-area = d0
-harea = 0.5 * area
-
-; Find c_mass
-
-newtons_method,x,a,harea,c_mass
-if list then print,'===='
-if list then print,'C_mass',harea,c_mass
-
-
-; Find half peaks
-
-if list then print,'===='
-nohwdl=0
-nohwdr=0
-x_hwdl=0
-x_hwdr=0
-for i=1,nx-1 do begin
-	yl = ny(i-1) - hpeak
-	yr = ny(i) - hpeak
-       if yl*yr lt 0. and yl lt 0. then begin
-		nohwdl = [nohwdl, i-1]
-;		print,i-1,y(i-1)
-		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
-		x_hwdl= [x_hwdl,x_sol]
-		end
-       if yl*yr lt 0. and yl gt 0. then begin
-		nohwdr = [nohwdr, i-1]
-;		print,i-1,y(i-1)
-		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
-		x_hwdr= [x_hwdr,x_sol]
-		end
-end
-;print,'nohwdl',nohwdl, x_hwdl
-;print,'nohwdr',nohwdr, x_hwdr
-	lo=0
-	fwhm = 0.
-if n_elements(nohwdl) gt 1 then begin 
-	x_hwd = x_hwdl(1:n_elements(nohwdl)-1)
-	nohw = n_elements(x_hwd)
-if n_elements(nohwdr) gt 1 then begin
-	x_hwde = x_hwdr(1:n_elements(nohwdr)-1)
-	nohwe = n_elements(x_hwde)
-	fwhm = make_array(nohw,/float)
-	for i=0,nohw-1 do begin
-		x1 = x_hwd(i)
-	for j=0,nohwe-1 do begin
-		if x_hwde(j) ne x1 then begin
-			fwhm(i) = abs(x_hwde(j) - x1)
-			lo=lo+1
-;			print,'FWHM',lo,fwhm(i)
-			goto,outer
-			end
-		end
-	outer:
-	end
-	end
-	FWHM = max(fwhm)
-end
-
-; Find peaks
-
-if keyword_set(FIT) then begin
-nopeaks=0
-if list then print,'===='
-for i=1,nx-1 do begin
-       if slopey(i-1) gt 0 and slopey(i-1)*slopey(i) lt 0. then begin
-;		print,i,slopey(i-1),slopey(i)
-		nopeaks = [nopeaks, i]
-		end
-end
-;print,'nopeaks',nopeaks
-no = n_elements(nopeaks)-1
-if no gt 0 then begin
-x_peak = make_array(no,/float)
-y_peak = make_array(no,/float)
-for i=1,no do begin
-	i2= nopeaks(i)
-	i1= i2-1
-	newtons_method,[x(i1),x(i2)],[slopey(i1),slopey(i2)],0.,x_sol,notfound
-	if notfound eq 0 then begin
-if list then 	print,'Peak #',i,x_sol,y(i1)
-		x_peak(i-1)= x_sol
-		y_peak(i-1) = y(i1)
-		end
-end
-endif else begin
-	y_peak = ymax
-	if y(0) gt y(nx-1) then x_peak = x(0) else x_peak = x(nx-1)
-if list then 	print,'Ymax at pt ',y_peak,x_peak
-end
-endif else begin
-
-	for i=0,nx -1 do begin
-		if y(i) eq peak then begin
-		x_peak = x(i)
-		y_peak = peak
-		return
-		end
-	end
-end
-
-END
-
-PRO find_hpeak,x,nx,xindex=xindex
-print,'===='
-fwh_max= make_array(4,/float)
-ix = nx / 4
-x_index = indgen(nx)
-for m=0,3 do begin
-i1 = ix *m 
-i2 = i1+ix-1
-newx = x(i1:i2)
-newy = ny(i1:i2)
-
-xindex = keyword_set(XINDEX)
-	if xindex then begin
-	newx = x_index(i1:i2)
-	newtons_method_norm,newx,newy,hpeak,n1,x_sol,notfound
-	fwh_max_x1 = x(n1) + x_sol * (x(n1+1) - x(n1))
-	endif else begin
-	newtons_method,newx,newy,hpeak,fwh_max_x1,notfound
-	end
-
-	if notfound then print,'HPeak RANGE #',m+1,'     ENCOUNTERED NOT FOUND PROBLEM' 
-	fwh_max(m)=fwh_max_x1
-	print,'HPeak RANGE #',m+1,fwh_max(m)
-end
-END
-
-
-PRO newtons_method,x,y,y_sol,x_sol,notfound
-notfound = 0
-nx = n_elements(y)
-n1 = 0 
-n2 = nx-1 
-RETEST:
-;print,'N1,N2',n1,n2,y(n1),y(n2)
-if (n2-n1) le 1 then begin
-	if (y_sol - y(n2)) * (y_sol - y(n1)) gt 0 then begin
-		x_sol= x(n1)
-		notfound = 1
-		return
-		end
-	if (x(n2)-x(n1)) eq 0. then begin
-		x_sol = x(n1)
-		return
-	end
-	x_sol = x(n1)+ (y_sol - y(n1)) /(y(n2)-y(n1)) *(x(n2)-x(n1))
-	 return
-	end
- 
-nm = (n2-n1)/ 2 + n1
-fm = y (nm)
-;print,nm,fm,y_sol
-if abs(fm-y_sol) le 1.e-5 then begin
-	x_sol = x(nm)
-;	print,'Stop at NM,x_sol',nm,x_sol
-	return
-endif else begin
-	if (fm-y_sol) *(y(n2) - y_sol) gt 0 then begin
-		n2 = nm
-	endif else  begin
-		n1 = nm
-	end
-	goto,RETEST
-	end
-END
-
-;
-; using index and factor instead of real value for x array
-;
-PRO newtons_method_norm,x,y,y_sol,n1,x_sol,notfound
-	rx = float(x)
-	newtons_method,rx,y,y_sol,x_sol,notfound
-	n1 = fix(x_sol)
-	x_sol = x_sol-float(n1)
-END
-
-
-PRO center,xindex=xindex
-
-x = indgen(11) 
-y = x + 10
-
-scan_read_extract,x,startno=2,endno=2,max=11,positioner=1
-scan_read_extract,y,startno=2,endno=2,max=11,detector=1
-
-;print,x
-;print,y
-
-scan_read_extract,x,startno=4,endno=11,max=100,positioner=1
-scan_read_extract,y,startno=2,endno=11,max=100,detector=1
-
-x = x(20:45)
-y = y(20:45)
-
-xindex = keyword_set(xindex)
-if xindex then begin
-	statistic_1d,x,y,c_mass,peak,hpeak,/xindex,/list
-	print,'index x used'
-endif else begin
-	statistic_1d,x,y,c_mass,peak,hpeak
-	print,'real x used'
-end
-
 END
 
 
@@ -2139,11 +1731,17 @@ end
 x = V1D_scanData.pa(0:V1D_scanData.act_npts-1,view1d_plotspec_id.xcord)
 y = make_array(V1D_scanData.act_npts,15)
 y(*,*) = V1D_scanData.da(0:V1D_scanData.act_npts-1,0:14)
+	WIDGET_CONTROL, view1d_widget_ids.wf_select, GET_VALUE = wf_sel
+	for i=0,14 do begin
+	if wf_sel(i) then begin 
+		if n_elements(jpick) eq 0 then jpick=i else jpick=[jpick,i]	
+		end
+	end
 
   CASE Event.Value OF
 
-  'Fitting.Ez_Fit': BEGIN
-        ez_fit,x=x,y=y,GROUP=Event.Top
+  'Fitting.Ez_Fit...': BEGIN
+        ez_fit,x=x,y=y,GROUP=Event.Top,jpick=jpick
         END
   'Fitting.1D binary': BEGIN
         u_openw,unit,'fitting.bin1d',/XDR
@@ -3745,7 +3343,6 @@ view1d_summary_ids = { $
 
   XMANAGER, 'view1d_summary_setup', view1d_summary_base, GROUP_LEADER = GROUP 
 END
-
 ;
 ; view1d_drv.pro
 ;
@@ -4657,7 +4254,9 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;       08-26-99  bkc   R1.5c scale is not automatically reset after the zooming
 ;                       use Auto Scale button to reset
 ;       08-26-99  bkc   R1.5d 
-;                       open_binary_type default to XDR
+;                       Open_binary_type default to XDR
+;       09-20-99  bkc   View Report automatically generates it if file not found
+;       10-06-99  bkc   Ez_fit automatically fits the first selected detector 
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -4755,7 +4354,7 @@ endif else $
 ; fitting menu
   MenuFitting = [ $
       { CW_PDMENU_S,       3, 'Fitting' }, $ ;        0
-        { CW_PDMENU_S,       0, 'Ez_Fit' }, $ ;        1
+        { CW_PDMENU_S,       0, 'Ez_Fit...' }, $ ;        1
         { CW_PDMENU_S,       2, '1D binary'} $ ;        1
   ]
   PDMENU_fitting = CW_PDMENU( BASE68, MenuFitting, /RETURN_FULL_NAME, $
