@@ -186,14 +186,14 @@ The Plot Options pulldown menu consists of seven selection items: 'Plot vs',
 'Plot Style', 'Y Scale', 'Grid', 'Err Bars', 'Versus P#', 'Color Curve', and 
 'Plot ...'
 
-Plot vs			Value/Step #. Plots against to real positioner value 
-			or index step #. It defaults to vs Value.
+Colors 			Colors/Black&White. Turns the option of color curve 
+			plot on or off. It defaults to Colors.
 
-Plot Style		Line/Point/Both. Plots data as line, symbol, or line
+Lines                   Solid or various line styles. It default to colored
+			solid lines. 
+
+Symbols 		Lines/Symbos/Both. Plots data as line, symbol, or line
 			plus symbol. It defaults to line plot.
-
-Y Scale			Linear/Log. Y axis uses linear or log scale. It 
-			defaults to linear scale.
 
 Grid			Off/On. Turns grid lines off or on. It defaults to
 			grid lines off.
@@ -201,26 +201,24 @@ Grid			Off/On. Turns grid lines off or on. It defaults to
 Err Bars		Off/On. Turns error bar (10%) option off or on. It
 			defaults to off.
 
-Versus P#		P1/P2/P3/P4.  Selects the positioner data to be used
-			for x-axis. It defaults to positioner #1.
+Y Scale			Linear/Linear (Y>0)/Log. Y axis uses linear or log 
+			scale. It defaults to linear scale.
 
-Color Curve             On/Off. Turns the option of color curve plot on or off. 
-			It defaults to on.
+Ranges ...              Pops up a plot specification dialog for setting the
+			user preferred x- or y- plot ranges and replot.
 
-Plot ...                Pops up a plot specification dialog which allows the 
-			user to modify the plot xy ranges, xy labels,
-			title, and comments for the 1D plot.  The user plot
-			range is accessed by the 'Set User Scale ...' button.
+Labels ...		Pops up a plot specification dialog for setting the
+			plot tilte, xlabel, ylabel, comment.
 
 
 
 			       HELP MENU
 
-The Help pulldown menu consists of two selection items: 'Version ...',
-'Release Note ...', 'Help ...', 'Catcher Html ...', and and 'ezcaIDL Html ...'.
+The Help pulldown menu consists of five selection items: 'Version ...',
+'Release Note ...', 'Help ...', 'Catcher Html ...', and 'ezcaIDL Html ...'.
 
-Version ...		Pops up the version information in the message
-			window.
+Version ...		Pops up the message window to show the version 
+                        information.
 
 Release Note ...        Pops up the release note window.
 
@@ -389,13 +387,28 @@ closes the dialog.
  
 
 
+			    X AXIS SELECTION
 
-			   DETECTOR SELECTION 
+The X axis can be index number or the array of the positioner readback values.
+If selected positioner is not defined, then the index number will be used in
+the X axis plot.  It defaults to P1 axis.
 
-The detector selection consists of 15 radio buttons. The selection button
-indicates whether the detector will be plotted or not.  If it is pressed in
-the corresponding detector data will be plotted.
 
+			    Y AXIS SELECTION 
+
+The radio buttons of Y plotting consists of 15 detectors and 4 positioners.
+The selection button indicates whether the detector will be plotted or not.  
+If it is pressed in the corresponding detector data will be plotted. The
+default selected buttons are D1 and D2.
+
+
+		  	    IMAGES SELECTION 
+
+For 2D scan in addition of 1D realtime scan plot, an image strip showing 
+live 2D images of all detectors.  Each detector's 2D image is updated at 
+the end of each 1D scan based on it's own color scheme.
+
+Two sizes of image selection  Small/Large. It defaults to small.
 
 
 			
@@ -444,22 +457,21 @@ a channel access put will be performed at the end of each inner loop scan.
 
 
 
-		           PLOT ... DIALOG
+		           LABELS ... DIALOG
 
-Plot setup dialog consists of sets of push buttons and input text fields
+Labels setup dialog consists of sets of push buttons and input text fields
 which will be used by the data catcher in modifying the 1D plot. 
 
 The plot title, x & y labels, comment text fields can be 
-modified to override the default values.  Set up the plot ranges  Xmin, 
-Xmax, Ymin, and Ymax can be accessed from the 'Set User Scale ...' button.
-The text field entered will be in effect by carriage return or until either the 
+modified to override the default values.  The text field entered will be 
+in effect by carriage return or until either the 
 'Apply' or 'Done' is pressed. The 'Done' button will also close the dialog. 
 If the 'Cancel' button is pressed, it terminates the modification and close 
 the dialog.
 
 
 			
-			  USER SCALE ... DIALOG
+			  RANGES ... DIALOG
 
 The user scale dialog allows the user to dynamically specify the X and Y plot 
 ranges.  It consists of xmin, xmax, ymin, ymax fields and three push buttons.
@@ -474,30 +486,19 @@ range based on the data array.
 
 			   VIEW 1D ... DIALOG
 
+View 1D dialog allows the user freely to browse through the 1D scan data file.
+
 View 1D dialog consists of: a label describes the current file opened 
 for viewing, a label gives the ranges of scan data recorded in the
 file, a text field shows the current record # from the opened file,
 a slider bar for selecting the desired scan record, and two sets of 
-push buttons.
+push buttons. They can be divided as scan selection control and output control.
 
-The 'Print Plot', 'Modify Plot', 'ASCII View', and 'ASCII Print'  buttons
-will be active only if a set of recorded scan data is loaded into data 
-catcher.
+Selection Control:
 
-Press 'Modify Plot' allows you modify the plot specification and replot 
-according to your changes.
+The text field entry allows you to enter a scan #.
 
-Press 'ASCII View' saves the ASCII scan data into 'catch1d.trashcan.tmp' 
-file and pops up a scroll text window to display the corresponding data
-for the selected scan #.  
-
-Press 'ASCII Print' prints the ASCII scan data 'catch1d.trashcan.tmp'.
-It is accessible only if the 'ASCII View' has been pressed for the 
-scan record.
-
-The text field entry allows you enter a scan #.
-
-The slider allows you go to any valid scan record.
+The slider allows you to go to any valid scan record.
 
 Press 'First' to view the scan # 1.
 
@@ -509,15 +510,42 @@ Press 'Last ' to view the last scan #.
 
 Press 'Done' to close the view mode.
 
+Output Control:
+
+The 'Print Plot', 'Modify Plot', 'ASCII View', and 'ASCII Print'  buttons
+will be active only if the selection control has been activated and a set 
+of recorded scan data has been loaded into data catcher.
+
+Press 'Print Plot' generates the postscript plot file 'catch1d.ps' and sends
+it to the user default printer.
+
+Press 'Modify Plot' allows you to modify the plot specification and replot 
+according to your changes.
+
+Press 'ASCII View' saves the ASCII scan data in 'catch1d.trashcan.tmp' 
+file and pops up a scroll text window to display the corresponding data
+for the selected scan #.  
+
+Press 'ASCII Print' prints the ASCII scan data from the 'catch1d.trashcan.tmp'.
+It is accessible only if the 'ASCII View' has been pressed for the selected
+scan #.
 
 
 			  VIEW 2D ... DIALOG
 
-This program allows the user flexible to browse the 2D scan image data
-saved by the data catcher. For a given image it provides TV, SURFACE, CONTOUR, 
-SHOW3, and XSURFACE plot.  For more information please refer to VIEW2D
-on line help.
+This is a standing alone 2D image browser program. It allows the user 
+flexiblely to browse the 2D scan image data saved by the data catcher. 
+For a given image it provides TV, SURFACE, CONTOUR, SHOW3, and XSURFACE 
+plot.  For more information please refer to VIEW2D on line help.
  
+
+			     1D OVERLAY ... DIALOG
+
+This is a standing alone 1D overlay plot program. It allows the user
+to view few 1D scans for a selected detector.  Limited features of
+1D overlay plot are available.
+
+
 
 			   FILE DESCRIPTIONS
 
@@ -578,9 +606,9 @@ the 'catch1d.env' file the set value and description can be saved
 with the scan data.
 
 Each line in 'catch1d.env' consists of a single valid PV name plus the 
-.field name followed with the field description. The PV name and the 
+field name followed with the field description. The PV name and the 
 description is separated at least by one blank space. The PV name plus 
-the .field name can not exceed 28 characters, and the filed descrpition 
+the '.field' name can not exceed 28 characters, and the filed descrpition 
 can not exceed 40 characters.  No waveform record is allowed in 
 'catch1d.env'. Currently, the number of lines allowed in 'catch1d.env' 
 is 1000.
