@@ -4,6 +4,26 @@
 
 @u_read.pro
 
+PRO open_binary_type,unit,filename,type,wid
+; check the binary type and return lun unit and XDR type
+ 
+if !d.name eq 'X' then begin
+        type = 0
+        U_OPENR,unit,filename
+        u_read,unit,version
+        if string(version(0)) eq '' then begin
+                u_close,unit
+                U_OPENR,unit,filename,/XDR
+                type = 1
+        end
+end
+if !d.name eq 'WIN' then begin
+        U_OPENR,unit,filename,/XDR
+        type = 1
+end
+        if n_params() eq 4 then WIDGET_CONTROL,wid,set_droplist_select=type
+END
+
 PRO multiscan_readFileIndex,filename
 COMMON  MULTI_BLOCK, multi_ids
 
@@ -17,7 +37,6 @@ IF fd(0) NE '' THEN BEGIN
 
 found = findfile(indexfile)
 if found(0) ne '' then begin
-	if multi_ids.XDR eq 1 then u_openr,unit,indexfile,/XDR else $
         u_openr,unit,indexfile
         u_read,unit,name
         u_read,unit,fsize
@@ -34,6 +53,9 @@ if found(0) ne '' then begin
         multi_ids.idx_fptr = array
         end
 
+	open_binary_type,unit,filename,type,multi_ids.pick
+	multi_ids.XDR = type
+	u_close, unit
 end
 ENDIF ELSE BEGIN
         ret= widget_message('Warning: file "' + filename + '" not found')
@@ -318,20 +340,15 @@ labels = { title: 0L, xtitle:0L, ytitle:0L }
   XMANAGER, 'LABELS_BASE', LABELS_BASE, EVENT_HANDLER='setLabels_Event'
 END
 
-PRO PDMENU3_Event, Event
+PRO VIEW1D_OVERLAY_PDMENU3_Event, Event
 COMMON  MULTI_BLOCK, multi_ids
 
   CASE Event.Value OF
 
 
   'File.Open ...': BEGIN
-    if multi_ids.XDR eq 1 then begin
-    F=PICKFILE(TITLE='Open ... for Multiple Scans Overlay Plot', $
-	/READ,FILTER='*.xdr',PATH=multi_ids.path,GET_PATH=P)
-    endif else begin
     F=PICKFILE(TITLE='Open ... for Multiple Scans Overlay Plot', $
 	/READ,PATH=multi_ids.path,GET_PATH=P)
-    end
 	multi_ids.path = P
 	multi_ids.filename = F
 	WIDGET_CONTROL,multi_ids.filefld,SET_VALUE=F
@@ -427,8 +444,8 @@ COMMON  MULTI_BLOCK, multi_ids
 
   'PLOT_LABELS': setLabels,GROUP=Event.top
 
-  ; Event for PDMENU3
-  'PDMENU3': PDMENU3_Event, Event
+  ; Event for VIEW1D_OVERLAY_PDMENU3
+  'VIEW1D_OVERLAY_PDMENU3': VIEW1D_OVERLAY_PDMENU3_Event, Event
 
 
   ENDCASE
@@ -503,6 +520,7 @@ PRO view1d_overlay,infile, XDR=XDR, GROUP=Group
 ;
 ;       07-25-97  bkc   Rename the catcher_view1d to view1d_overlay.
 ;                       Add the support for XDR data format.
+;       12-19-97  bkc   Automatic figure out input data format
 ;-
 COMMON  MULTI_BLOCK, multi_ids
 
@@ -512,6 +530,7 @@ COMMON  MULTI_BLOCK, multi_ids
 	idx_maxno : 0L, $
 	idx_fptr : make_array(10000,/long), $
 	base : 0L, $
+	pick : 0L, $
 	ranges : 0L, $
 	filefld : 0L, $
 	field : 0L, $
@@ -554,6 +573,7 @@ ytitle : '',$
   Btns915 = ['BIN','XDR']
   pick_xdr = WIDGET_DROPLIST(BASE4, VALUE=BTNS915, $
         UVALUE='PICK_XDR',TITLE='Type')
+  multi_ids.pick = pick_xdr
 if multi_ids.XDR eq 1 then begin
   WIDGET_CONTROL,pick_xdr,set_droplist_select = 1
 end
@@ -566,8 +586,8 @@ end
 
   ]
 
-  PDMENU3 = CW_PDMENU( BASE4, MenuDesc167, /RETURN_FULL_NAME, $
-      UVALUE='PDMENU3')
+  VIEW1D_OVERLAY_PDMENU3 = CW_PDMENU( BASE4, MenuDesc167, /RETURN_FULL_NAME, $
+      UVALUE='VIEW1D_OVERLAY_PDMENU3')
 
 filename='catch1d.trashcan'
 if n_elements(infile) ne 0 then begin
