@@ -86,9 +86,11 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	image	: make_array(512,512,/float) $
         }
   
+  device,bypass_translation=0,retain=2
+
   view_option = { $
 	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
-        ncolors : !d.n_colors-1, $   max color index 
+        ncolors : !d.table_size-1, $   max color index 
 	pick_ref : 1, $   ; normalized against detector # 1
 	fullcolor : 0, $   0-auto 1-user 2-normalize
 	user	: 1, $  ; if 1 use user set range
