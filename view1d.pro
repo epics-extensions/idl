@@ -1,5 +1,5 @@
 
-; $Id: view1d.pro,v 1.12 1999/01/29 21:32:02 cha Exp $
+; $Id: view1d.pro,v 1.13 1999/05/20 15:55:06 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -154,8 +154,10 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 state = { $
 	 base: filebase, $
 	 text_area: filetext, $
-	 file: filename $
+	 file: '' $
 	 }
+if n_elements(filename) then state.file = filename
+
 WIDGET_CONTROL,filebase,SET_UVALUE=state
 
 WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
@@ -167,7 +169,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.12 1999/01/29 21:32:02 cha Exp $
+; $Id: view1d.pro,v 1.13 1999/05/20 15:55:06 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -673,8 +675,149 @@ help:
 END
 
 
+;
+; find  fwh_max, c_mass, peak for a given x,y array
+;
+PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm,fwhm_xl,fwhm_wd, $
+	FIT=FIT,XINDEX=XINDEX,LIST=LIST
 
-PRO find_hpeak,x,nx
+xindex = keyword_set(XINDEX)
+list = keyword_set(LIST)
+
+nx = n_elements(x)
+a=make_array(nx,/float)
+da=make_array(nx,/float)
+ny=make_array(nx,/float)
+slopey=make_array(nx,/float)
+
+ymin = min(y)
+ymax = max(y)
+ny = y - ymin
+
+peak = ymax
+hpeak = 0.5 * max(ny)
+y_hpeak= hpeak + ymin
+
+; area = int_tabulated(x,ny)
+; harea = 0.5 * area
+
+d0=0
+for i=1,nx-1 do begin
+	dx = x(i) - x(i-1)
+	if dx ne 0. then begin
+	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
+	d0 = d0 + da(i)
+	a(i) = d0
+	slopey(i)= (ny(i)-ny(i-1))/dx
+	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
+	end
+end
+
+area = d0
+harea = 0.5 * area
+
+; Find c_mass
+
+newtons_method,x,a,harea,c_mass
+if list then print,'===='
+if list then print,'C_mass',harea,c_mass
+
+
+; Find half peaks
+
+if list then print,'===='
+nohwdl=0
+nohwdr=0
+x_hwdl=0
+x_hwdr=0
+for i=1,nx-1 do begin
+	yl = ny(i-1) - hpeak
+	yr = ny(i) - hpeak
+       if yl*yr lt 0. and yl lt 0. then begin
+		nohwdl = [nohwdl, i-1]
+;		print,i-1,y(i-1)
+		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
+		x_hwdl= [x_hwdl,x_sol]
+		end
+       if yl*yr lt 0. and yl gt 0. then begin
+		nohwdr = [nohwdr, i-1]
+;		print,i-1,y(i-1)
+		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
+		x_hwdr= [x_hwdr,x_sol]
+		end
+end
+;print,'nohwdl',nohwdl, x_hwdl
+;print,'nohwdr',nohwdr, x_hwdr
+	lo=0
+	fwhm = 0.
+if n_elements(nohwdl) gt 1 then begin 
+	x_hwd = x_hwdl(1:n_elements(nohwdl)-1)
+	nohw = n_elements(x_hwd)
+if n_elements(nohwdr) gt 1 then begin
+	x_hwde = x_hwdr(1:n_elements(nohwdr)-1)
+	nohwe = n_elements(x_hwde)
+	fwhm = make_array(nohw,/float)
+	for i=0,nohw-1 do begin
+		x1 = x_hwd(i)
+	for j=0,nohwe-1 do begin
+		if x_hwde(j) ne x1 then begin
+			fwhm(i) = abs(x_hwde(j) - x1)
+			lo=lo+1
+;			print,'FWHM',lo,fwhm(i)
+			goto,outer
+			end
+		end
+	outer:
+	end
+	end
+	FWHM = max(fwhm)
+end
+
+; Find peaks
+
+if keyword_set(FIT) then begin
+nopeaks=0
+if list then print,'===='
+for i=1,nx-1 do begin
+       if slopey(i-1) gt 0 and slopey(i-1)*slopey(i) lt 0. then begin
+;		print,i,slopey(i-1),slopey(i)
+		nopeaks = [nopeaks, i]
+		end
+end
+;print,'nopeaks',nopeaks
+no = n_elements(nopeaks)-1
+if no gt 0 then begin
+x_peak = make_array(no,/float)
+y_peak = make_array(no,/float)
+for i=1,no do begin
+	i2= nopeaks(i)
+	i1= i2-1
+	newtons_method,[x(i1),x(i2)],[slopey(i1),slopey(i2)],0.,x_sol,notfound
+	if notfound eq 0 then begin
+if list then 	print,'Peak #',i,x_sol,y(i1)
+		x_peak(i-1)= x_sol
+		y_peak(i-1) = y(i1)
+		end
+end
+endif else begin
+	y_peak = ymax
+	if y(0) gt y(nx-1) then x_peak = x(0) else x_peak = x(nx-1)
+if list then 	print,'Ymax at pt ',y_peak,x_peak
+end
+endif else begin
+
+	for i=0,nx -1 do begin
+		if y(i) eq peak then begin
+		x_peak = x(i)
+		y_peak = peak
+		return
+		end
+	end
+end
+
+END
+
+PRO find_hpeak,x,nx,xindex=xindex
 print,'===='
 fwh_max= make_array(4,/float)
 ix = nx / 4
@@ -685,6 +828,7 @@ i2 = i1+ix-1
 newx = x(i1:i2)
 newy = ny(i1:i2)
 
+xindex = keyword_set(XINDEX)
 	if xindex then begin
 	newx = x_index(i1:i2)
 	newtons_method_norm,newx,newy,hpeak,n1,x_sol,notfound
@@ -1500,7 +1644,7 @@ PRO HELPMENU_Event, Event
 
   CASE Event.Value OF 
   'Help.Version ...': BEGIN
-	st = ['          VIEW1D Version  : (R1.1)', $
+	st = ['          VIEW1D Version  : (R1.5a)', $
 	        '','This program allows the IDL users to view the', $
 		'1D data saved by the data catcher developed at APS/XFD.', $
 		'','This IDL program supports different platform. The system', $
@@ -2190,6 +2334,7 @@ COMMON font_block, text_font, graf_font, ps_font
 COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 COMMON w_statistic_block,w_statistic_ids
 
+if !d.name eq 'WIN' then device,decomposed=1
 
    WIDGET_CONTROL, view1d_widget_ids.wf_select, GET_VALUE = wf_sel
    x_axis = view1d_plotspec_id.x_axis_u
@@ -4516,6 +4661,7 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;                       Accommondate the read problem introdued by too many
 ;                       characters entered in comment fields
 ;       01-12-99  bkc   R1.5a dynamic read in u_read PS_open cw_term sources
+;       05-14-99  bkc   R1.5b replace old statistic_1d by newer version
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -4538,7 +4684,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='VIEW1D (R1.5a)', $          ;   VIEW1D release
+      TITLE='VIEW1D (R1.5b)', $          ;   VIEW1D release
       UVALUE='VIEW1D_1')
 
   BASE68 = WIDGET_BASE(VIEW1D_1, $
@@ -4841,209 +4987,4 @@ if keyword_set(envfile) then V1D_scanData.envfile=envfile
 ;  XMANAGER, 'VIEW1D_1', VIEW1D_1, CLEANUP='catcher_close',NO_BLOCK=0
 
 END
-
-
-
-;
-; find  fwh_max, c_mass, peak for a given x,y array
-;   fwhm -  max of fwhm_wd(i)
-;   fwhm_xl(i)  - start position of fwhm
-;   fwhm_wd(i)  - width of fwhm
-;
-PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm, fwhm_xl,fwhm_wd, $
-	FIT=FIT,XINDEX=XINDEX,LIST=LIST
-
-xindex = keyword_set(XINDEX)
-list = keyword_set(LIST)
-
-nx = n_elements(x)
-a=make_array(nx,/float)
-da=make_array(nx,/float)
-ny=make_array(nx,/float)
-slopey=make_array(nx,/float)
-
-ymin = min(y)
-ymax = max(y)
-ny = y - ymin
-
-peak = ymax
-hpeak = 0.5 * max(ny)
-y_hpeak= hpeak + ymin
-
-; area = int_tabulated(x,ny)
-; harea = 0.5 * area
-
-if list then print,'    I      X       Y      delta_A     A      Slope    Y-Ymin
-d0=0
-for i=1,nx-1 do begin
-	dx = x(i) - x(i-1)
-	if dx ne 0. then begin
-	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
-	d0 = d0 + da(i)
-	a(i) = d0
-	slopey(i)= (ny(i)-ny(i-1))/dx
-	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
-	end
-end
-
-area = d0
-harea = 0.5 * area
-
-; Find c_mass
-
-newtons_method,x,a,harea,c_mass
-if list then print,'===='
-if list then print,'C_mass',harea,c_mass
-
-
-; Find half peaks
-
-if list then print,'===='
-
-;if abs(ny(0)-hpeak) lt 1.e-5 then begin
-; 	x_hwdl=x(0)
-;	nohwdl=0
-;end
-for i=1,nx-1 do begin
-	yl = ny(i-1) - hpeak
-	yr = ny(i) - hpeak
-        if yl*yr lt 0. then begin
-		if n_elements(nohwdl) eq 0 then nohwdl = i-1 else $
-		nohwdl = [nohwdl, i-1]
-		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
-		if n_elements(x_hwdl) eq 0 then x_hwdl = x_sol else $
-		x_hwdl= [x_hwdl,x_sol]
-		i=i+1
-	endif else begin
-		if abs(yl) lt 1.e-5 then begin
-			x_hwdl=[x_hwdl,x(i-1)]
-			nohwdl = [nohwdl, i-1]
-		end
-	end	
-end
-
-	lo=0
-	fwhm = 0.
-if n_elements(nohwdl) gt 1 then begin 
-	x_hwd = x_hwdl(0:n_elements(nohwdl)-1)
-	nohw = n_elements(nohwdl) / 2
-	if slopey(nohwdl(0)) lt 0. then nohw = (n_elements(nohwdl)- 1) / 2
-	fwhm_wd = make_array(nohw,/float)		; fwhm width
-	fwhm_xl = make_array(nohw,/float)		; fwhm start point 
-
-	is = 0
-	if slopey(nohwdl(0)) lt 0. then is=1	
-	for i=0,nohw-1 do begin
-		x1 = x_hwdl(is)
-		fwhm_xl(i) = x1
-		fwhm_wd(i) = abs(x_hwdl(is+1) - x1)
-		lo=lo+1
-;		print,'FWHM',lo, fwhm_xl(i), fwhm_wd(i)
-		is=is+2
-	end
-	FWHM = max(fwhm_wd,imax)
-	if keyword_set(list) then begin
-		print,'Y_MIN,Y_HPeak,Y_PEAK',ymin,y_hpeak,peak
-		print,'HPeak pts:',x_hwdl
-		print,'FWHM start point:',fwhm_xl
-		print,'FWHM width      :',fwhm_wd
-	end
-end
-
-
-; Find peaks
-
-if keyword_set(FIT) then begin
-nopeaks=0
-if list then print,'===='
-for i=1,nx-1 do begin
-       if slopey(i-1) gt 0 and slopey(i-1)*slopey(i) lt 0. then begin
-;		print,i,slopey(i-1),slopey(i)
-		nopeaks = [nopeaks, i]
-		end
-end
-print,'nopeaks',nopeaks
-no = n_elements(nopeaks)-1
-if no gt 0 then begin
-x_peak = make_array(no,/float)
-y_peak = make_array(no,/float)
-for i=1,no do begin
-	i2= nopeaks(i)
-	i1= i2-1
-	newtons_method,[x(i1),x(i2)],[slopey(i1),slopey(i2)],0.,x_sol,notfound
-	if notfound eq 0 then begin
-if list then 	print,'Peak #',i,x_sol,y(i1)
-		x_peak(i-1)= x_sol
-		y_peak(i-1) = y(i1)
-		end
-end
-endif else begin
-	y_peak = ymax
-	if y(0) gt y(nx-1) then x_peak = x(0) else x_peak = x(nx-1)
-if list then 	print,'Ymax at pt ',y_peak,x_peak
-end
-endif else begin
-
-	for i=0,nx -1 do begin
-		if y(i) eq peak then begin
-		x_peak = x(i)
-		y_peak = peak
-		return
-		end
-	end
-end
-
-END
-
-
-
-PRO newtons_method,x,y,y_sol,x_sol,notfound
-notfound = 0
-nx = n_elements(y)
-n1 = 0 
-n2 = nx-1 
-RETEST:
-;print,'N1,N2',n1,n2,y(n1),y(n2)
-if (n2-n1) le 1 then begin
-	if (y_sol - y(n2)) * (y_sol - y(n1)) gt 0 then begin
-		x_sol= x(n1)
-		notfound = 1
-		return
-		end
-	if (x(n2)-x(n1)) eq 0. then begin
-		x_sol = x(n1)
-		return
-	end
-	x_sol = x(n1)+ (y_sol - y(n1)) /(y(n2)-y(n1)) *(x(n2)-x(n1))
-;print,y_sol,y(n1),y(n2),x(n1),x(n2)
-	 return
-	end
- 
-nm = (n2-n1)/ 2 + n1
-fm = y (nm)
-;print,nm,fm,y_sol
-if abs(fm-y_sol) le 1.e-5 then begin
-	x_sol = x(nm)
-;	print,'Stop at NM,x_sol',nm,x_sol
-	return
-endif else begin
-	if (fm-y_sol) *(y(n2) - y_sol) gt 0 then begin
-		n2 = nm
-	endif else  begin
-		n1 = nm
-	end
-	goto,RETEST
-	end
-END
-
-;
-; using index and factor instead of real value for x array
-;
-PRO newtons_method_norm,x,y,y_sol,n1,x_sol,notfound
-	rx = float(x)
-	newtons_method,rx,y,y_sol,x_sol,notfound
-	n1 = fix(x_sol)
-	x_sol = x_sol-float(n1)
-END
-
 
