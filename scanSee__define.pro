@@ -630,6 +630,7 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 	da3d = *(*self.gD).da3D
 	cpt = *(*self.gD).cpt
 	npts = *(*self.gD).num_pts
+	pv = *(*self.gD).pv
 
 	sz = size(da3d)
 	if sz(0) eq 4 then begin
@@ -638,7 +639,7 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 	data = da3d(*,*,*,detector-1)
 	endif else data = da3d
 
-	if keyword_set(title) eq 0 then title='3D Scan# '+strtrim(self.scanno,2)+', Detector '+self.detname(detector-1)       ;strtrim(detector,2)
+	if keyword_set(title) eq 0 then title='3D Scan# '+strtrim(self.scanno,2)+', '+pv(0)+', ('+self.detname(detector-1) +')'   
 	view3d_2d,data,group=group,title=title,slicer3=slicer3
 END
 
@@ -1194,10 +1195,23 @@ PRO scanSee::View2D,detno,xarr=xarr,yarr=yarr,im=im,plot=plot,group=group,_extra
 ;-
 	detector = 1
 	if keyword_set(detno) then detector=detno 
+      self->read,dim=dim,cpt=cpt,labels=labels,id_def=id_def, $
+                da1d=da,pa1d=pa,da2d=da2d,pa2d=pa2d, $
+		pv=pv,x=xa,y=ya,im=im
+
+	if self.dim eq 2 then begin
+	sz = size(da2d)
+	if detector gt sz(3) then begin
+	  dname = self.detname(detector-1)
+	  detector = sz(3)
+	  seqno=detector	
+	  r = dialog_message([dname +' not found','Last detector is :',self.detname(detector-1)],/info)
+	  return
+	end
 	dname = self.detname(detector-1)
-	if keyword_set(plot) then $
-	scan2Ddata,self.gD,detector,/plot,dname=dname,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e else $
-	scan2Ddata,self.gD,detector,/view,dname=dname,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e
+	im = da2d(*,*,detector-1)
+	plot2d,im,xa=xa,ya=ya,title=pv(0)+' ( '+dname +' )',group=group,comment='Scan # '+strtrim(self.scanno,2)
+	end
 END
 
 PRO scanSee::ASCII2D,detno,nowin=nowin,view=view,outfile=outfile,plot=plot,format=format,group=group
@@ -1339,11 +1353,28 @@ PRO scanSee::Plot1D,no,xarr=xarr,yarr=yarr,xsel=xsel,ysel=ysel,title=title,group
 		r = dialog_message('No detector found for scan file: '+self.file,/error)
 	return
 	end
+
 	if keyword_set(xsel) then self.xaxis = xsel
 	if keyword_set(ysel) then $
 	scan1Ddata,self.gD,scanno,/plot, xarr=xarr,yarr=yarr, title=title,$
 		xsel=xsel,ysel=ysel,_extra=e  else $
-        self->ascii1d,scanno,/plot,/nowin,title=title,group=group,_extra=e
+   begin
+        self->read,pv=pv,view=self.scanno,dim=dim,cpt=cpt, $
+                da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
+                x=xa,y=ya,im=im,labels=labels,id_def=id_def
+        if self.dim eq 1 then begin
+        def = where (id_def(4:88,0) gt 0)
+        ndet = n_elements(def)
+        dname = self.detname(def)
+        da = make_array(cpt(0),ndet)
+	if self.xaxis eq 4 then pa=indgen(cpt(0)) else $
+	pa = pa1d(*,self.xaxis)
+        for i=0,ndet-1 do da(*,i) = da1d(*,def(i))
+        plot1d,pa,da,/data,legend=dname, $;xylegend=[1.5,-1.5],
+$
+                title=pv(0),comment='Scan # '+strtrim(self.scanno,2)
+	end
+   end
 END
 
 PRO scanSee::ASCII1DAll,startno,endno,nowin=nowin,format=format,group=group
@@ -1613,7 +1644,7 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 	
 	scanno = self.scanno
 	id_def = *(*self.gD).id_def
-	def = id_def(4:self.nd+4,0)
+	def = id_def(4:88,0)
 
 	if self.dim eq 1 then begin
 	pa = *(*self.gD).pa1D
@@ -1622,18 +1653,17 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 
 	x = pa(*,0)
 	y = da(*,0)
-	nd = ceil(total(self.def))
+	det = where(def gt 0)
+	dnames = self.detname(det)
+	nd = n_elements(det)
 	sz = size(da)
 	im = make_array(sz(1),nd)
-	id = 0
-	for i=0,sz(2)-1 do begin
-		if self.def(i) gt 0 then begin
-			im(*,id) = da(*,i)
-			id = id+1
-		end
+	for i=0,nd-1 do begin
+		im(0:sz(1)-1,i) = da(0:sz(1)-1,det(i))
 	end
-
-        calibration_factor,im,def,xv=x,yv=y, $
+	det = make_array(nd,value=1)
+        calibration_factor,im,det,xv=x,yv=y, $
+		dnames=dnames, $
                 classname=self.name,inpath=self.path, $ 
                 title=':  SCAN # '+strtrim(scanno,2),GROUP=group,_extra=e
 
@@ -1643,11 +1673,18 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 	pa1D = *(*self.gD).pa1D
 	pa2D = *(*self.gD).pa2D
 	da2d = *(*self.gD).da2D
-	im = da2d(*,*,pick1d-1)
 	x = pa2D(*,0,0)
 	y = pa1D(*,0)
 
 	if keyword_set(pick1d) then begin
+	sz = size(da2d)
+	if sz(3) lt pick1d then begin
+	dname = self.detname(pick1d-1)
+	pick1d = sz(3)
+	r = dialog_message([dname+' not defined','Last detector is :',self.detname(pick1d-1)],/info)
+	return
+	end
+	im = da2d(*,*,pick1d-1)
 		if pick1d lt 1 or def(pick1d-1) eq 0 then return
 		dname = self.detname(pick1d-1)
 		title='SCAN # '+ strtrim(scanno,2)+', '+dname
@@ -1873,6 +1910,10 @@ heap_gc
 ;	self.suffix =  '.scan'
 	self.suffix = strmid(self.name,po,strlen(self.name)-po)
 
+	self.detname =  'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+        	'01','02','03','04','05','06','07','08','09', $
+        	strtrim(indgen(61)+10,2)]
+
 	cd,current=dir
 	dir = dir +!os.file_sep
 ;	dir = self.path
@@ -1885,9 +1926,6 @@ heap_gc
         openw,1,dir+'.tmp'
         close,1
         self.outpath = dir
-	self.detname =  'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
-        	'01','02','03','04','05','06','07','08','09', $
-        	strtrim(indgen(61)+10,2)]
 	return,1
 END
 
