@@ -1154,11 +1154,6 @@ end
 		
 
 	if image2d_state.view_option.user eq 1 then begin
-;		if image2d_state.view_option.x_min gt x_min and image2d_state.view_option.x_min lt x_max then x_min = image2d_state.view_option.x_min
-;		if image2d_state.view_option.x_max lt x_max and image2d_state.view_option.x_max gt x_min then x_max = image2d_state.view_option.x_max
-;		if image2d_state.view_option.y_min gt y_min and image2d_state.view_option.y_min lt y_max then y_min = image2d_state.view_option.y_min
-;		if image2d_state.view_option.y_max lt y_max and image2d_state.view_option.y_max gt y_min then y_max = image2d_state.view_option.y_max
-
 		newimage = image(x_min:x_max,y_min:y_max)
 	endif else begin
 		newimage = image
@@ -1200,8 +1195,9 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	return
    end
 
-		
-   shades = (image-image2d_state.view_option.z_min)/(image2d_state.view_option.z_max-image2d_state.view_option.z_min)*!d.table_size
+if image2d_state.view_option.z_min ne image2d_state.view_option.z_max then $
+   shades = (image-image2d_state.view_option.z_min)/(image2d_state.view_option.z_max-image2d_state.view_option.z_min)*image2d_state.view_option.ncolors else $
+   shades = image*image2d_state.view_option.ncolors
 
    title=image2d_state.DPVS(image2d_state.detector-1)+' - '+image2d_state.z_desc
 
