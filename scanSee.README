@@ -1,0 +1,19 @@
+			Release Note for scanSee R1.1
+
+
+The scan data is automatically saved on file system by the IOC through 
+the NFS file system and the scan saveData software must be installed in 
+the IOC bin directory, and the scan record is running Version 3.13.
+
+ScanSee allows the user to view the scan data while the scan is going on or
+the scan file had been saved previously. It automaically figures out 
+the realtime filename based on the uid:saveData_scanNumber and 
+uid:saveData_fileSystem when scan is initiated by operator.  
+
+It consists of two IDL programs: DC.pro and vw2d.pro. They both working
+on the scan file created by IOC. It allows the user select any scan file
+previously saved.  2D scan images are internally generated from the 
+read-in scan data and no image file will be created by this version.  
+The 2D scan image viewer, Vw2d, can be run stand alone.
+No channel access call is involved in vw2d program.
+
