@@ -36,8 +36,10 @@ view1d_plotspec_id = { $
 
 if !d.name eq 'X' then device,bypass_translation=0,retain=2
 
-   plotoption_setcolor    ; init color index array
-
+;   plotoption_setcolor    ; init color index array
+colorI = lonarr(19)
+getLineColors,colorI
+view1d_plotspec_id.colorI = colorI
 
    V1D_scanData  =  {                 $
 XDR : 0, $	; 0 - input file in pure binary , 1 - in xdr binary 
