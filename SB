@@ -19,9 +19,9 @@ if $1 != "" then
 endif
 
 echo ".run ez_fit" >! go_viewer
+echo ".run readScan.pro" >>! go_viewer
 echo ".run read_scan.pro.R2" >>! go_viewer
-echo ".run readScan.pro.R2" >>! go_viewer
-echo ".run scanSee__define.pro.R2" >>! go_viewer
+echo ".run scanSee__define.pro" >>! go_viewer
 echo ".run scanSee.pro" >>! go_viewer
 echo "scanSee $PRM" >>! go_viewer
 if `isainfo -b` == 64 then
