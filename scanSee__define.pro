@@ -1150,13 +1150,14 @@ PRO scanSee::Last,seqno,filename,pickDet=pickDet
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       03-15-01    bkc Accommondate for W95 use wild search for *.scan
+;	10-07-03    bkc Allows mix of mda files from different batch in the
+;                       same directory
 ;-
 
+	seqno = self.scanno
 	found = findfile(self.path+'*'+self.suffix,count=ct)
-	if ct le 1 then begin
-		seqno = self.scanno
-		return
-	end
+	if ct le 1 then return 
+
 	len = strlen(self.prefix)
 	sp = rstrpos(self.prefix,!os.file_sep)
 	if sp gt -1 then sp=sp+1
@@ -1175,6 +1176,7 @@ PRO scanSee::Last,seqno,filename,pickDet=pickDet
 			end
 		end
 	end
+	if n_elements(ip) eq 0 then return
 	filename = found(ip)
 print,filename
 
