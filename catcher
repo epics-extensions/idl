@@ -7,7 +7,7 @@
 if ("$1" == "-h" | "$1" == "-help") then
 	goto help:
 endif
-source ~cha/epics/extensions/bin/sun4/setup_ezcaIDL
+source $EPICS_EXTENSIONS/bin/$HOST_ARCH/setup_ezcaIDL
 set x = "" ; set y = ""; set z=""; set w=""; set v=""
 if -e catch1d.config then
 	cp catch1d.config catch1d.config.tmp
