@@ -7,12 +7,13 @@
 ;  data = a#a
 ;
 @PS_open.pro
+@colorbar.pro
 
 PRO plot2d_setupMargins,parent
 COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 
   BASE27_0 = WIDGET_BASE(parent, $
-      COLUMN=1, $
+      COLUMN=1, FRAME=1, $
       MAP=1, $
       UVALUE='BASE27_0')
 
@@ -549,8 +550,6 @@ PRO plot2d_setupContourLevels, GROUP=Group, c_levels
 END
 
 
-
-
 PRO plot2d_setupMain13_Event, Event
 COMMON PLOT2d_BLOCK,plot2d_state
 
@@ -567,7 +566,8 @@ COMMON PLOT2d_BLOCK,plot2d_state
       2: plot2d_state.zlog = Event.Select
       3: plot2d_state.lego = Event.Select 
       4: plot2d_state.shade = Event.Select 
-      5: plot2d_state.stamp = Event.Select 
+      5: plot2d_state.bar = Event.Select 
+      6: plot2d_state.stamp = Event.Select 
       ELSE: Message,'Unknown button pressed'
       ENDCASE
       END
@@ -667,6 +667,19 @@ COMMON PLOT2d_BLOCK,plot2d_state
   'BUTTON50': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY
       END
+  'PLOT2D_TIFF': BEGIN
+       tvlct,R,G,B,/get
+        WRITE_TIFF,'plot2d.tiff',TVRD(),red=R,green=G,blue=B
+	cd,current=p
+	rename_dialog,p,'plot2d.tiff',GROUP=Event.Top
+      END
+  'PLOT2D_GIF': BEGIN
+      tvlct,R,G,B,/get
+        WRITE_GIF,'plot2d.gif',TVRD(),R,G,B
+        WRITE_GIF,'plot2d.gif',/close
+	cd,current=p
+	rename_dialog,p,'plot2d.gif',GROUP=Event.Top
+      END
   'BUTTON51': BEGIN
 	plot2d_setupLabels,Event.Top
       END
@@ -708,6 +721,7 @@ COMMON PLOT2d_BLOCK,plot2d_state
     'Zlog', $
     'Lego', $
     'Shade', $
+    'ColorBar', $
     'Stamp' $
      ]
   BGROUP19 = CW_BGROUP( BASE20, Btns4929, $
@@ -717,7 +731,8 @@ COMMON PLOT2d_BLOCK,plot2d_state
       UVALUE='BGROUP19')
 
 vals = [plot2d_state.xlog, plot2d_state.ylog, plot2d_state.zlog, $
-	plot2d_state.lego, plot2d_state.shade, plot2d_state.stamp ]
+	plot2d_state.lego, plot2d_state.shade, plot2d_state.bar, $
+	plot2d_state.stamp ]
 WIDGET_CONTROL,BGROUP19,set_value=vals
 
   BASE21 = WIDGET_BASE(plot2d_setupMain13, $
@@ -810,6 +825,12 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
   BUTTON51 = WIDGET_BUTTON( BASE47, $
       UVALUE='BUTTON51', $
       VALUE='SetPlotLabels')
+  PLOT2D_TIFF = WIDGET_BUTTON( BASE47, $
+      UVALUE='PLOT2D_TIFF', $
+      VALUE='Save TIFF...')
+  PLOT2D_GIF = WIDGET_BUTTON( BASE47, $
+      UVALUE='PLOT2D_GIF', $
+      VALUE='Save GIF...')
   BUTTON50 = WIDGET_BUTTON( BASE47, $
       UVALUE='BUTTON50', $
       VALUE='   Close   ')
@@ -930,6 +951,12 @@ endif else TVSCL,data,left,bottom,xsize=width,ysize=height
                 title=plot2d_state.title
 
 	plot2d_notes,plot2d_state
+
+	; draw colorbar
+	if plot2d_state.bar ne 0 then begin
+		colorbar,[plot2d_state.pixel_min,plot2d_state.pixel_max] ,x=10,y=60
+		end
+
 	end
     3: begin
 	if plot2d_state.shade eq 1 then begin
@@ -1047,12 +1074,20 @@ ENDIF
       Print, 'Event for plot2d_area'
       END
   'BGROUP2': BEGIN
-      plot2d_state = plot2d_stateInit
+;      plot2d_state = plot2d_stateInit
       CASE Event.Value OF
       0: plot2d_state.plottype= 0  	;tv
       1: plot2d_state.plottype= 1  	;surface
       2: plot2d_state.plottype= 2  	;contour
       3: plot2d_state.plottype= 3  	;shade_surf
+      4: begin
+	st = ['You may find a HTML document about plot2d at :', $
+		'',$
+		'   http://www.aps.anl.gov/~bccha/plot2d.html'$
+		]
+	xdisplayfile,'',text=st,title='Help ...PLOT2D'
+	return
+	end
 	ELSE: print,'error'
       ENDCASE
       plot2d_replot, plot2d_state
@@ -1125,7 +1160,7 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;
 ; CALLING SEQUENCE:
 ;
-;       PLOT2D, DATA,  TLB, WIN
+;       PLOT2D, DATA [,TLB] [,WIN]
 ;
 ; INPUTS:
 ;       DATA:   The 2D array to be plotted.
@@ -1190,13 +1225,18 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;       The max and min value will be shown as the default comment.
 ;
 ; RESTRICTIONS:
-;       Fon contour plot only 12 levels is allowed.
+;       Fon contour plot only 12 levels are allowed.
 ;
 ; EXAMPLES:
-;       Create a resizable 2D plot without any title or label
+;    Example 1 - Create a resizable 2D plot without any title or label
 ;       specification.
 ;
-;	PLOT2D, data
+;	     PLOT2D, Data
+;
+;    Example 2 - Create a resizable 2D plot with real X,Y values, title, stamp,
+;       Xtitle and Ytitle specification. 
+;
+;	     PLOT2D,Data,Xarr=X,Yarr=y,Title=ti,Xtitle=xt,Ytitle=yt,/Stamp
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Dec 16, 1998.
@@ -1206,7 +1246,8 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;       03-05-1999      Add Plot Options support to let user set the plot
 ;                       margins, title, labels, color table, various
 ;                       plot style, etc.
-;       09-17-1999      Add TV image options
+;       03-17-1999      Add TV image options
+;       05-14-1999      Add colorbar, save TIFF and GIF options
 ;
 ;-
 
@@ -1283,6 +1324,7 @@ if keyword_set(yarr) then yarray = yarr
 	xmargin2:5, $
 	ymargin1:5, $
 	ymargin2:5, $
+	bar: 1, $
 	stamp: 0, $
 	timestamp: timestamp, $
 	nlevels: 12, $
@@ -1309,6 +1351,9 @@ if keyword_set(yarr) then yarray = yarr
 
 plot2d_state.thresh =  !d.table_size/2
 plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)*plot2d_state.thresh/(!d.table_size-1) 
+
+plot2d_state.pixel_min = plot2d_state.min
+plot2d_state.pixel_max = plot2d_state.max
 
 	if n_elements(footnote) gt 0 then plot2d_state.comment = footnote
 
@@ -1363,7 +1408,8 @@ if keyword_set(comment) then begin
     'TV', $
     'SURFACE', $
     'CONTOUR', $
-    'SHADE_SURF'] 
+    'SHADE_SURF',$
+	'HELP ...']
   BGROUP2 = CW_BGROUP( BASE1, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
 
