@@ -37,7 +37,7 @@ if !d.name eq 'WIN' then OS_SYSTEM.mv = 'move'
 if !d.name eq 'WIN' then OS_SYSTEM.cp = 'copy'
 if !d.name eq 'WIN' then OS_SYSTEM.lpr = 'copy'
 if !d.name eq 'WIN' then OS_SYSTEM.prt = 'copy'
-if !d.name eq 'WIN' then OS_SYSTEM.printer = '\\oxygen\bl1'
+if !d.name eq 'WIN' then OS_SYSTEM.printer = '\\sodium\funky-chicken'
 
 defsysv,'!os',os_system
 
@@ -46,3 +46,4 @@ defsysv,'!os',os_system
 !QUIET = 1
 
 ; loadct,39
+device,decompose=0
