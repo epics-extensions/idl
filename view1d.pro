@@ -1,4 +1,4 @@
-; $Id: view1d.pro,v 1.14 1999/07/29 06:13:10 cha Exp $
+; $Id: view1d.pro,v 1.15 1999/09/22 19:52:42 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -172,7 +172,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.14 1999/07/29 06:13:10 cha Exp $
+; $Id: view1d.pro,v 1.15 1999/09/22 19:52:42 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1802,13 +1802,6 @@ view1d_warningtext,tx,40,5,'Zoom to box'
 IF V1D_scanData.lastPlot eq -1 then return 
 ;        WIDGET_CONTROL, view1d_widget_ids.plot_area, SENSITIVE = 0
 
-save_limits = make_array(4,/float)
-
-save_limits(0) = view1d_plotspec_limits(0)
-save_limits(1) = view1d_plotspec_limits(1)
-save_limits(2) = view1d_plotspec_limits(2)
-save_limits(3) = view1d_plotspec_limits(3)
-
 WSET, view1d_widget_ids.plot_area
 
         MY_BOX_CURSOR,x,y,xs,ys
@@ -1823,11 +1816,6 @@ view1d_plotspec_limits(3) = d(1,1)
 ;        WIDGET_CONTROL,view1d_widget_ids.plot_area , SENSITIVE = 1
         view1d_UPDATE_PLOT, 0
 
-view1d_plotspec_limits(0) = save_limits(0)
-view1d_plotspec_limits(1) = save_limits(1)
-view1d_plotspec_limits(2) = save_limits(2)
-view1d_plotspec_limits(3) = save_limits(3)
-
 END
 
 PRO zoom_box,x1,y1,x2,y2
@@ -1835,13 +1823,6 @@ PRO zoom_box,x1,y1,x2,y2
 COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array , view1d_plotspec_id, view1d_plotspec_limits, view1d_plotspec_saved
 
 IF V1D_scanData.lastPlot eq -1 then return 
-
-save_limits = make_array(4,/float)
-
-save_limits(0) = view1d_plotspec_limits(0)
-save_limits(1) = view1d_plotspec_limits(1)
-save_limits(2) = view1d_plotspec_limits(2)
-save_limits(3) = view1d_plotspec_limits(3)
 
 WSET, view1d_widget_ids.plot_area
 
@@ -1853,10 +1834,6 @@ view1d_plotspec_limits(3) = y2
 ;        WIDGET_CONTROL,view1d_widget_ids.plot_area , SENSITIVE = 1
         view1d_UPDATE_PLOT, 0
 
-view1d_plotspec_limits(0) = save_limits(0)
-view1d_plotspec_limits(1) = save_limits(1)
-view1d_plotspec_limits(2) = save_limits(2)
-view1d_plotspec_limits(3) = save_limits(3)
 END
 
 
@@ -3339,6 +3316,113 @@ printf,unit,' '
 
 END
 
+PRO view1d_summary_generate_report
+COMMON SYSTEM_BLOCK,OS_SYSTEM
+COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
+COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
+COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array, view1d_plotspec_id, view1d_plotspec_limits , view1d_plotspec_saved
+COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
+
+	WIDGET_CONTROL, view1d_summary_ids.format, GET_VALUE=format
+	format = strcompress(format(0),/remove_all)
+	V1D_scanData.code = strmid(format,0,1)
+	V1D_scanData.format = strmid(format,1,10)
+
+	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 0 
+	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 0 
+	WIDGET_CONTROL,view1d_summary_ids.start, GET_VALUE=start
+	WIDGET_CONTROL,view1d_summary_ids.stop, GET_VALUE=stop
+	if stop lt start then stop=start
+	view1d_summary_id.start = start
+	view1d_summary_id.stop = stop
+
+;	WIDGET_CONTROL,view1d_summary_ids.file, GET_VALUE=file
+;	filename=strcompress(file(0),/remove_all)
+	filename = view1d_summary_id.file
+	found = findfile(filename)
+if found(0) ne '' then  begin	
+	view1d_summary_id.file = filename
+	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
+	view1d_summary_id.outfile=strcompress(file(0),/remove_all)
+
+	;  use the data directory first if failed then home directory
+
+	report_path = V1D_scandata.path
+	save_outfile = V1D_scandata.path+view1d_summary_id.outfile
+
+; quard trashcan
+	if save_outfile eq V1D_scandata.trashcan then begin
+		res = widget_message('Error: illigal file name entered!!',/error)
+		return
+	end
+
+; quard existing file 
+	found = findfile(save_outfile)
+	if found(0) ne '' then begin
+
+		st = ['Warning!  Warning!  Warning!  ' , save_outfile, '     already existed.', $
+		     ' Is it ok to rename as ', $
+		     save_outfile+ '.bk','???']
+		res = dialog_message(st,/Question)
+		if res eq 'No' then goto,view_print 
+		move_file = save_outfile + '.bk'
+deepmove:
+		found1 = findfile(move_file)
+		if found1(0) ne '' then begin
+			st = [' Warning!  Warning!', $
+				move_file, $
+				'also already existed !!']
+			res = dialog_message(st,/Question)
+			if res eq 'No' then  goto,view_print
+			move_file = move_file + '.bk'
+			goto,deepmove
+		end
+		spawn,[OS_SYSTEM.mv, save_outfile, move_file],/noshell 
+	end
+
+	CATCH,error_status
+	if error_status ne 0 then begin ;  eq -171 or error_status eq -206 then begin
+		report_path = V1D_scandata.home + OS_SYSTEM.file_sep 
+		save_outfile = report_path+view1d_summary_id.outfile
+		goto, RESETSENSE
+	end
+	openw,unit,save_outfile,/get_lun
+	u_close,unit
+RESETSENSE:
+
+; save as one big file
+    if view1d_summary_id.separate eq 0 then begin
+		view1d_plotspec_id.mode = 1
+		view1d_summary_report_dump,filename,save_outfile,start,stop,view1d_summary_id.header
+		view1d_plotspec_id.mode = 0
+
+	if V1D_scanData.debug eq 1 then $
+		print, 'Report file: ', save_outfile,' created!'
+; save as separate files
+     endif else begin
+	str = '0000'
+	len0 = 4 
+	view1d_plotspec_id.mode = 1
+	for i=start,stop do begin
+	sss = str
+	st = strtrim(i,2)
+	len = strlen(st)
+	strput,sss,st,len0-len
+		save_outfile=report_path+view1d_plotspec_array(3)+'.'+sss
+		view1d_summary_report_dump,filename,save_outfile,i,i,view1d_summary_id.header
+	if V1D_scanData.debug eq 1 then print,save_outfile
+	view1d_plotspec_id.mode = 0
+	end
+     end
+
+endif else view1d_warningtext,'Error:  Data file " '+filename+' " not found!'
+;	WIDGET_CONTROL, view1d_summary_ids.base , /DESTROY
+view_print:
+	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 1 
+	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 1 
+
+END
+
 
 PRO view1d_summary_setup_Event, GROUP=GROUP, Event
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -3413,107 +3497,12 @@ view1d_summary_id.stop = maxno
 	end
       END
   'summary_separate': BEGIN
-	view1d_summary_ids.separate = Event.Index
+	view1d_summary_id.separate = Event.Index
+	view1d_report_setup
+	WIDGET_CONTROL, view1d_summary_ids.outfile, SET_VALUE= view1d_summary_id.outfile
 	END
   'summary_ok': BEGIN
-	WIDGET_CONTROL, view1d_summary_ids.format, GET_VALUE=format
-	format = strcompress(format(0),/remove_all)
-	V1D_scanData.code = strmid(format,0,1)
-	V1D_scanData.format = strmid(format,1,10)
-
-	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 0 
-	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 0 
-	WIDGET_CONTROL,view1d_summary_ids.start, GET_VALUE=start
-	WIDGET_CONTROL,view1d_summary_ids.stop, GET_VALUE=stop
-	if stop lt start then stop=start
-	view1d_summary_id.start = start
-	view1d_summary_id.stop = stop
-
-;	WIDGET_CONTROL,view1d_summary_ids.file, GET_VALUE=file
-;	filename=strcompress(file(0),/remove_all)
-	filename = view1d_summary_id.file
-	found = findfile(filename)
-if found(0) ne '' then  begin	
-	view1d_summary_id.file = filename
-	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
-	view1d_summary_id.outfile=strcompress(file(0),/remove_all)
-
-	;  use the data directory first if failed then home directory
-
-	report_path = V1D_scandata.path
-	save_outfile = V1D_scandata.path+view1d_summary_id.outfile
-
-; quard trashcan
-	if save_outfile eq V1D_scandata.trashcan then begin
-		res = widget_message('Error: illigal file name entered!!',/error)
-		return
-	end
-
-; quard existing file 
-	found = findfile(save_outfile)
-	if found(0) ne '' then begin
-
-		st = ['Warning!  Warning!  Warning!  ' , save_outfile, '     already existed.', $
-		     ' Is it ok to rename as ', $
-		     save_outfile+ '.bk','???']
-		res = dialog_message(st,/Question)
-		if res eq 'No' then goto,view_print 
-		move_file = save_outfile + '.bk'
-deepmove:
-		found1 = findfile(move_file)
-		if found1(0) ne '' then begin
-			st = [' Warning!  Warning!', $
-				move_file, $
-				'also already existed !!']
-			res = dialog_message(st,/Question)
-			if res eq 'No' then  goto,view_print
-			move_file = move_file + '.bk'
-			goto,deepmove
-		end
-		spawn,[OS_SYSTEM.mv, save_outfile, move_file],/noshell 
-	end
-
-	CATCH,error_status
-	if error_status ne 0 then begin ;  eq -171 or error_status eq -206 then begin
-		report_path = V1D_scandata.home + OS_SYSTEM.file_sep 
-		save_outfile = report_path+view1d_summary_id.outfile
-		goto, RESETSENSE
-	end
-	openw,unit,save_outfile,/get_lun
-	u_close,unit
-RESETSENSE:
-
-; save as one big file
-    if view1d_summary_ids.separate eq 0 then begin
-		view1d_plotspec_id.mode = 1
-		view1d_summary_report_dump,filename,save_outfile,start,stop,view1d_summary_id.header
-		view1d_plotspec_id.mode = 0
-
-	if V1D_scanData.debug eq 1 then $
-		print, 'Report file: ', save_outfile,' created!'
-; save as separate files
-     endif else begin
-	str = '0000'
-	len0 = 4 
-	view1d_plotspec_id.mode = 1
-	for i=start,stop do begin
-	sss = str
-	st = strtrim(i,2)
-	len = strlen(st)
-	strput,sss,st,len0-len
-		save_outfile=report_path+view1d_plotspec_array(3)+'.'+sss
-		view1d_summary_report_dump,filename,save_outfile,i,i,view1d_summary_id.header
-	if V1D_scanData.debug eq 1 then print,save_outfile
-	view1d_plotspec_id.mode = 0
-	end
-     end
-
-endif else view1d_warningtext,'Error:  Data file " '+filename+' " not found!'
-;	WIDGET_CONTROL, view1d_summary_ids.base , /DESTROY
-view_print:
-	WIDGET_CONTROL, view1d_summary_ids.view, SENSITIVE = 1 
-	WIDGET_CONTROL, view1d_summary_ids.print, SENSITIVE = 1 
-
+	view1d_summary_generate_report
       END
   'summary_view': BEGIN
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
@@ -3532,8 +3521,10 @@ view_print:
 
 	found = findfile(filename)
 	if found(0) ne '' then 	$
-        xdisplayfile,filename,width=110,GROUP=event.top else $
-	view1d_warningtext,['Error:','    '+filename+ '  not found!']
+        xdisplayfile,filename,width=110,GROUP=event.top else begin
+		view1d_summary_generate_report
+		xdisplayfile,view1d_summary_id.outfile,width=110,GROUP=event.top
+	end
 	END
 
   'summary_print': BEGIN
@@ -3583,6 +3574,7 @@ strput,sss,st,len0-len
 filenamepath, view1d_summary_id.file, file, path
 view1d_summary_id.outfile = file+'.'+sss
 
+if view1d_summary_id.separate then return
 if view1d_summary_id.stop gt view1d_summary_id.start then begin
 eee = str
 st = strtrim(view1d_summary_id.stop,2)
@@ -3624,6 +3616,7 @@ view1d_summary_id = { $
 	start: 1, $
 	stop: 1, $
 	header: 0, $
+	separate: 0, $
 	outfile: view1d_plotspec_array(3)+'.rep',  $
 	file: V1D_scanData.trashcan  $
 	}
@@ -3742,7 +3735,6 @@ view1d_summary_ids = { $
 	outfile: summary_outfile, $
 	view: summary_view, $
 	print: summary_print, $
-	separate: 0, $
 	start: summary_start, $
 	stop: summary_end $
 	}
@@ -3798,20 +3790,17 @@ END
 PRO open_binary_type,unit,filename,type,wid
 ; check the binary type and return lun unit and XDR type
 
-if !d.name eq 'X' then begin
+	type = 1
+       	U_OPENR,unit,filename,/XDR
+	u_read,unit,version,errcode
+	u_rewind,unit
+	
+	if errcode lt 0 then begin
+	u_close,unit
 	type = 0
 	U_OPENR,unit,filename
-	u_read,unit,version
-	if string(version(0)) eq '' then begin
-       		u_close,unit
-        	U_OPENR,unit,filename,/XDR
-		type = 1
 	end
-end
-if !d.name eq 'WIN' then begin
-       	U_OPENR,unit,filename,/XDR
-	type = 1
-end
+
 	if n_params() eq 4 then WIDGET_CONTROL,wid,set_droplist_select=type
 END
 
@@ -4442,7 +4431,7 @@ V1D_scanData.act_npts = V1D_scanData.readin_npts
   'Zoom.Calc Slopes': BEGIN
 	draw_dragLine
  	END
-  'Zoom.Auto Scale (Refresh)': BEGIN
+  'Zoom.Zoom Off (AutoScale)': BEGIN
 	V1D_scanData.lastPlot = 1
 	view1d_UPDATE_PLOT, 1
  	END
@@ -4665,6 +4654,10 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;                       characters entered in comment fields
 ;       01-12-99  bkc   R1.5a dynamic read in u_read PS_open cw_term sources
 ;       05-14-99  bkc   R1.5b replace old statistic_1d by newer version
+;       08-26-99  bkc   R1.5c scale is not automatically reset after the zooming
+;                       use Auto Scale button to reset
+;       08-26-99  bkc   R1.5d 
+;                       open_binary_type default to XDR
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -4687,7 +4680,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='VIEW1D (R1.5b)', $          ;   VIEW1D release
+      TITLE='VIEW1D (R1.5d)', $          ;   VIEW1D release
       UVALUE='VIEW1D_1')
 
   BASE68 = WIDGET_BASE(VIEW1D_1, $
@@ -4740,7 +4733,7 @@ endif else $
         { CW_PDMENU_S,       0, 'Zoom To Box' }, $ ;    1   
         { CW_PDMENU_S,       0, 'Zoom In/Out' }, $ ;        2
         { CW_PDMENU_S,       0, 'Calc Slopes' }, $ ;       3
-        { CW_PDMENU_S,       0, 'Auto Scale (Refresh)' }, $ ;       4
+        { CW_PDMENU_S,       0, 'Zoom Off (AutoScale)' }, $ ;       4
         { CW_PDMENU_S,       2, 'User Scale ...' } $ ;       5
   ]
   PDMENU_zoom = CW_PDMENU( BASE68, MenuZoom, /RETURN_FULL_NAME, $
