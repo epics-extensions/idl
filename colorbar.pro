@@ -300,7 +300,7 @@ COMMON COLORBAR, colorbar_data
 END
 
 
-PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap,format=format,PSfact=PSfact,reverse=reverse
+PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap,format=format,PSfact=PSfact,reverse=reverse,ncolors=ncolors
 ;    width - colorbar width
 ;    height - colorbar height
 ;+
@@ -335,6 +335,7 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 ;       Format: specify the color bar label format
 ;       PSfact: specify the PS color bar scaling factor, default is 30
 ;       Reverse: use black color for color bar text color
+;       Ncolors: specify the number of colors used from the table
 ;
 ; OUTPUTS:
 ;       None.
@@ -360,17 +361,19 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 ;       xx-xx-xxxx  xxx	Comment
 ;-
 
+if keyword_set(ncolors) eq 0 then ncolors=!d.table_size
+
 	if n_elements(width) eq 0 then width=20
 	if n_elements(height) eq 0 then height=320
 	if keyword_set(wid) then wset,wid
 	fmt = 'G10.5'
 	if keyword_set(format) then fmt=format
-	tcolor=!d.table_size-1
+	tcolor=ncolors -1 ;!d.table_size-1
 	if keyword_set(reverse) then tcolor=0
 
 	xsize = !d.x_vsize
 	ysize = !d.y_vsize
-	nc = !d.table_size
+	nc = ncolors;!d.table_size
 	setnc = fix(getenv('IDL_NCOLORS'))
 	if setnc gt 0 then nc=setnc	
 	ns = 16
@@ -396,7 +399,7 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 	dval = (yrange(1)-yrange(0))/ns
 	for j=0,ns do begin
 	color = (nc/ns)*j 
-	if color eq nc then color = nc - 1
+	if color ge nc then color = nc - 1
 	tv,replicate(color,bew,beh), x+j*bew, y
 	endfor
 	for j=0,ns,8 do begin
@@ -423,7 +426,7 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 
 	for j=0,ns do begin
 	color = (nc/ns)*j 
-	if color eq nc then color = nc - 1
+	if color ge nc then color = nc - 1
 	tv,replicate(color,bew,beh),x,y+j*beh,xsize=bew,ysize=beh
 	if detcap gt 1 then begin
 	jj = j mod detcap ; 2
