@@ -1899,6 +1899,8 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;-
 COMMON COLORBAR, colorbar_data
 
+@os.init
+
 ;if XRegistered('Plot2dMAIN13') then WIDGET_CONTROL,plot2d_state.base,BAD=bad,/DESTROY
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
@@ -1933,6 +1935,21 @@ if keyword_set(ytitle) then yl = string(ytitle)
 if keyword_set(wtitle) then wti = string(wtitle)
 if keyword_set(comment) then footnote = string(comment)
 if keyword_set(stamp) then timestamp = strtrim(stamp,2)
+
+; check wether data defined
+if n_params()  eq 0 then begin
+reread:
+	wd_readascii,'plot2d.txt',readascii_info	
+	if n_elements(*readascii_info.im) gt 2 then begin
+		data = *readascii_info.im 
+		if n_elements(*readascii_info.x) gt 1 then xarr = *readascii_info.x
+		if n_elements(*readascii_info.y) gt 1 then yarr = *readascii_info.y
+	endif else begin
+	r = dialog_message(['Error: Data array not loaded in yet !','       Try to read  ascii file again ?'],/question)
+	if r eq 'Yes' then goto,reread else return
+   	end 
+end
+if n_elements(data) eq 0 then return
 
 ; set x,y array 
 sz = size(data)
