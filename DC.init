@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-;  DC.init (R3.0)
+;  DC.init (R3.3)
 
 np = 4
 nd = n_elements(detname)  ;85 
@@ -51,6 +51,7 @@ DB_HD = { $
       plot_area   : DRAW61_Id,    $
       pickpan     : pick_panimage, $
       pickimin    : pick_imin, $
+      scanH    : pick_scanH, $
       panwin      : -1,    $
       summary_base: 0L,      $
       terminal    : 0L,    $
@@ -80,13 +81,15 @@ w_plotspec_id = { $
 	xticklen: 0.04, $
 	yticklen: 0.02, $
 	gridstyle: 0, $
+	colorV: make_array(npd,/Long), $ 
 	colorI: make_array(npd,/Long,value=!d.n_colors-2) $ 
         }
 
    LOADCT,39
    colorI = lonarr(npd) 
-   getLineColors,colorI
+   getLineColors,colorI,v=colorV
    w_plotspec_id.colorI = colorI
+   w_plotspec_id.colorV = colorV
 
    scanData  =  {                 $
 dim: 0, $   ; dimension
@@ -94,7 +97,8 @@ debug : 0,    $   ;  0 normal runing mode, 1 debug mode
 option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'IOC_DC', $
-      release     : '(DC R3.0)', $
+      release     : '(DC R3.3)', $
+	scanH	: 0, $
 	nd	: nd, $
 	npd	: npd, $
 	DI	: DI, $  	;make_array(85,/string), $
@@ -150,7 +154,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
 	sel_changed: 0, $		; changed sublist
 	last_line  : 0, $		; last 2d image line
 	dstart     : 16, $
-	sublist    : strarr(10,2), $    ; [l123,l123_1], $    
+	sublist    : strarr(11,2), $    ; [l123,l123_1], $    
 	svers	   : 0, $  		; 0-85 det, 1- 70 det
 	new        : 0, $  		; 5.19 or later
       y_pv	: '', $
