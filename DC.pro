@@ -366,6 +366,8 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 ;       This function read any 1D/2D/3D scan file and returns a scan pointer 
 ;       which consists of few heap pointers to point to the data extracted
 ;       from the XDR  scan file.
+; 
+;       If succeed it returns the scan number, otherwise it returns -1.
 ;
 ; CATEGORY:
 ;       Function.
@@ -406,7 +408,9 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 ;               special sequential rule which is ended with '.scan' type.
 ;
 ; EXAMPLES:
-;
+;         filename = '/home/beams/CHA/data/xxx/cha:_0001.scan'
+;         scanno = read_scan(filename,SCAN)
+;          
 ; MODIFICATION HISTORY:
 ;       Written by:     Originally written by Eric Boucher 
 ;                       Modify and extended by Ben-chin K. Cha, Mar. 7, 2001.
@@ -513,7 +517,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.15 2001/04/04 21:37:56 cha Exp $
+; $Id: DC.pro,v 1.16 2001/04/16 14:31:10 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1121,7 +1125,7 @@ if w_plotspec_id.log eq 2 and auto ne 0 then auto=2   ;  Y > 0
      err_dy = 0
 
 
-for i=0,scanData.num_det - 1 do begin
+for i=0,scanData.lastDet(0) - 1 do begin
 
      IF (scanData.wf_sel(i) EQ 1) THEN  BEGIN
 
@@ -1305,7 +1309,7 @@ y_descs = strtrim(y_descs,2)
 st='Scan #: ' + strtrim(scanData.scanno)
 
 is = 0
-for i=0,scanData.num_det-1 do begin
+for i=0,scanData.lastDet(0)-1 do begin
    IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
 	d1 = scanData.da(0:num_pts,i)
 if w_plotspec_id.statistic eq 3 then begin
@@ -1564,11 +1568,12 @@ if w_plotspec_id.type eq 0 then begin
 	xdis = 0.8*!d.x_size
 	xdis2 = 0.85*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
-	if id lt scanData.num_det then begin
+	if id lt scanData.lastDet(0) then begin
 	   if strlen(y_descs(id)) gt 1 then $
 		xyouts,xdis2,ydis,'  '+y_descs(id), /device else $
 		xyouts,xdis2,ydis,'  Detector '+scanData.detname(id), /device
-	endif else begin
+	end
+	if id ge scanData.num_det then begin
 	   idd = id-scanData.num_det
 	   if strlen(x_descs(idd)) gt 1 then $
 		xyouts,xdis2,ydis,'  '+x_descs(idd), /device else $
@@ -1587,11 +1592,12 @@ endif else begin
 	xdis = 0.8*!d.x_size
 	xdis2 = 0.85*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
-	if id lt scanData.num_det then begin
+	if id lt scanData.lastDet(0) then begin
 	   if strlen(y_descs(id)) gt 1 then  $
 		xyouts,xdis2,ydis,'  '+y_descs(id),/device  else $
 		xyouts,xdis2,ydis,'  Detector '+scanData.detname(id),/device
-	endif else begin
+	end
+	if id ge scanData.num_det then begin
 	   idd = id-scanData.num_det
 	   if strlen(x_descs(idd)) gt 1 then $
 		xyouts,xdis2,ydis,'  '+x_descs(idd), /device else $
@@ -3013,8 +3019,13 @@ if keyword_set(file) then begin
 	return
 	end
 endif else begin
-	scanData.nonames = 89 
-	realtime_pvnames = make_array(89,/string,value=string(replicate(32b,5)))
+	scanData.nonames = scanData.lastDet(0)+4 ;89 
+	realtime_pvnames = make_array(scanData.nonames,/string,value=string(replicate(32b,5)))
+;	realtime_pvnames = make_array(89,/string,value=string(replicate(32b,5)))
+
+catch, error_status
+if error_status ne 0 then return
+
 	realtime_pvnames(0)=scanData.pv+'.R1CV'
 	realtime_pvnames(1)=scanData.pv+'.R2CV'
 	realtime_pvnames(2)=scanData.pv+'.R3CV'
@@ -3037,7 +3048,8 @@ endif else begin
 	; add 01-70 PV
 	pvs = '.D' + strtrim(indgen(61)+10,2) +'CV'
 	pvs = ['.D01CV','.D02CV','.D03CV','.D04CV','.D05CV','D06CV','.D07CV','.D08CV','.D09CV',pvs]
-	for i=1,70 do realtime_pvnames(18+i) = scanData.pv+pvs(i-1)
+;	for i=1,70 do realtime_pvnames(18+i) = scanData.pv+pvs(i-1)
+	for i=1,scanData.lastDet(0)-15 do realtime_pvnames(18+i) = scanData.pv+pvs(i-1)
 	end
 
 ;print,'pvnames',realtime_pvnames
@@ -3089,7 +3101,7 @@ if scanData.showlist eq 1 then begin
 	WIDGET_CONTROL,widget_ids.terminal,SET_VALUE=strtrim(st),BAD_ID=bad_id
 
 ;	s0 = string(replicate(32b,340))
-twd = strlen(st) > 88*total(realtime_id.def) + 10
+twd = strlen(st) > (scanData.lastDet(0)-1)*total(realtime_id.def) + 10
 s0 = string(replicate(32b,twd))
 	st = s0
 	strput,st,';  (Desc)',0  &  ij = 17
@@ -3142,15 +3154,14 @@ if caSearch(scanData.pv) ne 0 then begin
 	return
 	end
 
-	ln = caget(scanData.pv+'.NPTS',pd)
-	ln = caget(scanData.pv+'.MPTS',mpts)
-;	ln = cagetArray([scanData.pv+'.NPTS', scanData.pv+'.MPTS'],pd,/short)
-;	mpts = pd(1) 
-	scanData.req_npts = pd
+;	ln = caget(scanData.pv+'.NPTS',pd)
+;	ln = caget(scanData.pv+'.MPTS',mpts)
+	ln = cagetArray([scanData.pv+'.NPTS', scanData.pv+'.MPTS'],pd,/short)
+	mpts = pd(1) 
+	scanData.req_npts = pd(0)
 	realtime_retval = make_array(scanData.req_npts,scanData.nonames,/double)
 	realtime_id.mpts = mpts
 
-;if scanData.y_seqno eq 0 then begin
 if scanData.realtime eq 0 then begin
 	ln = caScan(scanData.pv+'.CPT',realtime_pvnames,/clear)
 	ln = caScan(scanData.pv+'.CPT',realtime_pvnames,/add,max=mpts)
@@ -3163,7 +3174,7 @@ print,'REALTIME_INIT: add caScan at # ',w_plotspec_id.seqno
 
 scanData.px = make_array(4000,/float)
 scanData.pa = make_array(4000,4,/float)
-scanData.da = make_array(4000,scanData.num_det,/float)
+scanData.da = make_array(4000,scanData.lastDet(0),/float)
 end
 	ln = caScan(scanData.pv+'.CPT',realtime_pvnames,/zero,max=mpts)
 	scanData.act_npts = 0
@@ -3266,7 +3277,7 @@ realtime_retval = transpose(retval)
 		scanData.px(n1:n2) = realtime_retval(n1:n2,i)
 	end
 
-	for i=0,scanData.num_det-1 do begin
+	for i=0,scanData.lastDet(0)-1 do begin
 	is = i*cpts
 	scanData.da(n1:n2,i) = realtime_retval(n1:n2,i+scanData.num_pos)
 	end
@@ -3285,7 +3296,7 @@ if scanData.showlist eq 1 then begin
 		strput,st,scanData.pa(i,j),ij  & ij = ij + 13 &end
 
 		end
-	for j=0,scanData.num_det - 1 do begin
+	for j=0,scanData.lastDet(0) - 1 do begin
 	if realtime_id.def(4+j) ne 0 then begin 
 		strput,st,scanData.da(i,j),ij  & ij = ij + 13 &end
 		end
@@ -3389,7 +3400,7 @@ if realtime_id.axis eq 1 then begin
 
 	if n1 gt 0  then begin
 	; plot Detector vs positioner 
-	for i=0,scanData.num_det - 1 do begin
+	for i=0,scanData.lastDet(0) - 1 do begin
 	if realtime_id.def(4+i) ne 0 and scanData.wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
 	; 24 bit visual case
@@ -3404,14 +3415,14 @@ if realtime_id.axis eq 1 then begin
 	end
 	; plot positoner vs positioner (encode cases)
 	for i=0,scanData.num_pos - 1 do begin
-	if realtime_id.def(i) ne 0 and scanData.wf_sel(scanData.num_det+i) eq 1 then begin
-	color = w_plotspec_id.colorI(scanData.num_det+i)
+	if realtime_id.def(i) ne 0 and scanData.wf_sel(scanData.lastDet(0)+i) eq 1 then begin
+	color = w_plotspec_id.colorI(scanData.lastDet(0)+i)
 	; 24 bit visual case
 	if !d.n_colors eq 16777216 then begin
 		catch1d_get_pvtcolor,color,t_color
 		color = t_color
 		end
-	oplot,scanData.px(0:n1), scanData.pa(0:n1,i),LINE=ln_style(i+scanData.num_det), $
+	oplot,scanData.px(0:n1), scanData.pa(0:n1,i),LINE=ln_style(i+scanData.lastDet(0)), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -3421,7 +3432,7 @@ if realtime_id.axis eq 1 then begin
 end
 
 if n2 ge n1 then begin
-for i=0,scanData.num_det-1 do begin
+for i=0,scanData.lastDet(0)-1 do begin
 	if realtime_id.def(4+i) ne 0 then begin
 		if n2 eq 0 then begin
 		xtemp = [scanData.px(0),scanData.px(0)]
@@ -3452,14 +3463,14 @@ for i=0,scanData.num_pos-1 do begin
 		xtemp = [scanData.px(n1:n2)]
 		ytemp = [scanData.pa(n1:n2,i)]
 		end
-		if scanData.wf_sel(i+scanData.num_det) eq 1 then begin
-	color = w_plotspec_id.colorI(i+scanData.num_det)
+		if scanData.wf_sel(i+scanData.lastDet(0)) eq 1 then begin
+	color = w_plotspec_id.colorI(i+scanData.lastDet(0))
 	; 24 bit visual case
 	if !d.n_colors eq 16777216 then begin
 		catch1d_get_pvtcolor,color,t_color
 		color = t_color
 		end
-			oplot,xtemp, ytemp,LINE=ln_style(i+scanData.num_det), $
+			oplot,xtemp, ytemp,LINE=ln_style(i+scanData.lastDet(0)), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -3507,7 +3518,7 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
      if total(scanData.wf_sel) eq 0 then plotXTitle = 'Nothing Selected'
 
 pos_ymin = 1.e20
-for i=0,scanData.num_det-1 do begin
+for i=0,scanData.lastDet(0)-1 do begin
      IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(scanData.num_pos+i) NE 0) THEN  BEGIN
      d4 = scanData.da(0:num_pts,i)
          IF (MIN(d4) LT ymin) THEN begin 
@@ -3529,7 +3540,7 @@ end
 ; if Pi to be plotted as Y
 
 for i=0,scanData.num_pos -1 do begin
-	IF(scanData.wf_sel(scanData.num_det+i) eq 1 and realtime_id.def(i) NE 0) THEN BEGIN
+	IF(scanData.wf_sel(scanData.lastDet(0)+i) eq 1 and realtime_id.def(i) NE 0) THEN BEGIN
 	d4 = scanData.pa(0:num_pts,i)
 	if min(d4) lt ymin then begin
 		ymin = min(d4)
@@ -3595,11 +3606,12 @@ if realtime_id.def(w_plotspec_id.xcord) eq 2 then begin
         x_rn = realtime_pvnames
 
         xmax = realtime_id.xmax
-        ln = caget(x_rn(w_plotspec_id.xcord),pd)
-        if ln eq 0 and pd gt xmax then begin
+;        ln = caget(x_rn(w_plotspec_id.xcord),pd)
+        ln = cagetArray(x_rn(w_plotspec_id.xcord),pd)
+        if ln eq 0 and pd(0) gt xmax then begin
                 xmin=0
                 xmax=pd
-                dx = 0.1 * pd
+                dx = 0.1 * pd(0)
                 realtime_id.xmax = xmax + dx
                 realtime_id.xmin = xmin - dx
                 realtime_id.axis = 1
@@ -5270,6 +5282,7 @@ populate:
 ; check the header for the file if the the seq_no is set to le 0
 	if seq_no le 0 then begin
 
+
 	realtime_id.def = id_def[*,0]
 	if dim eq 3 then realtime_id.def = id_def[*,1]
 	label = labels[*,0]
@@ -5299,7 +5312,6 @@ populate:
 	update_2d_data,data_2d,num_pts[0],num_pts[1],da2D,id_def[*,1]
 	end
 	end
-
 
         if dim ge 2 then begin
 		t_cpt = cpt[1]
@@ -5339,8 +5351,8 @@ act_npts = num_pts[0]
 scanData.act_npts = act_npts 
 
 
-ndet = 85 	; ndet = ceil( total(id_def(4:88,0)) )
 
+ndet = 85 	; ndet = ceil( total(id_def(4:88,0)) )
 
 for j=0,dim-1 do begin
 det_id = id_def(4:84,j)
@@ -5348,7 +5360,6 @@ for i=0,n_elements(det_id)-1 do begin
 	if det_id(i) gt 0 then scanData.lastDet(j) = i+1
 end
 end
-
 ndet=scanData.lastDet(0)
 sz = size(da2D)
 if dim eq 3 and sz(0) eq 3 then ndet = sz(3)
@@ -5371,7 +5382,7 @@ end
 for i=0,ndet-1 do begin
         if id_def[4+i,0] gt 0 then begin
 	if dim eq 2 then $
-	scanData.da(0:sz(0)-1,i) = da2D[0:sz(0)-1,scanData.y_seqno,i] 
+	scanData.da(0:sz(1)-1,i) = da2D[0:sz(1)-1,scanData.y_seqno,i] 
 	if dim eq 3 then begin
 		cpt2 = cpt(2)
 		if cpt2 eq num_pts(2) then cpt2 = num_pts(2)-1
@@ -6093,6 +6104,7 @@ if scanData.dim eq 3 then str='3D SCAN # '
 	new_win = old_win - 1 
 widget_ids.panwin = new_win
 	if y_seqno eq 0 or realtime_id.ind eq -1 then begin
+;	if y_seqno eq 0 or scanData.realtime eq 0 then begin
 		window,new_win, xsize = NC*width, ysize=NR*height, title=str+strtrim(scanData.scanno_2D,2)
 		for i=0,ND-1 do begin
 		ii = NL-i
@@ -6954,7 +6966,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
         end
 
 
-        F = PICKFILE(TITLE='Open ...',/WRITE,FILE=filename,PATH=old_path,GET_PATH=P,FILTER=FNAME)
+        F = PICKFILE(TITLE='Open ...',/READ,FILE=filename,PATH=old_path,GET_PATH=P,FILTER=FNAME)
 
         IF F eq '' THEN return 
 
@@ -7648,6 +7660,7 @@ if ret eq -1 then begin                 ; ****may be error in caCheckMonitor
 ; scan mode check the following
 
 if w_plotspec_id.mode eq 0 then begin
+if w_plotspec_id.realtime eq 1 then $
 setPiDiMonitor,ret,/check 
 if total(ret) gt 0 then begin
 	if scanData.debug eq 1 then $
@@ -7659,8 +7672,9 @@ end
 
 scanFlag=0
 if caSearch(scanData.pv+'.EXSC') eq 0 then begin
-	ln = cagetArray(scanData.pv+'.EXSC',pd)
+	ln = cagetArray(scanData.pv+['.EXSC','.DATA'],pd,/short)
 	if ln eq 0 then scanFlag = pd(0) else scanFlag=0 ;======= 8/15/96
+	scanDataReady = pd[1]
 end
       IF (scanFlag EQ 1) THEN BEGIN
 	;  find new filename based on prefix and scan #
@@ -7669,10 +7683,8 @@ end
 	calc_newfilename,/get
 	end
 
-
 	ln = caMonitor(scanData.pv+'.NPTS',ret,/check)
 	if ret(0) gt 0 then begin
-;	ln = caget(scanData.pv+'.NPTS',pd)
 	ln = cagetArray(scanData.pv+'.NPTS',pd)
 	scanData.req_npts = pd(0) 
 
@@ -7685,8 +7697,9 @@ end
 ;
 ; if realtime_init has not been called, must call it here
 ;
-if w_plotspec_id.realtime eq 1 then begin
-	if  n_elements(realtime_pvnames) lt 1 then realtime_init
+	if  scanDataReady eq 0 and valchange(0) eq 1 then begin
+	if w_plotspec_id.realtime eq 1 and realtime_id.ind eq -1 $
+		 then realtime_init
 	realtime_xrange,1
 	realtime_id.axis = 1
 	  end
@@ -7728,8 +7741,15 @@ end
 
       ENDIF ELSE BEGIN
 ;
-; scanFlag eq 0 case
+; scanFlag eq 0 case (1D scan is done)
 ;
+       if scanDataReady and valchange(0) eq 1 then begin
+		scan_read,1,-1,-1,maxno
+	 	scanData.realtime = 0
+;	print,scanDataReady,valchange(0),w_plotspec_id.scan,w_plotspec_id.realtime, scanData.realtime	
+		w_plotspec_id.scan = 0
+		return
+	end
 
 	if w_plotspec_id.scan eq 1 then begin
 
@@ -7757,7 +7777,6 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 	  if scanData.y_scan eq 1 then begin
 		id = cagetArray(scanData.y_pv+'.EXSC',pd) 
 		if pd(0) eq 0 then begin
-		scan_read,1,-1,-1,maxno
 		scanData.y_scan = 0
 		set_sensitive_on
 ;print,'stop by CA client',scanData.y_seqno,scanData.scanno,pd(0)
@@ -7769,15 +7788,11 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 ;
 	if scanData.y_scan eq 1 and $
 		scanData.y_seqno ge scanData.y_req_npts then begin
-		scan_read,1,-1,-1,maxno
 		scanData.y_scan = 0
 		set_sensitive_on
 ;print,'terminate by y_req_npts'
 		end
 
-      if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 and $
-		scanData.realtime eq 1 then scanData.realtime = 0
-	
       ENDELSE
 ENDIF else begin
 	WIDGET_CONTROL, widget_ids.pv_stat,SET_VALUE = '>> PV NOT VALID <<'
@@ -7919,7 +7934,8 @@ end ;     end of if scanData.option = 1
 	WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
 	scanData.wf_sel = wf_sel
 	ln = cagetArray(scanData.y_pv+'.EXSC',pd)
-	if ln lt 0 or scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 then begin
+;	if ln lt 0 or scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 then begin
+	if ln lt 0 or w_plotspec_id.scan eq 0 then begin
 		UPDATE_PLOT, scanData.lastPlot 
 		return
 	end
@@ -7991,6 +8007,7 @@ end
 	if caMonitor(scanData.pv+'.EXSC',/check) ne 0 then begin
 	scan_field_get,scanData.pv
 	setDefaultLabels
+	if w_plotspec_id.realtime eq 1 then $
 	setPiDiMonitor,/add
 	end
 	end
@@ -8029,6 +8046,7 @@ if XRegistered('catcher_setup') ne 0 then begin
 	   u = caMonitor(scanData.pv+'.EXSC',/clear)
 	   u = caScan(scanData.pv+'.CPT','',/clear)
 	   u = caMonitor(scanData.pv+'.NPTS',/clear)
+	if w_plotspec_id.realtime eq 1 then $
 	   setPiDiMonitor,/clear
 		end
 	  scanData.pv = new_pv_name
@@ -8089,6 +8107,7 @@ scanData.pvfound = res
 	setPlotLabels
 	setScanPvnames
 
+	if w_plotspec_id.realtime eq 1 then $
 	setPiDiMonitor,/add
 
 ;	before_sys_scan
@@ -8139,7 +8158,7 @@ END
 PRO setPiDiMonitor,ret,add=add,clear=clear,check=check
 COMMON CATCH1D_COM, widget_ids, scanData
 
-x_wd = [scanData.pv+'.P1WD', $
+x_wd = [scanData.pv+ '.P1WD', $
 	scanData.pv+'.P2WD', $
 	scanData.pv+'.P3WD', $
 	scanData.pv+'.P4WD', $
@@ -8172,7 +8191,11 @@ x_dn = [ scanData.pv+'.R1PV', $
         scanData.pv+'.DDPV', $
         scanData.pv+'.DEPV', $
         scanData.pv+'.DFPV' $
-        ]
+	]
+
+str = scanData.pv+'.D'+ ['01','02','03','04','05','06','07','08','09'] + 'PV'
+
+x_dn = x_dn + str
 
 if keyword_set(check) eq 1 then begin
 	ln = caMonitor(x_dn,ret,/check)
@@ -8384,6 +8407,9 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;       03-02-2001 bkc  R2.3
 ;                       Defalut # of detector loaded into memory is 25
 ;                       ViewData->Load # Detectors to load extra detectors
+;       04-11-2001 bkc  R2.4
+;                       Fix the realtime problem 
+;                       Defined lastDet is used in realtime
 ;                       
 ;-
 ;
@@ -8408,7 +8434,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R2.3 )', $
+      TITLE='scanSee ( R2.4 )', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
