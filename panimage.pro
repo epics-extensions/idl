@@ -1,106 +1,3 @@
-
-
-PRO xdr_write,unit,x, error=error
-; the unit is already opened
-
-	error = 0
-	catch,error_status
-	if error_status ne 0 then begin
-		print,!error_state.msg + string(!error_state.code)
-		error = error_status
-		return 
-	end
-
-	sz = size(x)
-	num = n_elements(sz)
-	type = sz(num-2)
-
-	writeu,unit,sz,x
-
-END
-
-
-PRO xdr_read,unit,y, error=error
-; the unit is already opened
-
-	error = 0
-	catch,error_status
-	if error_status ne 0 then begin
-		print,!error_state.msg + string(!error_state.code)
-		error = error_status
-		return 
-	end
-
-	dim = 0L
-	readu,unit,dim
-	
-	szn = lonarr(dim+2)
-	readu,unit,szn
-
-	type = szn(dim) 	; 1-byte, 2-int,3-long,4-float,5-double
-	szn = [dim,szn]
-
-	CASE dim OF
-	0: begin
-		y = make_array(1,TYPE=type)
-		readu,unit,y
-	   end
-	1: begin
-		y = make_array(szn(1),TYPE=type)
-		readu,unit,y
-	   end
-	2: begin
-		y = make_array(szn(1),szn(2),TYPE=type)
-		readu,unit,y
-	   end
-	3: begin
-		y = make_array(szn(1),szn(2),szn(3),TYPE=type)
-		readu,unit,y
-	   end
-	4: begin
-		y = make_array(szn(1),szn(2),szn(3),szn(4),TYPE=type)
-		readu,unit,y
-	   end
-	ENDCASE
-
-END
-
-PRO xdr_setFP,unit,pos
-	point_lun,unit,pos
-END
-
-PRO xdr_getFP,unit,pos
-	point_lun,-unit,pos
-END
-
-PRO xdr_rewind,unit
-	point_lun,unit,0
-END
-
-PRO xdr_close,unit
-	close,unit
-END
-
-PRO xdr_open,unit,filename,read=read,write=write,append=append,error=error
-; write - overwritten the file
-; append - append at the end of file
-; default open for read
-
-	error = 0
-	unit = -99
-	catch,error_status
-	if error_status ne 0 then begin
-		print,!error_state.msg + string(!error_state.code)
-		error = error_status
-		return 
-	end
-	if keyword_set(append) then begin
-		openw,unit,/XDR,/GET_LUN,filename,/append
-		return
-	end
-	if keyword_set(write) then openw,unit,/XDR,/GET_LUN,filename
-	if unit eq -99 then openr,unit,/XDR,/GET_LUN,filename
-END
 ;
 ; panimage.pro
 ;
@@ -113,7 +10,7 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def
 	'01','02', '03','04', '05','06', '07','08', '09', $
 	strtrim(indgen(61)+10,2), $
  	strtrim(indgen(9)+1,2),'A','B','C','D','E',+'F']
-  l123 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D1-DA']
+  l123 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D1-DF']
 
   panimageinfo = {  $
 	title : '',$
@@ -146,7 +43,6 @@ PRO PANIMAGE_SEL_accept,ret,title,panimageinfo
 ;  panimageinfo - structure defined in panimage_sel
 ;
 	num = n_elements(ret)
-	def = make_array(num,value=1)
 	image_subarray =make_array(panimageinfo.width,panimageinfo.height,num)
 
 	for i=0,num-1 do begin
@@ -154,28 +50,47 @@ PRO PANIMAGE_SEL_accept,ret,title,panimageinfo
 	end
 	new_win = panimageinfo.new_win
 
+detname = panimageinfo.detname
+id_def = [panimageinfo.id_def(15:84), panimageinfo.id_def(0:14)]
+
+if num lt 85 then begin
+	ret_conv = ret - 15
+	for i=0,num-1 do begin
+	if ret(i) lt 15 then ret_conv = ret + 70
+	end
+	detname = panimageinfo.detname(ret_conv)
+	id_def = panimageinfo.id_def(ret)
+end
+
+	def = id_def
+
 	if panimageinfo.tiffname ne '' and panimageinfo.savemode  then begin
 	if panimageinfo.outtype eq 0 then $
 		panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret,new_win=new_win, TIFF =panimageinfo.tiffname, $
+		isel=ret, $
+		new_win=new_win, TIFF =panimageinfo.tiffname, $
 		REVERSE=panimageinfo.reverse, $
-		title=title,numd=10
+		DETNM=detname,title=title,numd=10
 	if panimageinfo.outtype eq 1 then $
 		panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret,new_win=new_win, PNG =panimageinfo.tiffname, $
-		title=title,numd=10
+		isel=ret, $
+		new_win=new_win, PNG =panimageinfo.tiffname, $
+		DETNM=detname,title=title,numd=10
 	if panimageinfo.outtype eq 2 then $
 		panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret,new_win=new_win, PICT =panimageinfo.tiffname, $
-		title=title,numd=10
+		isel=ret, $
+		new_win=new_win, PICT =panimageinfo.tiffname, $
+		DETNM=detname,title=title,numd=10
 	if panimageinfo.outtype eq 3 then $
 		panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret,new_win=new_win, XDR =panimageinfo.tiffname, $
-		title=title,numd=10
+		isel=ret, $
+		new_win=new_win, XDR =panimageinfo.tiffname, $
+		DETNM=detname,title=title,numd=10
 	endif else $
 	panimage,image_subarray,def,panimageinfo.factor, $
-		isel=ret,new_win=new_win, $
-		title=title,numd=10
+		isel=ret, $
+		new_win=new_win, $
+		DETNM=detname,title=title,numd=10
 	panimageinfo.new_win = new_win
 END
 
@@ -394,8 +309,9 @@ PRO panImage,image_array,id_def,factor,title=title,new_win=new_win, tiff=tiff,re
 ;       image_array.
 ;
 ; CALLING SEQUENCE:
-;       panImage, Image_array [,Factor=1]  [,TIFF='tifname',/reverse]
-;		  [,TITLE='description']
+;       panImage, Image_array [,Id_def] [,Factor=1]  [,TIFF='tifname',/reverse]
+;		  [,TITLE='description'] [,DETNM=DetNm] [,ISEL=Isel]
+;                 [,NUMD=NumD]
 ;                 [,GIF='pngname'] [,PICT='pictname'] [,ERROR=error]
 ;
 ; ARGUMENTS:
@@ -485,12 +401,14 @@ update:
 	o_win = -1
 	if n_elements(new_win) then o_win = new_win
 catch,error_status
-if error_status ne 0 and !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
+if error_status ne 0 then begin
+       o_win = -1
+      if !error_state.name eq  'IDL_M_CNTOPNFIL' then  begin
         r = dialog_message([!error_state.msg,!error_state.sys_msg,$
                 string(!error_state.code)],/error)
-        return
+	return
+	end
 end
-if error_status then o_win=-1
 if o_win ne -1 then wdelete,o_win
 o_win = -1
 	if o_win lt 0 then begin
@@ -519,7 +437,12 @@ new_win = !D.window
 		temp = congrid(image_array(*,*,sel), width, height)
 		TVSCL, temp, sel
 	end
-	end
+	endif else begin
+		ii = NL-sel
+		xi=(sel mod NC)*width+width/2 - 5 
+		yi=height/2+ii/NC*height
+		xyouts, xi,yi,detname(sel),/device
+		end
 	end
 
 
