@@ -78,7 +78,7 @@ PRO SCANSEEOVL_Event, Event
 ;	return
       END
   'SCANSEE1D_OVFILE': BEGIN
-	filename = dialog_pickfile(FILTER='*.sca*',GET_PATH=path,PATH=overlay_state.path,/must_exist)
+	filename = dialog_pickfile(FILTER='*.mda*',GET_PATH=path,PATH=overlay_state.path,/must_exist)
 	if filename eq '' then return
 	overlay_state.path = path(0)
 	overlay_state.filename = filename
