@@ -325,7 +325,7 @@ PRO VIEWDRV3D_Event, Event
 	'Index   - axial number in index number (default)', $
 	'Values  - axial number in array values', $
 	'','        ** Selection of Slice # **', $
-	'List    - selection list of available axial slices', $
+	'List    - select the desired slice pass to the display option', $
 	'','        ** 2D Image Area **', $
 	'Draw Area  - show the image of the selected axial slice', $
 	'Slider Bar - pre-view of the axial slice images', $
@@ -495,7 +495,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
   draw18 = WIDGET_DRAW(BASE19,xsize=100,ysize=100, $
 	RETAIN=2, UVALUE='VIEW3D_IMAGE_SLICE')
   slider = WIDGET_SLIDER(BASE19,MAXIMUM=sz(rank+1)-1,MINIMUM=0,VALUE=0, $
-		UVALUE='VIEW3D_IMAGE_SLIDER')
+		title='Preview',UVALUE='VIEW3D_IMAGE_SLIDER')
 
   BASE20 = WIDGET_BASE(BASE1, $
       ROW=1, $
