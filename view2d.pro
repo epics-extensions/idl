@@ -1,4 +1,12 @@
-; $Id: view2d.pro,v 1.41 2002/05/09 19:52:03 cha Exp $
+;*************************************************************************
+; Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+; National Laboratory.
+; Copyright (c) 2002 The Regents of the University of California, as
+; Operator of Los Alamos National Laboratory.
+; This file is distributed subject to a Software License Agreement found
+; in the file LICENSE that is included with this distribution. 
+;*************************************************************************
+; $Id: view2d.pro,v 1.42 2002/08/02 15:39:04 jba Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message

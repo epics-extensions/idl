@@ -1,3 +1,11 @@
+;*************************************************************************
+; Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+; National Laboratory.
+; Copyright (c) 2002 The Regents of the University of California, as
+; Operator of Los Alamos National Laboratory.
+; This file is distributed subject to a Software License Agreement found
+; in the file LICENSE that is included with this distribution. 
+;*************************************************************************
 FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
 
@@ -576,7 +584,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.16 2002/06/18 20:53:25 cha Exp $
+; $Id: vw2d.pro,v 1.17 2002/08/02 15:39:05 jba Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1229,7 +1237,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.16 2002/06/18 20:53:25 cha Exp $
+; $Id: vw2d.pro,v 1.17 2002/08/02 15:39:05 jba Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message

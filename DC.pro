@@ -1,3 +1,11 @@
+;*************************************************************************
+; Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+; National Laboratory.
+; Copyright (c) 2002 The Regents of the University of California, as
+; Operator of Los Alamos National Laboratory.
+; This file is distributed subject to a Software License Agreement found
+; in the file LICENSE that is included with this distribution. 
+;*************************************************************************
 FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
 
@@ -523,7 +531,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.25 2002/06/18 16:50:05 cha Exp $
+; $Id: DC.pro,v 1.26 2002/08/02 15:38:52 jba Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message

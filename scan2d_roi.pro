@@ -1,3 +1,11 @@
+;*************************************************************************
+; Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+; National Laboratory.
+; Copyright (c) 2002 The Regents of the University of California, as
+; Operator of Los Alamos National Laboratory.
+; This file is distributed subject to a Software License Agreement found
+; in the file LICENSE that is included with this distribution. 
+;*************************************************************************
 @PS_open.pro
 
 PRO defroi_congrid,statistic_2dids,arr,xverts,yverts,xs=xs,ys=ys,x0=x0,y0=y0

@@ -1,4 +1,12 @@
-; $Id: xdisplayfile.pro,v 1.3 2002/07/31 21:28:52 cha Exp $
+;*************************************************************************
+; Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+; National Laboratory.
+; Copyright (c) 2002 The Regents of the University of California, as
+; Operator of Los Alamos National Laboratory.
+; This file is distributed subject to a Software License Agreement found
+; in the file LICENSE that is included with this distribution. 
+;*************************************************************************
+; $Id: xdisplayfile.pro,v 1.4 2002/08/02 15:39:06 jba Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
