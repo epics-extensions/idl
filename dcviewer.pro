@@ -25,7 +25,8 @@ PRO COMMANDTEXT_Event, Event
 	WIDGET_CONTROL,info.command_field,GET_VALUE=name
 	if strtrim(name(0),2) ne '' then begin
 	x = string(name,/print)
- 	r = execute(x)	
+; 	r = execute(x)	
+	call_procedure,x
 	if !err lt 0 then begin
 		res = WIDGET_MESSAGE(!err_string,/Error,dialog_parent=Event.top)
 		end
