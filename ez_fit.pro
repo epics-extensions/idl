@@ -1,175 +1,4 @@
 
-; $Id: ez_fit.pro,v 1.7 1999/07/07 16:47:49 cha Exp $
-
-; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
-;	Unauthorized reproduction prohibited.
-PRO XDispFile_evt, event
-
-
-WIDGET_CONTROL, event.top, GET_UVALUE = state
-WIDGET_CONTROL, event.id, GET_UVALUE=Ev
-
-CASE Ev OF 
-'EXIT': WIDGET_CONTROL, event.top, /DESTROY
-'FILE_PRINT': begin
-	WIDGET_CONTROL,state.text_area,GET_VALUE=str
-	openw,unit,'tmp',/GET_LUN
-	for i=0,n_elements(str)-1 do printf,unit,str(i)
-	FREE_LUN,unit
-	PS_print,'tmp'
-	end
-ENDCASE
-END
-
-
-PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
-		HEIGHT = HEIGHT, TEXT = TEXT, FONT = font
-;+
-; NAME: 
-;	XDISPLAYFILE
-;
-; PURPOSE:
-;	Display an ASCII text file using widgets and the widget manager.
-;
-; CATEGORY:
-;	Widgets.
-;
-; CALLING SEQUENCE:
-;	XDISPLAYFILE, Filename
-;
-; INPUTS:
-;     Filename:	A scalar string that contains the filename of the file
-;		to display.  The filename can include a path to that file.
-;
-; KEYWORD PARAMETERS:
-;	FONT:   The name of the font to use.  If omitted use the default
-;		font.
-;	GROUP:	The widget ID of the group leader of the widget.  If this 
-;		keyword is specified, the death of the group leader results in
-;		the death of XDISPLAYFILE.
-;
-;	HEIGHT:	The number of text lines that the widget should display at one
-;		time.  If this keyword is not specified, 24 lines is the 
-;		default.
-;
-;	TEXT:	A string or string array to be displayed in the widget
-;		instead of the contents of a file.  This keyword supercedes
-;		the FILENAME input parameter.
-;
-;	TITLE:	A string to use as the widget title rather than the file name 
-;		or "XDisplayFile".
-;
-;	WIDTH:	The number of characters wide the widget should be.  If this
-;		keyword is not specified, 80 characters is the default.
-;
-; OUTPUTS:
-;	No explicit outputs.  A file viewing widget is created.
-;
-; SIDE EFFECTS:
-;	Triggers the XMANAGER if it is not already in use.
-;
-; RESTRICTIONS:
-;	None.
-;
-; PROCEDURE:
-;	Open a file and create a widget to display its contents.
-;
-; MODIFICATION HISTORY:
-;	Written By Steve Richards, December 1990
-;	Graceful error recovery, DMS, Feb, 1992.
-;       12 Jan. 1994  - KDB
-;               If file was empty, program would crash. Fixed.
-;       4 Oct. 1994     MLR Fixed bug if /TEXT was present and /TITLE was not.
-;      14 Jul. 1995     BKC Increased the max line to variable size.
-;      16 Jun. 1997     BKC Max dispalyable line is 10000 for non-unix OS system.
-;      28 Aug. 1997     BKC Add the printer button, file name label, it uses the
-;                       PS_print,file to print.
-;-
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-                                                        ;use the defaults if
-IF(NOT(KEYWORD_SET(HEIGHT))) THEN HEIGHT = 24		;the keywords were not
-IF(NOT(KEYWORD_SET(WIDTH))) THEN WIDTH = 80		;passed in
-
-IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
-  IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = FILENAME     
-  OPENR, unit, FILENAME, /GET_LUN, ERROR=i		;open the file and then
-  if i lt 0 then begin		;OK?
-	a = [ !err_string, ' Can not display ' + filename]  ;No
-  endif else begin
-
-    y=10000
-    if OS_SYSTEM.os_family eq 'unix' then begin
-	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
-
-	lines=long(y(0))
-	if lines eq 0 then begin
-	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
-	return
-	end
-    end
-
-	  a = strarr(y(0))				;Maximum # of lines
-	  i = 0L
-	  c = ''
-	  while not eof(unit) do begin
-		readf,unit,c
-		a(i) = c
-		i = i + 1
-		if i ge y(0) then goto,stopread
-		endwhile
-	  stopread:
-	  a = a(0:(i-1)>0)  ;Added empty file check -KDB
-	  FREE_LUN, unit				;free the file unit.
-  endelse
-ENDIF ELSE BEGIN
-    IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = 'XDisplayFile'
-    a = TEXT
-ENDELSE
-
-filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
-		/COLUMN ) 
-
-label=WIDGET_LABEL(filebase,value=TITLE)
-rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
-fileprint = WIDGET_BUTTON(rowbtn, $			;create a Print Button
-		VALUE = "Print", $
-		UVALUE = "FILE_PRINT")
-
-filequit = WIDGET_BUTTON(rowbtn, $			;create a Done Button
-		VALUE = "Done", $
-		UVALUE = "EXIT")
-
-IF n_elements(font) gt 0 then $
- filetext = WIDGET_TEXT(filebase, $			;create a text widget
-		XSIZE = WIDTH, $			;to display the file's
-		YSIZE = HEIGHT, $			;contents
-		/SCROLL, FONT = font, $
-		VALUE = a) $
-ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
-		XSIZE = WIDTH, $			;to display the file's
-		YSIZE = HEIGHT, $			;contents
-		/SCROLL, $
-		VALUE = a)
-
-state = { $
-	 base: filebase, $
-	 text_area: filetext, $
-	 file: '' $
-	 }
-if n_elements(filename) then state.file = filename
-
-WIDGET_CONTROL,filebase,SET_UVALUE=state
-
-WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
-
-Xmanager, "XDisplayFile", $				;register it with the
-		filebase, $				;widget manager
-		GROUP_LEADER = GROUP, $
-		EVENT_HANDLER = "XDispFile_evt" 
-
-END  ;--------------------- procedure XDisplayFile ----------------------------
-
-
 PRO readascii,filename,rarray,x,y,double=double,skip=skip,lines=lines,l_column=l_column,columns=columns ,print=print
 ;+
 ; NAME: 
@@ -212,12 +41,6 @@ PRO readascii,filename,rarray,x,y,double=double,skip=skip,lines=lines,l_column=l
 ; EXAMPLE:
 ;   
 ;       READASCII, 'Filename', RARRAY, X, Y 
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha
-;
-;       09-16-98      bkc  Allows blank lines at end of ascii file, no blank
-;                          lines allowed between data
 ;-
 
 if n_params() eq 0 then begin
@@ -236,48 +59,50 @@ no = y(0)
 start_line=0
 last_line=no
 start_col = 0
+
 if keyword_set(skip) then start_line=skip
 if keyword_set(lines) then last_line=skip+lines
-if last_line gt no then last_line = no
+;if (last_line - start_line) lt no then no = last_line - start_line
+if start_line gt no then return
+if last_line gt no then begin
+	last_line = no
+	lines = last_line - start_line
+	end
 
 line=''
 openr,unit,filename,/get_lun
 i=0
-nline=0
 WHILE NOT eof(unit) and i lt last_line DO begin
 	readf,unit,line,prompt=''
 	if i ge start_line then begin
 	line=strcompress(strtrim(line,2))
-	
+
 	res = str_sep(line,' ',/trim)
 	sz=size(res)
+	end_col = sz(1)
 
 	if strmid(line,0,1) ne ';' then begin 
 	if i eq start_line then begin
-	lines = last_line - start_line
-	end_col = sz(1)
 		if keyword_set(l_column) then begin
-		 if l_column lt sz(1) and l_column ge 0 then start_col=l_column
-		end
-		if keyword_set(columns) then end_col = start_col + columns
+			 if l_column lt sz(1) then start_col=l_column
+			end
+		if keyword_set(columns) then end_col = start_col + columns-1
 		if end_col gt sz(1) then end_col = sz(1)
 		if keyword_set(double) then $
 		rarray = make_array(end_col-start_col,lines,/double) else $
 		rarray = make_array(end_col-start_col,lines,/float)
 	end
-	if strlen(line) gt 0 then begin
-	rarray(*,nline) = float(res(start_col:end_col-1))
-	nline = nline+1
-	end
+
+	rarray(*,i-start_line) = float(res(start_col:end_col-1))
 	endif else  begin
-		rstart_line = i+1
-		if rstart_line gt start_line then start_line = rstart_line
+		start_line = i+1
 		end
 	end
 	i = i+1
 end
 free_lun,unit
-	if nline lt lines then rarray = rarray(*,0:nline-1) 
+help,l_column,start_col,end_col,rarray
+help,start_line,last_line,no,lines
 
 	temp = transpose(rarray)
 	x = temp(*,0)
@@ -732,11 +557,11 @@ end
 ;	plot,x,yfit
 ;	oplot,x,y,PSYM=7
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='COMFIT'
+		wtitle='COMFIT',report='fitting.rpt'
 
 	if keyword_set(print) then begin
 
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -751,7 +576,7 @@ end
 	printf,unit,'       X         Y          YFIT       YFIT-Y '
 	for i=0,n_elements(x) - 1 do  printf,unit,x(i),y(i),yfit(i),yres(i)
 	FREE_LUN,unit
- 	xdisplayfile,'fitting.tmp',title=title
+; 	xdisplayfile,'fitting.rpt',title=title
 	end
 
 END
@@ -842,10 +667,10 @@ end
 	comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='LADFIT'
+		wtitle='LADFIT',report='fitting.rpt'
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -859,7 +684,7 @@ end
 	printf,unit,'       X             Y          YFIT       YFIT-Y'
 	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i)
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title=title
+;	xdisplayfile,'fitting.rpt',title=title
 	end
 END
 
@@ -981,11 +806,11 @@ end
 ;	plot,x,yfit
 ;	oplot,x,y,PSYM=7
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='LINFIT - minimize chi-square'
+		wtitle='LINFIT - minimize chi-square',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -1009,7 +834,7 @@ end
 	printf,unit,'  PROB =',prob
 	printf,unit,' CHISQ =',chisq, '
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title=title
+;	xdisplayfile,'fitting.rpt',title=title
 	end
 END
 
@@ -1089,10 +914,10 @@ if n_params() lt 4 then begin
 	comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='POLYFITW'
+		wtitle='POLYFITW',report='fitting.rpt'
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -1131,7 +956,7 @@ if n_params() lt 4 then begin
 	for i=0,n_elements(x)-1 do printf,unit,X(i),Y(i),YFIT(i),YRES(i),W(i),yband(i),format='(6G15.8)'
 ;	print,'A',A
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title=title,width=100
+;	xdisplayfile,'fitting.rpt',title=title,width=100
 	end
 END
 
@@ -1221,10 +1046,10 @@ dy=double(y)
 	comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='POLY_FIT'
+		wtitle='POLY_FIT',report='fitting.rpt'
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -1239,7 +1064,7 @@ dy=double(y)
 	for i=0,n_elements(x)-1 do printf,unit,X(i),Y(i),YFIT(i),yres(i),yband(i)
 ;	print,'A',A
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title=title,width=90
+;	xdisplayfile,'fitting.rpt',title=title,width=90
 	end
 
 END
@@ -1335,11 +1160,11 @@ PRO gaussfitgraf,x,y,A,estimates=estimages,nterms=nterms,print=print
 ;	plot,x,yfit
 ;	oplot,x,y,PSYM=7
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='GAUSSFIT'
+		wtitle='GAUSSFIT',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
-	OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+	OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
 	if err ne 0 then begin
 	res = widget_message(!err_string,/info,title='FITTING Info')
 	return
@@ -1367,7 +1192,7 @@ PRO gaussfitgraf,x,y,A,estimates=estimages,nterms=nterms,print=print
 	printf,unit,'      X            Y           YFIT      YFIT-Y'
 	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i)
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title='GAUSSFIT'
+;	xdisplayfile,'fitting.rpt',title='GAUSSFIT'
 	end
 END
 
@@ -1494,7 +1319,7 @@ help,iter
 	curv(0,0) = float(yfit)
 	curv(0,1) = float(y)
 
-	title = 'Non-linear Least Square Fit with Weights' 
+	title = 'Non-linear Least Square Fit with '+ strupcase(fname) 
 	get_curvefit_function,fname,comment
 	for i=0,n_elements(A)-1 do comment=[comment,'A'+strtrim(i,2)+'='+ $
 		string(A(i)) + '     SIGMA='+string(sigma(i))]
@@ -1506,11 +1331,11 @@ help,iter
 ;	plot,x,yfit
 ;	oplot,x,y,PSYM=7
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='CURVEFIT'
+		wtitle='CURVEFIT',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -1537,7 +1362,7 @@ help,iter
 	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i),Weights(i)
 
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title='CURVEFIT'
+;	xdisplayfile,'fitting.rpt',title='CURVEFIT'
 	end
 END
 
@@ -1556,6 +1381,11 @@ PRO get_curvefit_function,fname,expres
 lfname = strlowcase(fname)
 if  lfname eq 'gfunct' then begin
 	expres='F(X) = A0 * exp( A1 * X ) + A2'
+	return
+	end
+if  lfname eq 'funct_erf' then begin 
+	expres='A[0]+A[1]*ERRORF(z)+A[4]*x '
+	expres=[expres,' z = (x-A[2])/A[3]/sqrt(2.)',' FWHM = 2.355*A[3]' ]
 	return
 	end
 if  lfname eq 'funct' then begin 
@@ -1649,12 +1479,12 @@ end
 	comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='REGRESS'
+		wtitle='REGRESS',report='fitting.rpt'
 ;	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
 ;		wtitle='REGRESS'
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -1674,7 +1504,7 @@ end
 	printf,unit,'          Weights      Y             YFIT       YFIT-Y '
 	for i=0,n_elements(y)-1 do printf,unit,weights(i),Y(i),YFIT(i),yres(i)
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title='REGRESS'
+;	xdisplayfile,'fitting.rpt',title='REGRESS'
 	end
 END
 
@@ -1710,6 +1540,7 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 	WIDGET_CONTROL,Event.Top,/DESTROY
 	END
   'FRESH_GETVECTOR': BEGIN
+	WSET,ezfitData.image_area
 	TVSCL,congrid(image,ezfitData.TV_width,ezfitData.TV_height)
 	END
   'YX_GETVECTOR': BEGIN
@@ -1871,7 +1702,7 @@ else begin
   ZX_getvector=WIDGET_BUTTON(BASE4,value='Zy vs X',UVALUE='ZX_GETVECTOR')
   ZY_getvector=WIDGET_BUTTON(BASE4,value='Zx vs Y',UVALUE='ZY_GETVECTOR')
 end
-  help_getvector=WIDGET_BUTTON(BASE4,value='Help',UVALUE='HELP_GETVECTOR')
+  help_getvector=WIDGET_BUTTON(BASE4,value='Help...',UVALUE='HELP_GETVECTOR')
   close_getvector=WIDGET_BUTTON(BASE4,value='Close',UVALUE='CLOSE_GETVECTOR')
 
 
@@ -1926,10 +1757,18 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 		GET_VALUE=f
 	ezfitData.polyfit_factor=f
         ezfit_picktype,x,y
-        w=replicate(ezfitData.polyfit_factor,n_elements(x))
+;        w=replicate(ezfitData.polyfit_factor,n_elements(x))
+	w = make_array(n_elements(x),value=1.)
+	findWFactor,f(0),WFactor
+	if n_elements(WFactor) eq n_elements(x) then w = WFactor
 	ndegree = ezfitData.polyfit_ndegree
 	if ezfitData.polyfit eq 1 then polyfitwGraf,x,y,w,ndegree,/print $
 	else polyfitGraf,x,y,ndegree,/print
+	END
+  'HELP_POLYFITW': BEGIN
+	str = ['The number of wight factors entered should be the same as', $
+		'the elements in the data array. Otherwise, 1. is used.']
+	ret = dialog_message(str,/info)
 	END
   'CANCEL_POLYFITW': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY
@@ -1981,7 +1820,7 @@ if ezfitData.pick eq 2 then nelem=strtrim(ezfitData.height,2)
     '1.' ]
   FIELD5 = CW_FIELD( BASE2,VALUE=FieldVal460, $
       ROW=1, $
-      FLOAT=1, $
+;      FLOAT=1, $
       RETURN_EVENTS=1, $
       TITLE='Weight Factor', $
       UVALUE='FIELD5')
@@ -1991,6 +1830,7 @@ if ezfitData.pick eq 2 then nelem=strtrim(ezfitData.height,2)
       ROW=1, $
       MAP=1 )
   OK_polyfitw=WIDGET_BUTTON(BASE3,VALUE='Accept',UVALUE='OK_POLYFITW')
+  help_polyfitw=WIDGET_BUTTON(BASE3,VALUE='Help...',UVALUE='HELP_POLYFITW')
   Cancel_polyfitw=WIDGET_BUTTON(BASE3,VALUE='Cancel',UVALUE='CANCEL_POLYFITW')
 
   WIDGET_CONTROL, POLYFITW_SETUP, /REALIZE
@@ -2154,12 +1994,89 @@ WIDGET_CONTROL,SVDFIT_MAIN13,SET_UVALUE=info
   XMANAGER, 'SVDFIT_MAIN13', SVDFIT_MAIN13
 END
 
+
+PRO findFactor,inString,outString,factor,print=print,operator=operator
+; separate the array and the factor 
+
+x = '1,2,3,10*4,5,6'
+sep = ','
+if n_elements(inString) then x = inString
+if keyword_set(operator) then sep = operator
+
+	y = str_sep(x,sep)
+
+	nl = n_elements(y) 
+	factor = make_array(nl,value=1.)
+	z = strpos(y,"*")
+
+	for i=0,n_elements(z)-1 do begin
+	if z(i) gt 0 then begin
+		p = str_sep(y(i),"*")
+		factor(i) = fix(p[0])
+		y(i) = p[1]
+	end
+	end
+
+if keyword_set(print) then print,factor,y
+	outString = y
+
+END
+
+PRO findWFactor,inString,WFactor,separator=separator
+
+x = '0.1, 3*.5, 5*1., 3*0.5,.1'
+if n_elements(inString) then x = inString
+sep = ','
+if keyword_set(separator) then sep = separator
+
+	y = str_sep(x,sep)
+	z = strpos(y,'*')
+
+	no = n_elements(z)
+
+	for i=0,no-1 do begin
+	if z(i) eq -1 then begin
+		ff = y(i)
+		if n_elements(factor) eq 0 then factor = float(y(i)) else $
+			factor = [factor,float(y(i))]
+	end
+	if z(i) gt 0 then begin
+		p = str_sep(y(i),'*')
+		dnl = fix(p(0))
+		for j =0,dnl-1 do begin
+		if n_elements(factor) eq 0 then factor = float(p[1]) else $
+			factor = [factor,float(p(1))]
+		end
+	end
+	end
+	Wfactor = factor
+END
+
+FUNCTION slope,X,Y
+	nx = n_elements(x)
+	if n_params() eq 1 then begin
+		y = x
+		X = indgen(nx)
+	end
+	slopey = y*0
+	for i=1,nx-1 do begin
+		dx = x(i) - x(i-1)
+		if dx ne 0. then begin
+		slopey(i)= (y(i)-y(i-1))/dx
+;		print,i,x(i),y(i),slopey(i)
+		end
+	end
+	return,slopey
+END
+
 ;
 ; find  fwh_max, c_mass, peak for a given x,y array
 ;
-PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm,fwhm_xl,fwhm_wd, $
-	FIT=FIT,XINDEX=XINDEX,LIST=LIST
-
+PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak, fwhm,x_hwdl,x_hwdr, $
+	FIT=FIT,XINDEX=XINDEX,LIST=LIST,PLOT=PLOT,TITLE=TITLE
+;
+; FIT  -  based on data points or use fit data
+;
 xindex = keyword_set(XINDEX)
 list = keyword_set(LIST)
 
@@ -2167,7 +2084,8 @@ nx = n_elements(x)
 a=make_array(nx,/float)
 da=make_array(nx,/float)
 ny=make_array(nx,/float)
-slopey=make_array(nx,/float)
+
+slopey = slope(x,y)
 
 ymin = min(y)
 ymax = max(y)
@@ -2180,6 +2098,7 @@ y_hpeak= hpeak + ymin
 ; area = int_tabulated(x,ny)
 ; harea = 0.5 * area
 
+if list then print,'I             X           Y          deltaA          A         Slope     Y-Ymin'
 d0=0
 for i=1,nx-1 do begin
 	dx = x(i) - x(i-1)
@@ -2187,7 +2106,6 @@ for i=1,nx-1 do begin
 	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
 	d0 = d0 + da(i)
 	a(i) = d0
-	slopey(i)= (ny(i)-ny(i-1))/dx
 	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
 	end
 end
@@ -2199,7 +2117,8 @@ harea = 0.5 * area
 
 newtons_method,x,a,harea,c_mass
 if list then print,'===='
-if list then print,'C_mass',harea,c_mass
+if list then print,'h_area,C_mass',harea,c_mass
+if list then print,'peak,hpeak,y_hpeak',peak,hpeak,y_hpeak
 
 
 ; Find half peaks
@@ -2209,24 +2128,31 @@ nohwdl=0
 nohwdr=0
 x_hwdl=0
 x_hwdr=0
+
 for i=1,nx-1 do begin
 	yl = ny(i-1) - hpeak
 	yr = ny(i) - hpeak
-       if yl*yr lt 0. and yl lt 0. then begin
+;	print,i-1,y(i-1),yl,yr
+	if yl*yr lt 0. then begin
+           if yl lt 0. then begin
 		nohwdl = [nohwdl, i-1]
-;		print,i-1,y(i-1)
 		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
 		x_hwdl= [x_hwdl,x_sol]
 		end
-       if yl*yr lt 0. and yl gt 0. then begin
+           if yl gt 0. then begin
 		nohwdr = [nohwdr, i-1]
-;		print,i-1,y(i-1)
 		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
 		x_hwdr= [x_hwdr,x_sol]
 		end
+	endif else if yl*yr eq 0. then begin
+		if yl eq 0. and yl ne yr then begin
+		 nohwdl = [nohwdl, i-1]
+		 x_hwdl = [x_hwdl,x(i-1)]
+		end
+	end
 end
-;print,'nohwdl',nohwdl, x_hwdl
-;print,'nohwdr',nohwdr, x_hwdr
+if list then print,'nohwdl',nohwdl, x_hwdl
+if list then print,'nohwdr',nohwdr, x_hwdr
 	lo=0
 	fwhm = 0.
 if n_elements(nohwdl) gt 1 then begin 
@@ -2242,7 +2168,7 @@ if n_elements(nohwdr) gt 1 then begin
 		if x_hwde(j) ne x1 then begin
 			fwhm(i) = abs(x_hwde(j) - x1)
 			lo=lo+1
-;			print,'FWHM',lo,fwhm(i)
+			if list then print,'FWHM',lo,fwhm(i)
 			goto,outer
 			end
 		end
@@ -2257,11 +2183,28 @@ end
 ;	x_hwd = [x_hwd, x_hwdr(1:n_elements(nohwdr)-1)] else $
 ;	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
 ;	end
-;if n_elements(x_hwd) gt 0 then begin
-;	x_HPeak = x_hwd(sort(x_hwd))
-;	if list then print,'hpeak,y_hpeak',hpeak,y_hpeak
-;	if list then print,'HPeak pts:',x_HPeak
-;end
+if n_elements(x_hwd) gt 0 then begin
+	x_HPeak = x_hwd(sort(x_hwd))
+	x_hwdl = x_hwd
+	if n_elements(x_hwde) then x_hwdr = x_hwde
+	if list then print,'0.5*(ymax-ymin)',hpeak
+	if list then print,'x_hpeak:',x_hpeak
+	if list then print,'y_hpeak:',y_hpeak
+
+	; plot if view specified
+
+	if keyword_set(plot) then begin
+	ya= make_array(nx,2)
+	ya(0,0)=y(*)
+	ya(0,1) = y(*)*0 + y_hpeak
+	comment=[ 'FWHM='+strtrim(fwhm,2) +',  Cntro='+strtrim(c_mass,2), $
+		'yhpeak='+strtrim(y_hpeak,2), $
+		'xhpeak='+strtrim(x_hpeak,2)]
+	if keyword_set(title) then $
+	plot1d,x,ya,comment=comment,title=title else $
+	plot1d,x,ya,comment=comment
+	end
+end
 
 ; Find peaks
 
@@ -2304,6 +2247,7 @@ endif else begin
 		end
 	end
 end
+
 
 END
 
@@ -2500,11 +2444,11 @@ yfit = curvefit(x,y,Weights,a,sigma,function_name='lorentzian',/noderiv)
         comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d, x, curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='Lorentzian Fit'
+		wtitle='Lorentzian Fit',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -2536,7 +2480,7 @@ yfit = curvefit(x,y,Weights,a,sigma,function_name='lorentzian',/noderiv)
 	printf,unit,'         X           Y           YFIT        YFIT - Y'
 	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i)
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title=title
+;	xdisplayfile,'fitting.rpt',title=title
 	end
 
 END
@@ -2707,11 +2651,11 @@ end
 
 
 	plot1d, x, curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='Multiple Lorentzian Fit'
+		wtitle='Multiple Lorentzian Fit',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -2742,7 +2686,7 @@ end
 	printf,unit,'         X           Y           YFIT      YFIT - Y '
 	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i)
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title=title
+;	xdisplayfile,'fitting.rpt',title=title
 	end
 
 END
@@ -2829,12 +2773,12 @@ end
 		end
 	
 	plot1d,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='REGRESS'
+		wtitle='REGRESS',report='fitting.rpt'
 ;	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
 ;		wtitle='REGRESS'
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -2854,7 +2798,7 @@ end
 	printf,unit,'          Weights      Y             YFIT'
 	for i=0,n_elements(y)-1 do printf,unit,weights(i),Y(i),YFIT(i)
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp'
+;	xdisplayfile,'fitting.tmp'
 	end
 END
 PRO get_svdfit_function,fname,expres
@@ -2957,10 +2901,10 @@ end
         comment = [comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='SVDFIT'
+		wtitle='SVDFIT',report='fitting.rpt'
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.tmp',/GET_LUN,ERROR=err
+        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -2975,7 +2919,7 @@ end
 	printf,unit,'      X             Y             YFIT        YFIT-Y      WEIGHT'
 	for i=0,n_elements(y)-1 do printf,unit,x(i),Y(i),YFIT(i),yres(i),ws(i)
 	FREE_LUN,unit
-	xdisplayfile,'fitting.tmp',title=title
+;	xdisplayfile,'fitting.tmp',title=title
 	end
 END
 PRO curvefit_setup_help
@@ -2989,7 +2933,7 @@ str = [ 'Itmax    - Maximun number of iterations for fitting.', $
 	'               estimate of the partial derivatives.', $ 
 	'Function_Name   - Specifies the fit function to be used by the CURVEFIT. ',$
 	'                  It defaults to FUNCT.', $
-	'Parameters in Fit Function - Specifies the starting fit coefficients.', $
+	'Initial Fitting Coefficients - Specifies the starting fit coefficients.', $
 	'                  Values entered must be separated by the comma.',$
 	'                  The number of values entered must consist with the',$
 	'                  fit function used. If not given the default values ',$
@@ -2997,7 +2941,8 @@ str = [ 'Itmax    - Maximun number of iterations for fitting.', $
 	'                  The fit function should provide the default values for', $
 	'                  the fit coefficients.',$
 	'Accept     - Accepts the setting and excutes the CURVEFIT',$
-	'Help       - Provides this help info.',$
+	'Clear      - Clear the initial fitting coefficients',$
+	'Help...    - Provides this help info.',$
 	'Close      - Closes the curvefit_setup dialog.' $
 	]
 	res=widget_message(str,title='CURVEFIT_SETUP_HELP',/info)
@@ -3029,6 +2974,9 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
   'BUTTON8': BEGIN
 	curvefit_setup_help
       END
+  'BUTTON11': BEGIN
+      WIDGET_CONTROL,info.A_fld,SET_VALUE=''
+      END
   'BUTTON9': BEGIN
       WIDGET_CONTROL,info.tol_fld,GET_VALUE=tol 
       WIDGET_CONTROL,info.itmax_fld,GET_VALUE=itmax
@@ -3042,9 +2990,19 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 	name = strlowcase(fname(0))
         statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm,fwhm_xl,fwhm_wd
 
+;
+; if no coefficient given use the default
+;
+if n_elements(a) le 1 then begin
 ; if lorentzian type
 	if name eq 'lorentzian' then $ 
 	a=[y_peak, x_peak, 0.5*fwhm_wd]
+
+; if errorf type
+	if name eq 'funct_erf' then begin
+	y0 = min(y)
+	a =[y0,y0,fwhm_xl(0),x(1)-x(0),y0]
+	end
 
 ; six parameters required in funct
 	if name eq 'funct' then begin
@@ -3057,6 +3015,8 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
         a5 = -1.
         A = [a0,a1,a2,a3,a4,a5]
         end
+end
+
 Weights=replicate(1.0,n_elements(x))
 if keyword_set(gaussian) and n_elements(sd) then Weights=1.0 / sd ; Gaussian
 if keyword_set(poisson) and min(y) gt 0. then Weights=1.0 / y       ; Poisson
@@ -3067,7 +3027,9 @@ sigma = replicate(1.,n_elements(A))
      	curvefitGraf,x,y, Weights, A, sigma, itmax=itmax, tol=tol, $
 		function_name=name,/print,/noderivative else $ 
      	curvefitGraf,x,y, Weights, A, sigma, itmax=itmax, tol=tol, function_name=name,/print 
-	
+	str=strtrim(A(0),2)
+	for i=1,n_elements(A)-1 do str=str+','+strtrim(A(i),2)
+	widget_control,info.A_fld,set_value=str	
       END
   'BUTTON10': BEGIN
       WIDGET_CONTROL,Event.Top,/DESTROY
@@ -3081,7 +3043,7 @@ END
 
 
 
-PRO curvefit_setup, GROUP=Group
+PRO curvefit_setup,function_name=function_name, GROUP=Group
 
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
@@ -3133,6 +3095,7 @@ PRO curvefit_setup, GROUP=Group
 
   FieldVal429 = [ $
     'FUNCT' ]
+  if keyword_set(function_name) then FieldVal429=function_name
   CURVEFIT_FNAME = CW_FIELD( BASE2,VALUE=FieldVal429, $
       ROW=1, $
       STRING=1, $
@@ -3161,9 +3124,13 @@ PRO curvefit_setup, GROUP=Group
       UVALUE='BUTTON9', $
       VALUE='Accept')
 
+  BUTTON11 = WIDGET_BUTTON( BASE8, $
+      UVALUE='BUTTON11', $
+      VALUE='Clear')
+
   BUTTON8 = WIDGET_BUTTON( BASE8, $
       UVALUE='BUTTON8', $
-      VALUE='Help')
+      VALUE='Help...')
 
   BUTTON10 = WIDGET_BUTTON( BASE8, $
       UVALUE='BUTTON10', $
@@ -3186,6 +3153,60 @@ PRO curvefit_setup, GROUP=Group
 
   XMANAGER, 'CURVEFIT_SETUP', CURVEFIT_SETUP
 END
+;
+; this fitting function provided by Peter Ilinski
+;
+PRO errorffit_help
+str = ['Usage: curvefitGraf,FUNCTION_NAME="FUNCT_ERF",X,Y,Weights,[,A]', $
+        '[,Sigma][,/NODERIVATIVE][,ITMAX=20],[,TOL=1.e-3]', $
+        '', 'with FUNCT_ERF defined as ','',$
+        'F(X) = A0 + A1 * ERRORF(Z) + A4*X', $
+        '       where Z = (X -A2) / A3', $
+	'             FWHM = 2.355 * A3', '', $
+        'Non-linear Least Square Fit with Weights']
+res = dialog_message(str,/info)
+END
+
+PRO     FUNCT_ERF,X,A,F,PDER
+;       F=A[0]+A[1]*ERRORF(z)+A[4]*x
+;       z=(x-A[2])/A[3]/sqrt(2.)
+;
+        ON_ERROR,2                        ;Return to caller if an error occurs
+        NTERMS = 5
+        if n_elements(A) ne NTERMS then begin
+                res = dialog_message('Number of fitting terms must be'+ $
+                string(NTERMS),/Error)
+                return
+        end
+        if A[3] ne 0.0 then z=(x-A[2])/A[3]/sqrt(2.) $ ;GET Z
+        else z= 10.
+        F=A[0]+A[1]*ERRORF(z)+A[4]*x              ;FUNCTIONS.
+;        Print, x,z,f
+        IF N_PARAMS(0) LT 3 THEN RETURN ;NEED PARTIAL?
+;
+        PDER = FLTARR(N_ELEMENTS(X),5)                  ;init ARRAY.
+        PDER[*,0] = 1.                                  
+	;COMPUTE PARTIALS
+        if A[3] ne 0. then PDER[0,1] = ERRORF(z)
+        if A[3] ne 0. then PDER[0,2] = -A[1] * exp(-z^2) * sqrt(2./!pi)/A[3]
+        PDER[0,3] = -A[1] * exp(-z^2) * Z*2/A[3]/sqrt(!pi)
+        PDER[0,4] = x
+        RETURN
+END
+
+PRO get_curvefit_funct_pvt,fname,expres
+ffname = strlowcase(fname)
+if  ffname eq 'funct_erf' then begin
+       expres='A[0]+A[1]*ERRORF(z)+A[4]*x '
+       expres=[expres,' z=(x-A[2])/A[3]/sqrt(2.)' ]
+	expres=[expres,' FWHM = A[3]*2.355']
+        return
+        end
+
+END
+
+
+
 
 PRO ROIFIT2_Event, Event
 
@@ -3581,13 +3602,13 @@ END
 @PS_open.pro
 @u_read.pro
 @plot1d.pro
+@fit_user.pro
 ;@xdisplayfile.pro
 ;@fitting.pro
 ;@regressfit.pro
 ;@svdfitgraf.pro
 ;@lorentzian.pro
 ;@ezfit_getvector.pro
-;@fit_statistic.pro
 
 PRO ezfit_get1DData,filename,y
 COMMON EZ_FIT_BLOCK,ezfitData,image
@@ -3608,14 +3629,14 @@ PRO ezfit_init1d,x,y
 COMMON EZ_FIT_BLOCK,ezfitData,image
         ezfitData.x = x
         ezfitData.im = y
-        ezfitData.y = y(*,0)
+        ezfitData.y = y(*,ezfitData.J_index)
         ezfitData.dim = 1
         ezfitData.pick = 0
         ezfitData.width = n_elements(x)
         sz=size(y)
         if sz(0) eq 1 then ezfitData.height=1 else ezfitData.height=sz(2)
         ezfitData.I_index=0
-        ezfitData.J_index=0
+;        ezfitData.J_index=0
         image=y
 END
 
@@ -3816,6 +3837,9 @@ end
  	ezfit_picktype,x,y	
 	comfitGraf,x,y,/LOGSQUARE,/print
     END
+  'Curve Fit.ERRORFFIT': BEGIN
+	curvefit_setup,function_name='FUNCT_ERF',GROUP=Event.Top
+    END
   'Curve Fit.CURVEFIT': BEGIN
 	curvefit_setup,GROUP=Event.Top
 ; 	ezfit_picktype,x,y	
@@ -3837,7 +3861,7 @@ end
  	ezfit_picktype,x,y	
 	lorentzfitgraf,x,y,/print
     END
-  'Curve Fit.POLYFITWFIT': BEGIN
+  'Curve Fit.POLYFITW': BEGIN
 	ezfitData.polyfit=1
 	polyfitwsetup,GROUP=Event.Top
     END
@@ -3864,6 +3888,9 @@ end
     END
   'Help.CURVEFIT': BEGIN
     curvefitGraf 
+    END
+  'Help.ERRORFFIT': BEGIN
+    errorffit_help 
     END
   'Help.GAUSSFIT': BEGIN
     gaussfitGraf 
@@ -3965,13 +3992,16 @@ PRO EZFIT_MAIN13_Event, Event
       WIDGET_CONTROL,Event.Id,GET_VALUE=file
 	w_readascii,file(0),GROUP = Event.top
       END
+  'EZFIT_XREPORT': BEGIN
+	 xdisplayfile,'fitting.rpt',TITLE='Fitting Results'
+      END
 
   ENDCASE
 END
 
 
 
-PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group
+PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group,jpick=jpick
 ;+
 ; NAME:
 ;       EZ_FIT
@@ -4018,6 +4048,10 @@ PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group
 ;               YARRAY. IMAGE(N,M), where dimenstion N is the same as the 
 ;               number of elements in XARRAY, M is the same as the number 
 ;               of elements in YARRAY.
+;
+;       JPICK:  Specifies the curve # from the Y array or 2D image array to be
+;               fitted initially. It defaults to 0, it indicates the first
+;               vector from Y or IM array to be fitted. 
 ;
 ;       GROUP:  The widget ID of the group leader of the widget. If this
 ;               keyword is specified, the death of the group leader results 
@@ -4067,15 +4101,19 @@ PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin K. Cha, 09-12-97.
 ;	02-27-98	Inherit color tables from the calling program
+;	10-04-99	Incooporate the FUNCT_ERF fit to curvefitgraf
+;	10-18-99	Add the support of weight factor   
 ;-
 
 COMMON EZ_FIT_BLOCK,ezfitData,image
 
-if XRegistered('EZFIT_MAIN13') then $
-	WIDGET_CONTROL,ezfitData.base,/DESTROY
+;if XRegistered('EZFIT_MAIN13') then $
+;	WIDGET_CONTROL,ezfitData.base,/DESTROY
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
+if XRegistered('EZFIT_MAIN13') eq 0 then begin
+ 
 ezfitData = { $
 	file : '', $ ;	1D name: *.bin1d or   2D name: *.bin 
 	base : 0L, $
@@ -4093,7 +4131,8 @@ ezfitData = { $
 	polyfit_ndfield: 0L,$
 	polyfit_wffield: 0L,$
 	polyfit_ndegree: 4, $
-	polyfit_factor: 1., $	; weighting factor
+;	polyfit_factor: 1., $	; weighting factor
+	polyfit_factor: '1.', $
 	svdfit_base: 0L, $	; svdfit base setup
 	svdfit_fname: 'svdfunct', $	; user supplied fname
 	svdfit_nterm: 4, $	; no of terms in curve fitting
@@ -4116,6 +4155,11 @@ ezfitData = { $
 	width : 0, $
 	height : 0 $
 	}
+end
+
+if keyword_set(jpick) then begin
+	ezfitData.J_index = jpick(0)
+end
 
 if keyword_set(im) then begin
 	image = im
@@ -4132,13 +4176,15 @@ endif else begin
 	end
 end
 
+if XRegistered('EZFIT_MAIN13') then return
+
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
 os_init
 
   EZFIT_MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       /COLUMN, $
-      TITLE='EZ_FIT (R1.0)', $
+      TITLE='EZ_FIT (R1.1)', $
       MAP=1, $
       UVALUE='EZFIT_MAIN13')
   ezfitData.base = EZFIT_MAIN13
@@ -4175,10 +4221,11 @@ os_init
           { CW_PDMENU_S,       0, 'LOGISTIC' }, $ ;        6
           { CW_PDMENU_S,       2, 'LOGSQUARE'}, $  ;      7
         { CW_PDMENU_S,       0, 'CURVEFIT' }, $ ;       11
+        { CW_PDMENU_S,       0, 'ERRORFFIT' }, $ ;      11-1
         { CW_PDMENU_S,       0, 'GAUSSFIT' }, $ ;       12
         { CW_PDMENU_S,       0, 'LADFIT' }, $ ;       13
         { CW_PDMENU_S,       0, 'LINFIT' }, $ ;       14
-        { CW_PDMENU_S,       0, 'POLYFITWFIT' }, $ ;       15
+        { CW_PDMENU_S,       0, 'POLYFITW' }, $ ;       15
         { CW_PDMENU_S,       0, 'POLY_FIT' }, $ ;       16
           { CW_PDMENU_S,       0, 'LORENTZIAN' }, $ ;        5
 ;        { CW_PDMENU_S,       0, 'REGRESS' }, $ ;       17
@@ -4190,6 +4237,7 @@ os_init
         { CW_PDMENU_S,       0, 'COMMAND' }, $ ;       20
         { CW_PDMENU_S,       0, 'COMFIT' }, $ ;       20
         { CW_PDMENU_S,       0, 'CURVEFIT' }, $ ;       21
+        { CW_PDMENU_S,       0, 'ERRORFFIT' }, $ ;       21
         { CW_PDMENU_S,       0, 'GAUSSFIT' }, $ ;       22
         { CW_PDMENU_S,       0, 'LADFIT' }, $ ;       23
         { CW_PDMENU_S,       0, 'LINFIT' }, $ ;       24
@@ -4205,6 +4253,8 @@ os_init
 
   EZFIT_PDMENU3 = CW_PDMENU( BASE2, MenuDesc831, /RETURN_FULL_NAME, $
       UVALUE='EZFIT_PDMENU3')
+
+  ezfit_report = WIDGET_BUTTON(BASE2,value='Fitting Results',UVALUE='EZFIT_XREPORT')
 
 ; 1D data : xarray, yarray
   FieldVal1367 = [ $
