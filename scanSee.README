@@ -1,3 +1,50 @@
+			Release Note for scanSee R3.3
+			==============================
+
+Now colored 1D PS plot will be generated same as in color devices, it
+support both black and color printer. For black and white color printer
+a user has to explicitly set line style option to on.
+
+Add support of 1D_OVERLAY... to ViewData menu, it support overlay plot of
+several 1D data vectors from different scan files for the same detector.
+
+Add support of 1D_CARLIBRA... to ViewData menu, it supports flexible simple 
+mathematical calcultation of different 1D vectors extracted from the same 
+1D scan.
+
+If the scanH record is used in a 2D scan, the default scan1 record array
+will be displayed in the main 1D drawing area. A droplist scan1/scanH
+option added which allow the user to access the scanH vector array, or
+scan1 vector array.
+
+
+			Release Note for scanSee R3.2
+			==============================
+
+Start from this release, the fixed 1D line color table from the 'catch1d.tbl' 
+is used. Start from this version scanSee support both 8 bit pseudo color
+and 24 bit true color devices. The postscript color image plot is also
+working for 24 visual display.
+
+
+
+			Release Note for scanSee R3.1
+			==============================
+
+Start from this release, the scanSee and catcher support both the old 
+and new scan detector name convention, i.e. the old first 15 detector
+names are no longer used in scan record release 5.19.
+
+
+			Release Note for scanSee R3.0
+			==============================
+
+A more efficient 3D data reader is implemented. A new browser sscan is
+developed based on this new efficient 3D data reader.
+
+sscan   -  unix script to view 1D/2D/3D data without realtime feature
+
+
 			Release Note for scanSee R2.5
 			==============================
 
