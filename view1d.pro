@@ -1,5 +1,4 @@
-
-; $Id: view1d.pro,v 1.13 1999/05/20 15:55:06 cha Exp $
+; $Id: view1d.pro,v 1.14 1999/07/29 06:13:10 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -12,12 +11,16 @@ WIDGET_CONTROL, event.id, GET_UVALUE=Ev
 CASE Ev OF 
 'EXIT': WIDGET_CONTROL, event.top, /DESTROY
 'FILE_PRINT': begin
+	if state.file ne '' then begin
+		PS_enscript,state.file
+	endif else begin
 	WIDGET_CONTROL,state.text_area,GET_VALUE=str
 	openw,unit,'tmp',/GET_LUN
 	for i=0,n_elements(str)-1 do printf,unit,str(i)
 	FREE_LUN,unit
-	PS_print,'tmp'
+	PS_enscript,'tmp'
 	end
+   end
 ENDCASE
 END
 
@@ -169,7 +172,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.13 1999/05/20 15:55:06 cha Exp $
+; $Id: view1d.pro,v 1.14 1999/07/29 06:13:10 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
