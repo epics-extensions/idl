@@ -457,7 +457,7 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='BASE2')
 
   LABEL3 = WIDGET_LABEL( BASE2, $
-	FONT=!os.font, $
+;	FONT=!os.font, $
       UVALUE='LABEL3', $
       VALUE='Setup PS Printer')
 
