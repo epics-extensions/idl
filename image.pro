@@ -860,6 +860,8 @@ pickid:
 	*img_state.files = found
 ;	img_state.path = fpath
 ;	img_state.ftype = ftype
+
+	widget_control,img_state.sldr1WID,set_slider_max=img_state.nfile
 END
 
 PRO OnImgFirst,Event
@@ -906,6 +908,51 @@ WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
 	sfile = found(img_state.ifile)
 	path = img_state.path
 	img_displayImage,sfile,path,img_state,Event
+	end
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
+END
+
+PRO OnImgSlider1,Event
+widget_control,event.id,get_value=id
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	if img_state.nfile gt 1 then begin
+	img_state.ifile = id - 1 
+	if img_state.ifile ge img_state.nfile then img_state.ifile = 0
+	found = *img_state.files
+	sfile = found(img_state.ifile)
+	path = img_state.path
+	img_displayImage,sfile,path,img_state,Event
+	end
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
+END
+
+PRO OnImgSlider2,Event
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	widget_control,event.id,get_value=id
+	img_state.timer = id
+WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
+END
+
+PRO OnImgStop,Event
+widget_control,event.top,/clear_events
+END
+
+PRO OnImgStart,Event
+WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
+	if img_state.nfile gt 1 then begin
+	img_state.ifile = img_state.ifile+1
+	last = img_state.nfile
+	current = img_state.ifile
+	if img_state.ifile ge img_state.nfile then begin
+		img_state.ifile = last -1 ; 0
+		r=dialog_message(' **End of slide show** ',/info)
+	end
+	found = *img_state.files
+	sfile = found(img_state.ifile)
+	path = img_state.path
+	img_displayImage,sfile,path,img_state,Event
+	if current lt last then $
+		widget_control,event.id,timer=img_state.timer,send_event=Event
 	end
 WIDGET_CONTROL,event.top,SET_UVALUE=img_state,/NO_COPY
 END
@@ -1008,6 +1055,8 @@ end
 
 
 	widget_control,img_state.fileWID,set_value="Filename: "+sFile
+	widget_control,img_state.sldr1WID,set_value=img_state.ifile
+
    ENDIF
 
 END
@@ -1490,6 +1539,16 @@ pro OnHelpImg, Event
 	'  JPEG   - Write raw image data in JPEG format', $
 	'','HELP',$
 	'  HELP...  - Pops up this on-line help', $
+	'','Image Info Wigets', $
+	'  |>     - Button access the 1st image', $
+	'  <-     - Button access the previous image', $
+	'  ->     - Button access the next image', $
+	'  <|     - Button access the last image', $
+	'  Start  - Start slide show', $
+	'  Stop   - Stop slide show', $
+	'  Seq #  - Set slide show starting seq #', $
+	'  Timer  - Set timer used in slide show, default 2 sec', $
+	'  Filename: - Display the filename for the image', $
 	'']
 ;	r = dialog_message(str,/info,title='Help IMG')
 	xdisplayfile,text=str,title='HELP ON IMG'
@@ -2032,6 +2091,22 @@ pro WID_BASE_0_event, Event
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
         OnImgLast, Event
     end
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_START'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnImgStart, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_SLIDER1'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_SLIDER' )then $
+        OnImgSlider1, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_SLIDER2'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_SLIDER' )then $
+        OnImgSlider2, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='IMG_STOP'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnImgStop, Event
+    end
     else:
   endcase
 
@@ -2176,6 +2251,21 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
   BMPBTN15 = WIDGET_BUTTON( BASE2,VALUE=BMP809, $
       UNAME='IMG_LAST')
 
+  BMPBTN16 = WIDGET_BUTTON( BASE2,VALUE='Start', $
+      UNAME='IMG_START')
+
+  BMPBTN17 = WIDGET_BUTTON( BASE2,VALUE='Stop', $
+      UNAME='IMG_STOP')
+
+  SLIDER1 = WIDGET_SLIDER( BASE2,VALUE=1,minimum=1,maximum=2, $
+	title='Seq #:', xsize=50, $
+      /suppress_value,/tracking_events,UNAME='IMG_SLIDER1')
+
+  SLIDER2 = WIDGET_SLIDER( BASE2,VALUE=2,minimum=2,maximum=10, $
+	title='Timer:', xsize=50, $
+      /suppress_value,/tracking_events,UNAME='IMG_SLIDER2')
+
+
   file_LABEL3 = WIDGET_LABEL( BASE2, $
       UNAME='IMG_OPEN_FILENAME', xsize=600, /align_left, $
       VALUE='Filename:')
@@ -2194,7 +2284,9 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
 	menu1WID: W_MENU_7,$
 	menu2WID: W_MENU_14,$
 	menu3WID: W_MENU_40,$
+	sldr1WID: SLIDER1, $
 	fileWID: file_LABEL3, $
+	timer: 2, $
         file    : '', $
 	path    : '', $
 	ftype	: '', $
