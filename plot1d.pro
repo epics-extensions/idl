@@ -327,8 +327,7 @@ PRO plot1d_dialogs_Event, Event
   ENDCASE
 
   plot1d_replot,state
-
-  WIDGET_CONTROL,state.base,set_uvalue=state
+  WIDGET_CONTROL,Event.top,set_uvalue=state
 
 END
 
