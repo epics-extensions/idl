@@ -401,6 +401,27 @@ end
 	
 END
 
+PRO open_binary_type,unit,filename,type,wid
+; check the binary type and return lun unit and XDR type
+
+if !d.name eq 'X' then begin
+        type = 0
+        U_OPENR,unit,filename
+        u_read,unit,version
+        if string(version(0)) eq '' then begin
+                u_close,unit
+                U_OPENR,unit,filename,/XDR
+                type = 1
+        end
+        u_rewind,unit
+end
+if !d.name eq 'WIN' then begin
+        U_OPENR,unit,filename,/XDR
+        type = 1
+end
+        if n_params() eq 4 then WIDGET_CONTROL,wid,set_droplist_select=type
+END
+
 PRO toImage_open,Event
 COMMON TOIMAGE_BLOCK,widget_ids
 
@@ -408,6 +429,10 @@ COMMON TOIMAGE_BLOCK,widget_ids
 		GET_PATH=P)
         IF F eq '' THEN return
 	WIDGET_CONTROL,widget_ids.infile,SET_VALUE=F
+
+	open_binary_type,unit,F,type, widget_ids.binary_type
+	widget_ids.XDR = type
+	u_close,unit
 	catcher_v1,data=F,config='catch1d.config',GROUP=Event.Top
 		
 END
@@ -432,6 +457,7 @@ END
 
 PRO MAIN13_Event, Event
 COMMON TOIMAGE_BLOCK,widget_ids
+COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
@@ -447,6 +473,9 @@ COMMON TOIMAGE_BLOCK,widget_ids
   'TOIMAGE_INFILE': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=infile
 	widget_ids.in = infile(0)
+	open_binary_type,unit,infile(0),type, widget_ids.binary_type
+	widget_ids.XDR = type
+	u_close,unit
 	WIDGET_CONTROL,/HOURGLASS
 	catcher_v1,data=infile(0),config='catch1d.config', GROUP=Event.top
       END
@@ -471,6 +500,7 @@ COMMON TOIMAGE_BLOCK,widget_ids
       END
 
   'TOIMAGE_ACCEPT': BEGIN
+if XRegistered('w_viewscan') ne 0 then WIDGET_CONTROL,w_viewscan_ids.base,/DESTROY
 	WIDGET_CONTROL,widget_ids.infile,GET_VALUE=in
 	WIDGET_CONTROL,widget_ids.outfile,GET_VALUE=out
 	WIDGET_CONTROL,widget_ids.y_pvname,GET_VALUE=y_pv
@@ -569,7 +599,7 @@ PRO toImage, GROUP=Group,viewonly=viewonly
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, 08-06-97.
-;	xx-xx-xx   iii	comment
+;      05-15-1998  bkc  Automatically check the binary data type selected
 ;
 ;-
 COMMON TOIMAGE_BLOCK,widget_ids
@@ -691,7 +721,6 @@ new_image= WIDGET_DROPLIST(BASE8, VALUE=BTNS913, $
   ACCEPT = WIDGET_BUTTON(BASE9,VALUE='Accept',UVALUE='TOIMAGE_ACCEPT')
   CANCEL = WIDGET_BUTTON(BASE9,VALUE='Cancel',UVALUE='TOIMAGE_CANCEL')
 
-  WIDGET_CONTROL,toimage_xdr,set_droplist_select = 1
   widget_ids = { $
 	in: '', $
 	out: '', $
@@ -699,13 +728,15 @@ new_image= WIDGET_DROPLIST(BASE8, VALUE=BTNS913, $
 	start: 0, $
 	last: 0, $
 	new: 0, $
-	XDR: 1, $
+	XDR: 0, $
+	binary_type: toimage_xdr, $
 	infile: INFILENAME, $
 	outfile: OUTFILENAME, $
 	y_pvname: Y_PVNAME, $
 	startno: STARTNO, $
 	endno: ENDNO $
 	}
+  WIDGET_CONTROL,toimage_xdr,set_droplist_select = widget_ids.XDR 
 
 
   WIDGET_CONTROL, MAIN13, /REALIZE
