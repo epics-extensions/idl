@@ -83,15 +83,16 @@ A user never need to run this program unless absolutely necessary to
 re-construct a new 2D image file due to system went down during 2D scan.
 A user should never use this program while the scan is going on.
 
+
 <<dc2hdf>>
 
 In this release the dc2hdf program is also released. It consists of two
-files: dc2hdf, and catcher2hdf.pro. The 'dc2hdf' is a unix script file,
-it automatically sets up the IDL and starts the catcher2hdf.pro. The
+files: dc2hdf, and dc2hdf.pro. The 'dc2hdf' is a unix script file,
+it automatically sets up the IDL and starts the dc2hdf.pro. The
 purpose of this program is to demonstrate one way of converting data 
 catcher data into HDF format.  
 
-The HDF file saved by catcher2hdf.pro follows the guideline given by 
+The HDF file saved by dc2hdf.pro follows the guideline given by 
 the NEXUS. Currently only user interface for converting of native 
 binary of 1D scan is available. The only purpose here is to demonstrate 
 that the scan data can be stored in the NEXUS format if it is desired. 
@@ -99,7 +100,8 @@ that the scan data can be stored in the NEXUS format if it is desired.
 It is found that the time used for storing HDF data increases with the 
 number of sets of SDS data saved in a HDF file. Therefore, currently
 it is still not adequate to save the live scan data in a single HDF 
-file if many scans are to be saved.
+file if many scans are to be saved. 
+
 
 <<hdf_browser>>
 
