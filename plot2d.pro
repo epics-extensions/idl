@@ -249,6 +249,10 @@ PRO plot2d_tvprocess_Event, Event
 	plot2d_state.tvoption = 9
 	plot2d_replot,plot2d_state
       END
+  'DEF_TVSCL': BEGIN
+	plot2d_state.tvoption = 10 
+	plot2d_replot,plot2d_state
+      END
   'FIELD127': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=pts
 	npts = pts(0)
@@ -327,6 +331,10 @@ PRO plot2d_tvprocess_Event, Event
 	plot2d_state = plot2d_stateInit
 	plot2d_replot,plot2d_state
 	widget_control,plot2d_state.TOPVID,set_value=plot2d_state.max
+	END
+  'BUTTON137_1': BEGIN
+	plot2d_state.tvoption = 0
+	plot2d_replot,plot2d_state
 	END
   'BUTTON_REALV': BEGIN
 	plot2d_state.versus = 0 
@@ -441,12 +449,22 @@ if XRegistered('plot2d_tvprocess') then return
       MAP=1, $
       UVALUE='BASE94')
 
-  FIELDTOP = CW_FIELD( BASE94,VALUE=plot2d_state.max, $
+  BASE95 = WIDGET_BASE(BASE94, $
+      ROW=1, /frame, MAP=1, $
+      UVALUE='BASE95')
+  FIELDTOP = CW_FIELD( BASE95,VALUE=plot2d_state.max, $
       ROW=1, /FLOAT, $
       RETURN_EVENTS=1, $
       TITLE='Top Value:', $
       UVALUE='FIELDTOP', $
       XSIZE=10)
+  BUTTON137 = WIDGET_BUTTON( BASE95, $
+      UVALUE='BUTTON137_1', $
+      VALUE='TV')
+  BUTTON_TVSCL = WIDGET_BUTTON( BASE95, $
+      UVALUE='DEF_TVSCL', $
+      VALUE='TVSCL')
+
   SLIDER5 = CW_FSLIDER( BASE94, $
       MAXIMUM=plot2d_state.max, $
       MINIMUM=plot2d_state.min, /EDIT, $
@@ -833,27 +851,48 @@ COMMON COLORBAR,colorbar_data
 	p = p + !os.file_sep +'TIFF'+!os.file_sep
 	found = findfile(p,count=ct)
 	if ct eq 0 then spawn,!os.mkdir + ' ' +p
-	file = plot2d_state.class+'.rtiff'
+	file = plot2d_state.class+'.tiff'
 	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
 		title='Save R-TIFF Image')
 	if fn ne '' then begin
 	WSET,plot2d_state.win
+	if !d.n_colors gt !d.table_size then $
+        WRITE_TIFF,fn,reverse(TVRD(/true),3) else $
         WRITE_TIFF,fn,reverse(TVRD(),2),1,red=R,green=G,blue=B
 	WSET,plot2d_state.old_win
 	end
       END
-  'PLOT2D_TIFF': BEGIN
+  'PLOT2D_PNG': BEGIN
        tvlct,R,G,B,/get
 	cd,current=p
-	p = p + !os.file_sep +'TIFF'+!os.file_sep
+	p = p + !os.file_sep +'PNG'+!os.file_sep
 	found = findfile(p,count=ct)
 	if ct eq 0 then spawn,!os.mkdir + ' ' +p
-	file = plot2d_state.class+'.tiff'
-	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
-		title='Save TIFF Image')
+	file = plot2d_state.class+'.png'
+	fn = dialog_pickfile(filter='*png',path=p,file=file,/WRITE, $
+		title='Save PNG Image')
 	if fn ne '' then begin
 	WSET,plot2d_state.win
-        WRITE_TIFF,fn,TVRD(),red=R,green=G,blue=B
+	if !d.n_colors gt !d.table_size then $
+        WRITE_PNG,fn,TVRD(/true) else $
+        WRITE_PNG,fn,TVRD(),R,G,B
+	WSET,plot2d_state.old_win
+	end
+      END
+  'PLOT2D_JPG': BEGIN
+       tvlct,R,G,B,/get
+	cd,current=p
+	p = p + !os.file_sep +'JPG'+!os.file_sep
+	found = findfile(p,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +p
+	file = plot2d_state.class+'.jpg'
+	fn = dialog_pickfile(filter='*jpg',path=p,file=file,/WRITE, $
+		title='Save JPEG Image')
+	if fn ne '' then begin
+	WSET,plot2d_state.win
+	if !d.n_colors gt !d.table_size then $
+        WRITE_JPEG,fn,TVRD(/true),/true else $
+        WRITE_JPEG,fn,TVRD()
 	WSET,plot2d_state.old_win
 	end
       END
@@ -867,9 +906,19 @@ COMMON COLORBAR,colorbar_data
 	fn = dialog_pickfile(filter='*pict',path=p,file=file,/WRITE, $
 		title='Save PICT Image')
 	if fn ne '' then begin
+	if !d.n_colors gt !d.table_size then begin
+		t_arr = TVRD(/true)
+		arr = color_quan(t_arr,1,red,green,blue)
+		tvlct,red,green,blue
+		WSET,plot2d_state.win
+		WRITE_PICT,fn,arr,Red,Green,Blue
+		WSET,plot2d_state.old_win
+		tvlct,R,G,B	
+	endif else begin
 	WSET,plot2d_state.win
 	WRITE_PICT,fn,TVRD(),R,G,B
 	WSET,plot2d_state.old_win
+	end
 	end
       END
   'PLOT2D_XDR': BEGIN
@@ -879,7 +928,7 @@ COMMON COLORBAR,colorbar_data
 	if ct eq 0 then spawn,!os.mkdir + ' ' +p
 	file = plot2d_state.class+'.xdr'
 	fn = dialog_pickfile(filter='*xdr',path=p,file=file,/WRITE, $
-		title='Save TIFF Image')
+		title='Save XDR Image')
 	if fn ne '' then begin
 
 	ranges = [plot2d_state.range,plot2d_state.min,plot2d_state.max]
@@ -1056,10 +1105,10 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       VALUE='SetPlotLabels')
   PLOT2D_RTIFF = WIDGET_BUTTON( BASE47, $
       UVALUE='PLOT2D_RTIFF', $
-      VALUE='Save RTIFF...')
-  PLOT2D_TIFF = WIDGET_BUTTON( BASE47, $
-      UVALUE='PLOT2D_TIFF', $
       VALUE='Save TIFF...')
+  PLOT2D_JPG = WIDGET_BUTTON( BASE47, $
+      UVALUE='PLOT2D_JPG', $
+      VALUE='Save JPEG...')
   PLOT2D_PICT = WIDGET_BUTTON( BASE47, $
       UVALUE='PLOT2D_PICT', $
       VALUE='Save PICT...')
@@ -1086,6 +1135,7 @@ END
 
 PRO plot2d_replot, plot2d_state
 COMMON COLORBAR, colorbar_data
+device,decomposed=0
 
 if plot2d_state.bgrevs then begin
 	plot2d_state.tcolor = 0
@@ -1215,13 +1265,17 @@ case plot2d_state.tvoption of
 9: begin 	; based on new Top Value:
    TV,newdata,left,bottom,xsize=width,ysize=height
    end
+10: begin 	; use default TVSCL,data
+   TVSCL,data,left,bottom,xsize=width,ysize=height
+   end
 endcase
 endif else begin
 	if max(data) eq min(data) then begin
 		temp = plot2d_state.table_size*data
 		TV,congrid(temp,width,height),left,bottom
 	endif else $
-	TVSCL,data,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
+;	TVSCL,data,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
+	TV,newdata,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
 end
         xstyle = 1
         ystyle = 1
@@ -1636,6 +1690,14 @@ end
 	xdisplayfile,'',text=st,title='Help ...PLOT2D'
 	return
 	end
+      8: begin
+	WIDGET_CONTROL,Event.top,BAD=bad,/DESTROY
+	catch,error_status
+	if error_status eq 0 then $
+	WSET,plot2d_state.old_win
+	plot2d_state.win = plot2d_state.old_win
+	return
+	end
 	ELSE: print,'error'
       ENDCASE
       plot2d_replot, plot2d_state
@@ -1643,21 +1705,7 @@ end
   'BGROUP6': BEGIN
       CASE Event.Value OF
       0: begin
-	WSET,plot2d_state.win
-	arr = TVRD()
-	sz = size(arr)
-	xs = sz(1)
-	ys = sz(2)
-	width = float(xs)/40
-	height = float(ys)/40
-;	PS_open,'idl.ps',/TV
-	set_plot,'PS'
-	device,filename='idl.ps',/color,bits=8, $
-		/Courier,/Bold, scale_factor=1.1, $
-		xsize=width,ysize=height
-	TV,arr
-	PS_close
-	PS_print, 'idl.ps'
+	PS_TVRD,wid=plot2d_state.win
 	end
       1: begin
 	PS_printer
@@ -1692,24 +1740,27 @@ PRO PDMENU3_Event, Event
 
 WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
 
+  TVLCT,r,g,b,/get
+  rgb = reform([r,g,b],256,3)
+
   CASE Event.Value OF
 
 
   'ITOOLS.iImage': BEGIN
     PRINT, 'Event for ITOOLS.iImage'
-	iImage,plot2d_state.data, $
+	iImage,plot2d_state.data, rgb_table=rgb, $
 		plot2d_state.xarr,plot2d_state.yarr, $
 ;		xrange=plot2d_state.range(0:1), $
 ;		yrange=plot2d_state.range(2:3), $
 		title=plot2d_state.title,GROUP=Event.top
     END
   'ITOOLS.iSurface': BEGIN
-	iSurface,plot2d_state.data, $
+	iSurface,plot2d_state.data, rgb_table=rgb, $
 		plot2d_state.xarr,plot2d_state.yarr, $
 		title=plot2d_state.title,GROUP=Event.top
     END
   'ITOOLS.iContour': BEGIN
-	iContour,plot2d_state.data, $
+	iContour,plot2d_state.data, rgb_table=rgb, $
 		plot2d_state.xarr,plot2d_state.yarr, $
 		title=plot2d_state.title,GROUP=Event.top
     END
@@ -2070,7 +2121,7 @@ if keyword_set(comment) then begin
     'DATA...',$
     'PICK1D...',$
     'ROI2D...',$
-	'HELP ...']
+	'HELP ...','CLOSE']
   BGROUP2 = CW_BGROUP( BASE1_0, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
 
