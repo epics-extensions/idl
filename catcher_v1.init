@@ -81,6 +81,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       req_npts    : 100,          $
       act_npts    : 0,          $
       readin_npts    : 0,          $
+	eof2d	: 0, $ 	; 0-at each line scan, 1-at the end of 2D scan  
 	im_eof	: 0L, $      ; image file length
 	p_def	: [0,0,0,0], $     ; id_def for positioner
       	px         : FLTARR(4000), $
