@@ -268,6 +268,17 @@ PRO plot2d_tvprocess_Event, Event
 	plot2d_state.tvoption = 7
 	plot2d_replot,plot2d_state
 	END
+  'plot2d_tvrdpix': BEGIN
+	WSET,plot2d_state.win
+	cursor,x,y,0,/data ;,/device
+	while (!mouse.button ne 4)  DO begin     ; 2 - MMB 4 - RMB
+	cursor,x,y,3,/device
+	print,x,y
+	help,!mouse,/st
+	end
+	widget_control,Event.top,/clear_events
+print,plot2d_state.win
+	END
   'BUTTON137': BEGIN
 	plot2d_state.tvoption = 0
 	plot2d_state = plot2d_stateInit
@@ -345,6 +356,16 @@ if XRegistered('plot2d_tvprocess') then return
   BUTTON140 = WIDGET_BUTTON( BASE108, $
       UVALUE='BUTTON140', $
       VALUE=' Done ')
+
+;  BASE109 = WIDGET_BASE(BASE75, $
+;      ROW=1, $
+;      FRAME=1, $
+;      MAP=1, $
+;      UVALUE='BASE109')
+;  BUTTON109_1 = WIDGET_BUTTON( BASE109, $
+;      UVALUE='plot2d_tvrdpix', $
+;      VALUE='Rdpix')
+
 
   BASE88 = WIDGET_BASE(BASE75, $
       ROW=1, $
@@ -609,6 +630,7 @@ END
 
 
 PRO plot2d_setupMain13_Event, Event
+COMMON COLORBAR,colorbar_data
 
   WIDGET_CONTROL,Event.top,GET_UVALUE=setup_info
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
@@ -627,6 +649,7 @@ PRO plot2d_setupMain13_Event, Event
       4: plot2d_state.shade = Event.Select 
       5: plot2d_state.bar = Event.Select 
       6: plot2d_state.stamp = Event.Select 
+      7: plot2d_state.bgrevs = Event.Select 
       ELSE: Message,'Unknown button pressed'
       ENDCASE
       END
@@ -637,6 +660,9 @@ PRO plot2d_setupMain13_Event, Event
 	'Exit zoom mode  : Right mouse button']
 	r = dialog_message(st, title='plot2d_zoom_info',/info)
 	zoom,fact=2,xsize=400,ysize=400,/KEEP ;/continuous
+      END
+  'plot2d_colorbar': BEGIN
+	colorbar_config,GROUP=Event.top
       END
   'plot2d_setupLevels': BEGIN
 	plot2d_setupContourLevels, plot2d_state, GROUP=Event.Top 
@@ -736,40 +762,44 @@ PRO plot2d_setupMain13_Event, Event
       END
   'PLOT2D_RTIFF': BEGIN
        tvlct,R,G,B,/get
-        WRITE_TIFF,'plot2d.rtiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
 	cd,current=p
-	pa = p+!os.file_sep+'TIFF'+!os.file_sep
-	found = findfile(pa,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' + pa
-	rename_dialog,pa,'plot2d.rtiff',GROUP=Event.Top
+	p = p + !os.file_sep +'TIFF'
+	file = plot2d_state.class+'.rtiff'
+	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
+		title='Save R-TIFF Image')
+	if fn ne '' then $
+        WRITE_TIFF,fn,reverse(TVRD(),2),1,red=R,green=G,blue=B
       END
   'PLOT2D_TIFF': BEGIN
        tvlct,R,G,B,/get
-        WRITE_TIFF,'plot2d.tiff',TVRD(),red=R,green=G,blue=B
 	cd,current=p
-	pa = p+!os.file_sep+'TIFF'+!os.file_sep
-	found = findfile(pa,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' + pa
-	rename_dialog,pa,'plot2d.tiff',GROUP=Event.Top
+	p = p + !os.file_sep +'TIFF'
+	file = plot2d_state.class+'.tiff'
+	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
+		title='Save TIFF Image')
+	if fn ne '' then $
+        WRITE_TIFF,fn,TVRD(),red=R,green=G,blue=B
       END
   'PLOT2D_PICT': BEGIN
        tvlct,R,G,B,/get
-        WRITE_PICT,'plot2d.pict',TVRD(),R,G,B
 	cd,current=p
-	pa = p+!os.file_sep+'TIFF'+!os.file_sep
-	found = findfile(pa,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' + pa
-	rename_dialog,pa,'plot2d.pict',GROUP=Event.Top
+	p = p + !os.file_sep +'TIFF'
+	file = plot2d_state.class+'.pict'
+	fn = dialog_pickfile(filter='*pict',path=p,file=file,/WRITE, $
+		title='Save PICT Image')
+	if fn ne '' then $
+        WRITE_PICT,fn,TVRD(),R,G,B
       END
   'PLOT2D_GIF': BEGIN
       tvlct,R,G,B,/get
-        WRITE_GIF,'plot2d.gif',TVRD(),R,G,B
-        WRITE_GIF,'plot2d.gif',/close
 	cd,current=p
-	pa = p+!os.file_sep+'GIF'+!os.file_sep
-	found = findfile(pa,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' + pa
-	rename_dialog,pa,'plot2d.gif',GROUP=Event.Top
+	p = p + !os.file_sep +'GIF'
+	file = plot2d_state.class+'.gif'
+	fn = dialog_pickfile(filter='*gif',path=p,file=file,/WRITE, $
+		title='Save GIF Image')
+	if fn ne '' then $
+        WRITE_GIF,fn,TVRD(),R,G,B
+        WRITE_GIF,fn,/close
       END
   'BUTTON51': BEGIN
 	plot2d_setupLabels,plot2d_state,Event.Top
@@ -787,6 +817,7 @@ END
 
 
 PRO plot2d_setup,plot2d_state, GROUP=Group
+COMMON COLORBAR, colorbar_data
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -811,7 +842,8 @@ PRO plot2d_setup,plot2d_state, GROUP=Group
     'Lego', $
     'Shade', $
     'ColorBar', $
-    'Stamp' $
+    'Stamp', $
+    'Bg Reverse' $
      ]
   BGROUP19 = CW_BGROUP( BASE20, Btns4929, $
       ROW=1, $
@@ -821,7 +853,7 @@ PRO plot2d_setup,plot2d_state, GROUP=Group
 
 vals = [plot2d_state.xlog, plot2d_state.ylog, plot2d_state.zlog, $
 	plot2d_state.lego, plot2d_state.shade, plot2d_state.bar, $
-	plot2d_state.stamp ]
+	plot2d_state.stamp, plot2d_state.bgrevs]
 WIDGET_CONTROL,BGROUP19,set_value=vals
 
   BASE21 = WIDGET_BASE(plot2d_setupMain13, $
@@ -852,6 +884,9 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
 
   plot2d_zoomin = WIDGET_BUTTON(BASE21,VALUE='Zoom...', $
 	UVALUE='plot2d_zoomin')
+
+  plot2d_colorbar = WIDGET_BUTTON(BASE21,VALUE='ColorBar...', $
+	UVALUE='plot2d_colorbar')
 
   BASE44 = WIDGET_BASE(plot2d_setupMain13, $
       ROW=1, $
@@ -948,10 +983,19 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
 END
 
 PRO plot2d_replot, plot2d_state
+COMMON COLORBAR, colorbar_data
 
+if plot2d_state.bgrevs then begin
+	plot2d_state.tcolor = 0
+	plot2d_state.bgcolor = !d.table_size-1
+endif else begin
+	plot2d_state.tcolor = !d.table_size-1
+	plot2d_state.bgcolor = 0
+end
+if !d.name eq 'PS' then plot2d_state.tcolor = 0
 if !d.name ne 'PS' then WSET,plot2d_state.win
 !p.multi = [0,1,0,0,0]
-erase
+erase,plot2d_state.bgcolor
 
 
 s  = size(plot2d_state.data)
@@ -971,7 +1015,8 @@ type = s(n_elements(s)-2)
                         yloc = yloc - !d.y_ch_size
                         if yloc ge 0 then begin
                         str=plot2d_state.data(0:dim(0)-1,j)
-                        xyouts, 0.2*!d.x_size, yloc, string(str),/DEVICE
+                        xyouts, 0.2*!d.x_size, yloc, string(str),/DEVICE, $
+			color=plot2d_state.tcolor
                         end
                         end
 		return
@@ -982,10 +1027,22 @@ minvl = plot2d_state.min
 xmargin = plot2d_state.zoom *[plot2d_state.xmargin1,plot2d_state.xmargin2]
 ymargin = plot2d_state.zoom *[plot2d_state.ymargin1,plot2d_state.ymargin2]
 
+	left=!d.x_size * 0.1 * plot2d_state.zoom
+	right=!d.x_size * 0.3 * plot2d_state.zoom
+	bottom=!d.y_size *0.125 * plot2d_state.zoom
+	top=!d.y_size *0.125 * plot2d_state.zoom
+
+if left gt 0.4*!d.x_size then left = !d.x_size *.4
+if right gt 0.4*!d.x_size then right = !d.x_size *.4
+if bottom gt 0.4*!d.y_size then bottom = !d.y_size *.4
+if top gt 0.4*!d.y_size then top = !d.y_size *.4
+
+	width=!d.x_size-left-right
+	height=!d.y_size-top-bottom
+
 CASE plot2d_state.plottype OF
     0: begin
 
-        ncolors = !d.table_size
 ;        xrange=[plot2d_state.xarr(0), plot2d_state.xarr(dim(0)-1)]
 ;        yrange=[plot2d_state.yarr(0), plot2d_state.yarr(dim(1)-1)]
 	xrange = [min(plot2d_state.xarr),max(plot2d_state.xarr)]
@@ -996,16 +1053,6 @@ CASE plot2d_state.plottype OF
         yrange=[0, dim(1)]
 	end
 
-	left=!d.x_size * 0.2 * plot2d_state.zoom
-	right=!d.x_size * 0.1 * plot2d_state.zoom
-	bottom=!d.y_size *0.1 * plot2d_state.zoom
-	top=!d.y_size *0.1 * plot2d_state.zoom
-if left gt 0.4*!d.x_size then left = !d.x_size *.4
-if right gt 0.4*!d.x_size then right = !d.x_size *.4
-if bottom gt 0.4*!d.y_size then bottom = !d.y_size *.4
-if top gt 0.4*!d.y_size then top = !d.y_size *.4
-	width=!d.x_size-left-right
-	height=!d.y_size-top-bottom
 	data = plot2d_state.data
 	if !d.name ne 'PS' then data = CONGRID(plot2d_state.data,width,height)
 
@@ -1059,13 +1106,22 @@ endif else TVSCL,data,left,bottom,xsize=width,ysize=height
 		 (!d.y_size-float(top))/!d.y_size], $
                 xstyle=xstyle, ystyle=ystyle, xtitle=plot2d_state.xtitle, $
 		ytitle=plot2d_state.ytitle, $
-                title=plot2d_state.title
+                title=plot2d_state.title, color=plot2d_state.tcolor
 
 	plot2d_notes,plot2d_state
 
 	; draw colorbar
 	if plot2d_state.bar ne 0 then begin
-		colorbar,[plot2d_state.pixel_min,plot2d_state.pixel_max] ,x=10,y=60
+colorbar_data.min = plot2d_state.pixel_min
+colorbar_data.max = plot2d_state.pixel_max
+
+		colorbar,[plot2d_state.pixel_min,plot2d_state.pixel_max], $
+			colorbar_data.width,colorbar_data.height, $
+			 x=colorbar_data.x,y=colorbar_data.y, $
+			horizontal=colorbar_data.horiz, $
+			PSfact=37, reverse=plot2d_state.bgrevs, $
+			format=colorbar_data.format, $
+			ncap=colorbar_data.nlabel
 		end
 
 	end
@@ -1095,6 +1151,7 @@ endif else TVSCL,data,left,bottom,xsize=width,ysize=height
 	if plot2d_state.shade then begin 
 	shades = (plot2d_state.data-minvl)/(maxvl-minvl)*!d.table_size
 	surface,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
+		background=plot2d_state.bgcolor, color=plot2d_state.tcolor, $
 		xlog=plot2d_state.xlog,ylog=plot2d_state.ylog, $
 		zlog=plot2d_state.zlog, $
 		charsize=plot2d_state.charsize, $
@@ -1107,6 +1164,7 @@ endif else TVSCL,data,left,bottom,xsize=width,ysize=height
 		ytitle=plot2d_state.ytitle
 	endif else begin
 	surface,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
+		background=plot2d_state.bgcolor, color=plot2d_state.tcolor, $
 		xlog=plot2d_state.xlog,ylog=plot2d_state.ylog, $
 		zlog=plot2d_state.zlog, $
 		charsize=plot2d_state.charsize, $
@@ -1123,12 +1181,16 @@ endif else TVSCL,data,left,bottom,xsize=width,ysize=height
 	contour,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
 		title=plot2d_state.title,xtitle=plot2d_state.xtitle, $
 		ytitle=plot2d_state.ytitle, $
+                pos=[float(left)/!d.x_size, float(bottom)/!d.y_size, $
+                 (!d.x_size-float(right))/!d.x_size, $
+		 (!d.y_size-float(top))/!d.y_size], $
 		xmargin=xmargin, ymargin=ymargin, $
 		max_value= maxvl, min_value=minvl, $
 		charsize=plot2d_state.charsize, $
 		c_colors=reverse(plot2d_state.colorI),$
 		c_charsize=plot2d_state.c_charsize, $
-		c_labels=levels, $
+		c_labels=levels, background=plot2d_state.bgcolor, $
+		color=plot2d_state.tcolor, $
 		levels=plot2d_state.levels(0:plot2d_state.nlevels-1), $
 		NLevels=plot2d_state.nlevels, /Follow
 	plot2d_notes,plot2d_state
@@ -1146,7 +1208,8 @@ if plot2d_state.footnote ne 0 then begin
         real_dy = !d.y_ch_size     ; character pixel height
 	real_yl = plot2d_state.yloc * !d.y_size
         for i=0,plot2d_state.footnote-1 do begin
-        xyouts,real_xl,(real_yl-i*real_dy), plot2d_state.comment(i), /DEVICE
+        xyouts,real_xl,(real_yl-i*real_dy), plot2d_state.comment(i), /DEVICE, $
+		color=plot2d_state.tcolor
 	end
 end
 ; draw stamp comment
@@ -1154,9 +1217,11 @@ end
 if plot2d_state.stamp ne 0 then begin
         if strtrim(plot2d_state.timestamp,2) lt 2 then st = systime(0) else $
 		st = plot2d_state.timestamp
-        xyouts,0.01*!d.x_size, 1, st, /device
+        xyouts,0.01*!d.x_size, 1, st, /device, $
+		color=plot2d_state.tcolor
         xyouts,0.75*!d.x_size, 1, $
-                 'User Name:  '+getenv('USER'), /device
+                 'User Name:  '+getenv('USER'), /device, $
+		color=plot2d_state.tcolor
 end
 
 END
@@ -1185,7 +1250,10 @@ ENDIF
   CASE Ev OF 
 
   'DRAW3': BEGIN
-      Print, 'Event for plot2d_area'
+;	IF ((Event.PRESS EQ 1) AND (plot2d_state.plottype EQ 0)) THEN BEGIN
+;	help,Event,/st
+;        END
+	return
       END
   'BGROUP2': BEGIN
 ;      plot2d_state = plot2d_stateInit
@@ -1249,7 +1317,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 	charsize=charsize, lego=lego, ax=ax, az=az, shade=shade, $
 	title=title, xtitle=xtitle, ytitle=ytitle, ztitle=ztitle, $
 	xarr=xarr,yarr=yarr, $
-	rxloc=rxloc, ryloc=ryloc, comment=comment, $
+	rxloc=rxloc, ryloc=ryloc, comment=comment, classname=classname, $
 	stamp=stamp, wTitle=wTitle, GROUP=Group
 
 ;+
@@ -1365,7 +1433,11 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;                       Add option of N contour levels field 
 ;                       Remove the common block definition
 ;       01-24-2000      Add TV step # or axis options
+;       06-01-2000      Add colorbar_config dialog, and toggle the colorbar to
+;                       get the colorbar redraw correctly
+;                       Add classname for automatically generate output file
 ;-
+COMMON COLORBAR, colorbar_data
 
 ;if XRegistered('Plot2dMAIN13') then WIDGET_CONTROL,plot2d_state.base,BAD=bad,/DESTROY
 
@@ -1373,8 +1445,8 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-xsize=600
-ysize=450
+xsize=500 
+ysize=400 
 xl = ''
 yl =''
 zl =''
@@ -1408,6 +1480,8 @@ xarray = indgen(xdim)
 yarray = indgen(ydim)
 if keyword_set(xarr) then xarray = xarr
 if keyword_set(yarr) then yarray = yarr
+class = 'plot2d'
+if keyword_set(classname) then class = classname
 
   plot2d_state = { $
 	data:data, $
@@ -1417,6 +1491,7 @@ if keyword_set(yarr) then yarray = yarr
 	y:1, $
 	xarr:xarray, $
 	yarr:yarray, $
+	class: class, $
 	versus: 0, $  ; real-value or 1 for step #
 	plottype:0, $     	; 0 - TV 1-surface
 	charsize:1, $
@@ -1443,6 +1518,9 @@ if keyword_set(yarr) then yarray = yarr
 	ymargin2:5, $
 	bar: 1, $
 	stamp: 0, $
+	bgrevs: 0, $
+	bgcolor: 0, $		   ; background color
+	tcolor: !d.table_size-1, $     ; text color
 	timestamp: timestamp, $
 	nlevels: 12, $
 	levels: make_array(12,/float), $
@@ -1465,6 +1543,8 @@ if keyword_set(yarr) then yarray = yarr
 	xsize: xsize, $
 	ysize: ysize $
 	}
+
+if n_elements(colorbar_data) eq 0 then colorbar_init,colorbar_data
 
 plot2d_state.thresh =  !d.table_size/2
 plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)*plot2d_state.thresh/(!d.table_size-1) 
@@ -1525,7 +1605,8 @@ if keyword_set(comment) then begin
   BGROUP2 = CW_BGROUP( BASE1, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
 
-  DRAW3 = WIDGET_DRAW( Plot2dMAIN13, XSIZE=xsize, YSIZE=ysize, RETAIN=2)
+  DRAW3 = WIDGET_DRAW( Plot2dMAIN13, XSIZE=xsize, YSIZE=ysize, RETAIN=2, $
+		BUTTON_EVENTS=1,UVALUE='DRAW3')
 
   BASE2 = WIDGET_BASE(Plot2dMAIN13, /ROW)
 
