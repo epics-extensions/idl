@@ -12,12 +12,18 @@ set x = "" ; set y = ""; set z=""; set w=""; set v=""
 set xf=""; set yf=""; set zf=""; set wf=""; set vf=""
 
 set HOST_ARCH = `/usr/local/epics/startup/HostArch`
+if ${?EPICS_EXTENSIONS} == 0 then
+	setenv EPICS_EXTENSIONS /usr/local/epics/extensions/bin/$HOST_ARCH
+endif
+set PVT_LOC=${EPICS_EXTENSIONS}/bin/$HOST_ARCH
 
 if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/ezcaidl_setup
-else
-	source $EPICS_EXTENSIONS/bin/$HOST_ARCH/ezcaidl_setup
+	set PVT_LOC=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif
+
+source $PVT_LOC/ezcaidl_setup
+source $PVT_LOC/idluserdir_setup
+cd $IDL_USERDIR
 
 # echo $exe
 
