@@ -517,7 +517,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.16 2001/04/16 14:31:10 cha Exp $
+; $Id: DC.pro,v 1.17 2001/06/18 16:51:29 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2415,6 +2415,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	len = strlen(r_names(9))-1
 	WIDGET_CONTROL,ids(9),SET_VALUE=' '+strmid(r_names(9),1,len)
         w_plotspec_id.realtime = 0
+        if w_plotspec_id.scan then realtime_close
         return
 	end
       9: begin
@@ -2422,6 +2423,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	len = strlen(r_names(8))-1
 	WIDGET_CONTROL,ids(8),SET_VALUE=' '+strmid(r_names(8),1,len)
         w_plotspec_id.realtime = 1
+        if w_plotspec_id.scan then realtime_init
         return
 	end
       11: begin
@@ -2692,16 +2694,36 @@ XMANAGER, 'user_scale',user_scale_base, GROUP_LEADER = GROUP
 
 END
 
-PRO scanReadCheckFileType,File,ok
+PRO scanReadCheckFileType,File,suffix,ok
 ; wrong type ok=-1
 ; right type ok=1
 
         ok = -1
-        if strpos(File,'scan') ne -1 then begin
-                t = strmid(File,strlen(File)-4)
-                if t eq 'scan' then ok = 1
+        if strpos(File,suffix) ne -1 then begin
+                t = strmid(File,strlen(File)-strlen(suffix))
+                if t eq suffix then ok = 1
         end
 END
+
+;
+; figure out the ~ file name
+; only work for unix system and HOME is defined
+;
+PRO filename_expand,F
+if !d.name eq 'X' then begin
+        h = getenv('HOME')
+        u = strupcase(getenv('USER'))
+        p0 = strpos(h,u,0)
+        s0 = strmid(h,0,p0)
+        sp = strpos(F,OS_SYSTEM.file_sep)
+        len = strlen(F)-sp
+        if STRMID(F,1,1) ne OS_SYSTEM.file_sep then begin
+                s1 = strupcase(strmid(F,1,sp-1))
+                F=s0+s1+strmid(F,sp,len)
+        endif else F=h+strmid(F,sp,len)
+end
+END
+
 
 PRO filenamepath,filename,F,P
 COMMON CATCH1D_COM, widget_ids, scanData
@@ -2709,13 +2731,13 @@ if n_elements(filename) eq 0 then return
         len = strlen(filename)
         F=filename
         P=scanData.home
-        if strpos(filename,'/') eq -1 then return
+        if strpos(filename,!os.file_sep) eq -1 then return
  
         x=byte(filename)
         P=''
         for i=0,len-1 do begin
         is = len-1 -i
-        if string(x(is)) eq '/' then begin
+        if string(x(is)) eq !os.file_sep then begin
                 P = strmid(filename,0,is+1)
                 F = strmid(filename,is+1,len-is)
                 return
@@ -2825,7 +2847,6 @@ readf,unit,st
 
 end
 free_lun,unit
-
 END
 
 
@@ -2875,7 +2896,7 @@ if newpv eq '' then scanData.y_pv = newpv
       END
   'CATCHER_SETUP_DONE': BEGIN
        prefix = str_sep(scanData.pv,':')
-        ln = caget(prefix[0]+':saveData_fullPathName',pd)
+        ln = cagetArray(prefix[0]+':saveData_fullPathName',pd)
         if ln eq 0 then scanData.path = string(pd(1:99))
 	write_config
       WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
@@ -3018,10 +3039,12 @@ if keyword_set(file) then begin
 	w_warningtext,'File '+filename+' not found!'
 	return
 	end
+
 endif else begin
+
 	scanData.nonames = scanData.lastDet(0)+4 ;89 
-	realtime_pvnames = make_array(scanData.nonames,/string,value=string(replicate(32b,5)))
-;	realtime_pvnames = make_array(89,/string,value=string(replicate(32b,5)))
+;	realtime_pvnames = make_array(scanData.nonames,/string,value=string(replicate(32b,5)))
+	realtime_pvnames = make_array(89,/string,value=string(replicate(32b,5)))
 
 catch, error_status
 if error_status ne 0 then return
@@ -3154,18 +3177,17 @@ if caSearch(scanData.pv) ne 0 then begin
 	return
 	end
 
-;	ln = caget(scanData.pv+'.NPTS',pd)
-;	ln = caget(scanData.pv+'.MPTS',mpts)
 	ln = cagetArray([scanData.pv+'.NPTS', scanData.pv+'.MPTS'],pd,/short)
 	mpts = pd(1) 
 	scanData.req_npts = pd(0)
 	realtime_retval = make_array(scanData.req_npts,scanData.nonames,/double)
 	realtime_id.mpts = mpts
 
+	list_pvnames = realtime_pvnames(0:scanData.nonames-1)
 if scanData.realtime eq 0 then begin
-	ln = caScan(scanData.pv+'.CPT',realtime_pvnames,/clear)
-	ln = caScan(scanData.pv+'.CPT',realtime_pvnames,/add,max=mpts)
-	ln = caScan(scanData.pv+'.CPT',realtime_pvnames,scanData.nonames,npts,pd,/get,max=mpts)
+	ln = caScan(scanData.pv+'.CPT',list_pvnames,/clear)
+	ln = caScan(scanData.pv+'.CPT',list_pvnames,/add,max=mpts)
+	ln = caScan(scanData.pv+'.CPT',list_pvnames,scanData.nonames,npts,pd,/get,max=mpts)
 	realtime_retval = pd
 	scanData.realtime = 1
 
@@ -3173,10 +3195,10 @@ if scanData.debug eq 1 then $
 print,'REALTIME_INIT: add caScan at # ',w_plotspec_id.seqno
 
 scanData.px = make_array(4000,/float)
-scanData.pa = make_array(4000,4,/float)
+scanData.pa = make_array(4000,4,/double)
 scanData.da = make_array(4000,scanData.lastDet(0),/float)
 end
-	ln = caScan(scanData.pv+'.CPT',realtime_pvnames,/zero,max=mpts)
+	ln = caScan(scanData.pv+'.CPT',list_pvnames,/zero,max=mpts)
 	scanData.act_npts = 0
  
 ;  check for terminal dump
@@ -3225,6 +3247,20 @@ realtime_retval = 0
 ;	print,caclock()
 END
 
+PRO realtime_close
+COMMON CATCH1D_COM, widget_ids, scanData
+COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
+COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
+
+    list_pvnames = realtime_pvnames(0:scanData.nonames-1)
+    ln = caScan(scanData.pv+'.CPT',list_pvnames,/clear)
+
+    w_plotspec_id.realtime = 0
+    scanData.realtime = 0
+    realtime_id.ind = 0
+
+END
+
 ;
 ;
 PRO realtime_read,npts
@@ -3255,7 +3291,8 @@ end
 retval = make_array(scanData.nonames,scanData.req_npts+1);
 nonames= scanData.nonames
 pts = scanData.req_npts+1
-ln = caScan(scanData.pv+'.CPT',realtime_pvnames,nonames,pts,pd,/get,max=realtime_id.mpts)
+	list_pvnames = realtime_pvnames(0:nonames-1)
+ln = caScan(scanData.pv+'.CPT',list_pvnames,nonames,pts,pd,/get,max=realtime_id.mpts)
 
 cpts = pts
 if cpts le 1 then return
@@ -3606,11 +3643,10 @@ if realtime_id.def(w_plotspec_id.xcord) eq 2 then begin
         x_rn = realtime_pvnames
 
         xmax = realtime_id.xmax
-;        ln = caget(x_rn(w_plotspec_id.xcord),pd)
         ln = cagetArray(x_rn(w_plotspec_id.xcord),pd)
         if ln eq 0 and pd(0) gt xmax then begin
                 xmin=0
-                xmax=pd
+                xmax=pd(0)
                 dx = 0.1 * pd(0)
                 realtime_id.xmax = xmax + dx
                 realtime_id.xmin = xmin - dx
@@ -3689,9 +3725,8 @@ ENDCASE
 	2: x_dn = scanData.pv+'.P3PA'
 	3: x_dn = scanData.pv+'.P4PA'
 	ENDCASE
-;	ln = caget(x_dn, pd, max=scanData.req_npts)
 	ln = cagetArray(x_dn, pd, max=scanData.req_npts)
-	x = pd
+	x = pd(0)
 	if x_dv(4) gt 0. then begin
 	dx = MAX(x) - MIN(x)
 	xmax = MAX(x) + x_dv(2)  
@@ -3917,7 +3952,7 @@ if strlen(names(i)) gt 1 then begin
 		strput,v,names(i),0
 	vd = strcompress(v + '.DESC',/remove_all)
 	pd=''
-	ln = caget(vd,pd)
+	ln = cagetArray(vd,pd)
 	descs(i) = pd
         if strtrim(descs(i),2) eq '-1' then descs(i)=''
         end
@@ -4178,7 +4213,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
         strput,sss,st,len0-len
 	endif else sss = strtrim(no,2)
 
-	filename = prefix+sss+'.scan'
+	filename = prefix+sss+ scanData.suffix  ; '.mda'   ;'.scan'
 	found = findfile(scanData.path+filename)
 
 	if found(0) ne '' then begin
@@ -5217,7 +5252,7 @@ if id lt 0 then begin
 	scanno = read_scan(scanData.trashcan, Scan) ;, lastDet=DetMax)
 
 	if scanno lt 0 then begin   ; a new file is picked
-	if realtime_id.ind  eq 1 then return
+;	if realtime_id.ind  eq 1 then return
 	scanData.y_scan = 0
 	scanData.y_seqno = 0
 	scanData.scanno = scanno
@@ -5320,7 +5355,7 @@ populate:
                 seqno = t_cpt
 		scanData.y_seqno = t_cpt - 1
 		scanData.scanno_2d = scanno 
-		scanData.scanno = seqno
+		scanData.scanno = seqno + 1
 		scanData.pv = pv[0]
 		scanData.y_pv = pv[1]
 		scanData.y_scan = 1
@@ -5332,7 +5367,6 @@ populate:
 		scanData.scanno = seqno
 		scanData.y_scan = 0
         end
-
 
 if dim ge 2 then begin
 	if seq_no le 0 then seq_no = cpt[1]
@@ -5414,6 +5448,9 @@ w_viewscan_id.seqno = seq_no
 	w_plotspec_array(1) = x_descs(ix)
 	if w_plotspec_array(1) eq '' then w_plotspec_array(1) = x_names(ix) 
 	if x_engus(ix) ne '' then w_plotspec_array(1) = w_plotspec_array(1)+'('+x_engus(ix)+')'
+
+;	if dim eq 1 and total(da1D) eq 0. then return
+
 	UPDATE_PLOT,scanData.lastPlot
 	id = next_seq_no
 
@@ -6952,7 +6989,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
 	filenamepath,scanData.trashcan,old_file,old_path
 
-        FNAME = '*sca*'
+        FNAME = '*'+scanData.suffix+'*'  ;'*mda*' or '*scan*'
 
 
 ; check for bad directory -296
@@ -7006,11 +7043,14 @@ if strlen(P) gt 1 then begin
 
         w_plotspec_array(3) = F
 	scanData.trashcan = FNAME
+	po = strpos(FNAME,'.',/reverse_search)
+	scanData.suffix = strmid(FNAME,po,strlen(FNAME)-po)
 
 	catch1d_viewdataSetup
 
 	if string(D) ne string(old_path) then  pventry_event
 	w_viewscan_calcFilename     ; reset current fileno
+	WIDGET_CONTROL,widget_ids.trashcan,SET_VALUE=scanData.trashcan
 
 	catch1d_findLast
 END
@@ -7020,12 +7060,12 @@ PRO catch1d_findLast
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
-	suffix = '.scan'
+	suffix = scanData.suffix   ;'.scan'
 
 	r = strpos(scanData.trashcan,'_')
 	user = strmid(scanData.trashcan,0,r+1)
 
-        found = findfile(scanData.path+'*.sca*',count=ct)
+        found = findfile(scanData.path+'*'+scanData.suffix+'*',count=ct)
         len = strlen(user)
         sp = rstrpos(user,!os.file_sep)
         if sp gt -1 then sp=sp+1
@@ -7169,8 +7209,12 @@ PRO HELPMENU_Event, Event
         end
         END
   'Help.Help ...': BEGIN
-	st = 'Not available yet !'
-	w_warningtext,st
+        private = getenv('EPICS_EXTENSIONS_PVT') + !os.file_sep +'doc' + !os.file_sep + 'DC_help.txt'
+        found = findfile(private)
+        if found(0) ne '' then xdisplayfile,found(0),GROUP=Event.top else begin
+        str = getenv('EPICS_EXTENSIONS')+!os.file_sep + 'doc'+ !os.file_sep + 'DC_help.txt'
+        xdisplayfile,str, GROUP=Event.top
+        end
  	END
 
   ENDCASE
@@ -7523,7 +7567,6 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
 if scanData.pvfound eq -1 then return
 
-;	ln = caget(scanData.y_pv+'.P1PV',s1)
 	ln = cagetArray(scanData.y_pv+'.P1PV',s1)
 	if ln eq 0 and s1(0) eq ''  then $ 
 	begin
@@ -7639,16 +7682,16 @@ IF chkid eq 0 then BEGIN
 ; check whether 2D scan started by outside CA clients
 ;
 
-	  if strlen(scanData.y_pv) gt 0 and scanData.y_scan eq 0 then begin
-	if caSearch(scanData.y_pv+'.EXSC') eq 0 then begin 
-		pvs = [scanData.y_pv+'.EXSC',scanData.y_pv+'.CPT']
-		id = cagetArray(pvs,pd) 
-		if pd(0) eq 1 then begin
-			catch1d_Start_yScan
-			scanData.y_seqno = pd(1)
-			scanData.scanno = pd(1)+1 
-			end
-	  end
+	if strlen(scanData.y_pv) gt 0 and scanData.y_scan eq 0 then begin
+	 if caSearch(scanData.y_pv+'.EXSC') eq 0 then begin 
+	  pvs = scanData.y_pv + ['.EXSC','.CPT','.DATA']
+	  id = cagetArray(pvs,pd,/short) 
+ 	    if pd(0) eq 1 then begin
+		catch1d_Start_yScan
+		scanData.y_seqno = pd(1)
+		scanData.scanno = pd(1)+1 
+	    end
+	 end
 	end
 
 ;   ret = caCheckMonitor(scanData.pv+'.EXSC')
@@ -7743,16 +7786,9 @@ end
 ;
 ; scanFlag eq 0 case (1D scan is done)
 ;
-       if scanDataReady and valchange(0) eq 1 then begin
-		scan_read,1,-1,-1,maxno
-	 	scanData.realtime = 0
-;	print,scanDataReady,valchange(0),w_plotspec_id.scan,w_plotspec_id.realtime, scanData.realtime	
-		w_plotspec_id.scan = 0
-		return
-	end
-
+if scanDataReady then begin
 	if w_plotspec_id.scan eq 1 then begin
-
+	
 if scanData.debug then $
 print,'st1',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.maxno
 	catch1dReadScanRecordAppendFile
@@ -7766,10 +7802,10 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 	save_scan_dump_curr,filename
 	id = cw_term(widget_ids.terminal,filename=filename,/reset)
 	end
+
  	w_plotspec_id.scan = 0
 ;	after_scan
 	end
-
 
 ;
 ; check whether 2D scan stopped by outside CA clients
@@ -7777,6 +7813,7 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 	  if scanData.y_scan eq 1 then begin
 		id = cagetArray(scanData.y_pv+'.EXSC',pd) 
 		if pd(0) eq 0 then begin
+		scan_read,1,-1,-1,maxno
 		scanData.y_scan = 0
 		set_sensitive_on
 ;print,'stop by CA client',scanData.y_seqno,scanData.scanno,pd(0)
@@ -7788,11 +7825,16 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 ;
 	if scanData.y_scan eq 1 and $
 		scanData.y_seqno ge scanData.y_req_npts then begin
+		scan_read,1,-1,-1,maxno
 		scanData.y_scan = 0
 		set_sensitive_on
 ;print,'terminate by y_req_npts'
 		end
 
+	if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 and $
+		scanData.realtime eq 1 then scanData.realtime = 0
+
+end
       ENDELSE
 ENDIF else begin
 	WIDGET_CONTROL, widget_ids.pv_stat,SET_VALUE = '>> PV NOT VALID <<'
@@ -8029,6 +8071,8 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
+COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
+
 
       cadebug,0
 
@@ -8102,13 +8146,15 @@ scanData.pvfound = res
         scanData.x_dpt = counts
         scanData.x_dtype = wave_types
 
-	scan_field_get,scanData.pv
+	scan_field_get,scanData.pv ;,/print
 	setDefaultLabels
 	setPlotLabels
-	setScanPvnames
+	scanData.lastDet(0) = MAX(where(y_names ne '')) + 1
 
-	if w_plotspec_id.realtime eq 1 then $
+	if w_plotspec_id.realtime eq 1 then begin
+	if n_elements(realtime_pvnames) eq 0 then setScanPvnames
 	setPiDiMonitor,/add
+	end
 
 ;	before_sys_scan
 
@@ -8132,7 +8178,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 
 	if n_elements(st) eq 0 or keyword_set(get) then begin
 	nm = prefix[0]+':saveData_scanNumber'
-	ln = caget(nm,pd)
+	ln = cagetArray(nm,pd)
 	err = ln
 	if ln ne 0 then return
 	scanData.filemax = pd - 1
@@ -8148,7 +8194,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	strput,sss,st,len0-len
 	endif else sss = st
 
-	filename = prefix[0]+':_'+sss+'.scan'
+	filename = prefix[0]+':_'+sss+scanData.suffix   ;'.scan'
 	scanData.trashcan = scanData.path + filename
 	w_plotspec_array(3) = filename
 	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
@@ -8190,12 +8236,18 @@ x_dn = [ scanData.pv+'.R1PV', $
         scanData.pv+'.DCPV', $
         scanData.pv+'.DDPV', $
         scanData.pv+'.DEPV', $
-        scanData.pv+'.DFPV' $
+        scanData.pv+'.DFPV', $
+        scanData.pv+'.D01PV', $
+        scanData.pv+'.D02PV', $
+        scanData.pv+'.D03PV', $
+        scanData.pv+'.D04PV', $
+        scanData.pv+'.D05PV', $
+        scanData.pv+'.D06PV', $
+        scanData.pv+'.D07PV', $
+        scanData.pv+'.D08PV', $
+        scanData.pv+'.D09PV', $
+        scanData.pv+'.D10PV' $
 	]
-
-str = scanData.pv+'.D'+ ['01','02','03','04','05','06','07','08','09'] + 'PV'
-
-x_dn = x_dn + str
 
 if keyword_set(check) eq 1 then begin
 	ln = caMonitor(x_dn,ret,/check)
@@ -8236,8 +8288,12 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
   	read_config
 
+        po = strpos(w_plotspec_array(3),'.',/reverse_search)
+        scanData.suffix = strmid(w_plotspec_array(3),po, $
+		strlen(w_plotspec_array(3))-po)
+
 	F = scanData.path + w_plotspec_array(3)
-	scanReadCheckFileType,F,ok
+	scanReadCheckFileType,F,scanData.suffix,ok
 	if ok ne 1 then begin
 	res = dialog_message(['No or wrong DC.config file found.', $
 			'',scanData.path,w_plotspec_array(3), $
@@ -8410,6 +8466,7 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;       04-11-2001 bkc  R2.4
 ;                       Fix the realtime problem 
 ;                       Defined lastDet is used in realtime
+;       05-16-2001 bkc  Accept both '.scan' or '.mda' suffix for scan file
 ;                       
 ;-
 ;
