@@ -849,8 +849,11 @@ COMMON COLORBAR,colorbar_data
 	fn = dialog_pickfile(filter='*xdr',path=p,file=file,/WRITE, $
 		title='Save TIFF Image')
 	if fn ne '' then begin
+
+	ranges = [plot2d_state.range,plot2d_state.min,plot2d_state.max]
 	xdr_open,unit,fn,/write,error=error
 	xdr_write,unit,plot2d_state.data
+	xdr_write,unit,ranges
 	xdr_close,unit
 	end
       END
