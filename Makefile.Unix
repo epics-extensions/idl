@@ -13,7 +13,7 @@ SCRIPTS = setup_ezcaIDL ezcaidl_startup.pro \
 	viewer dcviewer.pro viewer_startup.pro \
 	view1d.pro view1d.init view1d_overlay.pro \
 	view2d.pro view2d.init makeIDLRef.pro \
-	dc2hdf catcher2hdf.pro \
+	dc2hdf dc2hdf.pro \
 	hdfb hdfb.pro 
 
 include $(EPICS)/config/RULES.Unix
