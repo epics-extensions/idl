@@ -392,7 +392,7 @@ DONE:
   return, res
 END
 
-; $Id: vw2d.pro,v 1.4 1999/07/07 19:20:36 cha Exp $
+; $Id: vw2d.pro,v 1.5 2000/02/28 20:36:31 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1045,7 +1045,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.4 1999/07/07 19:20:36 cha Exp $
+; $Id: vw2d.pro,v 1.5 2000/02/28 20:36:31 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1559,8 +1559,8 @@ close,fw
         WIDGET_CONTROL,widget_ids.textdata,BAD_ID=bad ,/DESTROY
 ;        if widget_ids.textdata eq 0 or bad ne 0 then $
         widget_ids.textdata = CW_TERM(widget_ids.base, $
-		TITLE='VIEW2D SDS Text Window', BG_NAMES='Save...', $
-		FILENAME=dir+filename, RENAME=dir+rename, $
+		TITLE='VIEW2D SDS Text Window', BG_NAMES='Save As...', $
+		FILENAME=dir+filename, RENAME=dir+'ASCII'+!os.file_sep+rename, $
                  XSIZE=80, YSIZE=20, /SCROLL)
 
 s = size(data)
@@ -1606,6 +1606,7 @@ printf,fw, '; ------------------------------'
 	free_lun,fw
 ;	xdisplayfile,filename
 	id = CW_TERM(widget_ids.textdata,filename=dir+filename,rename=rename,/reset)
+
 	return
 	end
 ;
@@ -1645,6 +1646,7 @@ if no eq 2 then begin
 	end
 	free_lun,fw
 ;	xdisplayfile,filename
+
 	id = CW_TERM(widget_ids.textdata,filename=dir+filename,rename=rename,/reset)
 	return
 end
@@ -2903,6 +2905,15 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
         newImage = image
         s = size(newImage)
 
+        view_option.x_min = 0
+        view_option.y_min = 0
+        view_option.x_max = catch2d_file.width
+        view_option.y_max = catch2d_file.height
+                WIDGET_CONTROL,widget_ids.x_min,SET_VALUE=0
+                WIDGET_CONTROL,widget_ids.x_max,SET_VALUE=view_option.x_max
+                WIDGET_CONTROL,widget_ids.y_min,SET_VALUE=0
+                WIDGET_CONTROL,widget_ids.y_max,SET_VALUE=view_option.y_max
+
         ; find the max only for 2D or 1D
 
         if s(0) eq 2 then totalno = s(4) - 1
@@ -2936,11 +2947,21 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 END
 END
 
+PRO fileSeqString,no,suf0
+        suf0 = '0000'
+        suf = strtrim(no,2)
+        ln = strlen(suf)
+        strput,suf0,suf,4-ln
+        if no gt 9999 then suf0=suf
+END
 
-PRO view2d_pan_images_on
+
+PRO view2d_pan_images_on,Event,tiff=tiff,gif=gif,rtiff=rtiff,def=def,image_array=image_array
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH1D_2D_COM,data_2d, gD
+
+if !d.name eq 'WIN' then device,decomposed=0
 
 seq = catch2d_file.scanno_current
 last = catch2d_file.scanno_2d_last
@@ -3008,6 +3029,34 @@ update:
 
 	plots,[0,8*width],[height,height],/device
 	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+
+        if keyword_set(TIFF) then begin
+        tvlct,R,G,B,/get
+        WRITE_TIFF,'view2d.tiff',TVRD(),red=R,green=G,blue=B
+        fileSeqString,catch2d_file.scanno_current,suf0
+        outname=catch2d_file.name+'.pan'+suf0+'.tiff'
+        dir = catch2d_file.outpath+'TIFF'+!os.file_sep
+        rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
+        end
+
+        if keyword_set(RTIFF) then begin
+        tvlct,R,G,B,/get
+        WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
+        fileSeqString,catch2d_file.scanno_current,suf0
+        outname=catch2d_file.name+'.pan'+suf0+'.rtiff'
+        dir = catch2d_file.outpath+'TIFF'+!os.file_sep
+        rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
+        end
+
+        if keyword_set(GIF) then begin
+        tvlct,R,G,B,/get
+        WRITE_GIF,'view2d.gif',TVRD(),R,G,B
+        WRITE_GIF,'view2d.gif',/close
+        fileSeqString,catch2d_file.scanno_current,suf0
+        outname=catch2d_file.name+'.pan'+suf0+'.gif'
+        dir = catch2d_file.outpath+'GIF'+!os.file_sep
+        rename_dialog,dir,'view2d.gif',outname,GROUP=Event.Top
+        end
 
 	wset,old_win
 ;	viewscanimage_current
@@ -4115,7 +4164,27 @@ retall
 END
 
 
+PRO scansee_setOutpath
+COMMON SYSTEM_BLOCK,OS_SYSTEM
+COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
+	outpath = catch2d_file.path
+	catch,error_status
+	if error_status ne 0 then begin
+;		r = dialog_message(!err_string,/error)
+		outpath = catch2d_file.home + !os.file_sep
+	end
+	
+	dir = outpath+'TIFF' + !os.file_sep
+	found = findfile(dir,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' '+dir
+	openw,fw,dir+'.tmp',/get_lun
+	free_lun,fw
+	close,fw
+
+	catch2d_file.outpath = outpath
+	
+END
 
 
 PRO PDMENU189_Event, Event
@@ -4147,7 +4216,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	catch2d_file.path = P
 	pos = rstrpos(F,OS_SYSTEM.file_sep) ;'/'
 	if pos gt 0 then catch2d_file.name = strmid(F,pos+1,strlen(F))
-
+	
+	scansee_setOutpath
     END
 
   'File.Save Image for AIM': BEGIN
@@ -4167,7 +4237,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
         st = strtrim(catch2d_file.seqno+1,2)
 	strput,suf0,st,4-strlen(st)
         outname=catch2d_file.name+'.'+suf0+'.gif'
-        rename_dialog,catch2d_file.home,'vw2d.gif',outname,GROUP=Event.Top
+	outpath = catch2d_file.outpath+'GIF'+!os.file_sep
+        rename_dialog,outpath,'vw2d.gif',outname,GROUP=Event.Top
     END
 
   'File.Save as R-TIFF': BEGIN
@@ -4176,8 +4247,9 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	suf0 = 'im00'
         st = strtrim(catch2d_file.seqno+1,2)
 	strput,suf0,st,4-strlen(st)
-        outname=catch2d_file.name+'.'+suf0+'.tiff'
-        rename_dialog,catch2d_file.home,'vw2d.tiff',outname,GROUP=Event.Top
+        outname=catch2d_file.name+'.'+suf0+'.rtiff'
+	outpath = catch2d_file.outpath+'TIFF'+!os.file_sep
+        rename_dialog,outpath,'vw2d.tiff',outname,GROUP=Event.Top
     END
 
   'File.Save as TIFF': BEGIN
@@ -4187,7 +4259,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
         st = strtrim(catch2d_file.seqno+1,2)
 	strput,suf0,st,4-strlen(st)
         outname=catch2d_file.name+'.'+suf0+'.tiff'
-        rename_dialog,catch2d_file.home,'vw2d.tiff',outname,GROUP=Event.Top
+	outpath = catch2d_file.outpath+'TIFF'+!os.file_sep
+        rename_dialog,outpath,'vw2d.tiff',outname,GROUP=Event.Top
     END
 
   'File.Printer ...': BEGIN
@@ -4317,6 +4390,35 @@ im(*,*) = image
   ENDCASE
 END
 
+PRO PDMENU2D_PanImage_Event, Event
+COMMON CATCH2D_FILE_BLOCK,catch2d_file
+
+  CASE Event.Value OF
+  'PanImage.PanImages.PanImages...': begin
+        view2d_pan_images_on,Event
+        end
+  'PanImage.PanImages.PanImages+TIFF': begin
+        view2d_pan_images_on,Event,/tiff
+        end
+  'PanImage.PanImages.PanImages+RTIFF': begin
+        view2d_pan_images_on,Event,/rtiff
+        end
+  'PanImage.PanImages.PanImages+GIF': begin
+        view2d_pan_images_on,Event,/gif
+        end
+  'PanImage.Calibration...': begin
+        title=':  SCAN # '+ strtrim(catch2d_file.scanno_current,2)
+        view2d_pan_images_on,Event,image_array=image_array,def=def
+        xv = catch2d_file.xarr(0:catch2d_file.width-1)
+        yv = catch2d_file.yarr(0:catch2d_file.height-1)
+        im_array=image_array(0:catch2d_file.width-1,0:catch2d_file.height-1,*)
+        calibration_factor,im_array,def,title=title, $
+                inpath=catch2d_file.path,classname=catch2d_file.name, $
+                xv=xv,yv=yv,GROUP=Event.top
+        end
+  ENDCASE
+END
+
 
 PRO VW2D_BASE_Event, Event
 
@@ -4342,6 +4444,7 @@ COMMON w_warningtext_block,w_warningtext_ids
   'PDMENU188': PDMENU188_Event, Event
 
   'PDMENU189_help': PDMENU189_help_Event, Event
+  'PDMENU2D_PANIMAGE': PDMENU2D_PanImage_Event, Event
   'PDMENU2D_ROI': PDMENU2D_ROI_Event, Event
   'PDMENU2D_FITTING': PDMENU2D_FITTING_Event, Event
 
@@ -4541,6 +4644,50 @@ COMMON w_warningtext_block,w_warningtext_ids
   'TEXT133': BEGIN
       Print, 'Event for Information Block'
       END
+  'CURSOR62_CAPUT0': BEGIN
+catch,error_status
+if error_status ne 0 then begin
+        print,!err,!err_string
+        return
+end
+        if view_option.versus eq 1 then begin
+        y = [catch2d_file.x_pv+'.P1PV',catch2d_file.y_pv+'.P1PV']
+        r = cagetArray(y,nm,/string)
+        WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
+        WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
+        vl = make_array(1,2,/double)
+        vl(0) = double(x)
+        vl(0,1)= double(y)
+        str = ['To Set New Positions:','', $
+                nm(0)+'  (x)'+string(vl(0)),nm(1)+'  (y)'+string(vl(1))]
+        res = dialog_message(str,/question)
+        if res eq 'No' then return
+        r = caputArray(nm,vl)
+        endif else begin
+                str = ['Only available for Plot vs Values Option!', $
+                        'But Plot vs Step # is set.']
+                res = dialog_message(str,/error)
+        end
+        END
+  'CURSOR62_CAPUT': BEGIN
+        if view_option.versus eq 1 then begin
+        nm = [catch2d_file.x_pv+'.P1CP',catch2d_file.y_pv+'.P1CP']
+        WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
+        WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
+        vl = make_array(1,2,/double)
+        vl(0) = double(x)
+        vl(0,1)= double(y)
+        str = ['To Set New Center Positions:','' $
+                ,nm(0)+'  (x)'+string(vl(0)),nm(1)+'  (y)'+string(vl(1))]
+        res = dialog_message(str,/question)
+        if res eq 'No' then return
+        r = caputArray(nm,vl)
+        endif else begin
+                str = ['Only available for Plot vs Values Option!', $
+                        'But Plot vs Step # is set.']
+                res = dialog_message(str,/error)
+        end
+        END
   ELSE:     ;don't stop of no matches
   ENDCASE
 END
@@ -4559,7 +4706,7 @@ END
 
 
 
-PRO VW2D, GROUP=Group, file=file
+PRO VW2D, GROUP=Group, file=file,CA=CA
 ;
 ;+
 ; NAME:
@@ -4584,13 +4731,13 @@ PRO VW2D, GROUP=Group, file=file
 ;       None.	
 ;
 ; KEYWORD PARAMETERS:
-;     GROUP:    The widget ID of the group leader of the widget.  If this 
-;               keyword is specified, the death of the group leader results in
-;               the death of VW2D.
-;
+;     GROUP:   The widget ID of the group leader of the widget.  If this 
+;              keyword is specified, the death of the group leader results in
+;              the death of VW2D.
 ;     FILE:    The input image file name.  If this keyword is specified, the
 ;              file should contain the image data must be in the data catcher
 ;              created format. 
+;     CA:      If this keyword is specified, reset 2D positioners is possible
 ;
 ; OUTPUTS:
 ;       It provides option of postscript plot of drawing area.
@@ -4621,6 +4768,12 @@ PRO VW2D, GROUP=Group, file=file
 ;       04-09-99 bkc   Add color bar
 ;       06-09-99 bkc   R1.2c
 ;                      Add 2D ROI statistic menu
+;       02-15-00 bkc   R1.2d
+;                      Fix problem of saving ascii files, use ASCII subdirectory
+;                      Save tiff,gif file in the TIFF, GIF subdirectory
+;                      Use default xmax, ymax index
+;                      Add caput buttons for 2D positioner setting
+;        	       Add submenu FWHM on Y, FWHM on DY/DX
 ;-
 ;
 @os.init
@@ -4631,7 +4784,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VW2D (R1.2c)'
+  version = 'VW2D (R1.2d)'
 
   VW2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -4782,20 +4935,31 @@ if XRegistered('VW2D_BASE') ne 0 then return
   IMAGE62 = WIDGET_BASE( BASE62, /COLUMN )
   IMAGE62_L0 = WIDGET_LABEL( IMAGE62, $
       VALUE='--IMAGE--')
-  IMAGE62_L1 = WIDGET_LABEL( IMAGE62, $
-      VALUE='MIN Value:')
+
+  BASE62_0 = WIDGET_BASE( IMAGE62, /ROW )
+  IMAGE62_L1 = WIDGET_LABEL( BASE62_0, $
+      VALUE='MIN Z:')
 
   str='                        '
-  CURSOR62_ZMIN = WIDGET_LABEL( IMAGE62, /DYNAMIC_RESIZE, $
+  CURSOR62_ZMIN = WIDGET_LABEL( BASE62_0, /DYNAMIC_RESIZE, $
       VALUE=str, UVALUE='CURSOR62_ZMIN')
 
-  CURSOR62 = WIDGET_BASE( IMAGE62, /COLUMN )
+  CURSOR62 = WIDGET_BASE( IMAGE62, /ROW )
   CURSOR62_L1 = WIDGET_LABEL( CURSOR62, $
-      VALUE='MAX Value:')
+      VALUE='MAX Z:')
   CURSOR62_ZMAX = WIDGET_LABEL( CURSOR62, /DYNAMIC_RESIZE, $
       VALUE=str, UVALUE='CURSOR62_ZMAX')
 
-  CURSOR62_B1 = WIDGET_BASE( IMAGE62, /COLUMN)
+  CURSOR62_B1 = WIDGET_BASE( IMAGE62, /COLUMN,/FRAME)
+
+if keyword_set(CA) then begin
+CURSOR62_B2 = WIDGET_BASE( CURSOR62_B1, /ROW)
+putp1pvbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1PV', $
+                UVALUE='CURSOR62_CAPUT0')
+putp1cpbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1CP', $
+                UVALUE='CURSOR62_CAPUT')
+end
+
   CURSOR62_XL = WIDGET_LABEL( CURSOR62_B1, $
       VALUE='Cursor @ X')
   CURSOR62_X = WIDGET_TEXT( CURSOR62_B1, VALUE='', $
@@ -4803,7 +4967,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
       UVALUE='CURSOR62_X', $
 	XSIZE=20, YSIZE=1)
 	
-  CURSOR62_B2 = WIDGET_BASE( IMAGE62, /COLUMN)
+  CURSOR62_B2 = WIDGET_BASE( CURSOR62_B1, /COLUMN)
   CURSOR62_YL = WIDGET_LABEL( CURSOR62_B2, $
       VALUE='Cursor @ Y')
   CURSOR62_Y = WIDGET_TEXT( CURSOR62_B2, VALUE='', $
@@ -4811,9 +4975,9 @@ if XRegistered('VW2D_BASE') ne 0 then return
       UVALUE='CURSOR62_Y', $
 	XSIZE=20, YSIZE=1)
 	
-  CURSOR62_B3 = WIDGET_BASE( IMAGE62, /COLUMN)
+  CURSOR62_B3 = WIDGET_BASE( IMAGE62, /ROW)
   CURSOR62_ZL = WIDGET_LABEL( CURSOR62_B3, $
-      VALUE='Z Value:')
+      VALUE='Z:')
   CURSOR62_Z = WIDGET_LABEL( CURSOR62_B3, VALUE=' ', XSIZE=150, $
       UVALUE='CURSOR62_Z')
 
@@ -4912,12 +5076,20 @@ if XRegistered('VW2D_BASE') ne 0 then return
   BASE129_1 = WIDGET_BASE(BASE129, $
       COL=1, MAP=1)
 
-  image_pan = WIDGET_BUTTOn(BASE129_1, VALUE='PanImages...', $
-        UVALUE='IMAGE_PAN')
+;  image_pan = WIDGET_BUTTOn(BASE129_1, VALUE='PanImages...', $
+;        UVALUE='IMAGE_PAN')
 
-;  LABEL131 = WIDGET_LABEL( BASE129_1, $
-;      UVALUE='LABEL131', $
-;      VALUE='Images Strip')
+  MenuPANImage = [ $
+      { CW_PDMENU_S,       3, 'PanImage' }, $ ;        0
+      { CW_PDMENU_S,       1, 'PanImages' }, $ ;        0
+        { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
+        { CW_PDMENU_S,       0, 'PanImages+RTIFF' }, $ ;        1
+        { CW_PDMENU_S,       2, 'PanImages+GIF' }, $ ;        1
+      { CW_PDMENU_S,       2, 'Calibration...' } $ ;        0
+        ]
+  PDMENU2D_panimage = CW_PDMENU( BASE129_1, MenuPANImage, /RETURN_FULL_NAME, $
+      UVALUE='PDMENU2D_PANIMAGE')
 
   MenuROI = [ $
       { CW_PDMENU_S,       3, '2D-ROI' }, $ ;        0
@@ -4980,8 +5152,10 @@ catch2d_file.version = version
 		catch2d_file.path = strmid(file,0,pos+1)
 		catch2d_file.name = strmid(file,pos+1,strlen(file))
 	endif else begin
-		catch2d_file.path = catch2d_file.home
+		catch2d_file.path = catch2d_file.home + !os.file_sep
 	end
+
+	scansee_setOutpath
   end
 
   XMANAGER, 'VW2D_BASE', VW2D_BASE  ; ,/NO_BLOCK
