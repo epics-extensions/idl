@@ -20,9 +20,12 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def
 	image_array: image_array, $
 	width : sz(1), $
 	height : sz(2), $
-	id_def: det_def, $
+	ndet: sz(3), $
+	id_def: intarr(85), $
 	outtype : 0, $
 	factor : 1, $
+	path : '', $
+	class : '', $
 	tiffname : '', $
 	savemode : 0, $
 	reverse : 1, $
@@ -32,6 +35,8 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def
 	reverse_id: 0L, $		;pan_reverse, $
 	list_wid: 0L $ 			;LIST6 $
 	}
+
+panimageinfo.id_def = det_def
 
 END
 
@@ -54,7 +59,9 @@ PRO PANIMAGE_SEL_accept,ret,title,panimageinfo
 	end
 	new_win = panimageinfo.new_win
 
-detname = panimageinfo.detname
+detname = [panimageinfo.detname(70:84),panimageinfo.detname(0:69)]
+
+; database ordering
 
 if num eq 85 then id_def = [panimageinfo.id_def(15:84), panimageinfo.id_def(0:14)]
 	if num ge sz(3) and num lt 85 then begin   ; all but lt 85
@@ -63,17 +70,19 @@ if num eq 85 then id_def = [panimageinfo.id_def(15:84), panimageinfo.id_def(0:14
 		detname = panimageinfo.detname(70:84)
 		if num gt 15 then detname=[detname,panimageinfo.detname(0:num-16)]		
 	end
-if num lt sz(3) then begin
+
+id_def = intarr(num)
+if num le sz(3) then begin
 	ret_conv = ret - 15
 	for i=0,num-1 do begin
-	if ret(i) lt 15 then ret_conv = ret + 70
-	id_def = panimageinfo.id_def(i)	
+	if ret(i) lt 15 then ret_conv(i) = ret(i) + 70
+	if ret(i) lt num then $
+	id_def(i) = panimageinfo.id_def(ret(i))	
 	end
 	detname = panimageinfo.detname(ret_conv)
-	id_def = panimageinfo.id_def(ret)
 end
 
-	def = id_def
+	def = panimageinfo.id_def(ret)
 
 	if panimageinfo.tiffname ne '' and panimageinfo.savemode  then begin
 	if panimageinfo.outtype eq 0 then $
@@ -133,6 +142,7 @@ PRO PANIMAGE_SEL_Event, Event
 	ret = indgen(85) 
 	title = panimageinfo.title + ' : All read detectors'
 	ret_conv = [ret(0:69)+15,ret(70:84)-70]
+	ret_conv = ret(0:panimageinfo.ndet-1)
 	PANIMAGE_SEL_accept,ret_conv,title,panimageinfo
 	panimageinfo.sel_list = ret_conv 
       END
@@ -154,11 +164,16 @@ PRO PANIMAGE_SEL_Event, Event
 	panimageinfo.tiffname = name
       ret = WIDGET_INFO(panimageinfo.list_wid,/LIST_SELECT)
 	num = WIDGET_INFO(panimageinfo.list_wid,/LIST_NUMBER)
-	if ret(0) lt 0 then ret = indgen(num) 
+	if ret(0) lt 0 then begin
+		ret = indgen(85) 
+		ret_conv = [ret(0:69)+15,ret(70:84)-70]
+		ret_conv = ret(0:panimageinfo.ndet-1)
+	endif else begin
 	ret_conv = intarr(n_elements(ret)) 
 	for i=0,n_elements(ret)-1 do begin
 		if ret(i) lt 70 then ret_conv(i) = ret(i) + 15
 		if ret(i) ge 70 then ret_conv(i) = ret(i) - 70
+	end
 	end
 	title = panimageinfo.title
 	PANIMAGE_SEL_accept,ret_conv,title,panimageinfo
@@ -175,8 +190,17 @@ PRO PANIMAGE_SEL_Event, Event
 	if type eq 0 then $
 		WIDGET_CONTROL,panimageinfo.reverse_id,SENSITIVE=1 $
 	else 	WIDGET_CONTROL,panimageinfo.reverse_id,SENSITIVE=0 
+	case type of
+	0: newname = panimageinfo.path + panimageinfo.class+'tiff'
+	1: newname = panimageinfo.path + panimageinfo.class+'png'
+	2: newname = panimageinfo.path + panimageinfo.class+'pict'
+	3: newname = panimageinfo.path + panimageinfo.class+'xdr'
+	endcase
+	WIDGET_CONTROL,panimageinfo.tiff_id,SET_VALUE = newname
 	END
   'PANIMAGE_TIFFNAME': BEGIN
+	WIDGET_CONTROL,Event.ID,GET_VALUE=name
+	panimageinfo.tiffname = name(0)
       END
   'PANIMAGE_FACTOR': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=factor
@@ -200,7 +224,7 @@ END
 
 
 
-PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,panimageinfo,tiff=tiff
+PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,panimageinfo,tiff=tiff,path=path
 ;+
 ; NAME: 
 ;   panImage_Sel
@@ -222,6 +246,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 ; KEYWORDS:
 ;     TITLE:     Specifies the title of the panImage window
 ;     TIFF:      Specifies the output tiff file name 
+;     PATH:      Specifies the output data path
 ;
 ;-
 
@@ -309,9 +334,17 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 	XSIZE=50, YSIZE=1, VALUE="", $
 	UVALUE = "PANIMAGE_TIFFNAME")
   WIDGET_CONTROL,pan_tiffname,SENSITIVE=0
-  if keyword_set(tiff) then WIDGET_CONTROL,pan_tiffname,SET_VALUE=tiff
 
   WIDGET_CONTROL, PANIMAGE_SEL, /REALIZE
+
+  if keyword_set(path) then panimageinfo.path = path
+  if keyword_set(tiff) then  begin
+	WIDGET_CONTROL,pan_tiffname, SET_VALUE= panimageinfo.path+tiff
+  	panimageinfo.tiffname = tiff
+	l = strpos(tiff,'.',/reverse_search)
+	class = strmid(tiff,0,l+1)
+  	panimageinfo.class = class
+  end
 
   panimageinfo.factor_id = pan_factor
   panimageinfo.tiff_id = pan_tiffname
@@ -430,6 +463,7 @@ update:
 	if n_elements(new_win) then o_win = new_win
 catch,error_status
 if error_status ne 0 then begin
+help,!error_state,/st
        o_win = -1
       if !error_state.name eq  'IDL_M_CNTOPNFIL' then  begin
         r = dialog_message([!error_state.msg,!error_state.sys_msg,$
@@ -480,15 +514,21 @@ new_win = !D.window
 	if keyword_set(TIFF) then begin
 		tvlct,r,g,b,/get
 		tiffname = strtrim(tiff,2)
+catch,error_status
+if error_status ne 0 then begin
+help,!error_state,/st
+wset,old_win
+return
+end
 	 	if keyword_set(reverse) then $
-		write_tiff,tiffname,reverse(TVRD(),2),1,red=r,green=g,blue=b $
+		write_tiff,tiffname,reverse(TVRD(),2),red=r,green=g,blue=b $
 		else write_tiff,tiffname,TVRD(),red=r,green=g,blue=b
 	end
 
 	if keyword_set(PNG) then begin
 		tvlct,r,g,b,/get
 		pngname = strtrim(png,2)
-		write_png,npgname,TVRD(),r,g,b
+		write_png,pngname,TVRD(),r,g,b
 	end
 
         if keyword_set(PICT) then begin
