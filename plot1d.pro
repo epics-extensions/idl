@@ -25,7 +25,7 @@ PRO PLOT1D_PDMENU3_Event, Event
 WIDGET_CONTROL,Event.top,GET_UVALUE=state
 
   CASE Event.Value OF
-  'Create.TIFF': BEGIN
+  'Export.TIFF': BEGIN
 	tvlct,R,G,B,/get
 	cd,current=p
 	p = p + !os.file_sep +'TIFF'+!os.file_sep
@@ -43,7 +43,7 @@ WIDGET_CONTROL,Event.top,GET_UVALUE=state
 	WSET,old_win
 	end
     END
-  'Create.PNG': BEGIN
+  'Export.PNG': BEGIN
 	tvlct,R,G,B,/get
 	cd,current=p
 	p = p + !os.file_sep +'PNG'+!os.file_sep
@@ -61,7 +61,7 @@ WIDGET_CONTROL,Event.top,GET_UVALUE=state
 	WSET,old_win
 	end
     END
-  'Create.PICT': BEGIN
+  'Export.PICT': BEGIN
        tvlct,R,G,B,/get
 	cd,current=p
 	p = p + !os.file_sep +'PICT' +!os.file_sep
@@ -133,6 +133,9 @@ PRO plot1d_dialogs_Event, Event
       END
   'plot1d_linestyle': BEGIN
 	state.linestyle = Event.Index
+      END
+  'plot1d_coloroff': BEGIN
+	if Event.Index then state.autocolor = 0 else state.autocolor = 1
       END
   'plot1d_grid': BEGIN
 	state.grid = Event.Index
@@ -530,9 +533,13 @@ state.list_sel = indgen(n_elements(state.selection))
 		max=10,min=1, xsize=60, $
 		UVALUE='plot1d_thickness')
 
-  linestyle = WIDGET_DROPLIST(BASE2_2,title='Linestyle:',value=['Off','On'], $
+  linestyle = WIDGET_DROPLIST(BASE2_2,title='Style:',value=['Off','On'], $
 		UVALUE='plot1d_linestyle')
   widget_control,linestyle,set_droplist_select=0
+
+  coloroff = WIDGET_DROPLIST(BASE2_2,title='Color:',value=['On','Off'], $
+		UVALUE='plot1d_coloroff')
+  widget_control,coloroff,set_droplist_select=0
 
   gridline = WIDGET_DROPLIST(BASE2_2,title='Grid:',value=['Off','On'], $
 		UVALUE='plot1d_grid')
@@ -812,6 +819,7 @@ endif else begin
 	state.bgcolor = 0
 end
 erase,122  ;,state.bgcolor
+if state.autocolor eq 0 then colorI(*) = state.tcolor
 
 if !d.name eq 'PS' then begin
 	state.tcolor=0
@@ -851,7 +859,9 @@ z = y(*,0)
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
 
 if s(0) eq 1 then begin 
-	OPLOT,x,z, COLOR=colorI(0), thick=thick, psym=psym, linestyle=line
+	color = colorI(0)
+	if state.autocolor eq 0 then color=state.tcolor
+	OPLOT,x,z, COLOR=color, thick=thick, psym=psym, linestyle=line
 end
 
 ; two dim array - multiple curves
@@ -866,7 +876,9 @@ in_symbol(0)=psym
 xt = x
 if state.scatter then xt = x(*,0)
 	; plot 1st line
-	OPLOT,xt,z,COLOR=colorI(0), thick=thick, linestyle=line, psym=psym, $
+	color = colorI(0)
+	if state.autocolor eq 0 then color=state.tcolor
+	OPLOT,xt,z,COLOR=color, thick=thick, linestyle=line, psym=psym, $
 		symsize=state.charsize 
 	for i= 1 ,s(2) - 1 do begin
 		if psym gt 0 then psym = psym+1
@@ -886,7 +898,9 @@ if i eq 2 and psym gt 0 then psym=psym+1
 			psym=7      ; if curve fitting is true use line plot
 		end
 		ii = i mod 16
-		OPLOT,xt,z,COLOR=colorI(ii),linestyle=line mod 6, psym=psym mod 7, $
+	color = colorI(ii)
+	if state.autocolor eq 0 then color=state.tcolor
+		OPLOT,xt,z,COLOR=color,linestyle=line mod 6, psym=psym mod 7, $
 			thick=thick 
 		psym = in_symbol(i)
 ; print,i,psym,cl,line
@@ -942,14 +956,16 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	for i=0,n_elements(pick)-1 do begin
 	real_yl = real_y1 - (i*0.5+1)*real_dy
 
+	line = in_line(i)
 	x=[real_x1,real_xl]
 	y=[real_yl,real_yl]
 	ii = i mod 16
 	color = state.colorI(ii)
+	if state.autocolor eq 0 then color=state.tcolor
 
 	if psym ne 0 then $
-	oplot,x,y,linestyle=line mod 6,color=color,thick=thick
-	oplot,x,y,linestyle=line mod 6,color=color,psym=in_symbol(i),thick=thick
+	OPLOT,x,y,linestyle=line mod 6,color=color,thick=thick
+	OPLOT,x,y,linestyle=line mod 6,color=color,psym=in_symbol(i),thick=thick
 
 	xyouts,real_xr,real_yl, state.legend(pick(i)), color=state.tcolor
 	end
@@ -1042,15 +1058,12 @@ CASE B_ev OF
 	PS_open, 'idl.ps'
 	linestyle = state.linestyle
 	bgrevs = state.bgrevs
-	autocolor = state.autocolor
-;	state.autocolor = 0
 	state.linestyle = 1
 	state.bgrevs = 1
 	plot1d_replot, state
 	PS_close
 	state.linestyle = linestyle 
 	state.bgrevs = bgrevs 
-	state.autocolor = autocolor 
 	PS_print, 'idl.ps'
 	end
 'PLOT1D_PRINT': begin
@@ -1175,7 +1188,7 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;
 ;       XYLEGEND: Set the x,y location of the legend strings, % from the
 ;                 lower left corner from the graph window, default 
-;                 xylegend=[0.75, 0.35].
+;                 xylegend=[0.83, 0.60].
 ;
 ;       COMMENT:  Set this keyword to write any footnotes on the graph.
 ;
@@ -1400,7 +1413,7 @@ state = { $
 	ymin: 0., $
 	ymax: 0., $
 	legendon: 0, $
-	xylegend: [.75,0.35], $
+	xylegend: [.83,0.60], $
 	legend: leg, $
 	curves: curves, $
 	selection: selection, $
@@ -1507,7 +1520,7 @@ id_tlb_psplot = WIDGET_BUTTON(id_tlb_row,VALUE='PS Plot',UVALUE='PLOT1D_PSPLOT')
 
 junk   = { CW_PDMENU_S, flags:0, name:'' }
   MenuDesc256 = [ $
-      { CW_PDMENU_S,       3, 'Create' }, $ ;        0
+      { CW_PDMENU_S,       3, 'Export' }, $ ;        0
         { CW_PDMENU_S,       0, 'TIFF' }, $ ;        1
         { CW_PDMENU_S,       0, 'PNG' }, $ ;        2
         { CW_PDMENU_S,       2, 'PICT' } $  ;      3
