@@ -108,9 +108,9 @@ if !d.name eq 'X' then device,bypass_translation=0,retain=2
 	margin_r : 80, $         ; TV right margin
 	margin_t : 50, $         ; TV top margin
 	margin_b : 50, $         ; TV bottom margin
-	ps_l : 0.2, $		; PS left 
+	ps_l : 0.10, $		; PS left 
 	ps_b : 0.125, $		; PS bottom 
-	ps_r : 0.95, $		; PS right 
+	ps_r : 0.85, $		; PS right 
 	ps_t : 0.875, $		; PS top 
 	x_min	: 0, $		; user set xmin
 	x_max	: 1000, $	; user set xmax
