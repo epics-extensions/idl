@@ -11,9 +11,9 @@ of the 1D drawing area.
 This program provide a ViewData menu which allows the user easily to access 
 the various scan browser sub-programs based on the type of 1D/2D/3D scan picked.
 The ViewData->1D/2D... menu can bring up either W_VIEWSCAN or stand alone
-scan browser (SB). If scan is going on, to avoid the interference of realtime 
-plot, the stand alone SB (scan browser) is brought up. If no scan is going 
-on, the W_VIEWSCAN program is brought up.  
+scan browser (sscan). If scan is going on, to avoid the interference of 
+realtime plot, the stand alone sscan (scan browser) is brought up. If no 
+scan is going on, the W_VIEWSCAN program is brought up.  
 
 For the first time to start scanSee a user should use File->Open... to select
 the input scan file from the appropriate data directory. The input file name is 
@@ -60,10 +60,9 @@ Plot Options Menu
 ViewData Menu
     1D/2D...       - calls 1D/2D W_VIEWSCAN sub-program or SB (scan browser)
     IMAGE2D...     - pass 2D image_array to IMAGE2D program for 2D/3D scan 
-    1D/2D/3D...    - calls stand alone system program SB (scan browser) 
-                     (for 1D/2D/3D scan file)
-    PICK3D...      - calls stand alone system program pick3d 
-		     (target for large dimension 3D scan file)
+    1D OVERLAY...  - calls 1D overlay sub-program for multiple files selected
+    1D CALIBRA...  - calls calibration_factor sub-program for a 1D scan
+    SSCAN(1D/2D/3D)... - calls sub-program SSCAN for a 1D/2D/3D scan file
 
 Print Menu
     Plot        - sends 1D plot to printer
@@ -133,3 +132,31 @@ Images Droplist
         Small    - set pan Image cell size to 60x60 pixels
         Large    - set pan Image cell size to 120x120 pixels
 	Di       - select detector Di image & plot in 200x200 pixels window
+
+Refresh Button 
+    Redraw the 1D plot with predefined line colors.
+
+AutoScan... 
+    This button appears only if the developer version is used, it
+    allows the user to setup few consecutive automatically 1D/2D scans.
+
+IPLOT_1D
+    This button allows the user to access IDL interactive iplot tools.
+    It is not available in IDLVM version for IDL 6.0. It will be working
+    in IDLVM version IDL 6.1.
+
+PS ratio 1,1/2,1/4
+    This option allows the user to scale the default 1D PS script plot
+    with the corresponding factor.
+
+1D: scan1/scanH 
+    This option allows the user to display the scanH 1D data array from 
+    a 2D scan. By default 1D array from the scan1 record is displayed
+    in case the scanH record is defined.
+
+Imin Slider and controls
+    This set widgets allows the user to set the start index of X axis in
+    panimge and image2d subprogram. This feature provides the user with
+    the option of flexiblely  throwing away insignificant initial values 
+    in image display.
+
