@@ -15,9 +15,13 @@ print,!path
 ;
 !QUIET=1
 
+@os.init
+
 ;  assign color
 window,colors=32
 wdelete
+
+device,retain=2
 
 print,'Run ezcaIDL ...'
 .run ezcaIDL
