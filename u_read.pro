@@ -21,13 +21,27 @@
 ;  u_close, unit
 ;
 
+;PRO DebugError
+;help,/struct,!error_state
+;END
+
 FUNCTION u_writePermitted,filename
 ;
 ; check for filename write permission
 ;
+; existed
+	found = findfile(filename)
+	if found(0) ne '' then begin
+	ret= dialog_message(['Do you want to overwrite the existed file : ',$
+		'','     '+filename], $
+			/question)
+	if strupcase(ret) eq 'NO' then return,-1
+	end
+; create new
         CATCH,error_status
-        if error_status eq -171 then begin
-                ret=WIDGET_MESSAGE(!err_string)
+;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
+	if error_status eq -215 or error_status eq -206 then begin
+                ret=WIDGET_MESSAGE(!err_string + string(!err))
                 if n_elements(unit) then u_close,unit
                 return,-1
         end
@@ -67,7 +81,7 @@ PRO u_rewind,unit
 point_lun,unit,0
 END
 
-PRO u_openw,unit,filename,append=append,help=help,XDR=XDR
+PRO u_openw,unit,filename,append=append,help=help,XDR=XDR,ERRCODE
 ;+
 ; NAME:
 ;       U_OPENW
@@ -112,6 +126,16 @@ PRO u_openw,unit,filename,append=append,help=help,XDR=XDR
 ;
 if keyword_set(help) then goto, help1
 if n_elements(filename) eq 0 then filename='data.dat'
+ERRCODE=0
+        CATCH,error_status
+;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
+	if !err eq -215 or !err eq -206 then begin
+                ret=WIDGET_MESSAGE(!err_string + string(!err))
+                if n_elements(unit) then u_close,unit
+		ERRCODE=-99
+                return 
+        end
+
 if keyword_set(XDR) then begin
 	if keyword_set(append) then $
 	openw,/XDR,unit,filename,/GET_LUN,/APPEND else $
@@ -391,7 +415,17 @@ if n_params() lt 3 then begin
 	print,'       ERRCODE    returned code, 0 for success, -99 for failure'
 	return
 	end
+
+CATCH,error_status
+if error_status  eq -229 or error_status eq -219 or error_status eq -184 then begin 
+	str = [ !err_string + string(!err),'', $
+		'Error: unable to read data, wrong type of file opened!!' ]
+	ret=WIDGET_MESSAGE(str)
+	return
+	end
+
 readu,unit,s
+
 if (s(0) gt 1L) then begin	; two dim
 	type = s(3)
 	int = s(4)
@@ -451,15 +485,10 @@ else: begin
 	end
 endcase
 
-	CATCH,error_status
-	if error_status eq -184 then begin
-		ret=WIDGET_MESSAGE('Error: unable to read data, wrong type of file opened!!')
-;		retall
-	return
-	end
 	readu,unit,x
 ERRCODE = 0
 END
+
 
 PRO u_read,unit,x,ERRCODE,help=help
 ;+
@@ -571,18 +600,13 @@ PRO u_bi2xdr,filename,help=help
 
 if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
 
+	found = findfile(filename)
+	if found(0) eq '' then return
+
 	OK_WRITE = u_writePermitted(filename+'.xdr')
 	if OK_WRITE lt 0 then return
 
         id=0
-        CATCH,error_status
-        if error_status eq -206 then begin
-
-                ret=WIDGET_MESSAGE(!err_string)
-                if n_elements(unit) then u_close,unit
-                 retall
-        end
-
         u_openr,unit,filename
         u_openw,unit2,filename+'.xdr',/XDR
 
@@ -594,7 +618,8 @@ if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
         maxno = id
         u_close,unit
         u_close,unit2
-        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+filename+'.xdr"')
+        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
+		filename+'.xdr"')
 
 	return
 

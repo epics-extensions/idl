@@ -16,6 +16,7 @@ if !d.name eq 'X' then begin
                 U_OPENR,unit,filename,/XDR
                 type = 1
         end
+	u_rewind,unit
 end
 if !d.name eq 'WIN' then begin
         U_OPENR,unit,filename,/XDR
@@ -33,6 +34,9 @@ COMMON  MULTI_BLOCK, multi_ids
 fd = findfile(filename)
 IF fd(0) NE '' THEN BEGIN
 
+        openr,1,filename
+        status = FSTAT(1)
+        close,1
         indexfile = filename+'.index'
 
 found = findfile(indexfile)
@@ -43,9 +47,6 @@ if found(0) ne '' then begin
         u_read,unit,maxno
         u_read,unit,array
         u_close,unit
-        openr,1,filename
-        status = FSTAT(1)
-        close,1
 
         if status.size eq fsize(0) then begin
         multi_ids.idx_size = fsize(0)
@@ -56,7 +57,23 @@ if found(0) ne '' then begin
 	open_binary_type,unit,filename,type,multi_ids.pick
 	multi_ids.XDR = type
 	u_close, unit
+	return
+endif else begin
+	; if index file not found then get all the record pointer
+	open_binary_type,unit,filename,type,multi_ids.pick
+	multi_ids.XDR = type
+	id=0
+	multi_ids.idx_fptr = make_array(10000,/long)
+	WHILE NOT EOF(unit) DO BEGIN
+	id = id + 1
+		multiscan_read_record,unit
+		point_lun,-unit,pos
+		multi_ids.idx_fptr(id) = pos
+	END	
+        multi_ids.idx_size = status.size
+	multi_ids.idx_maxno = id
 end
+
 ENDIF ELSE BEGIN
         ret= widget_message('Warning: file "' + filename + '" not found')
 END 
@@ -559,6 +576,8 @@ PRO view1d_overlay,infile, XDR=XDR, GROUP=Group
 ;                       Add the support for XDR data format.
 ;       12-19-97  bkc   Automatic figure out input data format
 ;       01-15-98  bkc   Add the support of range of scans eg n1:n2 or n1-n2
+;       03-24-98  bkc   Allows the startup of view1d_overlay even if the index
+;                       file is not found
 ;-
 COMMON  MULTI_BLOCK, multi_ids
 
