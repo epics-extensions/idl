@@ -268,16 +268,37 @@ PRO plot2d_tvprocess_Event, Event
 	plot2d_state.tvoption = 7
 	plot2d_replot,plot2d_state
 	END
+  'plot2d_tvhelp': BEGIN
+	str = ['       Procedure to Query the Pixel Value', '',$
+		'- Expose the PLOT2D window completely by moving away the', $
+		'    Plot2d_TV_options window', '', $
+		'- Press the "Rdpix" button to start the Query Value Mode', $
+		'    LMB  - click the left mouse within the PLOT2D  image ', $
+		'           updates the new value beside the "Rdpix" button', $
+		'', $
+		'- Click the RMB (right mouse button) within the PLOT2D drawing', $
+                '    area to stop the Query Value Mode']
+	xdisplayfile,text=str,title="HELP on Plot2d_TV_Rdpix"
+        END
   'plot2d_tvrdpix': BEGIN
 	WSET,plot2d_state.win
+	sz = size(plot2d_state.data)
+	dx = float(plot2d_state.range(1)-plot2d_state.range(0))/sz(1)
+	dy = float(plot2d_state.range(3)-plot2d_state.range(2))/sz(2)
 	cursor,x,y,0,/data ;,/device
 	while (!mouse.button ne 4)  DO begin     ; 2 - MMB 4 - RMB
-	cursor,x,y,3,/device
-	print,x,y
-	help,!mouse,/st
+	cursor,x,y,3,/data  ;,/device
+;	help,!mouse,/st
+	i = fix(float(x-plot2d_state.range(0))/dx)
+	j = fix(float(y-plot2d_state.range(2))/dy)
+	if i ge 0 and i lt sz(1) and j ge 0 and j lt sz(2) then begin
+	val = plot2d_state.data(i,j)
+	WIDGET_CONTROL,plot2d_state.rdpix, $
+	   SET_VALUE='Z('+strtrim(i,2)+','+strtrim(j,2)+')='+strtrim(val,2)
+	end
 	end
 	widget_control,Event.top,/clear_events
-print,plot2d_state.win
+	plot2d_replot,plot2d_state
 	END
   'BUTTON137': BEGIN
 	plot2d_state.tvoption = 0
@@ -357,15 +378,21 @@ if XRegistered('plot2d_tvprocess') then return
       UVALUE='BUTTON140', $
       VALUE=' Done ')
 
-;  BASE109 = WIDGET_BASE(BASE75, $
-;      ROW=1, $
-;      FRAME=1, $
-;      MAP=1, $
-;      UVALUE='BASE109')
-;  BUTTON109_1 = WIDGET_BUTTON( BASE109, $
-;      UVALUE='plot2d_tvrdpix', $
-;      VALUE='Rdpix')
+  BASE109 = WIDGET_BASE(BASE75, $
+      ROW=1, $
+      FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE109')
+  BUTTON109_1 = WIDGET_BUTTON( BASE109, $
+      UVALUE='plot2d_tvhelp', $
+      VALUE='H...')
+  BUTTON109_2 = WIDGET_BUTTON( BASE109, $
+      UVALUE='plot2d_tvrdpix', $
+      VALUE='Rdpix')
 
+  RDPIXLABEL = WIDGET_LABEL( BASE109,VALUE='Query Value', $
+      UVALUE='RDPIXLABEL',/dynamic_resize)
+  plot2d_state.rdpix = RDPIXLABEL
 
   BASE88 = WIDGET_BASE(BASE75, $
       ROW=1, $
@@ -1045,6 +1072,8 @@ if left gt 0.4*!d.x_size then left = !d.x_size *.4
 if right gt 0.4*!d.x_size then right = !d.x_size *.4
 if bottom gt 0.4*!d.y_size then bottom = !d.y_size *.4
 if top gt 0.4*!d.y_size then top = !d.y_size *.4
+	
+	plot2d_state.region = [left,bottom,!d.x_size-right,!d.y_size-top]
 
 	width=!d.x_size-left-right
 	height=!d.y_size-top-bottom
@@ -1061,6 +1090,8 @@ CASE plot2d_state.plottype OF
         xrange=[0, dim(0)]
         yrange=[0, dim(1)]
 	end
+
+	plot2d_state.range = [xrange,yrange]
 
 	data = plot2d_state.data
 	if !d.name ne 'PS' then data = CONGRID(plot2d_state.data,width,height)
@@ -1102,8 +1133,13 @@ case plot2d_state.tvoption of
    TVSCL, data>plot2d_state.pixel_min<plot2d_state.pixel_max,left,bottom,xsize=width,ysize=height
    end
 endcase
-endif else TVSCL,data,left,bottom,xsize=width,ysize=height
-
+endif else begin
+	if max(data) eq min(data) then begin
+		temp = !d.table_size*data
+		TV,congrid(temp,width,height),left,bottom
+	endif else $
+	TVSCL,data,left,bottom,xsize=width,ysize=height
+end
         xstyle = 1
         ystyle = 1
         if yrange(0) eq yrange(1) then ystyle = 4
@@ -1124,11 +1160,21 @@ endif else TVSCL,data,left,bottom,xsize=width,ysize=height
 colorbar_data.min = plot2d_state.pixel_min
 colorbar_data.max = plot2d_state.pixel_max
 
+; readjust if vertical colorbar assumed
+if colorbar_data.horiz eq 0 then begin
+	colorbar_data.x = !d.x_size-right*0.75
+	colorbar_data.width = 20
+	colorbar_data.height = (!d.y_size-top-bottom) / 2
+	colorbar_data.y = (!d.y_size - colorbar_data.height)/2
+end
+
+if !d.name eq 'PS' then colorbar_data.width = colorbar_data.width*30
+
 		colorbar,[plot2d_state.pixel_min,plot2d_state.pixel_max], $
 			colorbar_data.width,colorbar_data.height, $
 			 x=colorbar_data.x,y=colorbar_data.y, $
 			horizontal=colorbar_data.horiz, $
-			PSfact=37, reverse=plot2d_state.bgrevs, $
+			PSfact=30, reverse=plot2d_state.bgrevs, $
 			format=colorbar_data.format, $
 			ncap=colorbar_data.nlabel
 		end
@@ -1236,7 +1282,6 @@ end
 END
 
 ;
-; inorder to support TV,SURFACE,CONTOUR, the common block is required
 ;
 PRO Plot2dMAIN13_Event, Event
 WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
@@ -1244,6 +1289,8 @@ WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
 ; if top resize  event plot2d the base widget and redraw its plot;
 IF (Event.id EQ Event.top) THEN BEGIN
         WIDGET_CONTROL,plot2d_state.id_draw, SCR_XSIZE=Event.x, SCR_YSIZE=Event.y
+	plot2d_state.xsize = Event.x
+	plot2d_state.ysize = Event.y
 
         ; if device is X
         if !d.name ne 'PS' then  WSET,plot2d_state.win
@@ -1271,10 +1318,33 @@ ENDIF
       1: plot2d_state.plottype= 1  	;surface
       2: plot2d_state.plottype= 2  	;contour
       3: plot2d_state.plottype= 3  	;shade_surf
-      4: begin
+      4: begin 		;data window
+	im = plot2d_state.data
+	x = plot2d_state.xarr
+	y = plot2d_state.yarr
+	nx = n_elements(x)
+	f1 = '('+ strtrim(nx+1,2)+'G17.7)'
+	openw,1,'plot2d.txt'
+	printf,1,plot2d_state.title
+	  for i=0,nx-1 do begin
+	  lineA = reform(im(i,*))
+	  printf,1,format=f1,x(i),lineA
+	  end
+	close,1
+	xdisplayfile,'plot2d.txt',Group=Event.top
+	cd,current=cpath
+	rename_dialog,cpath,'plot2d.txt','',Group=Event.top
+	end
+;      5: begin
+;	PS_open,'idl.ps',/TV
+;	plot2d_replot,plot2d_state
+;	PS_close
+;	PS_print,'idl.ps'
+;	end
+      5: begin
 	st = ['You may find a HTML document about plot2d at :', $
 		'',$
-		'   http://www.aps.anl.gov/~bccha/plot2d.html'$
+		'   http://www.aps.anl.gov/~cha/plot2d.html'$
 		]
 	xdisplayfile,'',text=st,title='Help ...PLOT2D'
 	return
@@ -1286,8 +1356,10 @@ ENDIF
   'BGROUP6': BEGIN
       CASE Event.Value OF
       0: begin
-	PS_open,'idl.ps'
-	plot2d_replot, plot2d_state
+	WSET,plot2d_state.win
+	arr = TVRD()
+	PS_open,'idl.ps',/TV
+	TV,arr
 	PS_close
 	PS_print, 'idl.ps'
 	end
@@ -1382,7 +1454,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;               default to 'Plot2d'.
 ;
 ;       WIDTH:  The initial window width at the creation time, which
-;               default to 600 pixel.
+;               default to 500 pixel.
 ; 
 ;       HEIGHT: The initial window height at the creation time, which
 ;               default to 450 pixel.
@@ -1446,6 +1518,11 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;                       get the colorbar redraw correctly
 ;                       Add classname for automatically generate output file
 ;       12-05-2000      Replace save 2D data as GIF by XDR option
+;       02-15-2001      Add Data button to support 'plot2d.txt' report option
+;       03-09-2001      Add xsize,ysize keyword to plot2d
+;                       Default backgrand color change to white
+;                       Initial colorbar use relative location
+;                       PS use the TVRD exactly as shown on screen
 ;-
 COMMON COLORBAR, colorbar_data
 
@@ -1465,12 +1542,12 @@ wti='PLOT2D (R1.0b)'		; window title
 cl = !d.table_size
 timestamp=''
 xloc = 0.01
-yloc = 0.98
+yloc = 0.97
 
 if keyword_set(width) then xsize=width
-if xsize lt 350 then xsize=350
+if xsize lt 50 then xsize=350
 if keyword_set(height) then ysize=height
-if ysize lt 350 then ysize=350
+if ysize lt 50 then ysize=350
 
 if keyword_set(rxloc) then xloc = float(rxloc)
 if keyword_set(ryloc) then yloc = float(ryloc)
@@ -1495,8 +1572,11 @@ if keyword_set(classname) then class = classname
 
   plot2d_state = { $
 	data:data, $
+	rdpix : 0L, $
 	max:max(data), $
 	min:min(data), $
+	region: [50,50,350,350], $          ; image origin
+	range: [0,sz(1),0,sz(2)], $         
 	x:1, $
 	y:1, $
 	xarr:xarray, $
@@ -1528,7 +1608,7 @@ if keyword_set(classname) then class = classname
 	ymargin2:5, $
 	bar: 1, $
 	stamp: 0, $
-	bgrevs: 0, $
+	bgrevs: 1, $
 	bgcolor: 0, $		   ; background color
 	tcolor: !d.table_size-1, $     ; text color
 	timestamp: timestamp, $
@@ -1611,6 +1691,8 @@ if keyword_set(comment) then begin
     'SURFACE', $
     'CONTOUR', $
     'SHADE_SURF',$
+    'DATA...',$
+;    'PS Plot',$
 	'HELP ...']
   BGROUP2 = CW_BGROUP( BASE1, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
