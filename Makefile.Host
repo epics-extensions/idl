@@ -15,6 +15,7 @@ SCRIPTS = ezcaidl_setup setup_ezcaIDL ezcaidl_startup.pro \
 	catcher_v1.pro catcher_v1.init catcher toImage.pro toimage \
 	catcher.exe2.idl51 catcher.exe2.idl52 catcher2 \
 	catcher.exe2.idl53 catcher3 \
+	catcher.exe2.idl54 catcher4 \
 	scan1d__define.pro go_scan1d obj_clean.pro \
 	scan2d__define.pro scan2d_overlay.pro go_scan2d \
 	viewer dcviewer.pro viewer_startup.pro \
@@ -25,8 +26,8 @@ SCRIPTS = ezcaidl_setup setup_ezcaIDL ezcaidl_startup.pro \
 	DC.init DC.pro vw2d.init vw2d.pro view3d_slicer.pro \
 	readScan.pro read_scan.pro \
 	multiroi_pick.pro SB scanSee__define.pro.R2 \
-	scanSee2 DC.init.R2.0 DC.pro.R2.0 vw2d.init.R2.0 vw2d.pro.R2.0 \
-	readScan.pro.R2 read_scan.pro.R2 \
+	scanSee2 DC.init.R2.1 DC.pro.R2.1 vw2d.init.R2.1 vw2d.pro.R2.1 \
+	readScan.pro.R2 read_scan.pro.R2 xdr_open.pro \
  	view3d_2d.pro panimage.pro dc2ins_2d dc2ins_1d
 
 include $(TOP)/config/RULES.Host
