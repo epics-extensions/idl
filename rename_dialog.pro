@@ -31,6 +31,17 @@ COMMON RENAME_BLOCK,rename_ids
 		return
 	end
 	newname = pathdir(0)+strtrim(file2(0),2)
+
+found = findfile(pathdir(0)+'*',count=ct)
+if ct eq 0 then begin
+	r = strpos(pathdir(0),!os.file_sep,2,/reverse_search,/reverse_offset)
+        sdir = strmid(pathdir(0),r+1,strlen(pathdir(0))-r-2)
+	r = dialog_message(['Directory: '+pathdir(0),' does not exist yet!!!', $
+		'You have to first create the sub-directory :','',sdir], $
+		/Info,title='Error in Rename')
+	newname = dialog_pickfile(path=pathdir(0),get_path=p,file=file2(0),$
+		title='Please create the '+sdir+' sub-directory')
+end
 	found = findfile(newname)
 	if found(0) ne '' then begin
 		st =[ 'Filename: ','', newname,'','already exists!', $
@@ -38,7 +49,8 @@ COMMON RENAME_BLOCK,rename_ids
 		res = dialog_message(st,/question)
 		if res eq 'No' then return	
 	end
-	spawn,!os.mv + ' '+ oldname + ' '+newname +' &'
+	spawn,[!os.mv, oldname, newname],/noshell
+
 	WIDGET_CONTROL,Event.Top,/DESTROY
       END
   'RENAME_DIALOGCANCEL': BEGIN
