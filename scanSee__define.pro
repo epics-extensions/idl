@@ -538,7 +538,7 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,pict=pict
 
 	nw = self.win
 	if keyword_set(SEL) then $
-	panImage_sel,data,id_def,new_win=nw,title=title else $
+	panImage_sel,data,id_def,new_win=nw,tiff=tiff,title=title else $
 	panImage,data,id_def,new_win=nw,tiff=tiff,reverse=reverse,pict=pict,xdr=xdr,title=title
 	self.win = nw
 
