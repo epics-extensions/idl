@@ -19,7 +19,7 @@ SCRIPT1 = ezcaidl_startup.pro \
 	dcviewer.pro viewer_startup.pro \
 	view1d.pro view1d.init view1d_overlay.pro \
 	view2d.pro view2d.init cursor62_caput.pro makeIDLRef.pro \
-	dc2hdf.pro image.pro \
+	dc2hdf.pro image.pro image2d.pro \
 	hdfb.pro NX__define.pro nexus_scan.pro \
 	DC.init DC.pro vw2d.init vw2d.pro vw2d.bm view3d_slicer.pro \
 	readScan.pro read_scan.pro \
