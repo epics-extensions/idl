@@ -75,7 +75,7 @@ w_plotspec_id = { $
 	opened: 0, $
 	realtime: 1, $
 	itime: 1, $
-	dtime: 1., $   ; 0.2 periodical time interval, $
+	dtime: .2, $   ; periodical realtime interval, $
         xcord: 0, $
 	seqno: 0, $
 	statistic: 0, $
