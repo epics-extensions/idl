@@ -845,6 +845,7 @@ CASE B_ev OF
 	close,1
 	xdisplayfile,'plot1d.txt',title='Listing of plot1d.txt',Group=Ev.top
 	cd,current=cpath
+	if xregistered('plot1d') then $
 	rename_dialog,cpath,'plot1d.txt','',Group=Ev.top
 	end
 'PLOT1D_REPORT': begin
@@ -884,7 +885,7 @@ ENDCASE
 
 	catch,error_status
 	if error_status then return
-	WIDGET_CONTROL,ev.Top,SET_UVALUE=state
+	WIDGET_CONTROL,ev.Top,SET_UVALUE=state,BAD_ID=bad
 
 END
 
