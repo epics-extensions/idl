@@ -9,12 +9,7 @@ endif
 
 setenv IDL_DEVICE X
 
-if $IDL_DIR == '/usr/local/rsi/idl_4' then
-	source /usr/local/rsi/idl/bin/idl_setup
-else
-	source /usr/local/rsi/idl_5/bin/idl_setup
-endif
-
+source /usr/local/rsi/idl_5/bin/idl_setup
 
 setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
 
@@ -24,7 +19,9 @@ if ( "$1" !=  "" ) then
 endif
 
 echo ".run view1d" >! go_viewer
+echo ".run view1d_overlay" >>! go_viewer
 echo ".run view2d" >>! go_viewer
+echo ".run ez_fit" >>! go_viewer
 echo ".run dcviewer" >>! go_viewer
 echo "$xdr" >>! go_viewer
 idl go_viewer
