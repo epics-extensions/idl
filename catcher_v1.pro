@@ -1,4 +1,4 @@
-; $Id: catcher_v1.pro,v 1.47 2001/07/02 20:49:17 cha Exp $
+; $Id: catcher_v1.pro,v 1.48 2001/08/22 15:20:28 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -653,7 +653,9 @@ COMMON GOTO_BLOCK,goto_n,goto_pv,goto_val
 	if id ne 0 then w_warningtext,'Error: in Goto setting !',40,3 
 END
 
-PRO xycoord_setmotor,val
+PRO xycoord_setmotor,val,scanpv=scanpv
+; if scanpv set then the current scan record PV names setting is used otherwise
+; the read in positioner PV name is used 
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
@@ -674,28 +676,32 @@ COMMON GOTO_BLOCK,goto_n,goto_pv,goto_val
 	if x_axis eq 1 then f1 = val / num_pts
 
 	goto_val = make_array(1,4,/double)
-	goto_pv = make_array(4,/string)
+	goto_pv = w_plotspec_id.goto_pv  ;make_array(4,/string)
+
+	if keyword_set(SCANPV) then begin
+        piname=scanData.pv+['.P1PV','.P2PV','.P3PV','.P4PV']
+	ln = cagetArray(piname, goto_pv, /string)
+	if ln lt 0 then return 
+	end
+
 	k=0
-        piname=['.P1PV','.P2PV','.P3PV','.P4PV']
 	for i=0,3 do begin
-		s1 = ''
-		ln = cagetArray(scanData.pv+piname(i), s1, /string)
-		if ln eq 0 then begin
+		s1 = goto_pv(i)
 		if strtrim(s1,2) ne '' then begin
 		xmax = MAX(scanData.pa(0:num_pts,i))
 		xmin = MIN(scanData.pa(0:num_pts,i))
 		goto_val(0,i) = xmin + f1 * (xmax - xmin)	
-		goto_pv(i) = s1
 		k=k+1
 		end
-		end
 	end
+
 	if k lt 1 then return      ; none defined
 	goto_n = k
 	st = 'Set New Positions:'
 	for i=0,goto_n-1 do begin
 	st = [st,goto_pv(i)+ ' --> ' + string(goto_val(0,i))]	
 	end
+
 	w_warningtext,st,45,5,'Set Positioner Locations',title='GoTo ...',quest='GoTo'
 	return
 	
@@ -801,7 +807,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
-; $Id: catcher_v1.pro,v 1.47 2001/07/02 20:49:17 cha Exp $
+; $Id: catcher_v1.pro,v 1.48 2001/08/22 15:20:28 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -4789,7 +4795,7 @@ if strlen(names(i)) gt 1 then begin
 		strput,v,names(i),0
 	vd = strcompress(v + '.DESC',/remove_all)
 	pd=''
-	ln = caget(vd,pd)
+	ln = cagetArray(vd,pd)
 	descs(i) = pd
         if strtrim(descs(i),2) eq '-1' then descs(i)=''
         end
@@ -6998,6 +7004,11 @@ if n_elements(y) gt 1 then begin
 
 w_plotspec_id.seqno = fix(y(0))
 w_viewscan_id.seqno = fix(y(0))
+
+        for i=0,3 do begin
+        if strtrim(x_names(i),2) ne '' then $
+        w_plotspec_id.goto_pv(i) = strmid(x_names(i),0,strpos(x_names(i),'.'))
+        end
 
 	u_read,unit,n,errcode
 if errcode lt 0 then goto,TRY_PLOT
@@ -10245,6 +10256,8 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;                        Replace GIF by XDR saving options in view2d, plot2d
 ;       06-30-00 bkc   - R2.2.2c9
 ;                        Fix xtitle with positioner number
+;       08-01-00 bkc     Modified the PV goto dialog according to the readin 
+;			 positioner values
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
