@@ -6,8 +6,8 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-device,pseudo=8
-;device,decomposed=0		; 24 bit
+;device,pseudo=8
+;device,decomposed=1		; 24 bit
 
 ;  assign color
 
@@ -15,6 +15,7 @@ private_table = fix(getenv('IDL_NCOLORS'))
 if private_table gt 0 and private_table lt 256 then window,colors = private_table,/pixmap
 if !d.window ne -1 then wdelete
 
+!path= getenv('EPICS_EXTENSIONS')+'/bin/solaris:'+!path
 !path= getenv('EPICS_EXTENSIONS')+'/idllib:'+!path
 private = getenv('EPICS_EXTENSIONS_PVT')
 print,'private ',private
