@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.33 2001/04/04 22:23:32 cha Exp $
+; $Id: view2d.pro,v 1.34 2001/06/19 19:07:19 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2823,6 +2823,39 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
     END
 
+  'File.Change X Axis.P2': BEGIN
+	if catch2d_file.maxno eq 0 then return
+	WIDGET_CONTROL,/HOURGLASS
+	file = catch2d_file.path + catch2d_file.name
+	v2 = obj_new('scan2d',file=file)
+	v2->newPos,2,outfile='tmp.image'
+	obj_destroy,v2
+        viewscanimage_init, 'tmp.image'
+    END
+  'File.Change X Axis.P3': BEGIN
+	if catch2d_file.maxno eq 0 then return
+	WIDGET_CONTROL,/HOURGLASS
+	file = catch2d_file.path + catch2d_file.name
+	v2 = obj_new('scan2d',file=file)
+	v2->newPos,3,outfile='tmp.image'
+	obj_destroy,v2
+        viewscanimage_init, 'tmp.image'
+    END
+  'File.Change X Axis.P4': BEGIN
+	if catch2d_file.maxno eq 0 then return
+	WIDGET_CONTROL,/HOURGLASS
+	file = catch2d_file.path + catch2d_file.name
+	v2 = obj_new('scan2d',file=file)
+	v2->newPos,4,outfile='tmp.image'
+	obj_destroy,v2
+        viewscanimage_init, 'tmp.image'
+    END
+  'File.Change X Axis.P1': BEGIN
+	if catch2d_file.maxno eq 0 then return
+	file = catch2d_file.path + catch2d_file.name
+        viewscanimage_init, file
+    END
+
   'File.Save Image for AIM': BEGIN
 	ncol = catch2d_file.width
 	nrow = catch2d_file.height
@@ -3494,6 +3527,10 @@ PRO view2d, GROUP=Group, file=file, XDR=XDR,CA=CA
 ;       12-05-00 bkc  Release R2.3h+
 ;                     Delete GIF, add XDR option save image as XDR data
 ;                     Modify plot2d save in XDR too
+;       06-13-01 bkc  Release R2.4
+;                     Add the option of plot against to P2,P3,P4 X axis
+;                     Add re-assign dnames to dcviewer driver
+;                     Read user preferred detector names from '.tmpName'
 ;-
 ;
 @os.init
@@ -3505,7 +3542,7 @@ if XRegistered('main13_2') ne 0  then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VIEW2D (R2.3h+)'
+  version = 'VIEW2D (R2.4)'
 
   main13_2 = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -3526,9 +3563,15 @@ if XRegistered('main13_2') ne 0  then return
       TITLE='menu base', $
       UVALUE='BASE190')
 
+
   MenuDesc907 = [ $
       { CW_PDMENU_S,       3, 'File' }, $ ;        0
         { CW_PDMENU_S,       0, 'Open ...' }, $ ;        1
+        { CW_PDMENU_S,       1, 'Change X Axis' }, $ ;        2
+          { CW_PDMENU_S,       0, 'P2' }, $ ;        3
+          { CW_PDMENU_S,       0, 'P3' }, $ ;        4
+          { CW_PDMENU_S,       0, 'P4' }, $ ;        5
+          { CW_PDMENU_S,       2, 'P1' }, $  ;      6
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as R-TIFF' }, $ ;        2
@@ -3635,7 +3678,7 @@ if XRegistered('main13_2') ne 0  then return
 
   BASE186 = WIDGET_BASE(main13_2, $
       ROW=1, $
-      MAP=1, $
+      MAP=1, /scroll, $
       TITLE='Detector btns', $
       UVALUE='BASE186')
   Btns_detector = [ $
@@ -3655,6 +3698,14 @@ if XRegistered('main13_2') ne 0  then return
     '14', $
     '15' $
          ]
+
+  found = findfile('.tmpName',count=ct)
+  if ct gt 0 then begin
+	xdr_open,unit,'.tmpName'
+	xdr_read,unit,dnames
+	xdr_close,unit
+  end
+  Btns_detector = dnames[0:14]
   IMAGE186 = CW_BGROUP( BASE186, Btns_detector, $
       ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
       UVALUE='IMAGE186')
