@@ -115,10 +115,11 @@ PRO scan2d::NewPos,pos_id, outfile=outfile
 	v1 = obj_new('scan1d',file=file1)
 
 	if obj_valid(v1) eq 0 then begin
-	str = ['Usage: v2->newPos, v1, pos_id, outfile="new.image"', $
+	str = ['Usage: v2->newPos, pos_id, outfile="new.image"', $
 		'where', $
 		'V2 must be an "scan2d" object', $
-		'V1 must be an "scan1d" object']
+		'pos_id  specifies position #', $
+		'** 1D scan file not found **']
 	r = dialog_message(str,/error)
 
 		return
@@ -146,11 +147,16 @@ PRO scan2d::NewPos,pos_id, outfile=outfile
 	; output new image file
 	sz = size(pa)
 	if sz(0) eq 1 then pos_id = 1
-	if sz(0) eq 2 and pos_id gt sz(2) then pos_id = sz(2)
-	xlabel = x_descs(pos_id-1) +'(' + x_engus(pos_id-1) +')'
+	if sz(0) eq 2 and pos_id gt sz(2) then begin
+		x = indgen(sz(1))
+		xlabel = 'P'+strtrim(pos_id,2)
+	endif else begin
+		xlabel = x_descs(pos_id-1) +'(' + x_engus(pos_id-1) +')'
+		x = pa(*,pos_id-1)
+	end
+	pvs(*,3) = 0 
 	pvs(0,3) = byte(xlabel) 
 
-	x = pa(*,pos_id-1)
 	u_write,unit2,pvs
 	u_write,unit2,nos
 	u_write,unit2,x
@@ -161,6 +167,7 @@ PRO scan2d::NewPos,pos_id, outfile=outfile
 	u_close,unit2
 	obj_destroy,v1
 
+	u_close,unit
 	if keyword_set(outfile) then return
 
 	str = !os.mv + ' ' + nfile +' '+self.path
@@ -216,8 +223,6 @@ scanno = self.scanno_current
 
 	self->Images,scanno,image_array,def,vmax,vmin,zdesc=zdesc,panimage=panimage,print=print
 
-help,zdesc
-print,zdesc
 	if n_elements(lineno) eq 0 then lineno=1
 	if lineno gt self.height then begin
 		r = dialog_message(['v->ascii1d, lineno', $
