@@ -140,7 +140,11 @@ if error_status ne 0 then begin
 	return
 end
 	if strlen(line) gt 0 then begin
+	if xcol lt 0 then begin
+	if nline eq 0 then x = indgen(lines)
+	endif else begin
 	if nline eq 0 then x = float(res(xcol)) else x = [x,res(xcol)]
+	end
 	rarray(*,nline) = float(res(start_col:end_col-1))
 	nline = nline+1
 	end
@@ -273,11 +277,11 @@ COMMON W_READASCII_BLOCK,readascii_info
 		ezfitData.J_index=0
 		ezfitDaTA.I_index=0
 	if ezfitData.dim eq 1 then begin
-		ezfitData.im = y
+		*ezfitData.im = y
                 ezfit_init1d,x,y
 	endif else begin
 		image = rarray
-		ezfitData.im = rarray
+		*ezfitData.im = rarray
                 ezfit_init2D,x,y,rarray
 	end
 
@@ -319,12 +323,12 @@ COMMON W_READASCII_BLOCK,readascii_info
 	'1D/2D         - Droplist to treat the data read in as 1D/2D data array', $
 	'ASCII...      - Use Xdisplayfile to display the content of ascii file', $
 	'Y Axis Line # - Specify the line # containing Y coordinates for 2D data ', $
-	'                default to 3 for 2D data, -1 if no Y value present ', $
+	'                default to 3 for 2D data,set to -1 if no Y value present ', $
 	'Start Line    - Specify the start line # to begin with, default 0', $
 	'Total Lines   - Specify the total lines be be read, default all', $
 	'Comment Char  - Specify the char the comment line to begin with, default ";"', $
 	'X Axis Column # - Specify the column # containing X coordinates', $
-	'                  default 0', $
+	'                  default 0, set to -1 if no X value present', $
 	'Start Column  - Specify the start column # to begin with', $
 	'                default 1 for 1D, default 2 tor 2D', $
 	'Total Columns - Specify the total columns be be read, default all', $
