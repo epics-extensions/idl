@@ -84,3 +84,33 @@ PRO catch1d_newIndexFile,file,array,XDR=XDR,print=print,TV=TV,header=header,nowr
         print,filename+'.index'
 
 END
+
+
+PRO readfixindex,indexfile,fsize,maxno,array
+; The fixed index file on WIN system will be save in XDR format
+; this routine especially written for readin the fixed index file for WIN system
+;
+	if !d.name ne 'WIN' then return
+
+	found = findfile(indexfile,count=ct)
+	if ct eq 0 then return
+
+	t = lonarr(5)
+	openr,unit1,indexfile,/get_lun,/XDR 
+	point_lun,unit1,0
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 7 then fname=''
+	readu,unit1,fname
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 3 then fsize=0L 
+	readu,unit1,fsize
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 2 then maxno=0 
+	readu,unit1,maxno
+	readu,unit1,t
+	if t(2) eq 3 then array = make_array(t(1),/long)
+	readu,unit1,array
+	free_lun,unit1
+	close,unit1
+
+END
