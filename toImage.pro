@@ -46,6 +46,7 @@ if y_seqno lt 0 then return
 	height = scanData.image_height * scanData.image
 
 	old_win = !D.window
+if old_win le 0 then old_win = widget_ids.plot_area
 	new_win = old_win - 1 
 	if y_seqno eq 0 then begin
 		window,new_win, xsize = 8*width, ysize=2*height, title='2D_Images'
@@ -117,7 +118,7 @@ END
 ; extract 2D data from 1D file 
 ; scan_read_extract,startno=31,endno=109,infile='/home/sricat/CHA/2idd/cancer21.scans',/outfile
 ;
-PRO scan_read_extract,startno=startno,endno=endno,infile=infile,outfile=outfile,view=view,y_pv=y_pv,new=new,XDR=XDR
+PRO scan_read_extract,startno=startno,endno=endno,infile=infile,outfile=outfile,view=view,y_pv=y_pv,new=new,XDR=XDR,MERGE=MERGE
 ;+
 ; NAME:
 ;       SCAN_READ_EXTRACT
@@ -216,6 +217,8 @@ if keyword_set(infile) and keyword_set(startno) and keyword_set(endno) then begi
 
 if keyword_set(y_pv) then scanData.y_pv = y_pv
 
+combine = keyword_set(MERGE)
+
 ; read in  index file
 
 	catch1d_readFileIndex,infile
@@ -234,8 +237,10 @@ if keyword_set(y_pv) then scanData.y_pv = y_pv
 newpos:
 	point_lun,w_viewscan_id.unit, w_viewscan_id.fptr(startno-1)
 	scan_read_record,unit,version,pv,num_pts,FA,x,y,n,ze
-;	print,'w_plotspec_id.seqno, refno,y_seqno,scanno_2d,y_scan,y_req_npts,y_act_npts,y_value'
-;	print,y
+if scanData.debug eq 1 then begin
+print,'w_plotspec_id.seqno, refno,y_seqno,scanno_2d,y_scan,y_req_npts,y_act_npts,y_value'
+print,y
+end
 	; adjust startno endno
 	if (endno - startno) gt y(5) then endno = startno + y(5)-1
 	if y(4) eq 0 and y(2) eq 0 then begin
@@ -263,6 +268,16 @@ newpos:
 		  if keyword_set(view) then scan_read, unit, id, id+1 else $
 		  scan_read, unit, id, 0 
 		  if scanData.y_scan eq 0 and scanData.y_seqno eq 0 then goto,new2dscan 
+
+;
+; fix the problem of 2D images due to breakdown of 2D image for unknow reason 
+;  purpose here is to fix 2 images of 2D scan into 1 image 
+;
+if combine eq 1 then begin
+scanData.y_seqno = i
+if scanData.debug eq 1 then $ 
+print,w_viewscan_id.seqno,scanData.y_value,scanData.y_seqno, scanData.y_value
+end
 		  catch1d_fill_2D_image
 		  pyarray(i) = scanData.y_value
 		end
@@ -270,15 +285,17 @@ new2dscan:
 		u_close, unit
 	endno = startno+i-1
 
+scanData.scanno = endno
+
 		if keyword_set(outfile) then begin
 			if keyword_set(new) then begin
 			if keyword_set(XDR) then $
-			catch1d_extdata_mode_write_image,outfile , /XDR else $
-			catch1d_extdata_mode_write_image,outfile 
+			catch1d_extdata_mode_write_image,outfile,combine , /XDR else $
+			catch1d_extdata_mode_write_image,outfile,combine 
 			endif else begin 
 			if keyword_set(XDR) then $
-			catch1d_extdata_mode_write_image,infile, /XDR else $
-			catch1d_extdata_mode_write_image,infile
+			catch1d_extdata_mode_write_image,infile,combine, /XDR else $
+			catch1d_extdata_mode_write_image,infile,combine
 			end
 		end
 
@@ -288,7 +305,7 @@ new2dscan:
 	end	
 	 
 endif else begin
-	print,'Usage: scan_read_extract,startno=startno,endno=endno,infile=infile [,outfile=outfile] [,new=new] [,view=view] [,y_pv=y_pv]
+	print,'Usage: scan_read_extract,startno=startno,endno=endno,infile=infile [,outfile=outfile] [,new=new] [,view=view] [,y_pv=y_pv] [,/XDR, /MERGE]
 end
 
 	st = [  '2D scan seqno #  : '+string(fix(y(3))), $
@@ -301,7 +318,7 @@ end
 END
 
 
-PRO catch1d_extdata_mode_write_image,infile,xdr=xdr
+PRO catch1d_extdata_mode_write_image,infile,combine,xdr=xdr
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
@@ -372,14 +389,20 @@ for i=0,14 do begin
 
 	u_write,unit,pvs
 
-if scanData.debug eq 1 then begin
+;if scanData.debug eq 1 then begin
 print,'2D Scan # =',scanData.scanno_2d, ' Scan # =',scanData.scanno
 print,'    width =',scanData.req_npts, ' height =', $
 	scanData.y_seqno, ' Detector # =',i
-end
+;end
 
+;
+; check for construct normal 2D images or combine two 2D images into one
+;
 	x = [scanData.scanno, scanData.req_npts, scanData.y_seqno+1, i, $
-		scanData.scanno_2d, scanData.y_req_npts]
+		scanData.scanno_2d, scanData.y_req_npts] 
+;	if combine eq 1 then $
+;	x = [scanData.scanno-1, scanData.req_npts, scanData.y_seqno+1, i, $
+;		scanData.scanno_2d-1, scanData.y_req_npts]
 
 	u_write,unit,x
 
@@ -433,7 +456,7 @@ COMMON TOIMAGE_BLOCK,widget_ids
 	open_binary_type,unit,F,type, widget_ids.binary_type
 	widget_ids.XDR = type
 	u_close,unit
-	catcher_v1,data=F,config='catch1d.config',GROUP=Event.Top
+	catcher_v1,data=F,config='catch1d.config',/viewonly,GROUP=Event.Top
 		
 END
 
@@ -477,7 +500,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	widget_ids.XDR = type
 	u_close,unit
 	WIDGET_CONTROL,/HOURGLASS
-	catcher_v1,data=infile(0),config='catch1d.config', GROUP=Event.top
+	catcher_v1,data=infile(0),config='catch1d.config',/viewonly, GROUP=Event.top
       END
   'TOIMAGE_OUTFILE': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=outfile
@@ -490,6 +513,8 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
   'TOIMAGE_START': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=i
 	widget_ids.start = i
+	WIDGET_CONTROL,widget_ids.new_image,SET_DROPLIST_SELECT=0
+	widget_ids.new = 0
       END
   'TOIMAGE_END': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=i
@@ -497,6 +522,9 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
       END
   'TOIMAGE_NEW': BEGIN
 	widget_ids.new= Event.Index  
+      END
+  'TOIMAGE_MERGE': BEGIN
+	widget_ids.merge= Event.Index  
       END
 
   'TOIMAGE_ACCEPT': BEGIN
@@ -517,24 +545,59 @@ if XRegistered('w_viewscan') ne 0 then WIDGET_CONTROL,w_viewscan_ids.base,/DESTR
       Print, 'Event for Start #', widget_ids.start
       Print, 'Event for End #', widget_ids.last
       
+if widget_ids.merge eq 0 then begin
 	if widget_ids.new eq 0 then $
 	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
 		infile=widget_ids.in, XDR=widget_ids.XDR
        
-	if widget_ids.new eq 1 then $
-	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
-		infile=widget_ids.in, /outfile, XDR=widget_ids.XDR
+;	if widget_ids.new eq 1 then $
+;	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
+;		infile=widget_ids.in, /outfile, XDR=widget_ids.XDR
 
-	if widget_ids.new eq 2 then begin 
+	if widget_ids.new gt 0 then begin 
 	if strlen(strtrim(widget_ids.out , 2)) eq 0 then begin
-		res = WIDGET_MESSAGE('Out Image File must be provided !')
-		return
+	        filenamepath,widget_ids.in,F,P
+		widget_ids.out = 'fix'+ F + '.' + $
+			strtrim(widget_ids.start,2) + '_'+ $
+			strtrim(widget_ids.last,2)
+		WIDGET_CONTROL,widget_ids.outfile,SET_VALUE=widget_ids.out
+		cd,current=P
+		res = dialog_message(['Save images in : ', $
+			P+'/'+widget_ids.out],/Question,/DEFAULT_NO)
+		if res eq 'No' then return
 		end 
 	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
 		infile=widget_ids.in, outfile=widget_ids.out, /new, $
 		y_pv = widget_ids.y_pv, XDR=widget_ids.XDR
 
 	end
+endif else begin
+	if widget_ids.new eq 0 then $
+	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
+		infile=widget_ids.in, XDR=widget_ids.XDR,/MERGE
+       
+;	if widget_ids.new eq 1 then $
+;	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
+;		infile=widget_ids.in, /outfile, XDR=widget_ids.XDR,/MERGE
+
+	if widget_ids.new gt 0 then begin 
+	if strlen(strtrim(widget_ids.out , 2)) eq 0 then begin
+	        filenamepath,widget_ids.in,F,P
+		widget_ids.out = 'fix'+ F + '.' + $
+			strtrim(widget_ids.start,2) + '_'+ $
+			strtrim(widget_ids.last,2)
+		WIDGET_CONTROL,widget_ids.outfile,SET_VALUE=widget_ids.out
+		cd,current=P
+		res = dialog_message(['Save images in : ', $
+			P+'/'+widget_ids.out],/Question,/DEFAULT_NO)
+		if res eq 'No' then return
+		end 
+	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
+		infile=widget_ids.in, outfile=widget_ids.out, /new, $
+		y_pv = widget_ids.y_pv, XDR=widget_ids.XDR,/MERGE
+
+	end
+end
       END
   'TOIMAGE_CANCEL': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY
@@ -600,6 +663,7 @@ PRO toImage, GROUP=Group,viewonly=viewonly
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, 08-06-97.
 ;      05-15-1998  bkc  Automatically check the binary data type selected
+;      06-02-1998  bkc  Add the support of merging of two 2D images due to error;                       at 2D scan
 ;
 ;-
 COMMON TOIMAGE_BLOCK,widget_ids
@@ -612,7 +676,7 @@ COMMON TOIMAGE_BLOCK,widget_ids
   MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
       MAP=1, $
-      TITLE='toImage', $
+      TITLE='toImage (R1.0) ', $
       UVALUE='MAIN13')
 
   BASE2 = WIDGET_BASE(MAIN13, $
@@ -700,6 +764,10 @@ new_image= WIDGET_DROPLIST(BASE8, VALUE=BTNS913, $
         UVALUE='TOIMAGE_NEW',TITLE='Images :')
   WIDGET_CONTROL,new_image,set_droplist_select = 0
 
+mergebtn = ['No','Yes'] 
+merge_image= WIDGET_DROPLIST(BASE8, VALUE=mergebtn, $
+        UVALUE='TOIMAGE_MERGE',TITLE='Merge :')
+  WIDGET_CONTROL,merge_image,set_droplist_select = 0
 
   FieldVal548 = [ $
     '' ]
@@ -728,11 +796,13 @@ new_image= WIDGET_DROPLIST(BASE8, VALUE=BTNS913, $
 	start: 0, $
 	last: 0, $
 	new: 0, $
+	merge: 0, $
 	XDR: 0, $
 	binary_type: toimage_xdr, $
 	infile: INFILENAME, $
 	outfile: OUTFILENAME, $
 	y_pvname: Y_PVNAME, $
+	new_image: new_image, $
 	startno: STARTNO, $
 	endno: ENDNO $
 	}
