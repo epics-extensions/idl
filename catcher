@@ -25,6 +25,24 @@ if -e catch1d.config then
 	cp catch1d.config catch1d.config.tmp
 endif
 
+if `isainfo -b` == 64 then
+	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl54"
+	if ${?EPICS_EXTENSIONS_PVT} == 1 then
+	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl54"
+	endif
+	if -e catcher.exe2.idl54 then
+	set exe = "-rt=catcher.exe2.idl54"
+	endif
+else
+	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl53"
+	if ${?EPICS_EXTENSIONS_PVT} == 1 then
+	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl53"
+	endif
+	if -e catcher.exe2.idl53 then
+	set exe = "-rt=catcher.exe2.idl53"
+	endif
+endif 
+
 while ( "$1" !=  "" )
 if ( "$1" == "-n" | "$1" == "-N" | "$1" == "-Nosave" ) then 
 	set w = 'nosave=1'
@@ -112,23 +130,9 @@ echo $xyz >>! go_catcher
 
 if `isainfo -b` == 64 then
 	source /usr/local/rsi/idl_5.4/bin/idl_setup
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl54"
-	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl54"
-	endif
-	if -e catcher.exe2.idl54 then
-	set exe = "-rt=catcher.exe2.idl54"
-	endif
 	idl -32 $exe go_catcher
 else
 	source /usr/local/rsi/idl_5.3/bin/idl_setup
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl53"
-	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl53"
-	endif
-	if -e catcher.exe2.idl53 then
-	set exe = "-rt=catcher.exe2.idl53"
-	endif
 	idl $exe go_catcher
 endif
 	rm go_catcher
