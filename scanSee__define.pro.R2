@@ -1583,9 +1583,7 @@ FUNCTION scanSee::Init,file=file,help=help
 
 	id_def = *(*gD).id_def
 	ndet = n_elements(id_def(*,0))
-	for i=4,ndet-1 do if id_def(i,0) gt 0 then ndim=i
-
-	self.def = id_def(4:ndim+4-1,0)
+	self.def = id_def(4:ndet-1,0)
 
 	cd,current=home
 	self.home = home
