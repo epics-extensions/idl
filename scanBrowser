@@ -20,7 +20,7 @@ echo ".run scanSee__define" >>! go_viewer
 echo ".run scansee_browser" >>! go_viewer
 echo "scansee_browser" >>! go_viewer
 if `isainfo -b` == 64 then
-        source /usr/local/rsi/idl_5.4/bin/idl_setup
+        source /usr/local/rsi/idl_5.5/bin/idl_setup
         idl -32 go_viewer
 else
         source /usr/local/rsi/idl_5.3/bin/idl_setup
