@@ -1,5 +1,16 @@
 #!/bin/csh -f
-setenv IDL_STARTUP /usr/local/epics/extensions/bin/$HOST_ARCH/viewer_startup.pro
+if ${?EPICS_EXTENSIONS} == 0 then 
+	setenv EPICS_EXTENSIONS /usr/local/epics/extensions/bin/$HOST_ARCH
+endif
+set LOC_PVT=$EPICS_EXTENSIONS/bin/$HOST_ARCH
+if ${?EPICS_EXTENSIONS_PVT} then 
+	set LOC_PVT=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
+endif
+source $LOC_PVT/idluserdir_setup
+cd $IDL_USERDIR
+
+setenv IDL_STARTUP $LOC_PVT/viewer_startup.pro
+
 echo ".run PS_open" >! go_DChdf
 echo ".run dc2hdf" >>! go_DChdf
 echo "catcher2hdf" >>! go_DChdf

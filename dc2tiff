@@ -6,6 +6,8 @@ set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
 if ${?EPICS_EXTENSIONS_PVT} == 1 then 
 	set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif
+source $PVT_LOC/idluserdir_setup
+cd $IDL_USERDIR
 
 setenv IDL_DEVICE X
 
