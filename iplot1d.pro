@@ -10,9 +10,20 @@ PRO IPLOT1D_DRV_Event, Event
 
   'IPLOT1D_BGROUP': BEGIN
       END
+  'IPLOT1D_CLEAR': BEGIN
+	widget_control,iplot1d_data.pickwid,get_value=id
+	id(*) = 0
+	widget_control,iplot1d_data.pickwid,set_value=id
+      END
+  'IPLOT1D_ALL': BEGIN
+	widget_control,iplot1d_data.pickwid,get_value=id
+	id(*) = 1
+	widget_control,iplot1d_data.pickwid,set_value=id
+      END
   'IPLOT1D_DONE': BEGIN
 	widget_control,iplot1d_data.pickwid,get_value=id
 	pickid = where(id gt 0)
+	if pickid(0) ge 0 then begin
 	ndim = n_elements(pickid)
 	x = *iplot1d_data.xarr
 	no = n_elements(x)
@@ -24,6 +35,7 @@ PRO IPLOT1D_DRV_Event, Event
 	end
 	sdname = dname(pickid)
 	iplot1d,x,y,dname=sdname,title=iplot1d_data.title
+	end
       END
   'IPLOT1D_CANCEl': BEGIN
 	widget_control,Event.top,/destroy
@@ -37,7 +49,7 @@ END
 
 
 
-PRO IPLOT1D_DRV,xarr,yarr,detname=detname,sel=sel,title=title, GROUP=Group
+PRO IPLOT1D_DRV,xarr,yarr,detname=detname,sel=sel,title=title,xtitle=xtitle, GROUP=Group
 
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
@@ -55,10 +67,12 @@ PRO IPLOT1D_DRV,xarr,yarr,detname=detname,sel=sel,title=title, GROUP=Group
 
   dname = dname(0:ndim-1)
   if keyword_set(detname) then dname=detname
+  wintitle='IPLOT1D_DRV'
+  if keyword_set(title) then wintitle=title
   
   if keyword_set(title) eq 0 then title='IPLOT1D_DRV'
   IPLOT1D_DRV = WIDGET_BASE(GROUP_LEADER=Group, $
-      ROW=1, title=title, $
+      ROW=1, title=wintitle, $
       MAP=1, $
       UVALUE='IPLOT1D_DRV')
 
@@ -85,6 +99,14 @@ PRO IPLOT1D_DRV,xarr,yarr,detname=detname,sel=sel,title=title, GROUP=Group
       MAP=1, $
       UVALUE='BASE6')
 
+  BUTTON5 = WIDGET_BUTTON( BASE6, $
+      UVALUE='IPLOT1D_CLEAR', $
+      VALUE='Clear')
+
+  BUTTON6 = WIDGET_BUTTON( BASE6, $
+      UVALUE='IPLOT1D_ALL', $
+      VALUE=' All ')
+
   BUTTON7 = WIDGET_BUTTON( BASE6, $
       UVALUE='IPLOT1D_DONE', $
       VALUE='Accept')
@@ -94,12 +116,14 @@ PRO IPLOT1D_DRV,xarr,yarr,detname=detname,sel=sel,title=title, GROUP=Group
       VALUE='Cancel')
 
   iplot1d_data = { $
-	title: title, $
+	title: '', $
 	dname : dname, $
 	xarr : ptr_new(/allocate_heap), $
 	yarr : ptr_new(/allocate_heap), $
 	pickwid : BGROUP3, $
 	pickid : intarr(ndim) }
+
+  if keyword_set(xtitle) then iplot1d_data.title = xtitle
 
   *iplot1d_data.xarr = xarr
   *iplot1d_data.yarr = yarr
@@ -115,7 +139,7 @@ END
 PRO iplot1d,x,y,dname=dname,title=title,xtitle=xtitle
  
 if keyword_set(title) eq 0 then title='IPLOT_1D'
-if keyword_set(xtitle) eq 0 then xtitle = 'Xtitle'
+if keyword_set(xtitle) eq 0 then xtitle = ''
 if n_params() eq 0 then return
 if n_params() eq 1 then begin
 	sz = size(x)
