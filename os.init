@@ -47,4 +47,4 @@ defsysv,'!os',os_system
 !QUIET = 1
 
 ; loadct,39
-device,decompose=0
+if !d.n_colors gt !d.table_size then device,decompose=0	
