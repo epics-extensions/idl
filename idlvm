@@ -1,7 +1,6 @@
 #!/usr/bin/csh
 
-# use IDL 6.0 virtual machine and solaris-sparc
-source /usr/local/rsi/idl_6.0/bin/idl_setup
+source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 
 set ARCH=$EPICS_HOST_ARCH
 if $ARCH == "" then
@@ -18,6 +17,7 @@ if ($1 == "scanSee" || $1 == "catcher" || $1 == "sscan" || $1 == "mca") then
    idl -32 -vm=$LOC/bin/$ARCH/$1.sav
    exit
 endif
+
 
 if $1 == "" then
    idl -32 -vm
