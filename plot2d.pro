@@ -1178,8 +1178,9 @@ CASE plot2d_state.plottype OF
 
 	data = plot2d_state.data
 	if !d.name ne 'PS' then data = CONGRID(plot2d_state.data,width,height)
-
+if plot2d_state.pixel_max ne plot2d_state.pixel_min then begin
 	newdata = float(data - plot2d_state.min)/(plot2d_state.pixel_max - plot2d_state.min)*plot2d_state.table_size
+endif else newdata=data
 newdata = fix(newdata)
 
 if plot2d_state.tvoption gt 0 then begin
@@ -1298,7 +1299,9 @@ if !d.name eq 'PS' then colorbar_data.width = colorbar_data.width*30
 	end
     3: begin
 	if plot2d_state.shade eq 1 then begin
-	shades = (plot2d_state.data-minvl)/(maxvl-minvl)*plot2d_state.table_size
+	if maxvl ne minvl then $
+	shades = (plot2d_state.data-minvl)/(maxvl-minvl)*plot2d_state.table_size else $
+	shades = plot2d_state.data * plot2d_state.table_size
 	shade_surf,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
 		xlog=plot2d_state.xlog,ylog=plot2d_state.ylog, $
 		charsize=plot2d_state.charsize, $
