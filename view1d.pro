@@ -1,4 +1,4 @@
-; $Id: view1d.pro,v 1.17 2000/02/28 20:26:32 cha Exp $
+; $Id: view1d.pro,v 1.18 2000/03/03 21:01:20 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -172,7 +172,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.17 2000/02/28 20:26:32 cha Exp $
+; $Id: view1d.pro,v 1.18 2000/03/03 21:01:20 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1671,7 +1671,10 @@ PRO STATISTICMENU_Event, Event
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
 COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array , view1d_plotspec_id, view1d_plotspec_limits, view1d_plotspec_saved
+COMMON V1D_realtime_block, view1d_realtime_id, realtime_retval, realtime_pvnames
 COMMON w_statistic_block,w_statistic_ids
+
+WIDGET_CONTROL, view1d_widget_ids.wf_select, GET_VALUE = wf_sel
 
   CASE Event.Value OF
 
@@ -1703,12 +1706,70 @@ COMMON w_statistic_block,w_statistic_ids
         end
     END
 
+  'Statistic.FWHM on Y.All...': BEGIN
+	view1d_plotspec_id.statistic = 5
+	num_pts = V1D_scanData.act_npts-1
+	VX=V1D_scanData.pa(0:num_pts,0)
+	for i=0,14 do begin
+	IF (view1d_realtime_id.def(4+i) gt 0) THEN begin
+	VY=V1D_scanData.da(0:num_pts,i)
+	title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(V1D_scanData.scanno,2)
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+		title=title,group=Event.top
+	end
+	end
+    END
+  'Statistic.FWHM on Y.One...': BEGIN
+	view1d_plotspec_id.statistic = 5
+	num_pts = V1D_scanData.act_npts-1
+	VX=V1D_scanData.pa(0:num_pts,0)
+	for i=0,14 do begin
+	IF (wf_sel(i) EQ 1 and view1d_realtime_id.def(4+i) gt 0) THEN begin
+	VY=V1D_scanData.da(0:num_pts,i)
+	title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(V1D_scanData.scanno,2)
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+		report='fwhm.rpt',title=title,group=Event.top
+	return
+	end
+	end
+    END
+
+  'Statistic.FWHM on DY/DX.All...': BEGIN
+	view1d_plotspec_id.statistic = 6
+	num_pts = V1D_scanData.act_npts-1
+	VX=V1D_scanData.pa(0:num_pts,0)
+	for i=0,14 do begin
+	IF (view1d_realtime_id.def(4+i) gt 0) THEN begin
+	VY=V1D_scanData.da(0:num_pts,i)
+	VY = slope(VX,VY)
+	title='FWHM of DY/DX of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(V1D_scanData.scanno,2)
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+		title=title,group=Event.top
+	end
+	end
+    END
+  'Statistic.FWHM on DY/DX.One...': BEGIN
+	view1d_plotspec_id.statistic = 6
+	num_pts = V1D_scanData.act_npts-1
+	VX=V1D_scanData.pa(0:num_pts,0)
+	for i=0,14 do begin
+	IF (wf_sel(i) EQ 1 and view1d_realtime_id.def(4+i) gt 0) THEN begin
+	VY=V1D_scanData.da(0:num_pts,i)
+	VY = slope(VX,VY)
+	title='FWHM of DY/DX of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(V1D_scanData.scanno,2)
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+	report='fwhm.rpt',title=title,group=Event.top
+	return
+	end
+	end
+    END
+
   'Statistic.Average/Deviation ...': BEGIN
-        view1d_plotspec_id.statistic = 3
-        view1d_UPDATE_PLOT,1,st
-        if n_elements(st) gt 0 then begin
-        if view1d_widget_ids.statistic eq 0 then $
-        	w_statistic,st,34,25,'Statistic',GROUP=Event.top $ 
+	view1d_plotspec_id.statistic = 3
+	view1d_UPDATE_PLOT,1,st
+	if n_elements(st) gt 0 then begin
+	if view1d_widget_ids.statistic eq 0 then $
+		w_statistic,st,34,25,'Statistic',GROUP=Event.top $ 
 	else WIDGET_CONTROL,view1d_widget_ids.statistic,SET_VALUE=st 
 	end
     END
@@ -2932,7 +2993,7 @@ COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
 	found = findfile(filename)
 if found(0) ne '' then  begin	
 	view1d_summary_id.file = filename
-	view1d_checkOutPath
+;	view1d_checkOutPath
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
 	view1d_summary_id.outfile=strcompress(file(0),/remove_all)
 
@@ -3087,7 +3148,7 @@ COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
 	view1d_summary_generate_report
       END
   'summary_view': BEGIN
-	view1d_checkOutPath
+;	view1d_checkOutPath
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
 	filename= view1d_summary_id.outpath + strcompress(file(0),/remove_all)
 
@@ -3101,7 +3162,7 @@ COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
 	END
 
   'summary_print': BEGIN
-	view1d_checkOutPath
+;	view1d_checkOutPath
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
 	view1d_summary_id.outfile = strcompress(file(0),/remove_all)
 	filename= view1d_summary_id.outpath + view1d_summary_id.outfile
@@ -3176,10 +3237,9 @@ COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
                 outpath = dir
         	return
         end
-	openw,1,V1D_scanData.trashcan+'.ascii'
-	printf,1,'; '
+	openw,1,outpath+!os.file_sep+'.tmp'
 	close,1
-	spawn,!os.rm + ' '+V1D_scanData.trashcan+'.ascii'
+;	spawn,!os.rm + ' '+outpath+!os.file_sep+'.tmp'
 END
 
 PRO view1d_summary_setup, GROUP=Group
@@ -3337,7 +3397,7 @@ END
 @u_read.pro
 @PS_open.pro
 @cw_term.pro
-
+@fit_statistic.pro
 
 
 PRO read_desc_engu,labels
@@ -4242,6 +4302,7 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;                       Remove the automatically plot against step # if a constant
 ;                       X vector was found.
 ;                       ASCII files will be saved under ASCII sub-directory
+;                       Add submenu FWHM on Y and DY/DX to Statistic menu
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -4264,7 +4325,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='VIEW1D (R1.5e)', $          ;   VIEW1D release
+      TITLE='VIEW1D (R1.5e+)', $          ;   VIEW1D release
       UVALUE='VIEW1D_1')
 
   BASE68 = WIDGET_BASE(VIEW1D_1, $
@@ -4330,6 +4391,12 @@ endif else $
         { CW_PDMENU_S,       0, 'None' }, $ ;        1
         { CW_PDMENU_S,       0, 'Peak/Centroid/FWHM on plot' }, $ ;        1
         { CW_PDMENU_S,       0, 'Peak/Centroid/FWHM ...' }, $ ;        1
+        { CW_PDMENU_S,       1, 'FWHM on Y' }, $ ;        1
+        { CW_PDMENU_S,       0, 'One...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'All...' }, $ ;        1
+        { CW_PDMENU_S,       1, 'FWHM on DY/DX' }, $ ;        1
+        { CW_PDMENU_S,       0, 'One...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'All...' }, $ ;        1
         { CW_PDMENU_S,       2, 'Average/Deviation ...' } $ ;        1
   ]
 
