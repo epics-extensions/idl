@@ -1231,10 +1231,9 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	   end
 	5: begin
 		PLOT2D, newimage,id, $
-                        xarr=xarr(0:image2d_state.width-1), $
-                        yarr=yarr(0:image2d_state.height-1), $
+			xarr=xarr,yarr=yarr, $
                         comment=[header_note1,header_note], $
-			wtitle='Vw2d(Plot2d)', $
+			wtitle='IMAGE2D(Plot2d)', $
                         xtitle=xtitle, ytitle=ytitle, $
                         title=title
 ;		XSURFACE, newimage, id
@@ -2072,6 +2071,9 @@ PRO IMAGE2D_BASE_Event, Event
 	  x0 = xarr(Ix)
 	  y0 = yarr(Iy)
 	  z = image(Ix,Iy)
+	  x0 = xarr(Ix+image2d_state.view_option.x_min)
+	  y0 = yarr(Iy+image2d_state.view_option.y_min)
+	  z = image(Ix+image2d_state.view_option.x_min,Iy+image2d_state.view_option.y_min)
 	  WIDGET_CONTROL,widget_ids.x_cursor,SET_VALUE=x0
 	  WIDGET_CONTROL,widget_ids.y_cursor,SET_VALUE=y0
 	  WIDGET_CONTROL,widget_ids.z_cursor,SET_VALUE='Z: '+string(z) + $
@@ -2107,9 +2109,16 @@ PRO IMAGE2D_BASE_Event, Event
 
         my_box_cursor, x0, y0, nx,ny, /INIT
 
+
+	if x0 lt view_option.margin_l then x0 = view_option.margin_l
+	if x0 gt (!d.x_size-view_option.margin_r) then x0 = !d.x_size-view_option.margin_r-nx
+	if y0 lt view_option.margin_B THen y0 = view_option.margin_b
+	if y0 gt (!d.y_size-view_option.margin_t) then y0 = !d.y_size-view_option.margin_t-ny
+
         if view_option.user eq 1 then begin
                 x_min = float(x0-view_option.margin_l) / $
                         image2d_state.x_mag + view_option.x_min
+		if x_min lt 0 then x_min = 0
         x_min = fix(x_min)
                 x_max = float(x0+nx-view_option.margin_l) / $
                         image2d_state.x_mag + view_option.x_min
@@ -2130,8 +2139,18 @@ PRO IMAGE2D_BASE_Event, Event
 		if x_min gt 0 then x_min = x_max-1 else x_max = x_min+1
 	end
 
-xarr = *image2d_state.xarr
-yarr = *image2d_state.yarr
+	if x_max lt x_min then begin
+	temp = x_min
+	x_min = x_max
+	x_max = temp
+	end
+	if y_max lt y_min then begin
+	temp = y_min
+	y_min = y_max
+	y_max = temp
+	end
+
+
 openw,1,'box.txt'
 printf,1,'lower_left',xarr(x_min),yarr(y_min)
 printf,1,'upper_right',xarr(x_max),yarr(y_max)
