@@ -442,7 +442,21 @@ the end of each 1D scan based on it's own color scheme.
 Two sizes of image selection  Small/Large. It defaults to small.
 
 
+		  	     REDRAW PLOT AREA
+
+Refresh/replot the drawing area in case of drawing area color is not
+correct for pseudocolor devices. Starting from catcher R3.1 the X resource
+for IDL should be set to 24 bits TrueColor device.
+
+
 			
+		  	    PS RATIO SELECTION 
+
+Droplist for selection the PostScript plot size ratio. Default is 1.
+This option let user scale down the PS plot output.
+
+
+
 			    SCAN ... DIALOG
 
 The scan setup dialog allows the user to setup which scan record will
