@@ -212,6 +212,8 @@ PRO VIEWDRV3D_Event, Event
       END
   'VIEW3D_AXIS': BEGIN
 	state.rank = Event.Value
+	if state.kindex ge state.dim(state.rank) then  $
+		state.kindex = state.dim(state.rank)-1
 	list = state.list(0:state.dim(state.rank)-1)
 	WIDGET_CONTROL,state.listWid,SET_VALUE=list
 	WIDGET_CONTROL,state.listWid,SET_LIST_SELECT=state.kindex
