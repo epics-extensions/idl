@@ -1135,7 +1135,7 @@ END
 
 PRO plot2d_replot, plot2d_state
 COMMON COLORBAR, colorbar_data
-device,decomposed=0
+if !d.n_colors gt !d.table_size then device,decomposed=0
 
 if plot2d_state.bgrevs then begin
 	plot2d_state.tcolor = 0
@@ -1194,10 +1194,10 @@ if top gt 0.4*!d.y_size then top = !d.y_size *.4
 	width=!d.x_size-left-right
 	height=!d.y_size-top-bottom
 
-;        xrange=[plot2d_state.xarr(0), plot2d_state.xarr(dim(0)-1)]
-;        yrange=[plot2d_state.yarr(0), plot2d_state.yarr(dim(1)-1)]
-	xrange = [min(plot2d_state.xarr),max(plot2d_state.xarr)]
-	yrange = [min(plot2d_state.yarr),max(plot2d_state.yarr)]
+        xrange=[plot2d_state.xarr(0), plot2d_state.xarr(dim(0)-1)]
+        yrange=[plot2d_state.yarr(0), plot2d_state.yarr(dim(1)-1)]
+;	xrange = [min(plot2d_state.xarr),max(plot2d_state.xarr)]
+;	yrange = [min(plot2d_state.yarr),max(plot2d_state.yarr)]
 	
 	; check for equal aspect ratio
 	if plot2d_state.eqaspr then begin
