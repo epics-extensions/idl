@@ -66,6 +66,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	yzline_z :  [0.,0.],$
 	yzline_yo : [0.,0.],$
 	yzline_zo : [0.,0.],$
+	s_wid   : -1, $       ; window id for saved pixmap
 	xarr	: make_array(512), $
 	yarr	: make_array(512), $
 	image	: make_array(512,512,/float) $
@@ -81,8 +82,10 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	x_max	: 100, $	; user set xmax
 	y_min	: 0, $		; user set ymin
 	y_max	: 100, $	; user set ymax
-	x	: 0, $
-	y	: 0, $
+	d_wid   : -1, $         ; image window id
+	s_wid   : -1, $         ; pixmap window id
+	x	: 0, $		; device cursor x
+	y	: 0, $		; device cursor y
 	z	: 0., $
 	z_max	: 0. $
 	}
