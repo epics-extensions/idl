@@ -1060,22 +1060,10 @@ ENDIF
   'BGROUP6': BEGIN
       CASE Event.Value OF
       0: begin
-	old_device = !d.name
-	 set_plot,'PS'
-        !P.FONT=-1     ; maintain consistent labelling across all IDL devices
-        device,/Courier,/Bold, /color, bits=8
-        plot2d_replot, plot2d_state
-        !P.FONT=-1
-        device,/close
-	if old_device eq 'WIN' then begin
-		str = !os.prt + ' idl.ps ' + !os.printer 
-	endif else begin
-		str = 'lpr idl.ps'
-		if !os.printer ne '' then str = 'lpr -P'+!os.printer+ ' idl.ps'
-	end
-	spawn, str
-        print, str
-        set_plot,old_device   ; 'X'
+	PS_open,'idl.ps'
+	plot2d_replot, plot2d_state
+	PS_close
+	PS_print, 'idl.ps'
 	end
       1: begin
 	PS_printer
@@ -1419,5 +1407,5 @@ if keyword_set(comment) then begin
 
   WIDGET_CONTROL, Plot2dMAIN13, SET_UVALUE=plot2d_state
 
-  XMANAGER, 'Plot2dMAIN13', Plot2dMAIN13,/NO_BLOCK
+  XMANAGER, 'Plot2dMAIN13', Plot2dMAIN13 ; ,/NO_BLOCK
 END
