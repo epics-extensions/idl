@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: xdisplayfile.pro,v 1.5 2002/08/09 19:38:34 cha Exp $
+; $Id: xdisplayfile.pro,v 1.6 2003/10/29 23:58:53 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -120,15 +120,16 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
   endif else begin
 
     y=10000
-    if OS_SYSTEM.os_family eq 'unix' then begin
-	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+;    if OS_SYSTEM.os_family eq 'unix' then begin
+;	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+	WC,FILENAME,y
 
 	lines=long(y(0))
 	if lines eq 0 then begin
 	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
 	return
 	end
-    end
+;    end
 
 	  a = strarr(y(0))				;Maximum # of lines
 	  i = 0L
