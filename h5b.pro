@@ -62,7 +62,17 @@ PRO h5b_SDS_multi1d,h5b_sdsState,seq=seq,data=data,dname=dname,echo=echo
 	pda = h5d_read(did)
 	h5d_close,did
 	sz = size(pda)
+	if sz(0) ne 1 then begin
+		h5f_close,fid
+		r = dialog_message('First # is not a 1D array!',/error) 
+		return	
+	end
 	if sz(0) eq 1 then begin
+	if sz(2) ge 6 then begin
+		h5f_close,fid
+		r = dialog_message('First # is invalid TYPE of 1D array!',/error) 
+		return	
+	end
 	data = make_array(sz(1),no)
 	data(*,0) = pda(*)
 	for i=1,no-1 do begin
@@ -87,6 +97,7 @@ PRO h5b_SDS_multi2d,h5b_sdsState,seq=seq,data=data,dname=dname,echo=echo
 	file = h5b_sdsState.file
 	fid = h5f_open(file)
 	no = n_elements(seq)
+id_def=intarr(no)
 	did = h5d_open(fid,dname(0))	
 	pda = h5d_read(did)
 	h5d_close,did
@@ -94,18 +105,30 @@ PRO h5b_SDS_multi2d,h5b_sdsState,seq=seq,data=data,dname=dname,echo=echo
 	if sz(0) eq 2 then begin
 	data = make_array(sz(1),sz(2),no)
 	data(*,*,0) = pda(*,*)
+	id_def(0) = 1
+	numd=0
 	for i=1,no-1 do begin
 	did = h5d_open(fid,dname(i))	
 	pda = h5d_read(did)
 	h5d_close,did
 	s = size(pda)
-	if s(0) eq 2 and s(1) eq sz(1) and s(2) eq sz(2) then $
-	data(*,*,i) = pda(*,*)
+	if s(0) eq 2 and s(1) eq sz(1) and s(2) eq sz(2) then begin
+		data(*,*,i) = pda(*,*)
+		id_def(i) = 1
+		numd = i
+		end
 	end
+	endif else begin
+		h5f_close,fid
+		r = dialog_message('First number entered is not a 2D array!',/error)
+		return
 	end
 	h5f_close,fid
 
-	if keyword_set(echo) then panimage,data
+	detnm='#'+strtrim(indgen(numd+1),2)
+	data = data(*,*,0:numd)
+	dname = dname(0:numd)
+	if keyword_set(echo) then panimage,data,id_def,detnm=detnm
 END
 
 PRO H5B_SDSMULTI_Event, Event
@@ -835,9 +858,9 @@ PRO h5b_readArray,name,file=file,data=data,readonly=readonly,xarr=xarr,yarr=yarr
 END
 
 PRO h5b_pickhelp
-   str=["Plot Image with Palette... - this button will accept the 2D 'DATASET'", $
-	"                  and the 'PALETTE' selected from the two pick lists",$
-	"                  and pass to he", $ "plot2d_image program.", $
+   str=["Plot Image with Palette... - this button will accept the 2D array from the 'DATASET'", $
+	"                  list and the color table from the 'PALETTE' list", $
+	"                  and pass to the plot2d_image program.", $
 	"? Struct Data... - info on selected group/data structure", $
 	"               when thers is a problem of reading hdf5 dataset always", $
 	"               use this button to query group/data structure", $
@@ -847,7 +870,7 @@ PRO h5b_pickhelp
 	"Close    -  close this group dataset selection dialog", $
 	"Pick DATASET - a scrollable list of names found in a group", $
 	"Pick PALETTE - a sub-list from pick DATASET list which contains the", $
-	"               palette sting", $
+	"               palette string", $
 	"Attributes Info - list of attribute info found for the picked DATASET", $
 	'']
 	r = dialog_message(str,/info,title='H5B_PICKHELP') 
@@ -1116,7 +1139,7 @@ PRO H5B_Event, Event
 	xloadct
 	END
   'H5B_HELP': BEGIN
-	st=['Open... - run h5_browser with file dialog selection', $
+	st=['Open...     - run h5_browser with file selection dialog', $
 	'Color...    - run xloadct to let user to load desired IDL default color tables', $
 	'DATASET...  - use h5b_dialogPick to find groups and DATASETs list', $
 	'SDS...      - get SDS dataset dialog for the opened file', $
