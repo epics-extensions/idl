@@ -1,11 +1,15 @@
 #!/bin/csh -f
 set HOST_ARCH = `/usr/local/epics/startup/HostArch`
 
+set LOC_PVT=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
+
 if ${?EPICS_EXTENSIONS_PVT} == 1 then
-        source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/ezcaidl_setup
-else
-        source $EPICS_EXTENSIONS/bin/$HOST_ARCH/ezcaidl_setup
+	set LOC_PVT=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif
+
+source $LOC_PVT/ezcaidl_setup
+source $LOC_PVT/idluserdir_setup
+cd $IDL_USERDIR
 
 # source /usr/local/rsi/idl_5/bin/idl_setup
 

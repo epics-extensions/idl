@@ -8,6 +8,8 @@ if ${?EPICS_EXTENSIONS_PVT} == 1 then
 endif
 
 #source /usr/local/rsi/idl_5.1/bin/idl_setup
+source $PVT_LOC/idluserdir_setup
+cd $IDL_USERDIR
 
 setenv IDL_DEVICE X
 

@@ -7,19 +7,13 @@ if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif
 
-
 setenv IDL_DEVICE X
 
-if ${?EPICS_EXTENSIONS_PVT} == 1 then
-        source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/ezcaidl_setup
-else
-        source $EPICS_EXTENSIONS/bin/$HOST_ARCH/ezcaidl_setup
-endif
+source $PVT_LOC/ezcaidl_setup
+source $PVT_LOC/idluserdir_setup
+cd ${IDL_USERDIR}
 
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/scanSee.exe2.idl53"
-	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/scanSee.exe2.idl53"
-	endif
+	set exe = "-rt=$PVT_LOC/scanSee.exe2.idl53"
 	if -e scanSee.exe2.idl53 then
 	set exe = "scanSee.exe2.idl53"
 	endif
