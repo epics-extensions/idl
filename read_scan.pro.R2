@@ -4,38 +4,38 @@ FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 PRO rix2DC,Scan,gData
 ON_ERROR,0 ;,1
  
-        *gData.scanno  = *Scan.scanno
-        *gData.dim     = *Scan.dim
-        *gData.num_pts = *Scan.npts
-        *gData.cpt     = *Scan.cpt
-        *gData.id_def  = *Scan.id_def
-        *gData.pv      = *Scan.pv
-        *gData.labels  = *Scan.labels
+  *gData.scanno  = *Scan.scanno
+  *gData.dim     = *Scan.dim
+  *gData.num_pts = *Scan.npts
+  *gData.cpt     = *Scan.cpt
+  *gData.id_def  = *Scan.id_def
+  *gData.pv      = *Scan.pv
+  *gData.labels  = *Scan.labels
 
-	if *Scan.dim eq 1 then begin
-          *gData.pa1D  = *(*Scan.pa)[0]
-          *gData.da1D  = *(*Scan.da)[0]
+	IF *Scan.dim EQ 1 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[0]
+    *gData.da1D  = *(*Scan.da)[0]
 	  *gData.pa2D  = ptr_new(/ALLOCATE_HEAP)
 	  *gData.da2D  = ptr_new(/ALLOCATE_HEAP)
 	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
 	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
-	end
-	if *Scan.dim eq 2 then begin
-          *gData.pa1D    = *(*Scan.pa)[1]
-          *gData.da1D    = *(*Scan.da)[1]
-          *gData.pa2D  = *(*Scan.pa)[0]
-          *gData.da2D  = *(*Scan.da)[0]
+	ENDIF
+	IF *Scan.dim EQ 2 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[1]
+    *gData.da1D  = *(*Scan.da)[1]
+    *gData.pa2D  = *(*Scan.pa)[0]
+    *gData.da2D  = *(*Scan.da)[0]
 	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
 	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
-        end
-	if *Scan.dim eq 3 then begin
-          *gData.pa1D    = *(*Scan.pa)[2]
-          *gData.da1D    = *(*Scan.da)[2]
-          *gData.pa2D  = *(*Scan.pa)[1]
-          *gData.da2D  = *(*Scan.da)[1]
-          *gData.pa3D  = *(*Scan.pa)[0]
-          *gData.da3D  = *(*Scan.da)[0]
-	end
+  ENDIF
+	IF *Scan.dim EQ 3 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[2]
+    *gData.da1D  = *(*Scan.da)[2]
+    *gData.pa2D  = *(*Scan.pa)[1]
+    *gData.da2D  = *(*Scan.da)[1]
+    *gData.pa3D  = *(*Scan.pa)[0]
+    *gData.da3D  = *(*Scan.da)[0]
+	ENDIF
  
   ptr_free,Scan.scanno
   ptr_free,Scan.dim
@@ -47,40 +47,35 @@ ON_ERROR,0 ;,1
   ptr_free,Scan.pa
   ptr_free,Scan.da
 
+;  Scan = 0
+;  heap_gc
 
 END
 	
-FUNCTION nbElem,dim,vector
+
+FUNCTION nbElem,dim,vectOR
   res=1L
-  for i=0,dim-1 do begin
-     res= res*vector[i]
-  end
-  return, res
+  FOR i=0,dim-1 DO BEGIN
+     res= res*vectOR[i]
+  ENDFOR
+  RETURN, res
 END
 
-FUNCTION read_scan_rest,lun,Scan,dim,offset,DetMax,dump
+
+FUNCTION read_scan_rest,lun,Scan,dim,offset,DetMax,dump,pickDet=pickDet
 ON_IOERROR, BAD	
 
   rank=0
   npts=0
   cpt=0
   readu,lun,rank,npts,cpt
-if rank gt (*Scan.dim) then begin
-	print, ' WARNING:'
-	print, ' ====> dim, rank:',(*Scan.dim),rank
-	print, ' Bad data detected: rank become bigger'
-	print, ' The read is terminated automatically'
-	return,1    			
-end
-
-  nb_pts=cpt
-  if(nb_pts EQ npts) then nb_pts=nb_pts-1
-
-  if rank gt *Scan.dim then goto,BAD
-  if(rank GT 1) then begin $
+  
+;  print,'REST  *** rank,npts,offset', rank,npts,offset
+  
+  IF(rank GT 1) THEN BEGIN
     sub_scan_ptr=lonarr(npts)
     readu,lun,sub_scan_ptr
-  endif
+  ENDIF
 
   (*Scan.cpt)[rank-1]=cpt;
 
@@ -94,93 +89,106 @@ end
   nb_trg=0
   readu,lun,nb_pos,nb_det,nb_trg
 
-  if(nb_pos NE 0) then begin $
+  IF(nb_pos NE 0) THEN BEGIN
     pos_num=intarr(nb_pos)
-  endif
+  ENDIF
   pos_info= { $
-     pxpv:'', $
-     pxds:'', $
-     pxsm:'', $
-     pxeu:'', $
-     rxpv:'', $
-     rxds:'', $
-     rxeu:'' }
-  if(nb_det NE 0) then begin
+    pxpv:'', $
+    pxds:'', $
+    pxsm:'', $
+    pxeu:'', $
+    rxpv:'', $
+    rxds:'', $
+    rxeu:'' }
+  IF(nb_det NE 0) THEN BEGIN
     det_num=intarr(nb_det)
-  endif
+  ENDIF
 
   det_info= { $
-     dxpv:'', $
-     dxds:'', $
-     dxeu:'' }
-  if(nb_trg NE 0) then trg_num=intarr(nb_trg)
+    dxpv:'', $
+    dxds:'', $
+    dxeu:'' }
+  IF(nb_trg NE 0) THEN trg_num=intarr(nb_trg)
   trg_info= { $
-     txpv:'', $
-     txcd: 1.0 } 
+    txpv:'', $
+    txcd: 1.0 } 
 
   num=0
-  for i=0,nb_pos-1 do begin
-     readu,lun, num
-     pos_num[i]=num
-     readu,lun,pos_info
-if dump then print,"read_scan_rest====>positioner: ",i,num
-if dump then help,pos_info,/st
-  end
+  FOR i=0,nb_pos-1 DO BEGIN
+    readu,lun, num
+    pos_num[i]=num
+    readu,lun,pos_info
+  ENDFOR
 
-  for i=0,nb_det-1 do begin
-     readu,lun,num
-     det_num[i]=num
-     readu,lun,det_info
-if dump then print,"read_scan_rest====>detector: ",i,num
-if dump then help,det_info,/st
-  end
+  FOR i=0,nb_det-1 DO BEGIN
+    readu,lun,num
+    det_num[i]=num
+    readu,lun,det_info
+  ENDFOR
 
-  for i=0,nb_trg-1 do begin
-     readu,lun,num
-     trg_num[i]=num
-     readu,lun,trg_info
-  end
+  FOR i=0,nb_trg-1 DO BEGIN
+    readu,lun,num
+    trg_num[i]=num
+    readu,lun,trg_info
+  ENDFOR
   
-  tmp=dblarr(npts)
-  for i=0,nb_pos-1 do begin
-     readu,lun,tmp
-     if(cpt NE 0) then $
-       (*(*Scan.pa)[rank-1])[offset:offset+cpt-1,pos_num[i]]=tmp[0:cpt-1]
-if dump then print,"read_scan_rest====>positioner offset: ", offset
-if dump then print,tmp
-  end
+  IF nb_pos GT 0 THEN BEGIN
+    tmp=dblarr(npts)
+    FOR i=0,nb_pos-1 DO BEGIN
+      readu,lun,tmp
+; change to single vector only
+      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[0:cpt-1,pos_num[i]]=tmp[0:cpt-1]
+;	if i eq 0 then $
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,pos_num[i]]=tmp[0:cpt-1]
+    ENDFOR
+  ENDIF
 
-  tmp=fltarr(npts)
-  for i=0,nb_det-1 do begin
-     readu,lun,tmp
-     if det_num[i] lt DetMax then $
-     if(cpt NE 0) then $
-       (*(*Scan.da)[rank-1])[offset:offset+cpt-1,det_num[i]]=tmp[0:cpt-1]
-if dump then print,"read_scan_rest====>detector offset: ", offset
-;if dump then print,tmp
-  end
+  IF (nb_det GT 0) AND (cpt GT 0) THEN BEGIN
+    tmp=fltarr(npts)
+    point_lun,-lun,filepos
+    IF rank eq 1 and keyword_set(pickDet) THEN BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i]+1 EQ pickDet THEN BEGIN
+          point_lun,lun, (filepos+npts*4L*i)
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+          GOTO,doneDetectors
+        ENDIF
+      ENDFOR
+    ENDIF ELSE BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i] LT DetMax[rank-1] THEN BEGIN
+          point_lun,lun, (filepos+npts*4L*i)
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,det_num[i]]=tmp[0:cpt-1]
+        ENDIF
+      ENDFOR
+    ENDELSE
+  ENDIF
+doneDetectors:
 
-  if(rank GT 1) then begin
-    sub_offset=offset
-    nb_sub= cpt
-    if(cpt NE npts) then nb_sub=nb_sub+1
-    for i=1,nb_sub do begin
-      res= read_scan_rest(lun,Scan,dim+1,sub_offset,DetMax,dump)
-      if(res NE 1) then goto,BAD
-    end
-  end
+      
+  IF(rank GT 1) THEN BEGIN
+    FOR i=0,npts-1 DO BEGIN
+      IF sub_scan_ptr[i] EQ 0 THEN GOTO,done
+      point_lun,lun,sub_scan_ptr[i]
+      res= read_scan_rest(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet)
+      IF(res NE 1) THEN GOTO,BAD
+    ENDFOR
+done:
+  END
 
-  offset=offset+(*Scan.npts)[rank+dim-2]
+  offset[rank-1]=offset[rank-1]+(*Scan.npts)[rank-1]
 
-  return, 1
-
+  RETURN, 1
 BAD:
-  return, 0
-end  
+  RETURN, 0
+END  
 
 
 
-FUNCTION read_scan_first,lun,Scan,dim,DetMax,dump
+FUNCTION read_scan_first,lun,Scan,dim,offset,DetMax,dump,pickDet=pickDet,header=header
 ON_IOERROR, BAD	
 
   ndet = 85 ; 15
@@ -190,17 +198,13 @@ ON_IOERROR, BAD
   npts=0
   cpt=0
   readu,lun,rank,npts,cpt
-if rank gt (*Scan.dim) then begin
-	print, ' WARNING:'
-	print, ' ====> dim, rank:',(*Scan.dim),rank
-	print, ' Bad data detected: rank become bigger'
-	print, ' The read is terminated automatically'
-	return,0    			
-end
-  if(rank GT 1) then begin $
+
+;  print,'FIRST *** rank,npts,offset', rank,npts,offset
+
+  IF(rank GT 1) THEN BEGIN
     sub_scan_ptr=lonarr(npts)
     readu,lun,sub_scan_ptr
-  endif
+  ENDIF
 
   (*Scan.cpt)[rank-1]=cpt;
 
@@ -215,118 +219,148 @@ end
   nb_trg=0
   readu,lun,nb_pos,nb_det,nb_trg
 
+IF dump then print,'nb_pos,nb_det,nb_trg:',nb_pos,nb_det,nb_trg
+
   dims=(*Scan.npts)[rank-1:rank+dim-1]
   size= nbElem(dim+1, dims)
-  if(nb_pos NE 0) then pos_num= intarr(nb_pos)
+  IF(nb_pos NE 0) THEN pos_num= intarr(nb_pos)
 
-  (*Scan.pa)[rank-1]= ptr_new(dblarr(size,4), /NO_COPY)
+  (*Scan.pa)[rank-1]= ptr_new(dblarr(dims[0],4), /NO_COPY)    ; one vector Position
+;  (*Scan.pa)[rank-1]= ptr_new(dblarr(size,1), /NO_COPY)    ; one Position
+;  (*Scan.pa)[rank-1]= ptr_new(dblarr(size,4), /NO_COPY)
 ;  (*(*Scan.pa)[rank-1])[*]= !VALUES.D_NAN  
 
   pos_info= { $
-     pxpv:'', $
-     pxds:'', $
-     pxsm:'', $
-     pxeu:'', $
-     rxpv:'', $
-     rxds:'', $
-     rxeu:'' }
+    pxpv:'', $
+    pxds:'', $
+    pxsm:'', $
+    pxeu:'', $
+    rxpv:'', $
+    rxds:'', $
+    rxeu:'' }
 
-  if(nb_det NE 0) then det_num=intarr(nb_det)
-
-  (*Scan.da)[rank-1]= ptr_new(fltarr(size,DetMax), /NO_COPY)
-;  (*(*Scan.da)[rank-1])[*]= !VALUES.F_NAN
+  IF(nb_det NE 0) THEN det_num=intarr(nb_det)
 
   det_info= { $
-     dxpv:'', $
-     dxds:'', $
-     dxeu:'' }
+    dxpv:'', $
+    dxds:'', $
+    dxeu:'' }
 
-  if(nb_trg NE 0) then trg_num=intarr(nb_trg)
+  IF(nb_trg NE 0) THEN trg_num=intarr(nb_trg)
   trg_info= { $
-     txpv:'', $
-     txcd: 1.0 }
-
-if dump then print,"====>rank,npts,cpt:",rank,npts,cpt
-if dump then print,"====>nb_pos,nb_det,nb_trg:",nb_pos,nb_det,nb_trg
+    txpv:'', $
+    txcd: 1.0 }
 
   num=0
-  for i=0,nb_pos-1 do begin
-     readu,lun, num
-     pos_num[i]=num
-     readu,lun,pos_info
-if dump then print,"====>position: ",i,num
-if dump then help,pos_info,/st
-     (*Scan.id_def)[num,rank-1]=1
-     if(pos_info.rxpv NE '') then begin
-	(*Scan.labels)[num,rank-1]= pos_info.rxpv
-	(*Scan.labels)[ntot+num,rank-1]= pos_info.rxds
-	(*Scan.labels)[ntot*2+num,rank-1]= pos_info.rxeu
-     endif else begin
-	(*Scan.labels)[num,rank-1]= pos_info.pxpv
-	(*Scan.labels)[ntot+num,rank-1]= pos_info.pxds
-	(*Scan.labels)[ntot*2+num,rank-1]= pos_info.pxeu
-     endelse
-  end
+  FOR i=0,nb_pos-1 DO BEGIN
+    readu,lun, num
+    pos_num[i]=num
+    readu,lun,pos_info
+    IF dump THEN print,"====>position: ",i,num
+    IF dump THEN help,pos_info,/st
+    (*Scan.id_def)[num,rank-1]=1
+    IF(pos_info.rxpv NE '') THEN BEGIN
+	    (*Scan.labels)[num,rank-1]= pos_info.rxpv
+	    (*Scan.labels)[ntot+num,rank-1]= pos_info.rxds
+	    (*Scan.labels)[ntot*2+num,rank-1]= pos_info.rxeu
+    ENDIF ELSE BEGIN
+	    (*Scan.labels)[num,rank-1]= pos_info.pxpv
+	    (*Scan.labels)[ntot+num,rank-1]= pos_info.pxds
+	    (*Scan.labels)[ntot*2+num,rank-1]= pos_info.pxeu
+     ENDELSE
+  ENDFOR
 
-  for i=0,nb_det-1 do begin
-     readu,lun,num
-     det_num[i]=num
-     readu,lun,det_info
-if dump then print,"====>detector: ",i,num
-if dump then help,det_info,/st
-     (*Scan.id_def)[4+num,rank-1]=1
-     (*Scan.labels)[4+num,rank-1]= det_info.dxpv
-     (*Scan.labels)[ntot+4+num,rank-1]= det_info.dxds
-     (*Scan.labels)[ntot*2+4+num,rank-1]= det_info.dxeu
-  end
+  FOR i=0,nb_det-1 DO BEGIN
+    readu,lun,num
+    det_num[i]=num
+    DetMax[rank-1] = num+1
+;print,'rank,i,detno,detmax',rank,i,num,detMax
+;if rank eq 1 and num gt DetMax then DetMax=num
+    readu,lun,det_info
+    IF dump THEN print,"====>detector: ",i,num
+    IF dump THEN help,det_info,/st
+    (*Scan.id_def)[4+num,rank-1]=1
+    (*Scan.labels)[4+num,rank-1]= det_info.dxpv
+    (*Scan.labels)[ntot+4+num,rank-1]= det_info.dxds
+    (*Scan.labels)[ntot*2+4+num,rank-1]= det_info.dxeu
+  ENDFOR
 
-  for i=0,nb_trg-1 do begin
-     readu,lun,num
-     trg_num[i]=num
-     readu,lun,trg_info
-  end
+  IF keyword_set(pickDet) GT 0 and rank eq 1 THEN DetMax[rank-1] = 1
+  (*Scan.da)[rank-1]= ptr_new(fltarr(size,DetMax[rank-1]), /NO_COPY)
+;  (*(*Scan.da)[rank-1])[*]= !VALUES.F_NAN
 
-  tmp=dblarr(npts)
-  for i=0,nb_pos-1 do begin
-     readu,lun,tmp
-     if(cpt NE 0) then (*(*Scan.pa)[rank-1])[0:cpt-1,pos_num[i]]=tmp[0:cpt-1]
-  end
+  FOR i=0,nb_trg-1 DO BEGIN
+    readu,lun,num
+    trg_num[i]=num
+    readu,lun,trg_info
+  ENDFOR
 
-  tmp=fltarr(npts)
-  for i=0,nb_det-1 do begin
-     readu,lun,tmp
-if dump then print,'====>detector: ',i,nb_det
-if dump then print,'====>tmp: ',tmp  
-     if det_num[i] lt DetMax then $
-     if(cpt NE 0) then (*(*Scan.da)[rank-1])[0:cpt-1,det_num[i]]=tmp[0:cpt-1]
-  end
+  IF keyword_set(header) THEN RETURN,1
 
-if dump then print,'====>end step1 rank=',rank
-  if(rank GT 1) then begin
-    res=0
-    res= read_scan_first(lun,Scan,dim+1,DetMax,dump)
-if dump then print,'====>read_scan_first res=',res, rank
-    if(res NE 1) then goto,BAD
-    offset= LONG((*Scan.npts)[rank+dim-2])
-    nb_sub= cpt-1
-    if(cpt NE npts) then nb_sub=nb_sub+1
-    for i=1,nb_sub do begin
-      res= read_scan_rest(lun,Scan,dim+1,offset,DetMax,dump)
-      if(res NE 1) then goto,BAD
-    end
-  end
+  IF nb_pos GT 0 THEN BEGIN
+    tmp=dblarr(npts)
+    FOR i=0,nb_pos-1 DO BEGIN
+      readu,lun,tmp
+      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[0:cpt-1,pos_num[i]]=tmp[0:cpt-1]
+;	if i eq 0 then $
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,pos_num[i]]=tmp[0:cpt-1]
+    ENDFOR
+  ENDIF
 
-  return, 1
+  IF (nb_det GT 0) AND (cpt GT 0) THEN BEGIN
+    point_lun,-lun,filepos
+    tmp=fltarr(npts)
+    IF keyword_set(pickDet) and rank eq 1 THEN BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i]+1 EQ pickDet THEN BEGIN
+          point_lun,lun,filepos+npts*4L*i
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+          GOTO,doneDetectors
+        ENDIF
+      ENDFOR
+    ENDIF ELSE BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i] LT DetMax[rank-1] THEN BEGIN
+          point_lun,lun,filepos+npts*4L*i
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,det_num[i]]=tmp[0:cpt-1]
+        ENDIF
+      ENDFOR
+    ENDELSE
+  ENDIF
+doneDetectors:
+
+
+  IF(rank GT 1) THEN BEGIN
+    IF sub_scan_ptr[0] EQ 0 THEN GOTO,done
+    point_lun,lun,sub_scan_ptr[0]
+    if(read_scan_first(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet) NE 1) THEN GOTO,bad
+    FOR i=1,npts-1 DO BEGIN
+      IF sub_scan_ptr[i] EQ 0 THEN GOTO,done
+      point_lun,lun,sub_scan_ptr[i]
+      if(read_scan_rest(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet) NE 1) THEN GOTO,bad
+    ENDFOR
+done:
+  ENDIF
+
+  offset[rank-1]=offset[rank-1]+(*scan.npts)[rank-1]
+  RETURN, 1
 
 BAD:
-  return, 0
-end  
+  RETURN, 0
+END  
 
 
-FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet
+FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,header=header
+; lastDet if specified only detectOR 1 to lastDet is extracted
+; pickDet>=1  if specified only the specified detector is extracted 
+;             it is target for big 3D scan 
+;
 
   debug = 0
-  if keyword_set(dump) then debug = dump
+  IF keyword_set(dump) THEN debug = dump
   ON_ERROR,0 ;,1
   ON_IOERROR,BAD
 
@@ -334,25 +368,26 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet
   ndet = 85 ; 15
   ntot = ndet+4
 
+  if n_elements(Scan) eq 0 then $
   Scan = { $
-	scanno	: ptr_new(/allocate_heap), $  ;0L, $
-	dim	: ptr_new(/allocate_heap), $  ;0, $
-	npts	: ptr_new(/allocate_heap), $  ;[0,0], $
-	cpt	: ptr_new(/allocate_heap), $  ;[0,0], $
-	id_def	: ptr_new(/allocate_heap), $  ;intarr(ntot,2), $
-	pv	: ptr_new(/allocate_heap), $  ;['',''], $
-	labels	: ptr_new(/allocate_heap), $  ;strarr(ntot*3,2), $
-	pa	: ptr_new(/allocate_heap), $
-	da	: ptr_new(/allocate_heap) $
+  	scanno	: ptr_new(/allocate_heap), $  ;0L, $
+  	dim	: ptr_new(/allocate_heap),     $  ;0, $
+  	npts	: ptr_new(/allocate_heap),   $  ;[0,0], $
+  	cpt	: ptr_new(/allocate_heap),     $  ;[0,0], $
+  	id_def	: ptr_new(/allocate_heap), $  ;intarr(ntot,2), $
+  	pv	: ptr_new(/allocate_heap),     $  ;['',''], $
+  	labels	: ptr_new(/allocate_heap), $  ;strarr(ntot*3,2), $
+  	pa	: ptr_new(/allocate_heap),     $
+  	da	: ptr_new(/allocate_heap)      $
 	}
 
   get_lun, lun
   openr, /XDR, lun, filename      ;Open the file for input.
 
   tmp= {$
-     version: 0.0, $
-     scanno: 0L, $
-     rank: 0L }
+    version: 0.0, $
+    scanno : 0L , $
+    rank   : 0L }
 
   readu,lun, tmp
 
@@ -371,28 +406,55 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet
   *Scan.pa= ptrarr(tmp.rank)
   *Scan.da= ptrarr(tmp.rank)
 
-  ; extract the first DetMax detectors only
-  DetMax = ndet
-  if keyword_set(lastDet) then DetMax = lastDet 
+; IF 3D rank exceed 500 set default pickDet=16 
+  IF tmp.rank EQ 3  THEN BEGIN
+  	IF n_elements(pickDet) EQ 0 THEN BEGIN 
+    	IF npts(0) GE 500 OR npts(1) GE 500 OR npts(2) GE 500 THEN pickDet = 16
+	  ENDIF
+  dd =1L *npts(0)*npts(1)*npts(2)
+	if dd gt 5202000L then begin
+		r = dialog_message(['Sorry! 3D scan array too big for IDL ',string(npts)],/error)
+		goto,BAD
+	end
+  ENDIF
 
-  if(read_scan_first(lun, Scan, 0,DetMax,debug) NE 1) then goto,BAD
+  ; extract the first DetMax detectORs only
+  DetMax = intarr(tmp.rank)
+  DetMax(*) = ndet
+  IF keyword_set(lastDet) THEN DetMax = lastDet 
 
-  for i=0,tmp.rank-1 do begin
+  offset= lonarr(tmp.rank)
+
+  IF(read_scan_first(lun, Scan,0,offset,DetMax,debug,pickDet=pickDet,header=header) NE 1) THEN GOTO,BAD
+
+  IF keyword_set(header) THEN GOTO,DONE
+
+  fOR i=0,tmp.rank-1 DO BEGIN
     dims=(*Scan.npts)[i:tmp.rank-1]
-    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,4])
-    *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims,DetMax])
-  end
+    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims[0],4])       ; vector only
+;    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,4])         ; only one PI
+;    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,1])
+
+;    IF i eq 0 and keyword_set(pickDet) THEN $
+;      *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims]) ELSE $
+      *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims,DetMax[i]])
+    IF debug THEN BEGIN
+      print,'dims: ',dims
+      help,*(*Scan.pa)[i]
+      help,*(*Scan.da)[i]
+    ENDIF
+  ENDFOR
 
   res= *Scan.scanno
 
-  goto,DONE
+  GOTO,DONE
 BAD:
   res= -1
   print, !ERR_STRING
-
 DONE:
   free_lun, lun
 
-  return, res
+  RETURN, res
 END
+
 
