@@ -427,7 +427,7 @@ DONE:
   return, res
 END
 
-; $Id: vw2d.pro,v 1.2 1999/01/14 23:40:07 cha Exp $
+; $Id: vw2d.pro,v 1.3 1999/03/15 23:23:50 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1080,7 +1080,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.2 1999/01/14 23:40:07 cha Exp $
+; $Id: vw2d.pro,v 1.3 1999/03/15 23:23:50 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1457,7 +1457,7 @@ endif else $
 	WIDGET_CONTROL, w_warningtext_base,/REALIZE
 
 
-XMANAGER,'w_warningtext',w_warningtext_base, GROUP_LEADER = GROUP
+XMANAGER,'w_warningtext',w_warningtext_base, GROUP_LEADER = GROUP,/NO_BLOCK
 
 
 END
@@ -2368,6 +2368,59 @@ endif else begin
 	end
 
 END
+FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
+
+
+PRO scanimage_print,gD,test=test
+	gData = *gD
+	print,'scanno  : ',*gData.scanno
+	print,'dim     : ',*gData.dim
+	print,'num_pts : ',*gData.num_pts
+	print,'cpt     : ',*gData.cpt
+	print,'id_def  : ',*gData.id_def
+	print,'pvname  : ',*gData.pv
+	print,'labels  : ',*gData.labels
+	help,*gData.pa1D
+	help,*gData.da1D
+	if *gData.dim eq 2 then begin
+	help,*gData.pa2D
+	help,*gData.da2D
+	end
+	
+	if keyword_set(test) then begin
+	num_pts = *gData.num_pts
+	width = num_pts(0)
+	height = num_pts(1)
+	help,width,height
+	da2D = *gData.da2D
+	im = da2d(*,*,1)
+	help,im
+	tvscl, congrid(im,400,400),/NAN  ; IDL 5.1
+	end
+
+END
+
+PRO scanimage_free,gD
+	gData = *gD
+	if ptr_valid(gData.scanno) then	ptr_free,gData.scanno
+	if ptr_valid(gData.dim) then	ptr_free,gData.dim
+	if ptr_valid(gData.num_pts) then	ptr_free,gData.num_pts
+	if ptr_valid(gData.cpt) then	ptr_free,gData.cpt
+	if ptr_valid(gData.id_def) then	ptr_free,gData.id_def
+	if ptr_valid(gData.pv) then	ptr_free,gData.pv
+	if ptr_valid(gData.labels) then	ptr_free,gData.labels
+	if ptr_valid(gData.pa1D) then	ptr_free,gData.pa1D
+	if ptr_valid(gData.da1D) then	ptr_free,gData.da1D
+	if ptr_valid(gData.pa2D) then	ptr_free,gData.pa2D
+	if ptr_valid(gData.da2D) then	ptr_free,gData.da2D
+	if ptr_valid(gD) then ptr_free,gD
+END
+
+PRO scanimage_cleanup
+	help,/heap_variables
+	heap_gc
+END
+
 PRO scanimage_alloc,filename,gD,scanno
 
 gData = { $
@@ -2413,57 +2466,6 @@ gData = { $
 ;	scanimage_print,gD
 
 END
-
-PRO scanimage_print,gD,test=test
-	gData = *gD
-	print,'scanno  : ',*gData.scanno
-	print,'dim     : ',*gData.dim
-	print,'num_pts : ',*gData.num_pts
-	print,'cpt     : ',*gData.cpt
-	print,'id_def  : ',*gData.id_def
-	print,'pvname  : ',*gData.pv
-	print,'labels  : ',*gData.labels
-	help,*gData.pa1D
-	help,*gData.da1D
-	if *gDdata.dim eq 2 then begin
-	help,*gData.pa2D
-	help,*gData.da2D
-	end
-	
-	if keyword_set(test) then begin
-	num_pts = *gData.num_pts
-	width = num_pts(0)
-	height = num_pts(1)
-	help,width,height
-	da2D = *gData.da2D
-	im = da2d(*,*,1)
-	help,im
-	tvscl, congrid(im,400,400),/NAN  ; IDL 5.1
-	end
-
-END
-
-PRO scanimage_free,gD
-	gData = *gD
-	if ptr_valid(gData.scanno) then	ptr_free,gData.scanno
-	if ptr_valid(gData.dim) then	ptr_free,gData.dim
-	if ptr_valid(gData.num_pts) then	ptr_free,gData.num_pts
-	if ptr_valid(gData.cpt) then	ptr_free,gData.cpt
-	if ptr_valid(gData.id_def) then	ptr_free,gData.id_def
-	if ptr_valid(gData.pv) then	ptr_free,gData.pv
-	if ptr_valid(gData.labels) then	ptr_free,gData.labels
-	if ptr_valid(gData.pa1D) then	ptr_free,gData.pa1D
-	if ptr_valid(gData.da1D) then	ptr_free,gData.da1D
-	if ptr_valid(gData.pa2D) then	ptr_free,gData.pa2D
-	if ptr_valid(gData.da2D) then	ptr_free,gData.da2D
-	if ptr_valid(gD) then ptr_free,gD
-END
-
-PRO scanimage_cleanup
-	help,/heap_variables
-	heap_gc
-END
-
 
 PRO rix2BenChin, Scan
 ON_ERROR,1
@@ -3333,7 +3335,7 @@ if XRegistered('view2d_normalize') then return
 
   WIDGET_CONTROL, view2d_normalize, /REALIZE
 
-  XMANAGER, 'view2d_normalize', view2d_normalize
+  XMANAGER, 'view2d_normalize', view2d_normalize, /NO_BLOCK
 END
 ;
 ; vw2d.pro
@@ -3541,7 +3543,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
                         xarr=catch2d_file.xarr(0:catch2d_file.width-1), $
                         yarr=catch2d_file.yarr(0:catch2d_file.height-1), $
                         comment=[header_note1,header_note], $
-			wtitle='Plot2d(Xsurface)', $
+			wtitle='Vw2d(Plot2d)', $
                         xtitle=xtitle, ytitle=ytitle, $
                         title='D'+strtrim(catch2d_file.detector,2)+' - '+catch2d_file.z_desc
 ;		XSURFACE, newimage, id
@@ -4264,8 +4266,8 @@ PRO VW2D, GROUP=Group, file=file
 ;       display tool.  Its input image file is automatically saved by the  
 ;       data catcher program CATCHER_V1. 
 ;
-;       Currently, this program provides TV, SURFACE, CONTOUR, SHOW3, and 
-;       XSURFACE plot. It also provides simple xz, yz line plot and data
+;       Currently, this program provides TV, SURFACE, CONTOUR, SHOW3, PLOT2D
+;       and SHADE_SURF plot. It also provides simple xz, yz line plot and data
 ;       value query information.
 ;
 ; CATEGORY:
@@ -4310,6 +4312,8 @@ PRO VW2D, GROUP=Group, file=file
 ;       12-15-98 bkc   Use color shade values for shade_surf plot
 ;       01-12-99 bkc   Fix TV plot of Step # option
 ;                      Fix the problem in plotting the last detector 
+;       03-04-99 bkc   R1.2b
+;                      Replace xsurface by plot2d...
 ;-
 ;
 @os.init
@@ -4320,7 +4324,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VW2D (R1.2a)'
+  version = 'VW2D (R1.2b)'
 
   VW2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -4383,7 +4387,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
       UVALUE='BASE177')
 
 
-  Btns912 = ['TV','Eq.TV.AspRt','LIGHT_SHADE_SURF','CONTOUR','SHOW3','XSURFACE','SHADE_SURF']
+  Btns912 = ['TV','Eq.TV.AspRt','LIGHT_SHADE_SURF','CONTOUR','SHOW3','PLOT2D ...','SHADE_SURF']
 ;  Btns912 = ['TV','SURFACE','CONTOUR','SHOW3','XUSRFACE']
   surface_plot = WIDGET_DROPLIST(BASE177, VALUE=BTNS912, $
 	UVALUE='SURFACE_PLOT',TITLE='View as')
@@ -4658,7 +4662,7 @@ catch2d_file.version = version
 	end
   end
 
-  XMANAGER, 'VW2D_BASE', VW2D_BASE
+  XMANAGER, 'VW2D_BASE', VW2D_BASE,/NO_BLOCK
 
 END
 
