@@ -36,6 +36,16 @@ The 1D plot header now reflects whether the scan is produced by the
 also shown on the plot title and the plot header line. For pure 1D
 scan no Y value is shown on the plot.
 
+<<GoTo ...>>
+
+The Goto XY-COORD window will be automatically closed for user and the
+'Goto finished ...' message window will not pop up anymore.
+
+<<Drawing Area>>
+
+The drawing area is readjust with the default font used by the user.
+This should take care most font problem encountered by different 
+window manager.
 
                         CATCHER 1.5.4 RELEASE NOTE 
                         ==========================
