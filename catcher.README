@@ -1,4 +1,4 @@
-                        CATCHER R2.2.2c  RELEASE NOTE 
+                        CATCHER R2.2.2c+  RELEASE NOTE 
                         ==========================
 
 Now u_read.pro, PS_open.pro, and cw_term.pro are dynamically loaded
@@ -6,6 +6,21 @@ into catcher_v1.pro, view1d.pro, view2d.pro, ez_fit.pro at the run
 time instead of explicitly included in the sources.  The PS_open.pro 
 is modified such that the 2D PS plot is same as the plot display 
 shown on the window.
+
+<<Start Pos/ Prior Pos>>
+
+During the 2D scan if the MEDM positioner setting for After Scan is 
+set to either Start / Prior Pos for inner loop, data catcher use the 
+positioner read back value which is not the correct y value. And 
+sometimes it did not terminate correctly.  The problems associated
+with this setting are fixed in this version.
+
+<<fixIndexFile>>
+
+A new fixIndexFile option is added in the File menu. In case the user 
+has a corruppted 1D file and can not read the 1D file, this option 
+will let the user fixes the index file.  After the new index file
+generated, a user should be able to view the 1D data. 
 
 <<cathcer>>
 
@@ -39,7 +54,7 @@ The problem of plotting TV image vs Step # is fixed in this release.
 
 Now XSURFACE option calls PLOT2D program instead of XSURFACE program.
 The PLOT2D program provides various 2D plot options and allows the
-user easily to get the printer paper output. 
+user easily to get various printer paper output. 
 
 <<plot2d.pro>>
 
