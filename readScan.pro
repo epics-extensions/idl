@@ -97,42 +97,6 @@ gData = { $
 
 END
 
-PRO rix2BenChin, Scan
-ON_ERROR,1
-  if(*Scan.dim EQ 1) then begin
-    BenChin= { $
-	scanno	: Scan.scanno, $
-	dim	: Scan.dim, $
-	num_pts : Scan.npts, $
-	cpt	: Scan.cpt, $
-	id_def	: Scan.id_def, $
-	pv	: Scan.pv, $
-	labels	: Scan.labels, $
-	pa1D	: (*Scan.pa)[0], $
-	da1D	: (*Scan.da)[0], $
-	pa2D	: ptr_new(/ALLOCATE_HEAP), $
-	da2D	: ptr_new(/ALLOCATE_HEAP) $
-	}
-  endif else begin
-    BenChin= { $
-	scanno	: Scan.scanno, $
-	dim	: Scan.dim, $
-	num_pts : Scan.npts, $
-	cpt	: Scan.cpt, $
-	id_def	: Scan.id_def, $
-	pv	: Scan.pv, $
-	labels	: Scan.labels, $
-	pa1D	: (*Scan.pa)[1], $
-	da1D	: (*Scan.da)[1], $
-	pa2D	: (*Scan.pa)[0], $
-	da2D	: (*Scan.da)[0] $
-	}
-  endelse
-
-  ptr_free,Scan.pa
-  ptr_free,Scan.da
-  Scan=BenChin
-END
 
 PRO rix2DC,Scan,gData
 ON_ERROR,1
