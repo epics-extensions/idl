@@ -1123,7 +1123,7 @@ state = { $
 	ymargin: [5,3], $
 	zoom: 1.0, $
 	stamp: 0, $
-	yexpand: 0, $
+	yexpand: 1, $
 	footnote: 0, $
 	comment: strarr(10), $  ; footnote, $
         xrange: [min(xa),max(xa)], $
