@@ -1,3 +1,4 @@
+
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
@@ -30,6 +31,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	}
 
   catch2d_file = {                $
+	version : '', $
         name    : 'catch1d.trashcan.image',           $
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
@@ -50,8 +52,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	x_act_npts :  100, $
 	y_act_npts :  100, $
 	y_req_npts :  100, $
-	x_mag : 1, $ 	; x image mag facctor
-	y_mag : 1, $ 	; y image mag facctor
+	x_mag : 1., $ 	; x image mag facctor
+	y_mag : 1., $ 	; y image mag facctor
 ;	xprof :  1, $	; window 1
 ;	yprof :  3, $	; window 3
 	xprof : -1, $   ; xz profile window 
@@ -73,11 +75,16 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
         }
   
   view_option = { $
-	surface : 3, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
+	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
+        ncolors : !d.n_colors-1, $   max color index 
 	user	: 1, $  ; if 1 use user set range
-	versus  : 0, $  ;  step # or values 
+	versus  : 1, $  ; 0 - step # or 1 - values 
 	width	: 100, $  	; default x set range 
 	height  : 100, $	; default y set range
+	margin_l : 50, $         ; TV left margin
+	margin_r : 50, $         ; TV right margin
+	margin_t : 50, $         ; TV top margin
+	margin_b : 50, $         ; TV buttom margin
 	x_min	: 0, $		; user set xmin
 	x_max	: 100, $	; user set xmax
 	y_min	: 0, $		; user set ymin
@@ -87,7 +94,9 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	x	: 0, $		; device cursor x
 	y	: 0, $		; device cursor y
 	z	: 0., $
-	z_max	: 0. $
+	i_max	: 0,$		; i index for z_max
+	j_max	: 0, $		; j index for z_max
+	z_max	: 0. $		; z_max for TV image 
 	}
 
    WIDGET_CONTROL, widget_ids.y_max, SET_VALUE = view_option.height 
@@ -95,5 +104,5 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
    WIDGET_CONTROL, widget_ids.x_max, SET_VALUE = view_option.width
    WIDGET_CONTROL, widget_ids.x_min, SET_VALUE = 0
 
-   LOADCT,5      ;load a usable color table
+   LOADCT,39      ;load a usable color table
 
