@@ -77,9 +77,18 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	len = strlen(tiff_ids.filename)
 	if pos ge 0 then $
 	tiff_ids.classname = strmid(tiff_ids.filename,pos+1,len-pos)
+	tiff_ids.tiffpath = strmid(tiff_ids.filename,0,pos)
 
-	cd,current=dir
-	tiff_ids.tiffpath = dir
+	catch,error_status
+	if error_status ne 0 then begin
+		cd,current=dir
+		tiff_ids.tiffpath = dir
+		return
+	end
+	openw,1,tiff_ids.filename+'.tiff'
+	printf,1,'; '
+	close,1
+	spawn,!os.rm + ' '+ tiff_ids.filename+'.tiff'
 
 END
 
@@ -117,8 +126,15 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	tiff_init
 	WIDGET_CONTROL,tiff_ids.slider_id,SET_SLIDER_MAX=tiff_ids.maxno
 	WIDGET_CONTROL,tiff_ids.list_id,SET_VALUE=''
-	WIDGET_CONTROL,tiff_ids.tiffpath_id,SET_VALUE=tiff_ids.tiffpath
 	WIDGET_CONTROL,tiff_ids.classname_id,SET_VALUE=tiff_ids.classname
+	CASE tiff_ids.type OF
+	0: sub = 'TIFF'
+	1: sub = 'TIFF'
+	2: sub = 'GIF'
+	3: sub = 'ASCII'
+	ENDCASE
+	tiff_ids.outpath = tiff_ids.tiffpath +!os.file_sep +sub+!os.file_sep
+	WIDGET_CONTROL,tiff_ids.tiffpath_id,SET_VALUE=tiff_ids.outpath
       END
   'TIFF_FILE2': BEGIN
 	WIDGET_CONTROL,tiff_ids.filename_id,GET_VALUE=filename
@@ -138,44 +154,60 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 
   'TIFF_TYPE': BEGIN
 	tiff_ids.type = Event.Value
+	CASE Event.Value OF 
+	0: sub = 'TIFF'
+	1: sub = 'TIFF'
+	2: sub = 'GIF'
+	3: sub = 'ASCII'
+	ENDCASE
+	dir = tiff_ids.tiffpath +!os.file_sep + sub +!os.file_sep
+	WIDGET_CONTROL,tiff_ids.tiffpath_id,SET_VALUE=dir
+	found = findfile(dir,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +dir
+	tiff_ids.outpath = dir
       END
 
   'TIFF_LIST': BEGIN
       END
   'SCAN_NUMBER': BEGIN
 	WIDGET_CONTROL,tiff_ids.scanno_id,GET_VALUE=scanno
-	if tiff_ids.panimagewin ne -1 then wdelete,tiff_ids.panimagewin
-	tiff_v2->panimage,scanno,new_win=new_win
+	tiff_v2->panimage,scanno,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	tiff_ids.scanno_current = scanno
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	tiff_ids.imageno = seqno
       END
   'SCAN_FIRST': BEGIN
 	tiff_ids.scanno_current=1
-	if tiff_ids.panimagewin ne -1 then wdelete,tiff_ids.panimagewin
-	tiff_v2->panimage,1,new_win=new_win
+	tiff_v2->panimage,1,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	tiff_ids.imageno = seqno
       END
   'SCAN_NEXT': BEGIN
 	tiff_ids.scanno_current=1 + tiff_ids.scanno_current
-	if tiff_ids.panimagewin ne -1 then wdelete,tiff_ids.panimagewin
-	tiff_v2->panimage,tiff_ids.scanno_current,new_win=new_win
+	tiff_v2->panimage,tiff_ids.scanno_current,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	tiff_ids.imageno = seqno
       END
   'SCAN_PREV': BEGIN
 	tiff_ids.scanno_current = tiff_ids.scanno_current - 1
-	if tiff_ids.panimagewin ne -1 then wdelete,tiff_ids.panimagewin
-	tiff_v2->panimage,tiff_ids.scanno_current,new_win=new_win
+	tiff_v2->panimage,tiff_ids.scanno_current,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	tiff_ids.imageno = seqno
       END
   'SCAN_LAST': BEGIN
 	tiff_ids.scanno_current = tiff_ids.scanno_last 
-	if tiff_ids.panimagewin ne -1 then wdelete,tiff_ids.panimagewin
-	tiff_v2->panimage,tiff_ids.scanno_last,new_win=new_win
+	tiff_v2->panimage,tiff_ids.scanno_last,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	tiff_ids.imageno = seqno
       END
   'TIFF_FIRST': BEGIN
 	if tiff_ids.filename eq '' then return
@@ -208,9 +240,10 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	update_tiffplot
       END
   'TIFF_PANIMAGES': BEGIN
-	if tiff_ids.panimagewin ne -1 then wdelete,tiff_ids.panimagewin
-	tiff_v2->panimage,new_win=new_win
+	tiff_v2->panimage,new_win=new_win,seqno=seqno
 	tiff_ids.panimagewin = new_win
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	tiff_ids.imageno = seqno
       END
   'TIFF_LISTAPPEND': BEGIN
 	WIDGET_CONTROL,tiff_ids.slider_id,GET_VALUE=no
@@ -230,7 +263,9 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
       END
   'TIFF_DIR': BEGIN
 	WIDGET_CONTROL,tiff_ids.tiffpath_id,GET_VALUE=dir
-	tiff_ids.tiffpath = dir(0)	
+	tiff_ids.outpath = dir(0)	
+	fount = findfile(dir(0),count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' '+dir(0)
       END
   'TIFF_CLASSNAME': BEGIN
 	WIDGET_CONTROL,tiff_ids.classname_id,GET_VALUE=filename
@@ -241,6 +276,10 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
       wdelete,0
       END
   'TIFF_ASCII': BEGIN
+	if tiff_ids.type ne 3 then begin
+		r = dialog_message('You have to select the ASCII type first',/Error)
+		return
+	end
 	WIDGET_CONTROL,tiff_ids.list_id,GET_VALUE=lista
 	lista = strtrim(lista(0),2)
 	if lista ne '' then begin
@@ -249,12 +288,12 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	if no le 5 then begin
 		for i=0,no-1 do begin
 		fileSeqString,res(i),suf0
-		texfile = tiff_ids.tiffpath+!os.file_sep+ $
+		texfile = tiff_ids.outpath + $
 		   tiff_ids.classname+'.'+suf0+'.txt'
 		found = findfile(texfile)
 		if found(0) ne '' then begin
 		xdisplayfile,texfile
-		endif else res=dialog_message(['File not fond:',texfile],/error)
+		endif else r=dialog_message(['File not fond:',texfile],/error)
 		end
 	endif else begin
 		F=dialog_pickfile(filter='*.image.*txt',GET_PATH=p,GROUP=Event.Top,/MUST_EXIST,$
@@ -262,6 +301,11 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 		if F eq '' then return
 		xdisplayfile,F	
 	end
+	endif else begin
+		r = dialog_message(['Empty List found !', $
+		'You have to enter the Image # list desired, ', $
+		'or you can use the "AddList" button ', $
+		'to add the Image # to the List first'],/error)
 	end
       END
   'TIFF_ACCEPT': BEGIN
@@ -276,7 +320,7 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	if tiff_ids.type eq 1 then begin	
 		for i=0,no-1 do begin
 		fileSeqString,res(i),suf0
-		tiffile = tiff_ids.tiffpath+!os.file_sep+ $
+		tiffile = tiff_ids.outpath+ $
 		   tiff_ids.classname+'.'+suf0+'.tiff'
 		tiff_v2->write_tiff,res(i),tiff=tiffile,/TOP2BOTTOM, $
 			type=tiff_ids.viewtype
@@ -285,7 +329,7 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	if tiff_ids.type eq 0 then begin	
 		for i=0,no-1 do begin
 		fileSeqString,res(i),suf0
-		tiffile = tiff_ids.tiffpath+!os.file_sep+ $
+		tiffile = tiff_ids.outpath+ $
 		   tiff_ids.classname+'.'+suf0+'.tiff'
 		tiff_v2->write_tiff,res(i),tiff=tiffile, $
 			type=tiff_ids.viewtype
@@ -294,7 +338,7 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	if tiff_ids.type eq 2 then begin	
 		for i=0,no-1 do begin
 		fileSeqString,res(i),suf0
-		giffile = tiff_ids.tiffpath+!os.file_sep+ $
+		giffile = tiff_ids.outpath+ $
 		   tiff_ids.classname+'.'+suf0+'.gif'
 		tiff_v2->write_gif,res(i),gif=giffile, $
 			type=tiff_ids.viewtype
@@ -304,7 +348,7 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	WIDGET_CONTROL,/HOURGLASS
 		for i=0,no-1 do begin
 		fileSeqString,res(i),suf0
-		txtfile = tiff_ids.tiffpath+!os.file_sep+ $
+		txtfile = tiff_ids.outpath+ $
 			tiff_ids.classname+'.'+suf0
 		tiff_v2->point_lun,res(i)-1
 		tiff_v2->read
@@ -399,6 +443,7 @@ loadct,39
 	viewtype: '', $  ; TV,SURFACE,CONTOUR,SHADE_SURF
 	type: 0, $  ; tiff,gif,jpeg
 	panimagewin : -1, $
+	outpath:'', $
 	outfile:'' $
 	}
 
@@ -446,7 +491,7 @@ loadct,39
       UVALUE='TIFF_FILE2', $
       XSIZE=60)
 
-  TIFF_DIR = CW_FIELD( BASE2,VALUE=tiff_ids.tiffpath, $ 
+  TIFF_DIR = CW_FIELD( BASE2, VALUE=tiff_ids.tiffpath, $
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
@@ -641,7 +686,7 @@ BMP210 = [ $
 
   BUTTON20 = WIDGET_BUTTON( BASE25_1, $
       UVALUE='TIFF_ACCEPT', $
-      VALUE='Accept_List')
+      VALUE='Accept_List & Generate_File')
 
   BASE18 = WIDGET_BASE(BASE2, $
       ROW=1, $
