@@ -8,6 +8,7 @@
 @colorbar.pro
 @scan2d_roi.pro
 @view3d_2d.pro
+@scan2d_overlay.pro
 
 PRO scanSee_pick3d,file,image_array,pickDet=pickDet,Dump=dump,Group=group
 ;+
@@ -647,7 +648,7 @@ PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
 ;       scanSee::Images
 ;
 ; PURPOSE:
-;       This method allows the user to get the complete scan image array
+;       This method allows the user to get the complete 2D scan image array
 ;       from a defined scanSee object. 
 ;
 ; CALLING SEQUENCE:
@@ -690,6 +691,8 @@ PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
 
 	def = self.def
 	nd = self.nd
+		id_def = *(*self.gD).id_def
+		def = id_def(4:88,1)
 
 	vmin = make_array(nd+1,/float)
 	vmax = make_array(nd+1,/float)
@@ -701,7 +704,12 @@ PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
 	end
 	end
 
-	if keyword_set(panimage) then self->panImage 
+	if keyword_set(panimage) then begin
+	  if self.dim eq 3 then begin
+		panImage,image_array,def
+          endif else self->panImage
+	end
+	
 END
 
 PRO scanSee::panImage,SEL=SEL,TIFF=TIFF,XDR=XDR,PICT=PICT,REVERSE=REVERSE
@@ -747,7 +755,10 @@ PRO scanSee::panImage,SEL=SEL,TIFF=TIFF,XDR=XDR,PICT=PICT,REVERSE=REVERSE
 	sz = size(image_array)
 
 	seq = self.scanno
+	id_def = *(*self.gD).id_def
+	if self.dim eq 3 then def = id_def(4:4+sz(3)-1,1) else $
 	def = self.def(0:sz(3)-1)
+
 	title=self.name+' SCAN # '+strtrim(seq,2)
 
 catch,error_status
@@ -1568,6 +1579,8 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 ;-
 	
 	scanno = self.scanno
+	id_def = *(*self.gD).id_def
+	def = id_def(4:self.nd+4,0)
 
 	if self.dim eq 1 then begin
 	pa = *(*self.gD).pa1D
@@ -1587,7 +1600,6 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 		end
 	end
 
-	def = self.def
         calibration_factor,im,def,xv=x,yv=y, $
                 classname=self.name,inpath=self.path, $ 
                 title=':  SCAN # '+strtrim(scanno,2),GROUP=group,_extra=e
@@ -1597,14 +1609,14 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 	if self.dim eq 2 then begin
 	pa1D = *(*self.gD).pa1D
 	pa2D = *(*self.gD).pa2D
+	da2d = *(*self.gD).da2D
+	im = da2d(*,*,pick1d-1)
 	x = pa2D(*,0,0)
 	y = pa1D(*,0)
 
 	if keyword_set(pick1d) then begin
-		self->images,image_array,def
 		if pick1d lt 1 or def(pick1d-1) eq 0 then return
 		title='SCAN # '+ strtrim(scanno,2)+', D'+strtrim(pick1d,2)
-		im = image_array(*,*,pick1d-1)
 		calibra_pick1d,im,xa=x,ya=y,title=title,GROUP=group
 		return
 	end
