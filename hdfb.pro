@@ -452,19 +452,19 @@ type = s(n_elements(s)-2)
 	old_win = !d.window
 	CASE no OF 
 	  0: BEGIN
-		plot1d,[-1,-1],XStyle=4,YStyle=4,title=title+n,xtitle=u
+		plot1d,[-1,-1],XStyle=4,YStyle=4,title=title,xtitle=u
 		xyouts, 0.2*!d.x_size, 0.25*!d.y_size, string(data),/DEVICE
 	     END
 	  1: BEGIN
-		if type ne 1 then begin
+		if type ne 1 and n_elements(data) gt 1 then begin
 		plot1d,data
 		endif else begin
-		plot1d,[-1,-1],XStyle=4,YStyle=4,title=title+n,xtitle=u
+		plot1d,[-1,-1],XStyle=4,YStyle=4,title=title,xtitle=u
 		xyouts, 0.2*!d.x_size, 0.25*!d.y_size, string(data),/DEVICE
 		end
 	     END
 	  2: BEGIN
-		plot2d,data
+		plot2d,data,itools=1
 	     END
 	  3: BEGIN
 		view3d_2D,data ; ,/slicer3
@@ -772,7 +772,7 @@ HDF_Query_id.warning = HDF_scrolltext_base
 
 WIDGET_CONTROL, HDF_scrolltext_base,/REALIZE
 
-XMANAGER, 'HDF_scrolltext',HDF_scrolltext_base, GROUP_LEADER = GROUP
+XMANAGER, 'HDF_scrolltext',HDF_scrolltext_base, GROUP_LEADER = GROUP,/no_block
 
 END
 
@@ -1419,7 +1419,7 @@ end
 
   WIDGET_CONTROL, MAIN13, /REALIZE
 
-  XMANAGER, 'R8IMAGE_id', MAIN13
+  XMANAGER, 'R8IMAGE_id', MAIN13,/no_block
 end
 END
 
@@ -1574,7 +1574,7 @@ end
 
   WIDGET_CONTROL, MAIN13, /REALIZE
 
-  XMANAGER, 'R24IMAGE_id', MAIN13
+  XMANAGER, 'R24IMAGE_id', MAIN13,/no_block
 end
 END
 ;
@@ -1845,7 +1845,7 @@ CASE no OF
 	if HDF_Query.view eq 1 then begin
 		old_win = !d.window			;plot area
 		!p.multi = [0,1,0,0,0]
-		plot2d,data
+		plot2d,data,itools=1
 		WSET,old_win
 		!p.multi = [0,2,0,0,0]
 	end
@@ -2533,7 +2533,7 @@ if no lt 1 then return
 
   WIDGET_CONTROL, MAIN13, /REALIZE
 
-  XMANAGER, 'HDFVD_DATA', MAIN13
+  XMANAGER, 'HDFVD_DATA', MAIN13,/no_block
 end
 END
 PRO VG,seq,tags,refs,ent_name,ent_type
@@ -2799,7 +2799,7 @@ COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
 
   WIDGET_CONTROL, VGROUPLIST_MAIN13, /REALIZE
 
-  XMANAGER, 'VGROUPLIST_MAIN13', VGROUPLIST_MAIN13
+  XMANAGER, 'VGROUPLIST_MAIN13', VGROUPLIST_MAIN13,/no_block
 END
 
 
@@ -3026,7 +3026,7 @@ WIDGET_CONTROL, HDF_VG_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.glevel
 
   WIDGET_CONTROL, MAIN13, /REALIZE
 
-  XMANAGER, 'HDFVGPDATA', MAIN13
+  XMANAGER, 'HDFVGPDATA', MAIN13,/no_block
 end
 END
 ;
@@ -4605,6 +4605,8 @@ end
   LIST4 = WIDGET_LIST( BASE2,VALUE=ListVal738, $
       UVALUE='SDS_DATA_NAME', $
       YSIZE=5)
+  if n_elements(sdsnames) gt 1 then $
+  WIDGET_CONTROL,LIST4,SET_LIST_TOP=n_elements(sdsnames)-2
 
   SDS_DATA_EXIT = WIDGET_BUTTON( BASE2, $
       UVALUE='SDS_DATA_EXIT', $
@@ -4616,7 +4618,7 @@ end
 
   WIDGET_CONTROL, MAIN13, /REALIZE
 
-  XMANAGER, 'HDFSDSDATA', MAIN13
+  XMANAGER, 'HDFSDSDATA', MAIN13,/no_block
 end
 END
 
@@ -4631,8 +4633,7 @@ PRO PDMENUSETUP3_Event, Event
 
   CASE Event.Value OF
 
-  'Setup.Color': BEGIN
-    PRINT, 'Event for Setup.Color Table'
+  'Setup.Color...': BEGIN
     XLOADCT
     END
   ENDCASE
@@ -4654,8 +4655,15 @@ PRO hdf_checkOutpath,dir
 	print,'dir=',dir
 END
 
+PRO invoke_HDFSDSDATA,event
+COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
+	WIDGET_CONTROL,HDF_Query_id.an_droplist,SET_DROPLIST_SELECT=3
+            DumpSDSAN,HDF_Query.file
+            if HDF_Query.maxno gt 0 then $
+            HDFSDSDATA, HDF_Query.file, HDF_Query.maxno,GROUP=Event.top
+END
 
-PRO PDMENU3_Event, Event
+PRO PDMENU4_Event, Event
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
   CASE Event.Value OF 
@@ -4698,6 +4706,8 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	WSET,HDF_Query_id.draw1
 	erase
 
+	invoke_HDFSDSDATA,Event
+
     END
 
   'File.Quit': BEGIN
@@ -4721,8 +4731,8 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
       Print, 'Event for HDF_DRAW3'
       END
 
-  ; Event for PDMENU3
-  'PDMENU3': PDMENU3_Event, Event
+  ; Event for PDMENU4
+  'PDMENU4': PDMENU4_Event, Event
 
   ; Event for PDMENUSETUP3
   'PDMENUSETUP3': PDMENUSETUP3_Event, Event
@@ -4749,6 +4759,9 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 		WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=d else $
 		WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=''
 		erase
+
+	invoke_HDFSDSDATA,Event
+
 	end
       END
 
@@ -4820,25 +4833,44 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
   'ANN_HELP': BEGIN
 	st = [ $
-		'Set the HDF Info: Droplist to "Global SDS Attributes"', $
-		'to pops up the HDF QUERY - SDS window', $
-	      'Show Data - option turns on the HDF SDS Text Window', $
-		'','              HDF QUERY - SDS WINDOW', $
-		'DumpSDSHeader -  dumps SDS attributes and first 5 elements from the SDS array',$
-		'First - access the first set of SDS',$
-		'Next  - access the next set of SDS',$
-		'Prev  - access the prev set of SDS',$
-		'Last  - access the last set of SDS',$
-		'SDS # - display the current seqno of SDS',$
-		'Slider - select the desired seqno of SDS',$
-		'SDS List - select SDS by the attribute list',$
-		'Selected SDS data will be displayed in the drawing area', $
+		'File Menu    - select HDF/NEXUS file or quit IDL', $
+		'Setup Menu   - set the color tables to be used by IDL', $
+		'HDF Filename - display HDF/NEXUS files picked', $
+		'', $
+		'HDF Info Droplist - select & display HDF info in text area and pops up query dialog', $
+		'     Types of popup query dialog: ', $
+		'        HDF QUERY - SDS', $
+		'        HDF QUERY - VD', $
+		'        HDF QUERY - VG', $
+		'Help...   - display this help message', $
+		'Clear     - clear the scroll text info area', $
+		'Text Area - display summary of HDF info for selected HDF Info mode ', $
+		'','Check Options:', $
+	      '  Show Data   - toggle option of popup the HDF SDS Text Window', $
+	      '  Plot Window - toggle option of popup the HDF SDS 1D/2D/3D plot Window', $
+		'','Byte Array as:', $
+	      '  String / Byte - display data as String / Byte', $
+		'','Drawing Area - display raw data as 1D/2D/3D graph', $
+		'',	'HDF QUERY - SDS Dialog:',$
+		'  DumpSDSHeader -  dumps SDS attributes and first 5 elements from the SDS array',$
+		'  First - access the first set of SDS',$
+		'  Next  - access the next set of SDS',$
+		'  Prev  - access the prev set of SDS',$
+		'  Last  - access the last set of SDS',$
+		'  SDS # - text field display the current seqno of SDS',$
+		'  Slider - select the desired seqno of SDS',$
+		'  SDS List - select SDS by the attribute list',$
+		'(Selected SDS data will be displayed in the drawing area)', $
 		'', $
 		'For 3D SDS data:',$
 		'- Only the first 12 slices (i.e. 3rd rank) will be plotted in the drawing area', $
-		'- Up to 100 columns of the first rank can be displayed in text window' $
+		'- Up to 100 columns of the first rank can be displayed in text window', $
+		'(To access discrete SDS data array, ', $
+		'	you may use the itools user interface options, or', $
+		'	you may refer the NX object class.)' $
 		]
-	r = dialog_message(st,/info,title='HDF Query Help')
+;	r = dialog_message(st,/info,title='HDF Query Help')
+xdisplayfile,title='Help on HDFB',text=st,group=Event.top
 	END
 ; ANNOTATION dump
 
@@ -5091,6 +5123,7 @@ HDF_Query = { $,
 	term : 0L, $
 	vg_term : 0L, $
 	vd_term : 0L, $
+	an_droplist : 0L, $
 	an_term : 0L, $
 	terminal: 0L, $
 	vg_dump : 0L, $
@@ -5147,12 +5180,12 @@ end
 
   ]
 
-  PDMENU3 = CW_PDMENU( BASE0_1, MenuDesc167, /RETURN_FULL_NAME, $
-      UVALUE='PDMENU3')
+  PDMENU4 = CW_PDMENU( BASE0_1, MenuDesc167, /RETURN_FULL_NAME, $
+      UVALUE='PDMENU4')
 
   MenuDescsetup167 = [ $
       { CW_PDMENU_S,       3, 'Setup' }, $ ;        0
-        { CW_PDMENU_S,       0, 'Color' }, $ ;        1
+        { CW_PDMENU_S,       0, 'Color...' }, $ ;        1
         { CW_PDMENU_S,       2, '' } $  ;      2
   ]
 
@@ -5243,6 +5276,7 @@ WIDGET_CONTROL, HDF_AN_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.anlevel
  	HDF_Query_id.draw_xsize  = draw_xsize
  	HDF_Query_id.draw_ysize  = draw_ysize
  	HDF_Query_id.term = ANN_TEXT
+ 	HDF_Query_id.an_droplist = HDF_AN_DROPLIST
  
   WIDGET_CONTROL, MAIN13_HDF, /REALIZE
 
@@ -5252,6 +5286,6 @@ WIDGET_CONTROL, HDF_AN_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.anlevel
   WIDGET_CONTROL, HDF_DRAW3, GET_VALUE=HDF_DRAW3_Id
  	HDF_Query_id.draw1 = HDF_DRAW3_Id
 
-  XMANAGER, 'MAIN13_HDF', MAIN13_HDF
+  XMANAGER, 'MAIN13_HDF', MAIN13_HDF,/no_block
 ;  XMANAGER, 'MAIN13_HDF', MAIN13_HDF, BLOCK=1
 END
