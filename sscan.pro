@@ -389,22 +389,29 @@ PRO scanSee_pick3d_det,Event
 END
 
 PRO scanSee_field,Event
-  widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
   widget_control,Event.id,get_value=file
+  found = findfile(file,count=ct)
+  if ct eq 0 then begin
+	r = dialog_message('File: "'+file+  '"  not found!')
+	return
+  end
+  widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
 	catch,error_status
 	if error_status ne 0 then begin
 	  close,1	
-	  r = dialog_message('File: "'+file+  '"  not found!')
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo
+  	sscan_read,SSD,file=file,/echo,error=error
+	if error eq 0 then begin
+	 scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
   	WIDGET_CONTROL, scanSee_data.btns_wid, SENSITIVE=1
   	widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
 	if SSD.rank eq 3 then WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 $
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
   	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
+	end
 	end
   widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 END
@@ -419,11 +426,13 @@ PRO scanSee_first,Event
 	catch,error_status
 	if error_status ne 0 then begin
 	  close,1	
-	  r = dialog_message('File: "'+file+  '"  not found!')
+	  r = dialog_message('File: "'+file+  '"  read failed!')
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo
+  	sscan_read,SSD,file=file,/echo,error=error
+	if error eq 0 then begin
+	 scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
   	widget_control,scanSee_data.file_wid,set_value=SSD.file
   	widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
@@ -431,12 +440,16 @@ PRO scanSee_first,Event
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
   	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
 	end
+	end
   end  
   widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 END
 
 PRO scanSee_next,Event
   widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
+  if size(scanSee_data,/type) eq 8 then begin
+  SSD = *scanSee_data.SSD 
+  if size(SSD,/type) eq 8 then begin
   SSD = *scanSee_data.SSD 
   path = SSD.path
   ll = findfile(path+!os.file_sep+'*.mda',count=ct)
@@ -446,11 +459,13 @@ PRO scanSee_next,Event
 	catch,error_status
 	if error_status ne 0 then begin
 	  close,1	
-	  r = dialog_message('File: "'+file+  '"  not found!')
+	  r = dialog_message('File: "'+file+  '"  read failed!')
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo
+  	sscan_read,SSD,file=file,/echo,error=error
+	if error eq 0 then begin
+	scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
   	widget_control,scanSee_data.file_wid,set_value=SSD.file
   	widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
@@ -458,6 +473,9 @@ PRO scanSee_next,Event
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
   	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
 	end
+	end
+  end  
+  end  
   end  
   widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 END
@@ -473,17 +491,20 @@ PRO scanSee_prev,Event
 	catch,error_status
 	if error_status ne 0 then begin
 	  close,1	
-	  r = dialog_message('File: "'+file+  '"  not found!')
+	  r = dialog_message('File: "'+file+  '"  read failed!')
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo
+  	sscan_read,SSD,file=file,/echo,error=error
+	if error eq 0 then begin
+	 scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
   	widget_control,scanSee_data.file_wid,set_value=SSD.file
   	widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
 	if SSD.rank eq 3 then WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 $
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
   	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
+	end
 	end
   end  
   widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
@@ -500,17 +521,20 @@ PRO scanSee_last,Event
 	catch,error_status
 	if error_status ne 0 then begin
 	  close,1	
-	  r = dialog_message('File: "'+file+  '"  not found!')
+	  r = dialog_message('File: "'+file+  '"  read failed!')
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo
+  	sscan_read,SSD,file=file,/echo,error=error
+	if error eq 0 then begin
+	 scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
   	widget_control,scanSee_data.file_wid,set_value=SSD.file
   	widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
 	if SSD.rank eq 3 then WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 $
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
   	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
+	end
 	end
   end  
   widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
@@ -589,7 +613,7 @@ PRO scanSee_free,SSD
 if n_elements(SSD) gt 0 then begin
   if n_elements(SSD) gt 1 then begin
 	free_lun,SSD.lun
-	close,SSD.lun
+	close,SSD.lun,/all
 
 	for i=0,2 do begin
 	ptr_free,SSD.da(i)
@@ -1238,6 +1262,7 @@ PRO sscan_read,SSD,file=file,path=path,echo=echo,pick3d=pick3d,header=header,dat
 
 	if keyword_set(data) then goto,dataonly
 	sscan_readHeader,SSD,file=file,error=error
+	if  error ne 0  then return
 	if keyword_set(header) then return
 
 dataonly:
@@ -1269,7 +1294,7 @@ WIDGET_CONTROL,/HOURGLASS
 		da2D = *SSD.da(1)
 		da1D = *SSD.da(2)
 		title='SSCAN: 3D Scan #'+strtrim(SSD.scanno,2)
-		if SSD.nb_det(1) then panimage,da2D,numd=10,title=title else $
+		if SSD.nb_det(1) gt 0 then panimage,da2D,numd=10,title=title else $
 		begin
 		sz = size(da3d)
 		if sz(0) eq 4 then begin
@@ -1325,22 +1350,30 @@ END
 PRO PDMENU2_Event, Event
 
   widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
-  if n_elements(*scanSee_data.SSD) then SSD = *scanSee_data.SSD
-  if n_elements(SSD) eq 0 then begin
-  widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
-  return
+  if size(scanSee_data,/type) ne 8 then begin
+  widget_control,Event.top,/destroy,bad=bad
+  sscan_readConfig,fn
+print,fn
+  spawn,['sscan',fn],/noshell
+	return
   end
+  if n_elements(*scanSee_data.SSD) then SSD = *scanSee_data.SSD
 
   CASE Event.Value OF 
 
 
   'File.Open...': BEGIN
-;  	if n_elements(*scanSee_data.SSD) then SSD = *scanSee_data.SSD
-	sscan_read,SSD,/echo
-	if n_elements(SSD) eq 0 then begin
+	if size(SSD,/type) ne 8 then begin
         widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
+  	widget_control,Event.top,/destroy,bad=bad
+  	sscan_readConfig,fn
+print,fn
+	spawn,['sscan',fn],/noshell
 	return
 	end
+	sscan_read,SSD,/echo,error=error
+	if error eq 0 then begin
+	 scanSee_writeConfig,SSD
 	*scanSee_data.SSD = SSD
 print,SSD.path
   	WIDGET_CONTROL, scanSee_data.file_wid, set_value=SSD.file 
@@ -1350,11 +1383,13 @@ print,SSD.path
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
   	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
         widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
+	end
 	return
     END
   'File.Exit': BEGIN
 	scanSee_writeConfig,SSD
-	widget_control,Event.top,/destroy
+	widget_control,Event.top,/destroy,bad=bad
+	return
     END
 
   'Setup.Color...': BEGIN
@@ -1482,7 +1517,10 @@ end
     END
   'Help.Help': BEGIN
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
-    PRINT, 'Event for Help.Help'
+     st = ['When there is a problem in getting a new scan by buttons at the startup time', $
+	'try to press the CR key to re-initialate the data structure', $
+	'if there is still problem try to use File->Open.']
+	r = dialog_message(st,/info)
     END
   ENDCASE
 END
@@ -1668,6 +1706,7 @@ if XRegistered('SSCAN_MAIN13') then return
 	sscan_read,SSD,file=file,/echo,error=error
 	if error eq 0 then begin
 		*scanSee_data.SSD = SSD
+		scanSee_writeConfig,SSD
 	endif else begin
 		st = [ 'Invalid file in  scanSee.config file:', $
 		'You have to either enter a valid file in the text field first,', $
