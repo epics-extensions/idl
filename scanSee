@@ -16,15 +16,6 @@ else
         source $EPICS_EXTENSIONS/bin/$HOST_ARCH/ezcaidl_setup
 endif
 
-if `isainfo -b` == 64 then
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/scanSee.exe2.idl54"
-	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/scanSee.exe2.idl54"
-	endif
-	if -e scanSee.exe2.idl54 then
-	set exe = "scanSee.exe2.idl54"
-	endif
-else
 	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/scanSee.exe2.idl53"
 	if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/scanSee.exe2.idl53"
@@ -32,7 +23,6 @@ else
 	if -e scanSee.exe2.idl53 then
 	set exe = "scanSee.exe2.idl53"
 	endif
-endif
 
 if ( "$1" == "" ) then
 if `isainfo -b` == 64 then
