@@ -1,4 +1,4 @@
-; $Id: catcher_v1.pro,v 1.50 2002/03/19 23:17:27 cha Exp $
+; $Id: catcher_v1.pro,v 1.51 2002/03/21 16:45:23 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -832,7 +832,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
-; $Id: catcher_v1.pro,v 1.50 2002/03/19 23:17:27 cha Exp $
+; $Id: catcher_v1.pro,v 1.51 2002/03/21 16:45:23 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -7483,7 +7483,7 @@ for i=0,14 do begin
 	end
 end
 
-	scan_mode_write_image
+	if scanData.eof2d eq 0 then scan_mode_write_image
 
 	if scanData.image gt 2 then catch1d_win_2D_update2 else $
 		catch1d_win_2D_update1
@@ -9570,9 +9570,11 @@ end ;     end of if scanData.option = 1
 	if status_error ne 0 then return
 	wdelete,!D.window - 1		; 2D image window
 	END
+  'IMAGE_UPDATE': BEGIN
+	scanData.eof2d = Event.Index
+	END
   'BINARY_TYPE': BEGIN
 	scanData.XDR = Event.Index
-	print,'scanData.XDR=',scanData.XDR
 	END
 
   'PICK_XAXIS': BEGIN
@@ -10403,6 +10405,8 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
   PDMENU_VDATA = CW_PDMENU( BASE68, MenuVData, /RETURN_FULL_NAME, $
       UVALUE='PDMENU_VDATA')
 
+  IMAGE_UPDATE = WIDGET_DROPLIST(BASE68, VALUE=['Image@1D','Image@2D'], $
+        UVALUE='IMAGE_UPDATE',TITLE='')
   BINARY_TYPE = WIDGET_DROPLIST(BASE68, VALUE=['BIN','XDR'], $
         UVALUE='BINARY_TYPE',TITLE='')
   WIDGET_CONTROL,BINARY_TYPE,set_droplist_select = 1
