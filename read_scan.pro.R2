@@ -58,13 +58,20 @@ FUNCTION nbElem,dim,vector
   return, res
 END
 
-FUNCTION read_scan_rest,lun,Scan,dim,offset
+FUNCTION read_scan_rest,lun,Scan,dim,offset,dump
 ON_IOERROR, BAD	
 
   rank=0
   npts=0
   cpt=0
   readu,lun,rank,npts,cpt
+if rank gt (*Scan.dim) then begin
+	print, ' WARNING:'
+	print, ' ====> dim, rank:',(*Scan.dim),rank
+	print, ' Bad data detected: rank become bigger'
+	print, ' The read is terminated automatically'
+	return,1    			
+end
 
   nb_pts=cpt
   if(nb_pts EQ npts) then nb_pts=nb_pts-1
@@ -116,12 +123,16 @@ ON_IOERROR, BAD
      readu,lun, num
      pos_num[i]=num
      readu,lun,pos_info
+if dump then print,"====>positioner: ",i,num
+if dump then help,pos_info,/st
   end
 
   for i=0,nb_det-1 do begin
      readu,lun,num
      det_num[i]=num
      readu,lun,det_info
+if dump then print,"====>detector: ",i,num
+if dump then help,det_info,/st
   end
 
   for i=0,nb_trg-1 do begin
@@ -135,6 +146,8 @@ ON_IOERROR, BAD
      readu,lun,tmp
      if(cpt NE 0) then $
        (*(*Scan.pa)[rank-1])[offset:offset+cpt-1,pos_num[i]]=tmp[0:cpt-1]
+if dump then print,"====>positioner offset: ", offset
+if dump then print,tmp
   end
 
   tmp=fltarr(npts)
@@ -143,6 +156,8 @@ ON_IOERROR, BAD
      if(cpt NE 0) then $
        (*(*Scan.da)[rank-1])[offset:offset+cpt-1,det_num[i]]=tmp[0:cpt-1]
 ;print,'READ_SCAN_REST: rank=',rank,'   Nelem=',n_elements(tmp),'   Detector=',i+1
+if dump then print,"====>detector offset: ", offset
+if dump then print,tmp
   end
 
   if(rank GT 1) then begin
@@ -150,7 +165,7 @@ ON_IOERROR, BAD
     nb_sub= cpt
     if(cpt NE npts) then nb_sub=nb_sub+1
     for i=1,nb_sub do begin
-      res= read_scan_rest(lun,Scan,dim+1,sub_offset)
+      res= read_scan_rest(lun,Scan,dim+1,sub_offset,dump)
       if(res NE 1) then goto,BAD
     end
   end
@@ -165,7 +180,7 @@ end
 
 
 
-FUNCTION read_scan_first,lun,Scan,dim
+FUNCTION read_scan_first,lun,Scan,dim,dump
 ON_IOERROR, BAD	
 
   ndet = 85 ; 15
@@ -175,7 +190,13 @@ ON_IOERROR, BAD
   npts=0
   cpt=0
   readu,lun,rank,npts,cpt
-
+if rank gt (*Scan.dim) then begin
+	print, ' WARNING:'
+	print, ' ====> dim, rank:',(*Scan.dim),rank
+	print, ' Bad data detected: rank become bigger'
+	print, ' The read is terminated automatically'
+	return,0    			
+end
   if(rank GT 1) then begin $
     sub_scan_ptr=lonarr(npts)
     readu,lun,sub_scan_ptr
@@ -225,11 +246,16 @@ ON_IOERROR, BAD
      txpv:'', $
      txcd:'' }
 
+if dump then print,"====>rank,npts,cpt:",rank,npts,cpt
+if dump then print,"====>nb_pos,nb_det,nb_trg:",nb_pos,nb_det,nb_trg
+
   num=0
   for i=0,nb_pos-1 do begin
      readu,lun, num
      pos_num[i]=num
      readu,lun,pos_info
+if dump then print,"====>position: ",i,num
+if dump then help,pos_info,/st
      (*Scan.id_def)[num,rank-1]=1
      if(pos_info.rxpv NE '') then begin
 	(*Scan.labels)[num,rank-1]= pos_info.rxpv
@@ -246,6 +272,8 @@ ON_IOERROR, BAD
      readu,lun,num
      det_num[i]=num
      readu,lun,det_info
+if dump then print,"====>detector: ",i,num
+if dump then help,det_info,/st
      (*Scan.id_def)[4+num,rank-1]=1
      (*Scan.labels)[4+num,rank-1]= det_info.dxpv
      (*Scan.labels)[ntot+4+num,rank-1]= det_info.dxds
@@ -267,18 +295,22 @@ ON_IOERROR, BAD
   tmp=fltarr(npts)
   for i=0,nb_det-1 do begin
      readu,lun,tmp
+if dump then print,'====>detector: ',i,nb_det
+if dump then print,'====>tmp: ',tmp  
      if(cpt NE 0) then (*(*Scan.da)[rank-1])[0:cpt-1,det_num[i]]=tmp[0:cpt-1]
   end
 
+if dump then print,'====>end step1 rank=',rank
   if(rank GT 1) then begin
     res=0
-    res= read_scan_first(lun,Scan,dim+1)
+    res= read_scan_first(lun,Scan,dim+1,dump)
+if dump then print,'====>read_scan_first res=',res, rank
     if(res NE 1) then goto,BAD
     offset= LONG((*Scan.npts)[rank+dim-2])
     nb_sub= cpt-1
     if(cpt NE npts) then nb_sub=nb_sub+1
     for i=1,nb_sub do begin
-      res= read_scan_rest(lun,Scan,dim+1,offset)
+      res= read_scan_rest(lun,Scan,dim+1,offset,dump)
       if(res NE 1) then goto,BAD
     end
   end
@@ -290,8 +322,10 @@ BAD:
 end  
 
 
-FUNCTION read_scan,filename, Scan
+FUNCTION read_scan,filename, Scan, dump=dump
 
+  debug = 0
+  if keyword_set(dump) then debug = dump
   ON_ERROR,0 ;,1
   ON_IOERROR,BAD
 
@@ -336,8 +370,8 @@ FUNCTION read_scan,filename, Scan
   *Scan.pa= ptrarr(tmp.rank)
   *Scan.da= ptrarr(tmp.rank)
 
-  if(read_scan_first(lun, Scan, 0) NE 1) then goto,BAD
-
+  if(read_scan_first(lun, Scan, 0,debug) NE 1) then goto,BAD
+    dims=(*Scan.npts)[0:tmp.rank-1]
   for i=0,tmp.rank-1 do begin
     dims=(*Scan.npts)[i:tmp.rank-1]
     *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,4])
