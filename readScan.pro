@@ -6,8 +6,8 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-;@read_scan.pro
-;@DC_alloc.pro
+
+FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
 
 PRO scanimage_print,gD,test=test
@@ -19,11 +19,11 @@ PRO scanimage_print,gD,test=test
 	print,'id_def  : ',*gData.id_def
 	print,'pvname  : ',*gData.pv
 	print,'labels  : ',*gData.labels
-	if *gData.dim gt 2 then begin
+	if *gData.dim eq 3 then begin
 	help,*gData.pa3D
 	help,*gData.da3D
 	end
-	if *gData.dim gt 1 then begin
+	if *gData.dim eq 2 then begin
 	help,*gData.pa2D
 	help,*gData.da2D
 	end
@@ -66,7 +66,7 @@ PRO scanimage_cleanup
 	heap_gc
 END
 
-PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header
+PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet,timestamp=timestamp
 
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
@@ -86,9 +86,11 @@ gData = { $
 	gD = ptr_new(/allocate_heap)
 	*gD = gData
 
-; add keyword pickDet, header to read_scan
 
-	scanno = read_scan(filename, Scan,pickDet=pickDet,header=header)
+; help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,pa2d,da1d,da2d
+
+	scanno = read_scan(filename,Scan,pickDet=pickDet,header=header,lastDet=lastDet)
+	timestamp=*Scan.timestamp1
 	*gData.scanno = scanno
 
 	if scanno lt 0 then return
@@ -98,8 +100,6 @@ gData = { $
 ;	scanimage_print,gD
 
 END
-
-
 
 PRO readScanFile,filename,gD,scanno
 ;+
