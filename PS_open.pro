@@ -191,7 +191,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 	if OS_SYSTEM.os_family eq 'unix' then begin
 	if OS_SYSTEM.printer eq '' then $
 	spawn,[OS_SYSTEM.prt, '-r', fileName], /noshell else $
-	spawn,[OS_SYSTEM.prt, '-P',OS_SYSTEM.printer ,  '-r', fileName], /noshell
+	spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer ,  '-r', fileName], /noshell
 	endif else $
 	spawn,[OS_SYSTEM.prt, fileName, OS_SYSTEM.printer]
 END
@@ -251,7 +251,7 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 	if OS_SYSTEM.os_family eq 'unix' then begin
 		if OS_SYSTEM.printer eq '' then $
         	str =  OS_SYSTEM.lpr + ' ' +  psfile  else $
-        	str =  OS_SYSTEM.lpr + ' -P ' + OS_SYSTEM.printer +' '+  psfile 
+        	str =  OS_SYSTEM.lpr + OS_SYSTEM.printer +' '+  psfile 
 		if n_elements(r_curr) then begin
 		color = r_curr(0) + g_curr(0)*256L + b_curr(0)*256L ^2
 		if color ge 16777200 then begin 
@@ -326,7 +326,7 @@ COMMON PRINTER_BLOCK,printer_info
 
 if printer_info.name ne '' then begin
 	if OS_SYSTEM.os_family eq 'unix' then $
-	OS_SYSTEM.printer = '-P'+printer_info.name + ' ' else $
+	OS_SYSTEM.printer = ' -P '+printer_info.name + ' ' else $
 	OS_SYSTEM.printer = printer_info.name 
 end
 
