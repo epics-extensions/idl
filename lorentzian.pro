@@ -141,11 +141,11 @@ yfit = curvefit(x,y,Weights,a,sigma,function_name='lorentzian',/noderiv)
         comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d, x, curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		/symbol,GROUP=group,wtitle='Lorentzian Fit',report='fitting.rpt'
+		/symbol,GROUP=group,wtitle='Lorentzian Fit',report='lorentzian.rpt'
 
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
+        OPENW,unit,'lorentzian.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -177,7 +177,7 @@ yfit = curvefit(x,y,Weights,a,sigma,function_name='lorentzian',/noderiv)
 	printf,unit,'         X           Y           YFIT        YFIT - Y'
 	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i)
 	FREE_LUN,unit
-;	xdisplayfile,'fitting.rpt',title=title
+;	xdisplayfile,'lorentzian.rpt',title=title
 	end
 
 END
@@ -336,23 +336,23 @@ for i=0,N-1 do NEWA(*,i) = a(i*3:i*3+2)
 ; plot seperate lines
 if keyword_set(subplot) then begin
 ytemp = make_array(n_elements(x),N+2)
-ytemp(*,0) = yfit
-ytemp(*,1) = y
+ytemp(*,1) = yfit
+ytemp(*,0) = y
 for i=0,N-1 do begin
 	a = NEWA(*,i)	
 	lorentzian_curve,a,x,temp
 	ytemp(*,i+2) = temp
 end
-	plot1d,x,ytemp,/symbol,title=title,GROUP=group
+	plot1d,x,ytemp,/symbol,title=title,GROUP=group,wtitle='Decomposed Lorentzians'
 end
 
 
 	plot1d, x, curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		/symbol,GROUP=group,wtitle='Multiple Lorentzian Fit',report='fitting.rpt'
+		/symbol,GROUP=group,wtitle='Multiple Lorentzian Fit',report='lorentzian.rpt'
 
 
 	if keyword_set(print) then begin
-        OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
+        OPENW,unit,'lorentzian.rpt',/GET_LUN,ERROR=err
         if err ne 0 then begin
         res = widget_message(!err_string,/info,title='FITTING Info')
         return
@@ -380,10 +380,14 @@ end
         printf,unit,''
 	end
 
-	printf,unit,'         X           Y           YFIT      YFIT - Y '
-	for i=0,n_elements(x)-1 do printf,unit,x(i),y(i),yfit(i),yres(i)
+	format='('+strtrim(N+4,2)+'G15.7)'
+	format='(4G15.7,'+strtrim(N,2)+'G15.7)'
+	printf,unit,'         X            Y              YFIT          YFIT - Y  ||    MULTIPLE COMPONENTS'
+	for i=0,n_elements(x)-1 do begin
+		 printf,unit,format=format,x(i),y(i),yfit(i),yres(i),ytemp(i,2:2+N-1)
+	end
 	FREE_LUN,unit
-;	xdisplayfile,'fitting.rpt',title=title
+;	xdisplayfile,'lorentzian.rpt',title=title
 	end
 
 END
