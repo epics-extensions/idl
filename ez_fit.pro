@@ -1,5 +1,7 @@
 
-PRO readascii,filename,rarray,x,y,double=double,skip=skip,lines=lines,l_column=l_column,columns=columns ,print=print
+PRO readascii,filename,rarray,x,y,double=double,skip=skip,lines=lines,l_column=l_column,columns=columns,xcol=xcol ,print=print
+COMMON EZ_FIT_BLOCK,ezfitData,image
+COMMON W_READASCII_BLOCK,readascii_info
 ;+
 ; NAME: 
 ;      READASCII
@@ -14,7 +16,7 @@ PRO readascii,filename,rarray,x,y,double=double,skip=skip,lines=lines,l_column=l
 ;
 ; CALLING SEQUENCE:
 ;      READASCII, Filename, Rarray, X, Y [ /DOUBLE, SKIP=skip, LINES=lines,
-;                        L_COLUMN=l_column, COLUMNS=columns ]
+;                        L_COLUMN=l_column, COLUMNS=columns , XCOL=xcol ]
 ;
 ; INPUT:
 ;      Filename -  Input file name
@@ -25,12 +27,13 @@ PRO readascii,filename,rarray,x,y,double=double,skip=skip,lines=lines,l_column=l
 ;      LINES     -  total number of lines to be read
 ;      L_COLUMN  -  skip number of columns from the input line
 ;      COLUMNS   -  total number of columns to be read from the line
+;      XCOL      -  specifies the X axis column number, defualt 0
 ;      
 ; OUTPUTS:
-;      Rarray   -  Return default column matrix
-;      X        -  Return the 1st column of Rarray as independent variable
-;      Y        -  Return transpose of the remaining columns of Rarray as 
-;                  dependent variables
+;      Rarray   -  Return the dependent variable columns read in
+;      X        -  Return the column as X independent variable
+;      Y        -  Return dependent variable(s) for 1D data 
+;                  Return the Y independent variable for 2D data
 ;
 ; RESTRICTIONS:
 ;     The input file must be in ASCII form. The header lines must be placed
@@ -41,6 +44,14 @@ PRO readascii,filename,rarray,x,y,double=double,skip=skip,lines=lines,l_column=l
 ; EXAMPLE:
 ;   
 ;       READASCII, 'Filename', RARRAY, X, Y 
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha
+;
+;       09-16-98      bkc  Allows blank lines at end of ascii file, no blank
+;                          lines allowed between data
+;       11-23-99      bkc  Use keyword XCOL to specify the column to be used
+;                          as X-axis
 ;-
 
 if n_params() eq 0 then begin
@@ -51,7 +62,7 @@ end
 
 spawn,['wc','-l',filename],y, /noshell
 if y(0) eq '' then begin
-        print,'Error: bad filename for readascii'
+        res = dialog_message('Error: bad filename for readascii',/error)
         return
         end
 no = y(0)
@@ -59,54 +70,63 @@ no = y(0)
 start_line=0
 last_line=no
 start_col = 0
-
 if keyword_set(skip) then start_line=skip
 if keyword_set(lines) then last_line=skip+lines
-;if (last_line - start_line) lt no then no = last_line - start_line
-if start_line gt no then return
-if last_line gt no then begin
-	last_line = no
-	lines = last_line - start_line
-	end
+if last_line gt no then last_line = no
+
+if keyword_set(xcol) eq 0 then xcol = 0
 
 line=''
 openr,unit,filename,/get_lun
 i=0
+nline=0
 WHILE NOT eof(unit) and i lt last_line DO begin
 	readf,unit,line,prompt=''
+	if i eq 3 and ezfitData.dim eq 2 then begin
+	yel = str_sep(strcompress(line),' ')
+	end
+
 	if i ge start_line then begin
 	line=strcompress(strtrim(line,2))
-
+	
 	res = str_sep(line,' ',/trim)
 	sz=size(res)
-	end_col = sz(1)
 
-	if strmid(line,0,1) ne ';' then begin 
+	; exclude the comment line
+
+	if strmid(line,0,1) ne readascii_info.comment then begin 
 	if i eq start_line then begin
+	lines = last_line - start_line
+	end_col = sz(1)
 		if keyword_set(l_column) then begin
-			 if l_column lt sz(1) then start_col=l_column
-			end
-		if keyword_set(columns) then end_col = start_col + columns-1
+		 if l_column lt sz(1) and l_column ge 0 then start_col=l_column
+		end
+		if keyword_set(columns) then end_col = start_col + columns
 		if end_col gt sz(1) then end_col = sz(1)
 		if keyword_set(double) then $
 		rarray = make_array(end_col-start_col,lines,/double) else $
 		rarray = make_array(end_col-start_col,lines,/float)
 	end
-
-	rarray(*,i-start_line) = float(res(start_col:end_col-1))
+	if strlen(line) gt 0 then begin
+	if nline eq 0 then x = float(res(xcol)) else x = [x,res(xcol)]
+	rarray(*,nline) = float(res(start_col:end_col-1))
+	nline = nline+1
+	end
 	endif else  begin
-		start_line = i+1
+		rstart_line = i+1
+		if rstart_line gt start_line then start_line = rstart_line
 		end
 	end
 	i = i+1
 end
 free_lun,unit
-help,l_column,start_col,end_col,rarray
-help,start_line,last_line,no,lines
+	if nline lt lines then rarray = rarray(*,0:nline-1) 
 
-	temp = transpose(rarray)
-	x = temp(*,0)
-	y = temp(*,1: (end_col-start_col-1 > 1))
+	if ezfitData.dim eq 1 then Y = transpose(rarray)
+	if ezfitData.dim eq 2 then begin
+		 Y = yel(start_col:end_col-1)
+		 rarray = transpose(rarray)
+	end
 
 	if keyword_set(print) then begin
 	help,rarray
@@ -121,18 +141,29 @@ END
 
 PRO w_readascii_Event, Event
 COMMON EZ_FIT_BLOCK,ezfitData,image
+COMMON W_READASCII_BLOCK,readascii_info
 
-  WIDGET_CONTROL,Event.top,GET_UVALUE=info
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
   CASE Ev OF 
 
   'READASCII_SELECT': BEGIN
-        F=PICKFILE(/READ,FILTER='*.*',GET_PATH=P,PATH=OP)
+	WIDGET_CONTROL,readascii_info.pick,SENSITIVE=0
+        F=PICKFILE(/READ,FILTER='*.*',GET_PATH=P,PATH=readascii_info.inpath)
         if F eq '' then return
         found = findfile(F)
         if found(0) ne '' then begin
-		WIDGET_CONTROL,info.file,SET_VALUE=strtrim(F(0),2)
+	  WIDGET_CONTROL,readascii_info.file,SET_VALUE=strtrim(F(0),2)
+
+	  if strpos(found(0),'image') gt 0 then begin
+		WIDGET_CONTROL,readascii_info.dim,set_droplist_select=1
+		ezfitData.dim = 2
+		WIDGET_CONTROL,readascii_info.xcol,set_value=0
+	  endif else begin
+		WIDGET_CONTROL,readascii_info.dim,set_droplist_select=0
+		ezfitData.dim = 1
+		WIDGET_CONTROL,readascii_info.xcol,set_value=1
+	  end
         endif else begin
                 res=widget_message(F+ 'not found',/info,title='W_READASCII Info', $
                         DIALOG_PARENT=Event.id)
@@ -141,6 +172,17 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
       END
   'READASCII_FILENAME': BEGIN
  ;     Print, 'Event for filename'
+      END
+  'READASCII_RAWDATA': BEGIN
+	WIDGET_CONTROL,readascii_info.file,GET_VALUE=filename
+	found = findfile(filename(0))
+	if found(0) ne '' then xdisplayfile,filename(0)
+      END
+  'READASCII_DIM': BEGIN
+	ezfitData.dim = Event.Index + 1
+	if ezfitData.dim eq 2 then $
+	WIDGET_CONTROL,readascii_info.xcol,set_value=0 else $
+	WIDGET_CONTROL,readascii_info.xcol,set_value=1
       END
   'FIELD4': BEGIN
       Print, 'Event for Start line'
@@ -154,21 +196,64 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
   'FIELD7': BEGIN
  ;     Print, 'Event for columns'
       END
+  'FIELD7': BEGIN
+ ;     Print, 'Event for X axis'
+      END
+  'READASCII_PICKVECTOR': BEGIN
+	ezfit_getvector,image,GROUP=Event.Top
+      END
   'READASCII_ACCEPT': BEGIN
-      Print, 'Event for accept'
-	WIDGET_CONTROL,info.skip,GET_VALUE=skip
-	WIDGET_CONTROL,info.lines,GET_VALUE=lines
-	WIDGET_CONTROL,info.left_col,GET_VALUE=l_col
-	WIDGET_CONTROL,info.columns,GET_VALUE=columns
-	WIDGET_CONTROL,info.file,GET_VALUE=filename
-	readascii,filename(0),rarray,x,y,skip=skip,lines=lines,l_column=l_col,columns=columns
+	WIDGET_CONTROL,readascii_info.pick,SENSITIVE=1
+	WIDGET_CONTROL,readascii_info.skip,GET_VALUE=skip
+	WIDGET_CONTROL,readascii_info.lines,GET_VALUE=lines
+	WIDGET_CONTROL,readascii_info.left_col,GET_VALUE=l_col
+	WIDGET_CONTROL,readascii_info.columns,GET_VALUE=columns
+	WIDGET_CONTROL,readascii_info.xcol,GET_VALUE=xcol
+;		if columns eq 1 or columns lt 0 then begin
+;			res=dialog_message('Number of Columns is invalid.',/Error)
+;			return
+;		end
+	WIDGET_CONTROL,readascii_info.string,GET_VALUE=str
+	readascii_info.comment = str(0)
+	WIDGET_CONTROL,readascii_info.file,GET_VALUE=filename
+	readascii,filename(0),rarray,x,y,xcol=xcol,skip=skip,lines=lines, $
+		l_column=l_col,columns=columns
+	if n_elements(x) eq 0 then return
 
+	  sz = size(rarray)
+		ezfitData.width = sz(1)
+		ezfitData.height = sz(2)
+		ezfitData.J_index=0
+		ezfitDaTA.I_index=0
+	if ezfitData.dim eq 1 then begin
 		ezfitData.im = y
                 ezfit_init1d,x,y
-                image2 = y
-                if XRegistered('GETVECTOR_MAIN13') then $
-                WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
-                ezfit_getvector,image2
+	endif else begin
+		image = rarray
+		ezfitData.im = rarray
+                ezfit_init2D,x,y,rarray
+	end
+
+	if ezfitData.dim eq 2 then rarray = transpose(rarray)
+
+	if readascii_info.table eq 0 then begin
+	  readascii_info.cols = sz(1)
+	  readascii_info.rows = sz(2)
+	  readascii_info.table = widget_table(readascii_info.base,value=rarray,/editable,/scroll) 
+	endif else begin
+	  if sz(1) gt readascii_info.cols then begin
+	    widget_control,readascii_info.table, $
+		insert_columns=sz(1) - readascii_info.cols
+	    readascii_info.cols = sz(1)
+	  end
+
+	  if sz(2) gt readascii_info.rows then begin
+	    widget_control,readascii_info.table, $
+		insert_rows=sz(2) - readascii_info.rows
+	    readascii_info.rows = sz(2)
+	  end
+	  widget_control,readascii_info.table,set_value=rarray
+	end
 
       END
   'READASCII_HELP': BEGIN
@@ -180,21 +265,25 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
      '      Filename  - Input file name for ASCII data', $
      'OUTPUT: ', $
      '      Rarray    - Parameter returned for column matrix array ', $
-     '      X         - First column from the Rarray ', $
-     '      Y         - Transpose of remaining columns from the Rarray ', $
+     '      X         - Returns the X vector ', $
+     '      Y         - Returns array of Y vector(s)', $
      'KEYWORD:', $
      '      SKIP      - Number of header lines to be skipped, default 0', $
      '      LINES     - Number of lines to be read, default all', $
      '      L_COLUMN  - Number of column to be skipped, default 0', $
      '      COLUMNS   - Number of columns to be read from the line, default all', $
+     '      XCOL      - Column number contains the X values', $
      '      PRINT     - Print return parameters if it is set.' $
 	]
    res = widget_message(str,/info,title='W_READASCII Help')
       END
   'READASCII_CANCEL': BEGIN
-                WIDGET_CONTROL,Event.top,/DESTROY
+        WIDGET_CONTROL,Event.top,/DESTROY
+	return
       END
   ENDCASE
+
+
 END
 
 
@@ -203,21 +292,22 @@ END
 
 
 
-PRO w_readascii, filename, GROUP=Group
-
+PRO w_readascii, filename, inpath=inpath, GROUP=Group
+COMMON W_READASCII_BLOCK,readascii_info
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
+  if n_elements(inpath) eq 0 then cd,current=inpath
 
-  MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
+  READASCII_MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
       TITLE='W_READASCII', $
       MAP=1, $
-      UVALUE='MAIN13')
+      UVALUE='READASCII_MAIN13')
 
-  BASE2 = WIDGET_BASE(MAIN13, $
+  BASE2 = WIDGET_BASE(READASCII_MAIN13, $
       COLUMN=1, $
       MAP=1, $
       UVALUE='BASE2')
@@ -232,10 +322,17 @@ PRO w_readascii, filename, GROUP=Group
 	UVALUE='READASCII_SELECT')
 
   READASCII_FILENAME = CW_FIELD( BASE2_0,VALUE=filename, $
-      ROW=1, XSIZE=60, $
+      ROW=1, XSIZE=50, $
       RETURN_EVENTS=1, $
 	TITLE=' ', $
       UVALUE='READASCII_FILENAME')
+
+  dim_droplist = WIDGET_DROPLIST(BASE2_0,value=['1D','2D'], $
+	UVALUE='READASCII_DIM')
+
+  rawdata = WIDGET_BUTTON( BASE2_0, $
+      UVALUE='READASCII_RAWDATA', $
+      VALUE='ASCII...')
 
   BASE3 = WIDGET_BASE(BASE2, $
       MAP=1, /ROW, $
@@ -256,20 +353,32 @@ PRO w_readascii, filename, GROUP=Group
       ROW=1, XSIZE=5, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='   Number of Lines:', $
+      TITLE='   Read in Lines:', $
       UVALUE='FIELD5')
+
+  comment_str = ';'
+  FIELD51= CW_FIELD( BASE3,VALUE=comment_str, $
+      ROW=1, XSIZE=2, $
+      RETURN_EVENTS=1, $
+      TITLE='   Comment begins with:', $
+      UVALUE='READASCII_STRING')
 
   BASE4 = WIDGET_BASE(BASE2, $
       MAP=1, /ROW, $
       UVALUE='BASE3')
 
-  FieldVal559 = [ $
-    '0' ]
-  FIELD6 = CW_FIELD( BASE4,VALUE=FieldVal559, $
+  FIELD8 = CW_FIELD( BASE4,VALUE=1, $
       ROW=1, XSIZE=5,$
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='     Start Column:', $
+      TITLE='X Column Index:', $
+      UVALUE='FIELD8')
+
+  FIELD6 = CW_FIELD( BASE4,VALUE=2, $
+      ROW=1, XSIZE=5,$
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Y Column   Start:', $
       UVALUE='FIELD6')
 
   FieldVal624 = [ $
@@ -278,7 +387,7 @@ PRO w_readascii, filename, GROUP=Group
       ROW=1, XSIZE=5,$
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='Number of Columns:', $
+      TITLE='Total Columns:', $
       UVALUE='FIELD7')
 
   BASE8 = WIDGET_BASE(BASE2, $
@@ -290,21 +399,28 @@ PRO w_readascii, filename, GROUP=Group
       UVALUE='READASCII_ACCEPT', $
       VALUE='Accept')
 
+  pickvector = WIDGET_BUTTON( BASE8, $
+      UVALUE='READASCII_PICKVECTOR', $
+      VALUE='PickCurve...')
+  WIDGET_CONTROL,pickvector,SENSITIVE=0
+
   help = WIDGET_BUTTON( BASE8, $
       UVALUE='READASCII_HELP', $
-      VALUE='Help')
+      VALUE='Help...')
 
   cancel = WIDGET_BUTTON( BASE8, $
       UVALUE='READASCII_CANCEL', $
       VALUE='Close')
 
 
-  info = { skip:FIELD4,  lines:FIELD5, left_col:FIELD6, columns:FIELD7, $
+  readascii_info = { skip:FIELD4,  lines:FIELD5, left_col:FIELD6, $
+	columns:FIELD7, xcol:FIELD8, string: FIELD51, dim:dim_droplist, $
+	pick:pickvector, inpath:inpath, $
+	comment:comment_str, base:BASE2, table:0L, cols:0, rows:0, $
 	file:READASCII_FILENAME }
-  WIDGET_CONTROL, MAIN13, SET_UVALUE=info 
 
-  WIDGET_CONTROL, MAIN13, /REALIZE
-  XMANAGER, 'W_READASCII', MAIN13
+  WIDGET_CONTROL, READASCII_MAIN13, /REALIZE
+  XMANAGER, 'W_READASCII', READASCII_MAIN13
 END
 ;@plot1d.pro
 
@@ -364,7 +480,7 @@ END
 
 PRO ComfitGraf,x,y,a,yfit,sigma,print=print,test=test,geometric=geometric, $
 	exponential=exponential, gompertz=gompertz, hyperbolic=hyperbolic, $
-	logistic=logistic, logsquare=logsquare
+	logistic=logistic, logsquare=logsquare, GROUP=group
 ;+
 ; NAME:
 ; 	COMFITGRAF
@@ -557,7 +673,7 @@ end
 ;	plot,x,yfit
 ;	oplot,x,y,PSYM=7
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='COMFIT',report='fitting.rpt'
+		Group=group,wtitle='COMFIT',report='fitting.rpt'
 
 	if keyword_set(print) then begin
 
@@ -582,7 +698,7 @@ end
 END
 
 
-PRO ladfitgraf,x,y,yfit,absdev=absdev,test=test,double=double,print=print
+PRO ladfitgraf,x,y,yfit,absdev=absdev,test=test,double=double,print=print,GROUP=group
 ;+
 ; NAME:
 ; 	LADFITGRAF
@@ -667,7 +783,7 @@ end
 	comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='LADFIT',report='fitting.rpt'
+		Group=group,wtitle='LADFIT',report='fitting.rpt'
 
 	if keyword_set(print) then begin
         OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
@@ -688,7 +804,7 @@ end
 	end
 END
 
-PRO linfitgraf,x,y,sdev=sdev,chisq=chisq,prob=prob,sigma=sigma,double=double,test=test,print=print
+PRO linfitgraf,x,y,sdev=sdev,chisq=chisq,prob=prob,sigma=sigma,double=double,test=test,print=print,GROUP=group
 ;+
 ; NAME:
 ; 	LINFITGRAF
@@ -806,7 +922,7 @@ end
 ;	plot,x,yfit
 ;	oplot,x,y,PSYM=7
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='LINFIT - minimize chi-square',report='fitting.rpt'
+		Group=group,wtitle='LINFIT - minimize chi-square',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
@@ -838,7 +954,7 @@ end
 	end
 END
 
-PRO polyfitwgraf,x,y,w,ndegree,A,yfit,yband,sigma,print=print
+PRO polyfitwgraf,x,y,w,ndegree,A,yfit,yband,sigma,print=print,GROUP=group
 ;+
 ; NAME:
 ; 	POLYFITWGRAF
@@ -914,7 +1030,7 @@ if n_params() lt 4 then begin
 	comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='POLYFITW',report='fitting.rpt'
+		Group=group,wtitle='POLYFITW',report='fitting.rpt'
 
 	if keyword_set(print) then begin
         OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
@@ -960,7 +1076,7 @@ if n_params() lt 4 then begin
 	end
 END
 
-PRO polyfitgraf,x,y,ndegree,A,YFIT,YBAND,SIGMA,CORRM,print=print
+PRO polyfitgraf,x,y,ndegree,A,YFIT,YBAND,SIGMA,CORRM,print=print,GROUP=group
 ;+
 ; NAME:
 ; 	POLYFITGRAF
@@ -1046,7 +1162,7 @@ dy=double(y)
 	comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='POLY_FIT',report='fitting.rpt'
+		Group=group,wtitle='POLY_FIT',report='fitting.rpt'
 
 	if keyword_set(print) then begin
         OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
@@ -1069,7 +1185,7 @@ dy=double(y)
 
 END
 
-PRO gaussfitgraf,x,y,A,estimates=estimages,nterms=nterms,print=print
+PRO gaussfitgraf,x,y,A,estimates=estimages,nterms=nterms,print=print,GROUP=group
 ;+
 ; NAME:
 ; 	GAUSSFITGRAF
@@ -1160,7 +1276,7 @@ PRO gaussfitgraf,x,y,A,estimates=estimages,nterms=nterms,print=print
 ;	plot,x,yfit
 ;	oplot,x,y,PSYM=7
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='GAUSSFIT',report='fitting.rpt'
+		Group=group,wtitle='GAUSSFIT',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
@@ -1196,7 +1312,7 @@ PRO gaussfitgraf,x,y,A,estimates=estimages,nterms=nterms,print=print
 	end
 END
 
-PRO curvefitgraf,x,y,Weights,A,sigma,test=test,print=print,function_name=function_name,noderivative=noderivative,itmax=itmax,tol=tol
+PRO curvefitgraf,x,y,Weights,A,sigma,test=test,print=print,function_name=function_name,noderivative=noderivative,itmax=itmax,tol=tol,GROUP=group
 ;+
 ; NAME:
 ; 	CURVEFITGRAF
@@ -1321,6 +1437,10 @@ help,iter
 
 	title = 'Non-linear Least Square Fit with '+ strupcase(fname) 
 	get_curvefit_function,fname,comment
+	if fname eq 'funct_erf' then begin
+		noe = n_elements(comment)
+		comment(noe-1) = comment(noe-1)+ ' = ' + strtrim(2.355*A(3),2)
+		end
 	for i=0,n_elements(A)-1 do comment=[comment,'A'+strtrim(i,2)+'='+ $
 		string(A(i)) + '     SIGMA='+string(sigma(i))]
  
@@ -1331,7 +1451,7 @@ help,iter
 ;	plot,x,yfit
 ;	oplot,x,y,PSYM=7
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='CURVEFIT',report='fitting.rpt'
+		Group=group,wtitle='CURVEFIT',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
@@ -1408,7 +1528,7 @@ END
 
 PRO regressfitgraf,x,y,weights,yfit,const,sigma,ftest,r,rmul,chisq,status, $
 	relative_weight=relative_weight, $
-	print=print,test=test
+	print=print,test=test,GROUP=group
 
 if n_params() eq 0 and keyword_set(test) eq 0 then begin
 	str='Usage: regressfitGraf,X,Y,Weights,yfit,const[,sigma,ftest,r,rmul,chisq,status,/RELATIVE_WEIGHT,/PRINT]'
@@ -1479,7 +1599,7 @@ end
 	comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='REGRESS',report='fitting.rpt'
+		Group=group,wtitle='REGRESS',report='fitting.rpt'
 ;	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
 ;		wtitle='REGRESS'
 
@@ -1507,8 +1627,94 @@ end
 ;	xdisplayfile,'fitting.rpt',title='REGRESS'
 	end
 END
+PRO pickYX_getvector
+COMMON EZ_FIT_BLOCK,ezfitData,image
+COMMON W_READASCII_BLOCK,readascii_info
 
+;  'YX_GETVECTOR'
+	if ezfitData.dim eq 1 then begin
+	WIDGET_CONTROL, ezfitData.J_field, GET_VALUE=j
+	if j ge 0 and j lt ezfitData.height then ezfitData.J_index = j else begin
+	WIDGET_CONTROL,ezfitData.J_field, SET_VALUE=ezfitData.height-1
+	ezfitData.J_index = ezfitData.height-1
+	end
+	if j ge ezfitData.height then ezfitData.J_index = ezfitData.height-1 
+        ezfitData.y = image(*,ezfitData.J_index)
+        title='Y vs X (1D Data)'
 
+	WSET,ezfitData.image_area
+        plot,ezfitData.x(0:ezfitData.width-1), ezfitData.y,PSYM=0,thick=2,$
+                xtitle='X', ytitle='Y', title=title
+	if XRegistered('POLYFITW_SETUP') then $
+	WIDGET_CONTROL,ezfitData.polyfit_label, $
+		SET_VALUE='Number of Elements: '+strtrim(ezfitData.width,2)
+        ezfitData.pick=0
+	str = '       I    X Values         Y Values'
+	for i=0,ezfitData.width-1 do $
+	str = [str,string(i, ezfitData.x(i), ezfitData.y(i),/print)]
+	WIDGET_CONTROL, ezfitData.text_area, SET_VALUE=str	
+        end
+
+	WIDGET_CONTROL,readascii_info.table, $
+	 set_table_select=[ ezfitData.J_index, 0, $
+		ezfitData.J_index,ezfitData.width-1 ], BAD_ID=b
+END
+
+PRO pickZX_getvector
+COMMON EZ_FIT_BLOCK,ezfitData,image
+COMMON W_READASCII_BLOCK,readascii_info
+;  'ZX_GETVECTOR'
+        if ezfitData.dim eq 2 then begin
+;                ezfit_get2DData,ezfitData.file,image
+                ezfitData.zy = image(ezfitData.I_index,*)
+        title='Z vs Y @ X='+strtrim(ezfitData.x(ezfitData.I_index),2)
+
+	WSET,ezfitData.image_area
+        plot,ezfitData.y(0:ezfitData.height-1), ezfitData.zy,PSYM=0,thick=2, $
+                xtitle='Y', ytitle='Z', title=title
+	if XRegistered('POLYFITW_SETUP') then $
+	WIDGET_CONTROL,ezfitData.polyfit_label, $
+		SET_VALUE='Number of Elements: '+strtrim(ezfitData.height,2)
+        ezfitData.pick=2
+	str = '       I    Y Values         Zx Values'
+	for i=0,ezfitData.height-1 do $
+	str = [str,string(i, ezfitData.y(i), ezfitData.zy(i),/print)]
+	WIDGET_CONTROL, ezfitData.text_area, SET_VALUE=str	
+        end
+
+	; row
+	WIDGET_CONTROL,readascii_info.table, $
+	 set_table_select=[0,ezfitData.I_index, $
+		ezfitData.width-1, ezfitData.I_index], BAD_ID=b
+END
+
+PRO pickZY_getvector
+COMMON EZ_FIT_BLOCK,ezfitData,image
+COMMON W_READASCII_BLOCK,readascii_info
+; 'ZY_GETVECTOR'
+        if ezfitData.dim eq 2 then begin
+;               ezfit_get2DData,ezfitData.file,image
+                ezfitData.zx = image(*,ezfitData.J_index)
+        title='Z vs X @ Y='+strtrim(ezfitData.y(ezfitData.J_index),2)
+
+	WSET,ezfitData.image_area
+        plot,ezfitData.x(0:ezfitData.width-1), ezfitData.zx,PSYM=0,thick=2, $
+                xtitle='X', ytitle='Z', title=title
+	if XRegistered('POLYFITW_SETUP') then $
+	WIDGET_CONTROL,ezfitData.polyfit_label, $
+		SET_VALUE='Number of Elements: '+strtrim(ezfitData.width,2)
+        ezfitData.pick=1
+	str = '       I    X Values         Zy Values'
+	for i=0,ezfitData.width-1 do $
+	str = [str,string(i, ezfitData.x(i), ezfitData.zx(i),/print)]
+	WIDGET_CONTROL, ezfitData.text_area, SET_VALUE=str	
+        end
+
+	; column
+	WIDGET_CONTROL,readascii_info.table, $
+	 set_table_select=[ezfitData.J_index,0, $
+		ezfitData.J_index,ezfitData.height-1], BAD_ID=b
+END
 
 PRO GETVECTOR_MAIN13_Event, Event
 COMMON EZ_FIT_BLOCK,ezfitData,image
@@ -1527,6 +1733,19 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 	if j ge 0 and j lt ezfitData.height then ezfitData.J_index = j else $
 		WIDGET_CONTROL,Event.id,SET_VALUE=ezfitData.height-1
       END
+  'GETVECTOR_SLIDER': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=j
+	ezfitData.J_index = j
+	WIDGET_CONTROL,ezfitData.J_field,SET_VALUE=j
+	if ezfitData.dim eq 1 then pickYX_getvector else $
+	pickZY_getvector
+      END
+  'GETVECTOR_XSLIDER': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=j
+	ezfitData.I_index = j
+	WIDGET_CONTROL,ezfitData.I_field,SET_VALUE=j
+	pickZX_getvector
+      END
   'HELP_GETVECTOR': BEGIN
 	str=["Click the  'Image' button to show the image", $
 		"Click the left mouse button in the image area to select the interest point",$
@@ -1542,6 +1761,10 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
   'FRESH_GETVECTOR': BEGIN
 	WSET,ezfitData.image_area
 	TVSCL,congrid(image,ezfitData.TV_width,ezfitData.TV_height)
+	WIDGET_CONTROL,ezfitData.J_field,set_value=ezfitData.J_index
+	WIDGET_CONTROL,ezfitData.slider,set_slider_max=ezfitData.height-1
+	if ezfitData.dim eq 2 then $
+	WIDGET_CONTROL,ezfitData.xslider,set_slider_max=ezfitData.width-1
 	END
   'YX_GETVECTOR': BEGIN
 	if ezfitData.dim eq 1 then begin
@@ -1567,43 +1790,11 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 	WIDGET_CONTROL, ezfitData.text_area, SET_VALUE=str	
         end
 	END
-  'ZX_GETVECTOR': BEGIN
-        if ezfitData.dim eq 2 then begin
-;               ezfit_get2DData,ezfitData.file,image
-                ezfitData.zx = image(*,ezfitData.J_index)
-        title='Z vs X @ Y='+strtrim(ezfitData.y(ezfitData.J_index),2)
-
-	WSET,ezfitData.image_area
-        plot,ezfitData.x(0:ezfitData.width-1), ezfitData.zx,PSYM=0,thick=2, $
-                xtitle='X', ytitle='Z', title=title
-	if XRegistered('POLYFITW_SETUP') then $
-	WIDGET_CONTROL,ezfitData.polyfit_label, $
-		SET_VALUE='Number of Elements: '+strtrim(ezfitData.width,2)
-        ezfitData.pick=1
-	str = '       I    X Values         Zy Values'
-	for i=0,ezfitData.width-1 do $
-	str = [str,string(i, ezfitData.x(i), ezfitData.zx(i),/print)]
-	WIDGET_CONTROL, ezfitData.text_area, SET_VALUE=str	
-        end
-	END
   'ZY_GETVECTOR': BEGIN
-        if ezfitData.dim eq 2 then begin
-;                ezfit_get2DData,ezfitData.file,image
-                ezfitData.zy = image(ezfitData.I_index,*)
-        title='Z vs Y @ X='+strtrim(ezfitData.x(ezfitData.I_index),2)
-
-	WSET,ezfitData.image_area
-        plot,ezfitData.y(0:ezfitData.height-1), ezfitData.zy,PSYM=0,thick=2, $
-                xtitle='Y', ytitle='Z', title=title
-	if XRegistered('POLYFITW_SETUP') then $
-	WIDGET_CONTROL,ezfitData.polyfit_label, $
-		SET_VALUE='Number of Elements: '+strtrim(ezfitData.height,2)
-        ezfitData.pick=2
-	str = '       I    Y Values         Zx Values'
-	for i=0,ezfitData.height-1 do $
-	str = [str,string(i, ezfitData.y(i), ezfitData.zy(i),/print)]
-	WIDGET_CONTROL, ezfitData.text_area, SET_VALUE=str	
-        end
+	pickZY_getvector
+	END
+  'ZX_GETVECTOR': BEGIN
+	pickZX_getvector
 	END
   'DRAW6': BEGIN
 	;cursor,x,y,0,/device
@@ -1629,6 +1820,9 @@ END
 PRO ezfit_getvector,image, GROUP=Group
 COMMON EZ_FIT_BLOCK,ezfitData
 
+if XRegistered('GETVECTOR_MAIN13') then $
+	WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY,/bad_id
+
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
@@ -1637,7 +1831,7 @@ device,retain=2
 
   GETVECTOR_MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $
-      MAP=1, TLB_FRAME_ATTR=8,$
+      MAP=1, $ ; TLB_FRAME_ATTR=8,$
       TITLE='EZ_FIT-2D Image', $
       UVALUE='GETVECTOR_MAIN13')
 
@@ -1664,9 +1858,14 @@ device,retain=2
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='I Index', $
+      TITLE='Row ', $
       UVALUE='FIELD4', $
       XSIZE=4)
+  if ezfitdata.dim eq 2 then $
+  xslider = widget_slider(BASE3,value=1,max=ezfitdata.width-1, $
+		xsize=50, title='Row', $ 
+		UVALUE='GETVECTOR_XSLIDER')
+
 
   FieldVal1787 = [ $
     strtrim(ezfitData.J_index,2) ]
@@ -1674,9 +1873,14 @@ device,retain=2
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='J Index', $
+      TITLE='Column ', $
       UVALUE='FIELD5', $
       XSIZE=4)
+
+  if ezfitdata.height gt 0 then $
+  slider = widget_slider(BASE3,value=1,max=ezfitdata.height-1, $
+		xsize=50, title='Column',$
+		UVALUE='GETVECTOR_SLIDER')
 
   DRAW6 = WIDGET_DRAW( BASE2, $
       BUTTON_EVENTS=1, $
@@ -1699,8 +1903,8 @@ device,retain=2
 if ezfitData.dim eq 1 then $
   YX_getvector=WIDGET_BUTTON(BASE4,value='Y vs X',UVALUE='YX_GETVECTOR') $
 else begin
-  ZX_getvector=WIDGET_BUTTON(BASE4,value='Zy vs X',UVALUE='ZX_GETVECTOR')
-  ZY_getvector=WIDGET_BUTTON(BASE4,value='Zx vs Y',UVALUE='ZY_GETVECTOR')
+  ZX_getvector=WIDGET_BUTTON(BASE4,value='Zx vs Y',UVALUE='ZX_GETVECTOR')
+  ZY_getvector=WIDGET_BUTTON(BASE4,value='Zy vs X',UVALUE='ZY_GETVECTOR')
 end
   help_getvector=WIDGET_BUTTON(BASE4,value='Help...',UVALUE='HELP_GETVECTOR')
   close_getvector=WIDGET_BUTTON(BASE4,value='Close',UVALUE='CLOSE_GETVECTOR')
@@ -1716,6 +1920,9 @@ end
   ezfitData.base_getvector = GETVECTOR_MAIN13
   ezfitData.I_field = FIELD4
   ezfitData.J_field = FIELD5
+  ezfitData.slider = slider
+  if ezfitdata.dim eq 2 then $
+  ezfitData.xslider = xslider
   ezfitData.image_area = DRAW6_Id
   WSET,ezfitData.image_area
 
@@ -1762,8 +1969,8 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 	findWFactor,f(0),WFactor
 	if n_elements(WFactor) eq n_elements(x) then w = WFactor
 	ndegree = ezfitData.polyfit_ndegree
-	if ezfitData.polyfit eq 1 then polyfitwGraf,x,y,w,ndegree,/print $
-	else polyfitGraf,x,y,ndegree,/print
+	if ezfitData.polyfit eq 1 then polyfitwGraf,x,y,w,ndegree,/print,GROUP=Event.top $
+	else polyfitGraf,x,y,ndegree,/print,GROUP=Event.top
 	END
   'HELP_POLYFITW': BEGIN
 	str = ['The number of wight factors entered should be the same as', $
@@ -1888,12 +2095,12 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
       	 svdfitGraf,x,y,info.nterm, $
 		function_name=info.fname, $
 		weights=ws, $
-		/print
+		/print,GROUP=Event.top
 	endif else begin
       	 svdfitGraf,x,y,info.nterm, $
 		weights=ws, $
 		/legendre, $
-		/print
+		/print,GROUP=Event.top
 	end
       END
   'BUTTON7': BEGIN
@@ -2073,12 +2280,13 @@ END
 ; find  fwh_max, c_mass, peak for a given x,y array
 ;
 PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak, fwhm,x_hwdl,x_hwdr, $
-	FIT=FIT,XINDEX=XINDEX,LIST=LIST,PLOT=PLOT,TITLE=TITLE
+	REPORT=REPORT, FIT=FIT, $
+	XINDEX=XINDEX,LIST=LIST,PLOT=PLOT,TITLE=TITLE,GROUP=group
+
 ;
 ; FIT  -  based on data points or use fit data
 ;
 xindex = keyword_set(XINDEX)
-list = keyword_set(LIST)
 
 nx = n_elements(x)
 a=make_array(nx,/float)
@@ -2090,24 +2298,32 @@ slopey = slope(x,y)
 ymin = min(y)
 ymax = max(y)
 ny = y - ymin
+;if total(abs(ny)) eq 0. then $
+;	r = dialog_message(['Invalid, constant vector data found!!'],/Error)
 
 peak = ymax
 hpeak = 0.5 * max(ny)
 y_hpeak= hpeak + ymin
 
-; area = int_tabulated(x,ny)
-; harea = 0.5 * area
-
-if list then print,'I             X           Y          deltaA          A         Slope     Y-Ymin'
+list = 0
+if keyword_set(report) then list=1
+if list then begin
+	openw,unit,report,/get_lun
+	if keyword_set(title) then printf,unit,title
+	printf,unit,'========'
+end
+if list then printf,unit,'I             X           Y        Y-Ymin          A         DY/DX'
 d0=0
-for i=1,nx-1 do begin
+for i=0,nx-1 do begin
+	if i gt 0 then begin
 	dx = x(i) - x(i-1)
 	if dx ne 0. then begin
 	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
 	d0 = d0 + da(i)
 	a(i) = d0
-	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
 	end
+	end
+	if list then printf,unit,strtrim(i,2),x(i),y(i),ny(i),a(i),slopey(i)
 end
 
 area = d0
@@ -2116,14 +2332,14 @@ harea = 0.5 * area
 ; Find c_mass
 
 newtons_method,x,a,harea,c_mass
-if list then print,'===='
-if list then print,'h_area,C_mass',harea,c_mass
-if list then print,'peak,hpeak,y_hpeak',peak,hpeak,y_hpeak
+if list then printf,unit,'========'
+if list then printf,unit,'h_area,C_mass:',harea,c_mass
+if list then printf,unit,'Ymax,(Ymax-Ymin)/2,Y_hpeak:',ymax,hpeak,y_hpeak
 
 
 ; Find half peaks
 
-if list then print,'===='
+if list then printf,unit,'========'
 nohwdl=0
 nohwdr=0
 x_hwdl=0
@@ -2149,47 +2365,76 @@ for i=1,nx-1 do begin
 		 nohwdl = [nohwdl, i-1]
 		 x_hwdl = [x_hwdl,x(i-1)]
 		end
+		if yr eq 0. and yl ne yr then begin
+		 nohwdr = [nohwdr, i]
+		 x_hwdr = [x_hwdr,x(i)]
+		end
 	end
 end
-if list then print,'nohwdl',nohwdl, x_hwdl
-if list then print,'nohwdr',nohwdr, x_hwdr
+if list then begin
+	nl = n_elements(nohwdl)
+	if nl gt 1 then begin
+ 	printf,unit,'hwdl X Index:',nohwdl(1:nl-1)
+	printf,unit,'x_hwdl:',x_hwdl(1:nl-1)
+	end
+	nr = n_elements(nohwdr)
+	if nr gt 1 then begin
+	printf,unit,'hwdr X Index:',nohwdr(1:nr-1)
+	printf,unit,'x_hwdr:',x_hwdr(1:nr-1)
+	end
+	printf,unit,'========'
+end
 	lo=0
-	fwhm = 0.
+	FWHM = 0.
+	xfwhm = 0.
 if n_elements(nohwdl) gt 1 then begin 
 	x_hwd = x_hwdl(1:n_elements(nohwdl)-1)
 	nohw = n_elements(x_hwd)
 if n_elements(nohwdr) gt 1 then begin
 	x_hwde = x_hwdr(1:n_elements(nohwdr)-1)
 	nohwe = n_elements(x_hwde)
-	fwhm = make_array(nohw,/float)
+;	xfwhm = make_array(nohw,/float)
 	for i=0,nohw-1 do begin
 		x1 = x_hwd(i)
-	for j=0,nohwe-1 do begin
+	for j=i,nohwe-1 do begin
+;		if x_hwde(j) gt x1 then begin
+;		dxfwhm = x_hwde(j) - x_hwd(i)
 		if x_hwde(j) ne x1 then begin
-			fwhm(i) = abs(x_hwde(j) - x1)
-			lo=lo+1
-			if list then print,'FWHM',lo,fwhm(i)
-			goto,outer
-			end
+		dxfwhm = abs(x_hwde(j) - x_hwd(i))
+		lo=lo+1
+		if lo eq 1 then xfwhm = dxfwhm else $
+		xfwhm = [xfwhm,dxfwhm]
+		if list then printf,unit,'FWHM:',lo,xfwhm(lo-1)
+		goto,outer
 		end
+	end
 	outer:
 	end
 	end
-	FWHM = max(fwhm)
+	FWHM = max(xfwhm,imax)
 end
 
-;if n_elements(nohwdr) gt 1 then begin
-;	if n_elements(x_hwd) gt 0 then $
-;	x_hwd = [x_hwd, x_hwdr(1:n_elements(nohwdr)-1)] else $
-;	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
-;	end
+	nef = n_elements(xfwhm)
+	nel = n_elements(x_hwde)
+
+if n_elements(nohwdr) gt 1 then begin
+	if n_elements(x_hwd) gt 0 then $
+	x_hwd = [x_hwd, x_hwdr(1:n_elements(nohwdr)-1)] else $
+	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
+	end
+
 if n_elements(x_hwd) gt 0 then begin
-	x_HPeak = x_hwd(sort(x_hwd))
-	x_hwdl = x_hwd
+	if n_elements(imax) then x_HPeak = x_hwd(imax) else x_HPeak = x_hwd
+;	x_hwdl = x_hwd
 	if n_elements(x_hwde) then x_hwdr = x_hwde
-	if list then print,'0.5*(ymax-ymin)',hpeak
-	if list then print,'x_hpeak:',x_hpeak
-	if list then print,'y_hpeak:',y_hpeak
+	if list then printf,unit,'0.5*(ymax-ymin):',hpeak
+	if list then printf,unit,'x_hpeak:',x_hpeak
+	if list then printf,unit,'y_hpeak:',y_hpeak
+
+	if list then begin
+	free_lun,unit
+	close,unit
+	end
 
 	; plot if view specified
 
@@ -2197,20 +2442,50 @@ if n_elements(x_hwd) gt 0 then begin
 	ya= make_array(nx,2)
 	ya(0,0)=y(*)
 	ya(0,1) = y(*)*0 + y_hpeak
-	comment=[ 'FWHM='+strtrim(fwhm,2) +',  Cntro='+strtrim(c_mass,2), $
-		'yhpeak='+strtrim(y_hpeak,2), $
-		'xhpeak='+strtrim(x_hpeak,2)]
+	comment=[ 'FWHM='+strtrim(FWHM,2) +',  Cntro='+strtrim(c_mass,2), $
+		'yhpeak='+strtrim(y_hpeak,2) + '  xhpeak='+strtrim(x_hpeak,2)]
+
+	if n_elements(x_hwdl) gt 1 then begin
+	x_hwd = x_hwdl(1:n_elements(x_hwdl)-1)
+	for i=0,n_elements(x_hwd)-1 do begin
+		st =' xl='+strtrim(x_hwd(i),2) 
+		if nel gt 0 and i lt nel then $
+		  st = st +'   xr='+strtrim(x_hwde(i),2)
+		if nef gt 0 and i lt nef then $
+		  st = st +'   fwhm='+strtrim(xfwhm(i),2)
+		comment=[comment,st] 
+	end
+	end
+
+	if n_elements(comment) gt 10 then comment=[comment(0:8),'. . .']
 	if keyword_set(title) then $
-	plot1d,x,ya,comment=comment,title=title else $
-	plot1d,x,ya,comment=comment
+	plot1d,x,ya,comment=comment,title=title,group=group,report=report else $
+	plot1d,x,ya,comment=comment,group=group,report=report
 	end
 end
 
 ; Find peaks
 
-if keyword_set(FIT) then begin
+	if list then begin
+	openw,unit,/append,report,/get_lun
+	printf,unit,'========'
+	end
+
+if keyword_set(FIT) eq 0 then begin
+
+	x_peak = x(0)
+	y_peak = peak
+	for i=0,nx -1 do begin
+		if y(i) eq peak then begin
+		x_peak = x(i)
+		y_peak = peak
+		if list then 	printf,unit,'Xmax,Ymax: ',x_peak, y_peak
+		goto,append_close
+		end
+	end
+
+endif else begin
 nopeaks=0
-if list then print,'===='
 for i=1,nx-1 do begin
        if slopey(i-1) gt 0 and slopey(i-1)*slopey(i) lt 0. then begin
 ;		print,i,slopey(i-1),slopey(i)
@@ -2227,7 +2502,7 @@ for i=1,no do begin
 	i1= i2-1
 	newtons_method,[x(i1),x(i2)],[slopey(i1),slopey(i2)],0.,x_sol,notfound
 	if notfound eq 0 then begin
-if list then 	print,'Peak #',i,x_sol,y(i1)
+	if list then 	printf,unit,'Peak #',i,x_sol,y(i1)
 		x_peak(i-1)= x_sol
 		y_peak(i-1) = y(i1)
 		end
@@ -2235,19 +2510,17 @@ end
 endif else begin
 	y_peak = ymax
 	if y(0) gt y(nx-1) then x_peak = x(0) else x_peak = x(nx-1)
-if list then 	print,'Ymax at pt ',y_peak,x_peak
+	if list then 	printf,unit,'Xmax,Ymax: ',x_peak, y_peak
 end
-endif else begin
 
-	for i=0,nx -1 do begin
-		if y(i) eq peak then begin
-		x_peak = x(i)
-		y_peak = peak
-		return
-		end
+end
+
+append_close:
+
+	if list then begin
+	free_lun,unit
+	close,unit
 	end
-end
-
 
 END
 
@@ -2348,7 +2621,7 @@ end
 if keyword_set(plot) then plot,x,y
 END
 
-PRO lorentzfitgraf,x,y,a,print=print,yfit=yfit
+PRO lorentzfitgraf,x,y,a,print=print,yfit=yfit,GROUP=group
 ;+
 ; NAME:
 ; 	LORENTZFITGRAF
@@ -2444,7 +2717,7 @@ yfit = curvefit(x,y,Weights,a,sigma,function_name='lorentzian',/noderiv)
         comment=[comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d, x, curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='Lorentzian Fit',report='fitting.rpt'
+		GROUP=group,wtitle='Lorentzian Fit',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
@@ -2533,7 +2806,7 @@ end
 END
 
 
-PRO multi_lorentzfitgraf,x,y,a,print=print,yfit=yfit,subplot=subplot
+PRO multi_lorentzfitgraf,x,y,a,print=print,yfit=yfit,subplot=subplot,GROUP=group
 ; A0:   Ymax at x=mu
 ; A1:   MU 
 ; A2:   FWHM / 2.
@@ -2646,12 +2919,12 @@ for i=0,N-1 do begin
 	lorentzian_curve,a,x,temp
 	ytemp(*,i+2) = temp
 end
-	plot1d,x,ytemp,/symbol,title=title
+	plot1d,x,ytemp,/symbol,title=title,GROUP=group
 end
 
 
 	plot1d, x, curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='Multiple Lorentzian Fit',report='fitting.rpt'
+		GROUP=group,wtitle='Multiple Lorentzian Fit',report='fitting.rpt'
 
 
 	if keyword_set(print) then begin
@@ -2706,7 +2979,7 @@ FUNCTION goodness_fit,yres,N,Weight=Weight
 END
 PRO regressfitgraf,x,y,weights,yfit,const,sigma,ftest,r,rmul,chisq,status, $
 	relative_weight=relative_weight, $
-	print=print,test=test
+	print=print,test=test,GROUP=group
 
 if n_params() eq 0 and keyword_set(test) eq 0 then begin
 	str='Usage: regressfitGraf,X,Y,Weights,yfit,const[,sigma,ftest,r,rmul,chisq,status,/RELATIVE_WEIGHT,/PRINT]'
@@ -2773,7 +3046,7 @@ end
 		end
 	
 	plot1d,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='REGRESS',report='fitting.rpt'
+		GROUP=group,wtitle='REGRESS',report='fitting.rpt'
 ;	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
 ;		wtitle='REGRESS'
 
@@ -2837,6 +3110,7 @@ if M ne 3 then $
 END
 
 PRO svdfitgraf,x,y,NTERMS,weights=weights,print=print,test=test, $
+	Group=group, $
 	function_name=function_name,legendre=legendre,_Extra=extra
 
 if n_params() eq 0 and keyword_set(test) eq 0 then begin
@@ -2901,7 +3175,7 @@ end
         comment = [comment,'','GOODNESS OF FIT = '+string(goodness)]
 
 	plot1d,x,curv,/curvfit,title=title,comment=comment,width=500,/stamp, $
-		wtitle='SVDFIT',report='fitting.rpt'
+		Group=group,wtitle='SVDFIT',report='fitting.rpt'
 
 	if keyword_set(print) then begin
         OPENW,unit,'fitting.rpt',/GET_LUN,ERROR=err
@@ -3025,8 +3299,11 @@ sigma = replicate(1.,n_elements(A))
 
 	if ezfitData.curvefit_noderiv then $
      	curvefitGraf,x,y, Weights, A, sigma, itmax=itmax, tol=tol, $
+		GROUP=Event.top, $
 		function_name=name,/print,/noderivative else $ 
-     	curvefitGraf,x,y, Weights, A, sigma, itmax=itmax, tol=tol, function_name=name,/print 
+     	curvefitGraf,x,y, Weights, A, sigma, itmax=itmax, tol=tol, $
+		GROUP=Event.top, $
+		function_name=name,/print 
 	str=strtrim(A(0),2)
 	for i=1,n_elements(A)-1 do str=str+','+strtrim(A(i),2)
 	widget_control,info.A_fld,set_value=str	
@@ -3337,8 +3614,8 @@ end
 	x = widget_ids.x
 	y = widget_ids.y
 	if widget_ids.subplot then $
-	multi_lorentzfitgraf,x, y, A, /print, /subplot else $
-	multi_lorentzfitgraf,x, y, A, /print
+	multi_lorentzfitgraf,x, y, A, /print, /subplot, GROUP=Event.top else $
+	multi_lorentzfitgraf,x, y, A, /print, GROUP=Event.top
 	END
   'ROI_SUBPLOT': BEGIN
 	widget_ids.subplot = Event.index
@@ -3703,25 +3980,27 @@ end
   CASE Event.Value OF 
 
   'File.Open 1D ...': BEGIN
-	F=PICKFILE(/READ,FILTER='*.bin1d',GET_PATH=P,PATH=OP)
+	F=PICKFILE(/READ,FILTER='*.bin1d',GET_PATH=P,PATH=ezfitData.inpath)
 	if F eq '' then return
 	ezfit_open1d,F,Event
+	ezfitData.inpath = P
     END
   'File.Open ASCII ...': BEGIN
-	w_readascii,GROUP = Event.top
+	w_readascii,inpath=ezfitData.inpath,GROUP = Event.top
     END
   'File.Open 2D ...': BEGIN
-	F=PICKFILE(/READ,FILTER='*.bin',GET_PATH=P,PATH=OP)
+	F=PICKFILE(/READ,FILTER='*.bin',GET_PATH=P,PATH=ezfitData.inpath)
 	if F eq '' then return
 	ezfit_open2d,F,Event
+	ezfitData.inpath = P
     END
   'File.2D XDR ...': BEGIN
-	F=PICKFILE(/READ,FILTER='*.bin.xdr',GET_PATH=P,PATH=OP)
+	F=PICKFILE(/READ,FILTER='*.bin.xdr',GET_PATH=P,PATH=ezfitData.inpath)
 	found = findfile(F)
 	if found(0) ne '' then begin
 		ezfit_get2DData,F,image2
-		if XRegistered('GETVECTOR_MAIN13') then $
-		WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
+;		if XRegistered('GETVECTOR_MAIN13') then $
+;		WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
 		ezfit_getvector,image2,GROUP=Event.Top
 	endif else begin
 		res=widget_message(F+ 'not found',/info,title='EZ_FIT Info', $
@@ -3815,27 +4094,27 @@ end
     END
   'Curve Fit.COMFIT.EXPONENTIAL': BEGIN
  	ezfit_picktype,x,y	
-	comfitGraf,x,y,/exponential,/print
+	comfitGraf,x,y,/exponential,/print,Group=Event.top
     END
   'Curve Fit.COMFIT.GEOMETRIC': BEGIN
  	ezfit_picktype,x,y	
-	comfitGraf,x,y,/GEOMETRIC,/print
+	comfitGraf,x,y,/GEOMETRIC,/print,Group=Event.top
     END
   'Curve Fit.COMFIT.GOMPERTZ': BEGIN
  	ezfit_picktype,x,y	
-	comfitGraf,x,y,/GOMPERTZ,/print
+	comfitGraf,x,y,/GOMPERTZ,/print,Group=Event.top
     END
   'Curve Fit.COMFIT.HYPERBOLIC': BEGIN
  	ezfit_picktype,x,y	
-	comfitGraf,x,y,/HYPERBOLIC,/print
+	comfitGraf,x,y,/HYPERBOLIC,/print,Group=Event.top
     END
   'Curve Fit.COMFIT.LOGISTIC': BEGIN
  	ezfit_picktype,x,y	
-	comfitGraf,x,y,/LOGISTIC,/print
+	comfitGraf,x,y,/LOGISTIC,/print,Group=Event.top
     END
   'Curve Fit.COMFIT.LOGSQUARE': BEGIN
  	ezfit_picktype,x,y	
-	comfitGraf,x,y,/LOGSQUARE,/print
+	comfitGraf,x,y,/LOGSQUARE,/print,Group=Event.top
     END
   'Curve Fit.ERRORFFIT': BEGIN
 	curvefit_setup,function_name='FUNCT_ERF',GROUP=Event.Top
@@ -3847,19 +4126,19 @@ end
     END
   'Curve Fit.GAUSSFIT': BEGIN
  	ezfit_picktype,x,y	
-	gaussfitGraf,x,y,/print
+	gaussfitGraf,x,y,/print,GROUP=Event.top
     END
   'Curve Fit.LADFIT': BEGIN
  	ezfit_picktype,x,y	
-	ladfitGraf,x,y,/print
+	ladfitGraf,x,y,/print,Group=Event.top
     END
   'Curve Fit.LINFIT': BEGIN
  	ezfit_picktype,x,y	
-	linfitGraf,x,y,/print
+	linfitGraf,x,y,/print,Group=Event.top
     END
   'Curve Fit.LORENTZIAN': BEGIN
  	ezfit_picktype,x,y	
-	lorentzfitgraf,x,y,/print
+	lorentzfitgraf,x,y,/print,Group=Event.top
     END
   'Curve Fit.POLYFITW': BEGIN
 	ezfitData.polyfit=1
@@ -3877,7 +4156,7 @@ end
 	svdfitsetup,GROUP=Event.Top
     END
   'Multi Fit.REGRESS': BEGIN
-	regressfitGraf,x,y,/print
+	regressfitGraf,x,y,/print,Group=Event.top
     END
   'Multi Fit.LORENTZIAN': BEGIN
  	ezfit_picktype,x,y	
@@ -3944,8 +4223,8 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
         ezfitData.dim = 1
         ezfitData.file = F
                 ezfit_get1DData,F,image2
-                if XRegistered('GETVECTOR_MAIN13') then $
-                WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
+;                if XRegistered('GETVECTOR_MAIN13') then $
+;                WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
                 ezfit_getvector,image2,GROUP=Event.Top
         endif else begin
                 res=widget_message(F+ 'not found',/info,title='EZ_FIT Info', $
@@ -3960,8 +4239,8 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
         found = findfile(F)
         if found(0) ne '' then begin
                 ezfit_get2DData,F,image2
-                if XRegistered('GETVECTOR_MAIN13') then $
-                WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
+;                if XRegistered('GETVECTOR_MAIN13') then $
+;                WIDGET_CONTROL,ezfitData.base_getvector,/DESTROY
                 ezfit_getvector,image2,GROUP=Event.Top
         endif else begin
                 res=widget_message(F+ 'not found',/info,title='EZ_FIT Info', $
@@ -3995,13 +4274,16 @@ PRO EZFIT_MAIN13_Event, Event
   'EZFIT_XREPORT': BEGIN
 	 xdisplayfile,'fitting.rpt',TITLE='Fitting Results'
       END
+  'EZFIT_CLOSE': BEGIN
+    WIDGET_CONTROL,Event.Top,/DESTROY
+    END
 
   ENDCASE
 END
 
 
 
-PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group,jpick=jpick
+PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group,jpick=jpick,ipick=ipick,inpath=inpath
 ;+
 ; NAME:
 ;       EZ_FIT
@@ -4049,9 +4331,13 @@ PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group,jpick=jpick
 ;               number of elements in XARRAY, M is the same as the number 
 ;               of elements in YARRAY.
 ;
-;       JPICK:  Specifies the curve # from the Y array or 2D image array to be
-;               fitted initially. It defaults to 0, it indicates the first
-;               vector from Y or IM array to be fitted. 
+;       IPICK:  Specifies the row # from the Y array or 2D image array to be
+;               fitted initially.  
+;
+;       JPICK:  Specifies the column # from the Y array or 2D image array to be
+;               fitted initially. JPICK supercedes IPICK. 
+;
+;       INPATH: Specifies the initial search path
 ;
 ;       GROUP:  The widget ID of the group leader of the widget. If this
 ;               keyword is specified, the death of the group leader results 
@@ -4103,6 +4389,7 @@ PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group,jpick=jpick
 ;	02-27-98	Inherit color tables from the calling program
 ;	10-04-99	Incooporate the FUNCT_ERF fit to curvefitgraf
 ;	10-18-99	Add the support of weight factor   
+;       01-06-00        Add the support of jpick, and ipick for image array
 ;-
 
 COMMON EZ_FIT_BLOCK,ezfitData,image
@@ -4116,6 +4403,7 @@ if XRegistered('EZFIT_MAIN13') eq 0 then begin
  
 ezfitData = { $
 	file : '', $ ;	1D name: *.bin1d or   2D name: *.bin 
+	inpath : '', $ 
 	base : 0L, $
 	dim : 0, $		; 1 - 1d, 2 - 2d data
 	base_getvector:0L, $
@@ -4123,6 +4411,8 @@ ezfitData = { $
 	text_area : 0L, $
 	I_field: 0L, $
 	J_field: 0L, $
+	xslider: 0L, $
+	slider: 0L, $
 	I_index:0, $
 	J_index:0, $
 	pick:0, $ ; 1D: 0 - Y vs X , 2D: 1 - Zy vs X  , 2 - Zx vs Y 
@@ -4157,9 +4447,15 @@ ezfitData = { $
 	}
 end
 
+if keyword_set(ipick) then begin
+        ezfitData.I_index = ipick(0)
+        ezfitData.pick = 2
+end
 if keyword_set(jpick) then begin
 	ezfitData.J_index = jpick(0)
+	ezfitData.pick = 1
 end
+if keyword_set(inpath) then ezfitData.inpath = inpath
 
 if keyword_set(im) then begin
 	image = im
@@ -4168,6 +4464,9 @@ if keyword_set(im) then begin
 	if keyword_set(xarray) eq 0 then xarray = indgen(sz(1))
 	if keyword_set(yarray) eq 0 then yarray = indgen(sz(2))
 	ezfit_init2D,xarray,yarray,image2
+		ezfitData.zx = image(*,ezfitData.J_index)
+		ezfitData.zy = image(ezfitData.I_index,*)
+	if ezfitData.pick eq 0 then ezfitData.pick=1 ; pick column 0
 endif else begin
 	if keyword_set(yarray) then begin
 	sz=size(yarray)
@@ -4184,7 +4483,7 @@ os_init
 
   EZFIT_MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       /COLUMN, $
-      TITLE='EZ_FIT (R1.1)', $
+      TITLE='EZ_FIT (R1.3)', $
       MAP=1, $
       UVALUE='EZFIT_MAIN13')
   ezfitData.base = EZFIT_MAIN13
@@ -4254,7 +4553,8 @@ os_init
   EZFIT_PDMENU3 = CW_PDMENU( BASE2, MenuDesc831, /RETURN_FULL_NAME, $
       UVALUE='EZFIT_PDMENU3')
 
-  ezfit_report = WIDGET_BUTTON(BASE2,value='Fitting Results',UVALUE='EZFIT_XREPORT')
+  ezfit_close = WIDGET_BUTTON(BASE2,value='Close',UVALUE='EZFIT_CLOSE')
+;  ezfit_report = WIDGET_BUTTON(BASE2,value='Fitting Results',UVALUE='EZFIT_XREPORT')
 
 ; 1D data : xarray, yarray
   FieldVal1367 = [ $
