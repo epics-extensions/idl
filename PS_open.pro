@@ -373,6 +373,7 @@ COMMON PRINTER_BLOCK,printer_info
   'FIELD5': BEGIN
       	WIDGET_CONTROL, printer_info.ptr_field, GET_VALUE=str
 	printer_info.name = strtrim(str(0),2)
+	!os.printer = printer_info.name
       END
 
   'BGROUP7': BEGIN
