@@ -159,15 +159,17 @@ PRO nexus_scan_help
     str = [ $, 
 	'NEXUS_SCAN is a simple scan browser for nexus files which must be', $
 	'created by the "scan2nexus" command. Each file should contain multiple ', $
-	'records of 1D/2D scans. The 1D/2D scans can be appended into file with', $
-	'any order.  Currently, it can not handle 3D scan yet.','', $
+	'records of 1D/2D/3D scans. The 1D/2D/3D scans can be appended into file ', $
+	'whith any order.  Currently, it can not handle 3D scan yet.','', $
 	'It allows the user flexiblely to access any scan record from the', $
-	'nexus file.   Each scan record owns its own displaying window.', $
+	'nexus file.   Each scan record owns its own displaying window by', $
+	'clicking the desired scan # from the scan list.', $
 	'', 'The user interface is given below:', $
 	'',$
 	'File         - Use file selection dialog to select a *.nexus file',$
 	'Name         - Enter input nexus file directly from keyboard ', $
 	'Scan list    - Show the list of scan # found in the file', $
+	'               (select scan # from the list for desired scan)', $
 	'Overlay1D... - Run 1D overlay plot for selected detector', $
 	'ListScan#... - Display the scan list info in the nexus file', $
 	'Help...      - Display this help page', $
@@ -1394,6 +1396,20 @@ PRO NEXUS_2DSELECT_Event, Event
   'NEXUS_SEL_OVERLAY2D': BEGIN
 	nexus_scan_overlay2D
       END
+  'NEXUS_SEL_IMAGE2D': BEGIN
+	da2d = state.da
+	def = state.def
+	x = state.xa
+	y = state.ya
+	xdescs = state.x_descs
+	ydescs = state.y_descs
+	title = state.title
+	xtitle = state.xtitle
+	ytitle = state.ytitle
+	scanno = state.scanno
+	image2d,da2d,x,y,Group=Event.top,title=title,id_def=def,scanno=scanno,$
+		xdescs= xdescs,ydescs=ydescs
+      END
   'NEXUS_SEL_2DHELP': BEGIN
 	nexus_scan_2DHelp
       END
@@ -1463,6 +1479,45 @@ PRO nexus_2D_select, state, GROUP=Group
 
   overlayinitbtn = Widget_button(BASE2_2,value='Overlay2D Init...', UVALUE='NEXUS_SEL_OVERLAY2D_INIT')
   overlaybtn = Widget_button(BASE2_2,value='Overlay2D...', UVALUE='NEXUS_SEL_OVERLAY2D')
+
+  BMP749 = [ $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 23b, 228b, 56b, 111b ], $
+    [ 18b, 164b, 108b, 247b ], $
+    [ 50b, 166b, 68b, 145b ], $
+    [ 82b, 165b, 4b, 17b ], $
+    [ 82b, 181b, 5b, 49b ], $
+    [ 82b, 21b, 245b, 47b ], $
+    [ 210b, 245b, 37b, 193b ], $
+    [ 146b, 20b, 53b, 129b ], $
+    [ 146b, 20b, 61b, 145b ], $
+    [ 18b, 20b, 33b, 247b ], $
+    [ 23b, 20b, 33b, 111b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 30b, 31b, 0b, 0b ], $
+    [ 62b, 63b, 0b, 0b ], $
+    [ 48b, 99b, 0b, 0b ], $
+    [ 48b, 99b, 0b, 0b ], $
+    [ 48b, 99b, 0b, 0b ], $
+    [ 24b, 99b, 0b, 0b ], $
+    [ 12b, 99b, 102b, 6b ], $
+    [ 6b, 115b, 102b, 6b ], $
+    [ 62b, 63b, 0b, 0b ], $
+    [ 62b, 31b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ]  $
+  ]
+  image2dBtn = WIDGET_BUTTON( BASE2_1, $
+      UVALUE='NEXUS_SEL_IMAGE2D', $
+      VALUE=BMP749,/BITMAP)
+
  help = Widget_button(BASE2_1,value='Help...', UVALUE='NEXUS_SEL_2DHELP')
 
   ListVal251 =  'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
