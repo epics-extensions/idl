@@ -12,7 +12,7 @@
 @panimage.pro
 
 PRO rix2DC,Scan,gData
-ON_ERROR,0 ;,1
+; ON_ERROR,0 ;,1
  
   *gData.scanno  = Scan.scanno
   *gData.dim     = Scan.rank
@@ -49,6 +49,7 @@ ON_ERROR,0 ;,1
 if n_elements(*Scan.da[0]) then *gData.da3D  = *Scan.da[0]
 	ENDIF
  
+	free_lun,Scan.lun
 	scanSee_free,Scan
 
 END
@@ -138,7 +139,13 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
   ntot = ndet+4
 
 ; SSD->Scan
-sscan_read,Scan,file=filename,/header
+reread:
+  sscan_read,Scan,file=filename,/header,error=error
+   if n_elements(Scan) eq 0 then goto,BAD
+   if error eq -1 then begin
+   scanSee_free,Scan
+   goto,BAD  ;reread
+   end
 
   npts = Scan.npts
 
@@ -239,6 +246,7 @@ end
 BAD:
   res= -1
   print, !ERR_STRING
+  scanSee_free,Scan
 DONE:
   RETURN, res
 END
@@ -519,7 +527,12 @@ PRO sscan_read_pick3d,da3D,detID=detID,last=last,GROUP=Group
 END
 
 PRO scanSee_free,SSD
-if n_elements(SSD) gt 1 then begin
+
+if n_elements(SSD) gt 0 then begin
+  if n_elements(SSD) gt 1 then begin
+	free_lun,SSD.lun
+	close,SSD.lun
+
 	for i=0,2 do begin
 	ptr_free,SSD.da(i)
 	ptr_free,SSD.pa(i)
@@ -528,9 +541,7 @@ if n_elements(SSD) gt 1 then begin
 	ptr_free,SSD.sub_scan_ptr(i)
 	end
 	ptr_free,SSD.EH
-
-	close,SSD.lun
-	free_lun,SSD.lun
+  end
 end
 SSD = 0	
 heap_gc
@@ -551,23 +562,7 @@ if error_status ne 0 then begin
 	return
 end
 
-; print,ptr_valid()
-if n_elements(SSD) then begin
-	for i=0,2 do begin
-	ptr_free,SSD.da(i)
-	ptr_free,SSD.pa(i)
-	end
-	for i=0,1 do begin
-	ptr_free,SSD.sub_scan_ptr(i)
-	end
-	ptr_free,SSD.EH
-
-	close,SSD.lun
-	free_lun,SSD.lun
-end
-heap_gc
-
-
+   scanSee_free,SSD
 
 ; i need to check 106.mda
 
@@ -1160,6 +1155,7 @@ PRO sscan_read,SSD,file=file,path=path,echo=echo,pick3d=pick3d,header=header,dat
 ; if echo=0 read only
 ;    echo=1 plot window pops up
 
+	error=-1
 ;	loadct,39
 
 ;	CD, current=p
@@ -1209,6 +1205,7 @@ WIDGET_CONTROL,/HOURGLASS
 		if SSD.nb_det(1) then da1D = *SSD.da(1)
 		panimage,da2D,numd=10,title='SSCAN: 2D scan #'+strtrim(SSD.scanno,2)
 	end
+
 	if SSD.rank eq 3 then begin 
 		da3D = *SSD.da(0)
 		da2D = *SSD.da(1)
