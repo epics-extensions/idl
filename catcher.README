@@ -104,12 +104,11 @@ file if many scans are to be saved.
 <<hdf_browser>>
 
 In this release the hdf browser program is also released. It consists of 
-three files: hdfb, hdfb_startup.pro, and hdfb.pro. The 'hdfb' 
-is a unix script file, it automatically sets up the IDL and starts the 
-IDL program hdfb.pro. The 'hdfb_startup.pro' is the IDL_STARTUP
-file used by the hdf browser. The 'hdfb.pro' is a complete mouse
-driven IDL widget application. It provides the IDL user with a flexible
-HDF browser to examine any HDF file. 
+two files: hdfb, and hdfb.pro. The 'hdfb' is a unix script file, it 
+automatically sets up the IDL and starts the IDL program hdfb.pro. 
+The 'hdfb.pro' is a complete mouse driven IDL widget application. 
+It provides the IDL user with a flexible HDF browser to examine any 
+HDF file. 
 
 It provides various summary reports. It supports HDF global and SDS 
 attributes, file ID and description, 8 bit / 24 bit raster images. 
