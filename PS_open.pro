@@ -132,7 +132,7 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	PS_init
 	set_plot,'PS'
-	!P.FONT=0
+	!P.FONT=-1
 	if (n_elements(psfile) ne 0) then begin
 
 	if keyword_set(TV) then begin 
@@ -319,7 +319,6 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 			return
 		end
 	end else psfile = 'idl.ps'
-
 	if OS_SYSTEM.os_family eq 'unix' then begin
         	str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile 
 		color = r_curr(0) + g_curr(0)*256L + b_curr(0)*256L ^2
