@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: view1d.pro,v 1.22 2003/05/05 20:59:13 cha Exp $
+; $Id: view1d.pro,v 1.23 2004/01/30 00:13:30 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -120,15 +120,16 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
   endif else begin
 
     y=10000
-    if OS_SYSTEM.os_family eq 'unix' then begin
-	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+;    if OS_SYSTEM.os_family eq 'unix' then begin
+;	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+	WC,FILENAME,y
 
 	lines=long(y(0))
 	if lines eq 0 then begin
 	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
 	return
 	end
-    end
+;    end
 
 	  a = strarr(y(0))				;Maximum # of lines
 	  i = 0L
@@ -157,7 +158,7 @@ filebase = WIDGET_BASE(TITLE = TITLE, /MODAL, $		;create the base
 filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
 		GROUP=ourGROUP,/COLUMN ) 
 
-label=WIDGET_LABEL(filebase,value=TITLE)
+label=WIDGET_LABEL(filebase,value=TITLE(0))
 rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
 fileprint = WIDGET_BUTTON(rowbtn, $			;create a Print Button
 		VALUE = "Print", $
@@ -195,7 +196,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.22 2003/05/05 20:59:13 cha Exp $
+; $Id: view1d.pro,v 1.23 2004/01/30 00:13:30 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -573,10 +574,11 @@ COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
 
         if found(0) ne '' then begin
 
-if !os.os_family eq 'unix' then begin
-spawn,[!os.wc,'-l',F],y,/noshell
+;if !os.os_family eq 'unix' then begin
+;spawn,[!os.wc,'-l',F],y,/noshell
+       WC,FILENAME,y
 if y(0) eq 0 then return, -3
-end
+;end
 
 	open_binary_type,unit,F,type,view1d_widget_ids.bin_type
 	V1D_scanData.XDR = type
@@ -2824,6 +2826,7 @@ printf,unit,';  KEY PV names got from the catch1d.env'
 printf,unit,'; '
 ;s0 = string(replicate(32b,340))
 twd = 18*total(view1d_realtime_id.def) + 10
+if twd lt 110 then twd=110
 s0 = string(replicate(32b,twd))
 st = s0
 strput,st,'; ',0
@@ -2939,6 +2942,7 @@ printf,unit,';  ENVIRONMENT VARIABLES SAVED FOR SCAN #:', V1D_scanData.scanno
 printf,unit,'; '
 ;s0 = string(replicate(32b,340))
 twd = 18*total(view1d_realtime_id.def) + 10
+if twd lt 110 then twd=110
 s0 = string(replicate(32b,twd))
 st = s0
 strput,st,'; ',0
@@ -3070,6 +3074,7 @@ deepmove:
 			move_file = move_file + '.bk'
 			goto,deepmove
 		end
+		if !d.name eq 'WIN' then spawn,[OS_SYSTEM.mv, save_outfile, move_file] else $
 		spawn,[OS_SYSTEM.mv, save_outfile, move_file],/noshell 
 	end
 
