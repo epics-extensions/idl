@@ -691,6 +691,10 @@ COMMON COLORBAR,colorbar_data
   'plot2d_colorbar': BEGIN
 	colorbar_config,GROUP=Event.top
       END
+  'plot2d_datahdr': BEGIN
+	plot2d_state.ascii = Event.index
+	plot2d_asciiReport,plot2d_state,Event
+      END
   'plot2d_setupLevels': BEGIN
 	plot2d_setupContourLevels, plot2d_state, GROUP=Event.Top 
       END
@@ -955,7 +959,7 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       ROW=1, $
       FLOAT=1, $
       RETURN_EVENTS=1, $
-      TITLE='Rotation Angles: Ax', $
+      TITLE='Rotation: Ax', $
       UVALUE='plot2d_setupAx', $
       XSIZE=5)
 
@@ -964,7 +968,7 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       MINIMUM=-180, $
       UVALUE='plot2d_setupSLIDER3', $
       VALUE=plot2d_state.ax, $
-      XSIZE=100,SCROLL=1)
+      XSIZE=80,SCROLL=1)
 
   FieldVal4939 = plot2d_state.az
   plot2d_setupAz = CW_FIELD( BASE24,VALUE=FieldVal4939, $
@@ -980,12 +984,20 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       MINIMUM=-180, $
       UVALUE='plot2d_setupSLIDER4', $
       VALUE=plot2d_state.az, $
-      XSIZE=100,SCROLL=1)
+      XSIZE=80,SCROLL=1)
 
-  plot2d_format = CW_FIELD( BASE24,VALUE=plot2d_state.format, $
-      ROW=1, RETURN_EVENTS=1, TITLE='ASCII Format:', $
+  BASE24_1 = WIDGET_BASE(BASE24, $
+      ROW=1, /frame, $
+      MAP=1, $
+      UVALUE='BASE24_1')
+
+  plot2d_format = CW_FIELD( BASE24_1,VALUE=plot2d_state.format, $
+      ROW=1, RETURN_EVENTS=1, TITLE='ASCII:', $
       UVALUE='plot2d_asciifmt', $
       XSIZE=6)
+
+  plot2d_data_hdr = WIDGET_DROPLIST(BASE24_1,value=['Data only','W/X Value','Full Header'], $
+	UVALUE='plot2d_datahdr')
 
   BASE47 = WIDGET_BASE(plot2d_setupMain13, $
       ROW=1, $
@@ -1297,12 +1309,27 @@ PRO plot2d_asciiReport,plot2d_state,Event
 	x = plot2d_state.xarr
 	y = plot2d_state.yarr
 	nx = n_elements(x)
-	f1 = '('+ strtrim(nx+1,2)+plot2d_state.format+')'
+	ny = n_elements(y)
+
+	f1 = '('+plot2d_state.format+',I4,'+ strtrim(nx,2)+plot2d_state.format+')'
+	f0 = '('+strtrim(nx+1,2)+plot2d_state.format+')'
+	f0_0 = '('+strtrim(nx,2)+plot2d_state.format+')'
 	openw,1,'plot2d.txt'
-	printf,1,plot2d_state.title
+	if plot2d_state.ascii eq 2 then begin
+	ip = strpos(plot2d_state.format,'.')
+	ff = strmid(plot2d_state.format,1,ip-1)
+	f2 = '(";        YIndex:    "'+ strtrim(ny,2)+'(I'+ff+'))'
+	f3 = '(";        Yvalues:   "'+ strtrim(ny,2)+'('+plot2d_state.format+'))'
+	printf,1,'; ',plot2d_state.title
+	printf,1,format=f3,y
+	printf,1,format=f2,indgen(ny)
+	printf,1,';        Xvalues  XIndex     Yvalues ...'
+	end
 	  for i=0,nx-1 do begin
 	  lineA = reform(im(i,*))
-	  printf,1,format=f1,x(i),lineA
+	  if plot2d_state.ascii eq 2 then printf,1,format=f1,x(i),i,lineA 
+	  if plot2d_state.ascii eq 1 then printf,1,format=f0,x(i),lineA
+	  if plot2d_state.ascii eq 0 then printf,1,format=f0_0,lineA
 	  end
 	close,1
 	xdisplayfile,'plot2d.txt',Group=Event.top
@@ -1349,13 +1376,12 @@ ENDIF
       2: plot2d_state.plottype= 2  	;contour
       3: plot2d_state.plottype= 3  	;shade_surf
       4: plot2d_asciiReport,plot2d_state,Event
-;      5: begin
-;	PS_open,'idl.ps',/TV
-;	plot2d_replot,plot2d_state
-;	PS_close
-;	PS_print,'idl.ps'
-;	end
       5: begin
+	calibra_pick1d,plot2d_state.data, $
+		xa=plot2d_state.xarr,ya=plot2d_state.yarr, $
+		title=plot2d_state.title,GROUP=Event.top
+	end
+      6: begin
 	st = ['You may find a HTML document about plot2d at :', $
 		'',$
 		'   http://www.aps.anl.gov/~cha/plot2d.html'$
@@ -1551,6 +1577,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;       05-29-2001      Add ascii format control on data output
 ;                       Allow the Color bar width, height ajustment
 ;       09-21-2001      Post script plot same as window size
+;       01-18-2002      Add the PICK1D button to access plot1d, and ezfit
 ;-
 COMMON COLORBAR, colorbar_data
 
@@ -1609,6 +1636,7 @@ if keyword_set(classname) then class = classname
 	y:1, $
 	xarr:xarray, $
 	yarr:yarray, $
+	ascii:0, $        ; 0,1,2  header off,index,on
 	class: class, $
 	versus: 0, $  ; real-value or 1 for step #
 	plottype:0, $     	; 0 - TV 1-surface
@@ -1721,7 +1749,7 @@ if keyword_set(comment) then begin
     'CONTOUR', $
     'SHADE_SURF',$
     'DATA...',$
-;    'PS Plot',$
+    'PICK1D...',$
 	'HELP ...']
   BGROUP2 = CW_BGROUP( BASE1, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
