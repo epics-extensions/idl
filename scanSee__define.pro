@@ -208,35 +208,41 @@ PRO scanSee::overlay,list,num_max=num_max,det_sel=det_sel,pick1d=pick1d,xdata=xd
         print,filename
 
 	self->Next,scanno
-	self->Read,dim=dim,pa1d=pa1d,da1d=da1d,da2d=da2d,pa2d=pa2d,cpt=cpt,id_def=id_def
-	
-	pt1 = cpt(0)
-	if pt1 gt numx then pt1 = numx
-;	if i eq 0 then x = pa1d(0:pt1-1,0)
-	x = pa1d(*,0)
-	xdata(0,i) = x(0:pt1-1)
+	self->Read,dim=dim,pa1d=pa1d,da1d=da1d,da2d=da2d,pa2d=pa2d,cpt=cpt, $
+		id_def=id_def,num_pts=num_pts,da3d=da3d,pa3d=pa3d
+;help,pa1d,da1d,pa2d,da2d,pa3d,da3d
+;	self->ascii2d,det_sel,/view
+
+	if dim eq 1 then begin
+		pt1 = cpt(0)
+		if pt1 gt numx then pt1 = numx
+		x = pa1d(*,0)
+		xdata(0:pt1-1,i) = x(0:pt1-1)
+	end
+	if dim ge 2 then begin
+		pt1 = num_pts(0)
+		if dim eq 3 then pt1 = num_pts(1)
+		if pt1 gt numx then pt1 = numx
+		x = pa2d(*,0)
+		xdata(0:pt1-1,i) = x(0:pt1-1)
+	end
 
 	if det_sel le (self.nd+1) then begin
-		v = da1d(0:pt1-1,det_sel-1)
-		if dim ge 2 then v = da2d(0:pt1-1,pick1d-1,det_sel-1)
-		ydata(0,i) = v(0:pt1-1)
+		v = make_array(pt1)
+		if dim eq 1 then v = da1d(0:pt1-1,det_sel-1)
+		if dim eq 2 then v = da2d(0:pt1-1,pick1d-1,det_sel-1)
+		if dim eq 3 then begin
+			if pick1d lt num_pts(2) then $
+			v = da2d(0:pt1-1,pick1d-1,det_sel-1)
+		end
+		ydata(0:pt1-1,i) = v(0:pt1-1)
 	end
-;print,i,list(i),dim,cpt,self.nd
-;help,pa1d,da1d
-;if dim ge 2 then help,pa2d,da2d
-;print,pick1d,det_sel
-;print,v
 	end
 
-;	help,xdata
-;	print,xdata
-;	help,ydata
-;	print,ydata
-;	self->ascii2d,det_sel,/view
 
 	if n_elements(title) eq 0 then $
 	title = 'SCAN:'+nms+ '(Detector # '+strtrim(det_sel,2) + ', Line # '+strtrim(pick1d,2)+')'
-	if keyword_set(plot) then plot1d,x,ydata,/data,title=title,group=group
+	if keyword_set(plot) then plot1d,xdata,ydata,/data,title=title,group=group
     end
 END
 
@@ -1145,6 +1151,7 @@ PRO scanSee::Last,seqno,filename,pickDet=pickDet
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       03-15-01    bkc Accommondate for W95 use wild search for *.scan
 ;-
+
 	found = findfile(self.path+'*'+self.suffix,count=ct)
 	if ct le 1 then begin
 		seqno = self.scanno
@@ -1250,7 +1257,7 @@ PRO scanSee::VW2D,group=group
                 x=xa,y=ya,im=im,labels=labels,id_def=id_def
 	sz = size(da2d)
 	def = self.def(0:sz(3)-1)
-
+	def0 = def
  	scansee_getLabels,labels,id_def,rank=1,label_state,def=def
 	ydescs = label_state.p_desc
  	scansee_getLabels,labels,id_def,rank=0,label_state,def=def
@@ -1259,7 +1266,7 @@ PRO scanSee::VW2D,group=group
 
 	if dim eq 2 then $
 	image2d,da2d,xa,ya,group=group,pv=pv,title=self.file, $
-		outpath=self.outpath,id_def=def,scanno=scanno, $
+		outpath=self.outpath,id_def=def0,scanno=scanno, $
 		xdescs=xdescs,ydescs=ydescs,zdescs=zdescs
 
 ;	VW2D,file=self.file,Group=group
@@ -2014,7 +2021,7 @@ heap_gc
 	self.path = strmid(filename,0,rp+1)
 	len = strlen(filename)-rp
 	self.name = strmid(filename,rp+1,len)
-	rp = rstrpos(self.file,'_')
+	rp = strpos(self.file,'_',rp+1)
 	self.prefix = strmid(self.file,0,rp+1)
 
 	po = strpos(self.name,'.',/reverse_search)
