@@ -38,6 +38,13 @@ END
 PRO colorbar_init,colorbar_data
 
   colorbar_data = { base:0L, $
+	xwid : 0L, $
+	ywid : 0L, $
+	wdwid : 0L, $
+	htwid : 0L, $
+	minwid : 0L, $
+	maxwid : 0L, $
+	fmtwid : 0L, $
 	caller : '', $
 	x : 385, $
 	y : 10, $
@@ -103,6 +110,20 @@ COMMON COLORBAR, colorbar_data
       1: colorbar_data.horiz = 1 ; Print,'Button True Pressed'
       ELSE: Message,'Unknown button pressed'
       ENDCASE
+	WIDGET_CONTROL,colorbar_data.xwid,GET_VALUE=x
+	colorbar_data.x = x(0)
+	WIDGET_CONTROL,colorbar_data.ywid,GET_VALUE=x
+	colorbar_data.y = x(0)
+	WIDGET_CONTROL,colorbar_data.wdwid,GET_VALUE=x
+	colorbar_data.width = x(0)
+	WIDGET_CONTROL,colorbar_data.htwid,GET_VALUE=x
+	colorbar_data.height = x(0)
+	WIDGET_CONTROL,colorbar_data.minwid,GET_VALUE=x
+	colorbar_data.min = x(0)
+	WIDGET_CONTROL,colorbar_data.maxwid,GET_VALUE=x
+	colorbar_data.max = x(0)
+	WIDGET_CONTROL,colorbar_data.fmtwid,GET_VALUE=x
+	colorbar_data.format = x(0)
       END
   'COLORBAR_DONE': BEGIN
 	WIDGET_CONTROL,Event.top,/DESTROY
@@ -167,6 +188,7 @@ COMMON COLORBAR, colorbar_data
       TITLE='Position X:', $
       UVALUE='COLORBAR_POSX', $
       XSIZE=5)
+  colorbar_data.xwid = FIELD6
 
   FIELD7 = CW_FIELD( BASE5,VALUE=colorbar_data.y, $
       ROW=1, $
@@ -175,6 +197,7 @@ COMMON COLORBAR, colorbar_data
       TITLE='Position Y:', $
       UVALUE='COLORBAR_POSY', $
       XSIZE=5)
+  colorbar_data.ywid = FIELD7
 
   FIELD8 = CW_FIELD( BASE5,VALUE=colorbar_data.width, $
       ROW=1, $
@@ -183,6 +206,7 @@ COMMON COLORBAR, colorbar_data
       TITLE='Width:', $
       UVALUE='COLORBAR_WIDTH', $
       XSIZE=5)
+  colorbar_data.wdwid = FIELD8
 
   FIELD9 = CW_FIELD( BASE5,VALUE=colorbar_data.height, $
       ROW=1, $
@@ -191,6 +215,7 @@ COMMON COLORBAR, colorbar_data
       TITLE='Height:', $
       UVALUE='COLORBAR_HEIGHT', $
       XSIZE=5)
+  colorbar_data.htwid = FIELD9
 
   BASE19 = WIDGET_BASE(BASE2, $
       ROW=1, $
@@ -204,6 +229,7 @@ COMMON COLORBAR, colorbar_data
       TITLE='Value Min:', $
       UVALUE='COLORBAR_MIN', $
       XSIZE=12)
+  colorbar_data.minwid = FIELD41
 
   FIELD44 = CW_FIELD( BASE19,VALUE=colorbar_data.max, $
       ROW=1, $
@@ -212,6 +238,7 @@ COMMON COLORBAR, colorbar_data
       TITLE='Value Max:', $
       UVALUE='COLORBAR_MAX', $
       XSIZE=12)
+  colorbar_data.maxwid = FIELD44
 
   FIELD43 = CW_FIELD( BASE19,VALUE=colorbar_data.format, $
       ROW=1, $
@@ -220,6 +247,7 @@ COMMON COLORBAR, colorbar_data
       TITLE='Format:', $
       UVALUE='COLORBAR_FORMAT', $
       XSIZE=10)
+  colorbar_data.fmtwid = FIELD43
 
 
   BASE26 = WIDGET_BASE(BASE2, $
@@ -271,6 +299,7 @@ COMMON COLORBAR, colorbar_data
   XMANAGER, 'colorbar_main13', colorbar_main13
 END
 
+
 PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap,format=format,PSfact=PSfact,reverse=reverse
 ;    width - colorbar width
 ;    height - colorbar height
@@ -304,16 +333,16 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 ;               default to current plot device 
 ;       Ncap:   specify the number of value labels
 ;       Format: specify the color bar label format
-;       PSfact: specify the PS color bar scaling factor, default is 37
+;       PSfact: specify the PS color bar scaling factor, default is 30
 ;       Reverse: use black color for color bar text color
 ;
 ; OUTPUTS:
 ;       None.
 ;
 ; RESTRICTION:
-;       For PS device, an expansion factor of 37 is used for Width, Height, X,
-;       and Y pixels for view2d program. For different size of drawing area
-;       use the keyword PSfact to override.
+;       The Width, Height are absolute pixel numbers respect to the actual
+;       plot device. The location X, and Y pixels respect to the plot device
+;       origin.
 ;
 ; EXAMPLE:
 ;       Example 1 - Place a colorbar at the default location 70,100 pixels from 
@@ -348,21 +377,22 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 	
 	fact = 1
 	if !d.NAME eq 'PS' then begin
-		fact= 37
-		if keyword_set(PSfact) then fact = PSfact
+		fact= 30
 		tcolor=0
 	end
+	if keyword_set(PSfact) then fact = PSfact
 
 	; horizontal colorbar
 	if keyword_set(horizontal) then begin
 	if n_elements(x) eq 0 then x = 60*fact 
 	if n_elements(y) eq 0 then y = 25*fact 
-	beh = 20
-	bew = (xsize-x*2)/ns
+	beh = height;    20
+	bew = width/ns ;    (xsize-x*2)/ns
 	if bew lt 0 then begin
 		r = dialog_message('Error: X position too big for horizontal colorbar',/Error)
 		return
 	end
+
 	dval = (yrange(1)-yrange(0))/ns
 	for j=0,ns do begin
 	color = (nc/ns)*j 
@@ -372,32 +402,34 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 	for j=0,ns,8 do begin
 	x1=x+j*bew
 	str = string(format='('+fmt+')',j*dval+yrange(0))
-		xcor=[x1, x1, x1+bew, x1+bew, x1]
-		ycor=[y, y+beh*fact, y+beh*fact, y, y]
+		xcor=[x1, x1, x1+bew, x1+bew]  ;, x1]
+		ycor=[y, y+beh, y+beh, y]  ;, y]
 		plots,xcor,ycor ,/device
-		xyouts,x+j*bew, y-15*fact, strtrim(str,2),/device,color=tcolor
+		xyouts,x+j*bew, y-1.5*!d.y_ch_size, strtrim(str,2),/device,color=tcolor
 	endfor
 	return
 	end
 
 	; vertical colorbar
 
+	bew = width  ;20
+	beh = height/ns  ;(ysize-y*2)/ns
 	detcap = 2
 	if keyword_set(ncap) then detcap = 16 / (ncap-1)	
-	if n_elements(x) eq 0 then x = xsize - 70*fact else x=x*fact
-	if n_elements(y) eq 0 then y = 100*fact else y=y*fact
-	bew = width;   20
-	beh = height/ns  ;(ysize-y*2)/ns
+	if n_elements(x) eq 0 then x = xsize - 70 else x=x
+	if n_elements(y) eq 0 then y = 100 else y=y
+
 	dval = (yrange(1)-yrange(0))/ns
+
 	for j=0,ns do begin
 	color = (nc/ns)*j 
 	if color eq nc then color = nc - 1
-	tv,replicate(color,bew,beh), x,y+j*beh*fact ,xsize=bew*fact,ysize=beh*fact
+	tv,replicate(color,bew,beh),x,y+j*beh,xsize=bew,ysize=beh
 	if detcap gt 1 then begin
 	jj = j mod detcap ; 2
 	if jj eq 0 then begin
 	str = string(format='('+fmt+')',j*dval+yrange(0))
-		 xyouts,x+1.25*bew*fact,y+j*beh*fact, strtrim(str,2),/device,color=tcolor
+		 xyouts,x+1.25*bew,y+j*beh, strtrim(str,2),/device,color=tcolor
 		end
 	end
 	endfor
