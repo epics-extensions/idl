@@ -10,13 +10,9 @@
 source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
 source $PVT_LOC/ezcaidl_setup
 
-if $HOST_ARCH == "solaris-sparc" then 
-	set exe = "-rt=$PVT_LOC/../../idllib/scanSee.sav"
-	else
-	set exe = "-rt=$PVT_LOC/scanSee.sav"
-endif
-	if -e scanSee.sav then
-	set exe = "-rt=scanSee.sav"
+	set exe = "-rt=$PVT_LOC/sscan.sav"
+	if -e sscan.sav then
+	set exe = "-rt=sscan.sav"
 	endif
 
 echo $exe
@@ -33,9 +29,7 @@ if ( "$1" == "-A" | "$1" == "-a" | "$1" == "-Auto" ) then
         shift
 endif
 
-echo ".run readScan.pro" >! go_viewer
-echo ".run panimage.pro" >>! go_viewer
-echo ".run vw2d.pro" >>! go_viewer
+echo ".run ez_fit.pro" >>! go_viewer
 echo ".run DC.pro" >>! go_viewer
 echo ".run user_scan.pro" >>! go_viewer
 echo "$xdr" >>! go_viewer
