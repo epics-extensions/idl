@@ -152,8 +152,7 @@ PRO xdr_rewind,unit
 END
 
 PRO xdr_close,unit
-; close the file unit
-	close,unit
+	free_lun,unit
 END
 
 PRO xdr_open,unit,filename,read=read,write=write,append=append,error=error
@@ -197,7 +196,6 @@ PRO xdr_open,unit,filename,read=read,write=write,append=append,error=error
 ;       xx-xx-xxxx      comment
 ;-
 	error = 0
-	unit = -99
 	catch,error_status
 	if error_status ne 0 then begin
 		print,!error_state.msg + string(!error_state.code)
@@ -208,6 +206,6 @@ PRO xdr_open,unit,filename,read=read,write=write,append=append,error=error
 		openw,unit,/XDR,/GET_LUN,filename,/append
 		return
 	end
-	if keyword_set(write) then openw,unit,/XDR,/GET_LUN,filename
-	if unit eq -99 then openr,unit,/XDR,/GET_LUN,filename
+	if keyword_set(write) then openw,unit,/XDR,/GET_LUN,filename else $
+	openr,unit,/XDR,/GET_LUN,filename
 END
