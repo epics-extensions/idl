@@ -1,4 +1,4 @@
-; $Id: view1d.pro,v 1.16 1999/10/25 22:12:30 cha Exp $
+; $Id: view1d.pro,v 1.17 2000/02/28 20:26:32 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -172,7 +172,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.16 1999/10/25 22:12:30 cha Exp $
+; $Id: view1d.pro,v 1.17 2000/02/28 20:26:32 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1931,6 +1931,12 @@ win_state = WIDGET_INFO(view1d_widget_ids.plot_wid, /GEOMETRY)
 
    ;extract valid data from global arrays
 
+   ; If plotting before p1 was read ...
+   IF num_pts le 1 then begin
+	res = dialog_message('You have to open the input file first !',/Error)
+	return
+   END 
+
    view1d_check_xaxis,num_pts,p1,xmin,xmax
 
 ; check any data available 
@@ -2031,22 +2037,11 @@ ENDELSE
 
    ;Now draw the axis and plot the selected waveforms
 
-
 if !d.name eq !os.device then WSET, view1d_widget_ids.plot_area
 ;   ERASE
 
    ;fake out PLOT to plot an empty axis
    junk = ['5','6']
-
-   ; If plotting before p1 was read ...
-;   IF ((STRLEN(V1D_scanData.pv) EQ 0) OR  $    gives problem when no config
-    IF (  (ymax LE ymin)             OR  $
-       ((MIN(p1) EQ 0) AND (MAX(p1) EQ 0))) THEN  BEGIN
-	p1=indgen(num_pts+1)
-	xmin=0
-	xmax=num_pts
-	if auto eq 1 then view1d_adjust_ranges,xmin,xmax
-   ENDIF
 
    ;Plot the axis w/o any waveforms
 
@@ -2060,7 +2055,6 @@ if !d.name eq !os.device then WSET, view1d_widget_ids.plot_area
 ; linear plot
 ;
 if view1d_plotspec_id.log ne 1 then begin
-
 
 ; 10 % margin
 
@@ -2245,8 +2239,8 @@ COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array , view1
 	   p1 = V1D_scanData.da(0:num_pts,i-4)
 	   xmin = MIN(p1)
 	   xmax = MAX(p1)
-	   if xmin eq xmax then $ 
-		res=WIDGET_MESSAGE('Maybe no value available for P'+strtrim(i+1,2)+ ' x-axis vector',/info)
+	   if xmin eq xmax and view1d_plotspec_id.x_axis_u eq 0 then $ 
+		res=WIDGET_MESSAGE(['Constant value found for P'+strtrim(i+1,2)+ ' x-axis vector','If you desired, you may try Step # for Xaxis'],/info)
 
 END
 
@@ -2306,8 +2300,8 @@ COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array , view1
 ;
 ;  increase the xmin,xmax by +5%
 ;
-	if xmax eq xmin then dx = 1. else $
         dx = 0.05 *(xmax-xmin)
+	if dx le 1.e-15 then dx = 1.
         xmax = xmax + dx
         xmin = xmin - dx
 
@@ -2319,14 +2313,12 @@ END
 ; round the xrange to integer if total width > 5
 ;
 PRO view1d_round_xrange,xmin,xmax
-if (xmax - xmin) le 5. then return 
-v = fix(xmax)
-if (xmax - v) gt 0 then v = v+1
-xmax=v
-v = fix(xmin)
-if xmin lt 0 then v = v - 1
-xmin = v
+if (xmax - xmin) le 5. then return
+xmax = floor(xmax) + 1
+xmin = floor(xmin)
+
 END
+
 
 PRO view1d_power10_max,x,newx,no
 newx = x
@@ -2940,13 +2932,14 @@ COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
 	found = findfile(filename)
 if found(0) ne '' then  begin	
 	view1d_summary_id.file = filename
+	view1d_checkOutPath
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
 	view1d_summary_id.outfile=strcompress(file(0),/remove_all)
 
 	;  use the data directory first if failed then home directory
 
-	report_path = V1D_scandata.path
-	save_outfile = V1D_scandata.path+view1d_summary_id.outfile
+	report_path = view1d_summary_id.outpath
+	save_outfile = report_path+view1d_summary_id.outfile
 
 ; quard trashcan
 	if save_outfile eq V1D_scandata.trashcan then begin
@@ -3021,6 +3014,18 @@ view_print:
 
 END
 
+PRO view1d_checkOutPath
+COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
+
+	WIDGET_CONTROL,view1d_summary_ids.outpath,GET_VALUE=path
+	outpath = strcompress(path(0),/remove_all)
+	len = strlen(outpath)
+	if strmid(outpath,len-1,1) ne !os.file_sep then outpath=outpath+!os.file_sep
+	found = findfile(outpath,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' '+ outpath
+	view1d_summary_id.outpath = outpath
+
+END
 
 PRO view1d_summary_setup_Event, GROUP=GROUP, Event
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -3050,30 +3055,6 @@ COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
         ret = strpos('defgDEFG',V1D_scanData.code)
        if ret eq -1 then view1d_warningtext,'Error:   illegal format entered !!!'
 	END
-  'summary_file': BEGIN
-      Print, 'Event for Filename'
-	WIDGET_CONTROL, view1d_summary_ids.file, GET_VALUE=file 
-	filename=strcompress(file(0),/remove_all)
-	found = findfile(filename)
-	if found(0) ne '' then begin	
-	view1d_summary_id.file = filename
-
-if V1D_scanData.XDR eq 1 then U_OPENR,unit,view1d_summary_id.file,/XDR else $
-U_OPENR,unit,view1d_summary_id.file
-view1d_scan_read_all,unit,maxno
-free_lun,unit
-view1d_summary_id.start = maxno
-view1d_summary_id.stop = maxno
-
-	WIDGET_CONTROL,view1d_summary_ids.start, $ 
-		SET_VALUE=strtrim(view1d_summary_id.start,2)
-	WIDGET_CONTROL,view1d_summary_ids.stop, $
-		SET_VALUE=strtrim(view1d_summary_id.stop,2)
-	view1d_report_setup
-	outfile = view1d_summary_id.outfile
-	WIDGET_CONTROL, view1d_summary_ids.outfile, SET_VALUE= outfile
-	end
-      END
   'summary_start': BEGIN
 	WIDGET_CONTROL,view1d_summary_ids.start, GET_VALUE=start
 	if start gt 0 and start le view1d_viewscan_id.maxno then begin
@@ -3099,59 +3080,41 @@ view1d_summary_id.stop = maxno
 	view1d_report_setup
 	WIDGET_CONTROL, view1d_summary_ids.outfile, SET_VALUE= view1d_summary_id.outfile
 	END
+  'summary_outpath': BEGIN
+	view1d_checkOutPath
+	END
   'summary_ok': BEGIN
 	view1d_summary_generate_report
       END
   'summary_view': BEGIN
+	view1d_checkOutPath
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
-	filename=strcompress(file(0),/remove_all)
-
-	; check the data directory first
-
-	view1d_summary_id.outfile = V1D_scanData.path + filename
-	found = findfile(view1d_summary_id.outfile)
-	if found(0) ne '' then begin
-	  xdisplayfile,view1d_summary_id.outfile,width=110,GROUP=event.top 
-  		return
- 	end
-
-	; check startup directory
+	filename= view1d_summary_id.outpath + strcompress(file(0),/remove_all)
 
 	found = findfile(filename)
-	if found(0) ne '' then 	$
-        xdisplayfile,filename,width=110,GROUP=event.top else begin
-		view1d_summary_generate_report
-		xdisplayfile,view1d_summary_id.outfile,width=110,GROUP=event.top
-	end
+	if found(0) ne '' then $
+	  xdisplayfile,filename,width=110,GROUP=event.top else begin
+	  view1d_summary_generate_report
+	  xdisplayfile,filename,width=110,GROUP=event.top
+ 	end
+
 	END
 
   'summary_print': BEGIN
-
+	view1d_checkOutPath
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
-	filename=strcompress(file(0),/remove_all)
-
-	; check the data directory first
-
-	view1d_summary_id.outfile = V1D_scanData.path + filename
-	found = findfile(view1d_summary_id.outfile)
-	if found(0) ne '' then begin
-	 if OS_SYSTEM.os_family eq 'unix' then $
-	 str = OS_SYSTEM.prt + ' ' + OS_SYSTEM.printer + ' -r '+view1d_summary_id.outfile  else $
-	 str = OS_SYSTEM.prt + ' ' + view1d_summary_id.outfile
-	 spawn,str + ' &'
-		return
-	end
-
-	; check startup directory
+	view1d_summary_id.outfile = strcompress(file(0),/remove_all)
+	filename= view1d_summary_id.outpath + view1d_summary_id.outfile
 
 	found = findfile(filename)
-	if found(0) ne '' then 	begin 
+	if found(0) ne '' then begin
 	 if OS_SYSTEM.os_family eq 'unix' then $
 	 str = OS_SYSTEM.prt + ' ' + OS_SYSTEM.printer + ' -r '+filename  else $
-	 str = OS_SYSTEM.prt + ' ' + filename 
+	 str = OS_SYSTEM.prt + ' ' + filename
 	 spawn,str + ' &'
 	endif else $
 	view1d_warningtext,['Error:','    '+filename+ '  not found!']
+
 	END
   'summary_cancel': BEGIN
 	WIDGET_CONTROL, view1d_summary_ids.base , /DESTROY
@@ -3199,6 +3162,26 @@ if XRegistered('view1d_summary_setup') eq 0 then return
 	view1d_summary_setup,GROUP=Event.top
 END
 
+PRO view1d_checkWritePath,outpath
+COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData 
+
+        pos = rstrpos(V1D_scanData.trashcan,!os.file_sep)
+        len = strlen(V1D_scanData.trashcan)
+        if pos ge 0 then $
+        outpath = strmid(V1D_scanData.trashcan,0,pos)
+
+        catch,error_status
+        if error_status ne 0 then begin
+                cd,current=dir
+                outpath = dir
+        	return
+        end
+	openw,1,V1D_scanData.trashcan+'.ascii'
+	printf,1,'; '
+	close,1
+	spawn,!os.rm + ' '+V1D_scanData.trashcan+'.ascii'
+END
+
 PRO view1d_summary_setup, GROUP=Group
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData 
 COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
@@ -3210,14 +3193,20 @@ if XRegistered('view1d_summary_setup') ne 0 then return
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
+	view1d_checkWritePath,outpath
+
 view1d_summary_id = { $
 	start: 1, $
 	stop: 1, $
 	header: 0, $
 	separate: 0, $
+	outpath: outpath+!os.file_sep+'ASCII'+!os.file_sep, $
 	outfile: view1d_plotspec_array(3)+'.rep',  $
 	file: V1D_scanData.trashcan  $
 	}
+
+	found = findfile(view1d_summary_id.outpath,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' '+ view1d_summary_id.outpath
 
 seqno = view1d_viewscan_id.seqno + 1
 if seqno gt view1d_viewscan_id.maxno then seqno = view1d_viewscan_id.maxno
@@ -3260,15 +3249,6 @@ WIDGET_CONTROL,summary_header,SET_VALUE=0
   summary_file = WIDGET_LABEL( BASE2,/ALIGN_LEFT, $
 		VALUE='Source: '+view1d_summary_id.file)
 
-;  summary_file = CW_FIELD( BASE2,VALUE=view1d_summary_id.file, $
-;      ROW=1, $
-;      STRING=1, $
-;      NOEDIT=1, $
-;      RETURN_EVENTS= 1, $
-;      TITLE='Data file name: ', $
-;      XSIZE=60, $
-;      UVALUE='summary_file')
-
   FieldVal388 = strtrim(view1d_summary_id.start,2)
   summary_start = CW_FIELD( BASE2,VALUE=FieldVal388, $
       ROW=1, $
@@ -3296,6 +3276,13 @@ WIDGET_CONTROL,summary_header,SET_VALUE=0
 
 ;  label = WIDGET_LABEL(BASE112,VALUE='Out Report File: ')
 ;  summary_outfile = WIDGET_LABEL(BASE112,VALUE=view1d_summary_id.outfile)
+
+  summary_outpath = CW_FIELD( BASE2, $
+      VALUE=view1d_summary_id.outpath, $
+      RETURN_EVENTS= 1, $
+      ROW=1, XSIZE=60, $
+      TITLE='Output Dir: ', $
+      UVALUE='summary_outpath')
 
   summary_outfile = CW_FIELD( BASE2,VALUE=view1d_summary_id.outfile, $
       ROW=1, XSIZE=60, $
@@ -3329,7 +3316,7 @@ WIDGET_CONTROL,summary_header,SET_VALUE=0
 view1d_summary_ids = { $
 	base: view1d_summary_base, $
 	format: summary_format, $
-;	file: summary_file, $
+	outpath: summary_outpath, $
 	outfile: summary_outfile, $
 	view: summary_view, $
 	print: summary_print, $
@@ -3350,12 +3337,6 @@ END
 @u_read.pro
 @PS_open.pro
 @cw_term.pro
-; @my_box_cursor.pro
-; @xdisplayfile.pro
-; @view1d_util.pro
-; @view1d_eventLib.pro
-; @view1d_plot.pro
-; @view1d_summary.pro
 
 
 
@@ -4257,6 +4238,10 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;                       Open_binary_type default to XDR
 ;       09-20-99  bkc   View Report automatically generates it if file not found
 ;       10-06-99  bkc   Ez_fit automatically fits the first selected detector 
+;       11-23-99  bkc   R1.5e 
+;                       Remove the automatically plot against step # if a constant
+;                       X vector was found.
+;                       ASCII files will be saved under ASCII sub-directory
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -4279,7 +4264,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='VIEW1D (R1.5d)', $          ;   VIEW1D release
+      TITLE='VIEW1D (R1.5e)', $          ;   VIEW1D release
       UVALUE='VIEW1D_1')
 
   BASE68 = WIDGET_BASE(VIEW1D_1, $
