@@ -1,77 +1,571 @@
-@u_read.pro
-@colorbar.pro
-@defroi_pick.pro
+;
+; multiroi_pick.pro
+;
+
+PRO graph_region,xl,yl,wd,ht,xsize,ysize
+	xl =30
+	yl =30
+	wd =300
+	ht =300
+	xsize = wd + 2*xl
+	ysize = ht + 2*yl
+END
+
+PRO defroi_zoombox,im,xl,yl,wd,ht,zoom_box,picke,background=background,region=region,delete=delete,oldpicke=oldpicke
+if n_params() lt 5 then begin
+	str = ['  Useing the zoombox to fine tune the ROIs. Marks the elements to be added or deleted.','', $
+	'  Drag Left button to move zoom box. ',$
+	'  Drag Middle button near a corner to resize box.',$
+	'  Right button when done.' , '', $
+
+	'USAGE:  defroi_zoombox, im, xl, yl, wd, ht, zoom_box=zoombox,...', '',$
+	'INPUT:',$
+	'    im         - image array corresponding to the TV image', $
+	'    xl, yl     - lower left corner of TV image', $
+	'    wd, ht     - total pixel width and height of image area', $
+	'OUTPUT:',$
+	'    zoom_box   - returns the [IL,JL,IR,JR] vector of selected region', $
+	'KEYWORD:',$
+	'    BACKGROUNG - background color', $
+	'    OLDPICKE   - initial picked elements, required for window system', $
+	'    REGION     - specifies the desired region for add list', $
+	'    DELETE     - mark the list to be deleted from ROI' $
+	]
+	r = dialog_message(str,/info)
+	return
+end
+
+	if n_elements(im) lt 4 then begin
+	r = dialog_message('Input error in Im',/Error)	
+	return
+	end
+
+	region_no = 1
+	if keyword_set(region) then region_no = region
+
+	otv = tvrd(xl,yl,wd,ht)
+;help,otv
+
+	bg=0
+	if keyword_set(background) then bg=background
+	erase,bg
+	TVSCL,congrid(im,wd,ht),xl,yl
+
+	sz = size(im)
+	factor = [float(wd)/sz(1), float(ht)/sz(2)]
+
+;	catch,error_status
+;	if error_state ne 0 then print,!error_state.msg,!error_state.code
+
+	x0 = xl+wd/4
+	y0 = yl+ht/4
+	nx = wd/2
+	ny = ht/2
+	box_cursor,x0,y0,nx,ny,/INIT,/MESSAGE
+
+	ixl = 0 > fix((x0-xl)/factor(0)) < (sz(1)-1)
+	iyl = 0 > fix((y0-yl)/factor(1))< (sz(2)-1)
+	ixr =  (ixl + ceil(nx/factor(0))) < (sz(1)-1)
+	iyr =  (iyl + ceil(ny/factor(1))) < (sz(2)-1)
+	if iyl eq iyr and iyr gt 0 then iyl = iyr-1
+	if ixl eq ixr and ixr gt 0 then ixl = ixr-1
+	zoom_box = [ixl,iyl,ixr,iyr]
+;print,ixl,iyl, ixr,iyr
+
+	im_sub = im(ixl:ixr,iyl:iyr)
+	vmax = max(im)
+	vmin = min(im)
+	top = (!d.table_size-1) * (max(im_sub)-vmin)/(vmax-vmin)
+	
+	if !d.name ne 'X' then begin
+	oldpicke = reform(oldpicke,sz(1),sz(2))
+	oldpicke = oldpicke(ixl:ixr,iyl:iyr)
+	multiplier = [float(wd)/(ixr-ixl+1),float(ht)/(iyr-iyl+1)]
+	for jj=iyl,iyr do begin
+	j = jj - iyl
+	for ii=ixl,ixr do begin
+	i = ii - ixl
+	c_color = (!d.table_size-1) * (im_sub(i,j)-vmin)/(vmax-vmin)
+	xv = xl + multiplier(0)*[i,i+1,i+1,i,i]
+	yv = yl + multiplier(1)*[j,j,j+1,j+1,j]
+	polyfill,xv,yv,color = c_color,/device
+	end
+	end
+	for k=1,max(oldpicke) do begin
+	defroi_listregion,im_sub,oldpicke,region=k,/reverse 
+	end
+
+	endif else begin
+	; zoombox TV region
+
+	x1 = fix(factor(0)*[ixl,ixr+1])
+	y1 = fix(factor(1)*[iyl,iyr+1])
+	sub_otv = otv(x1(0):x1(1)-1,y1(0):y1(1)-1)
+	tv,congrid(sub_otv,wd,ht),xl,yl,top=top
+	end
+
+	; call pick
+
+;print,'oldpicke=',oldpicke
+	defroi_pick,im_sub,picke,region=region_no
+;print,'   picke=',picke
+
+	dx = ixr-ixl+1
+	ct = 0
+	for ij=0,n_elements(picke)-1 do begin
+	if picke(ij) gt 0 then begin
+		i = ixl + ij MOD dx
+		j = iyl + ij / dx
+		nij = i + sz(1)* j
+		if ct eq 0 then elist = nij else $
+			elist = [elist, nij]
+		ct = ct + 1
+	end
+	end
+
+	; delete  picked elements 
+	if keyword_set(delete) then begin
+	if n_elements(elist) gt 0 then begin
+		defroi_listall,im,picke,minuslist=elist,charsize=1
+	endif else begin
+		defroi_listall,im,picke,charsize=1
+	end
+	return
+	end
+
+	; add picked elements 
+
+	if n_elements(elist) gt 0 then begin
+		elist = [elist, region_no]
+		defroi_listall,im,picke,addlist=elist,charsize=1
+	endif else begin
+		defroi_listall,im,picke,charsize=1
+	end
+
+END
+
+PRO defroi_addlist,picke,elist
+	nel = n_elements(elist) - 1
+	region_no = elist(nel)
+	for i=0,nel-1 do begin
+		ij = elist(i)
+;		if picke(ij) eq 0 then picke(ij) = region_no
+		if picke(ij) ne region_no then picke(ij) = region_no
+	end
+END
+
+PRO defroi_minuslist,picke,elist,region=region
+; delete a selected region or marked elements
+	; 1 - delete selected region
+	if keyword_set(region) then begin
+		region_no = region
+		for i=0,n_elements(picke)-1 do begin
+			if picke(i) eq region_no then picke(i)=0
+		end
+	return
+	end
+	; 2 - delete the marked elements
+	nel = n_elements(elist)
+	for i=0,nel-1 do begin
+		ij = elist(i)
+		if picke(ij) gt 0 then picke(ij) = 0
+	end
+END
+
+PRO defroi_drawcolors,xl,yl,wd,ht,color=color
+
+	erase
+	scl = !d.table_size - 1
+	c_color=100L+100*256L+100*256L*256L
+	if keyword_set(color) then c_color = color*(1L+256L+256L*256L)
+print,c_color
+	i=0
+	j=0
+	xv = xl + wd*[i,i+1,i+1,i,i]
+	yv = yl + ht*[j,j,j+1,j+1,j]
+	polyfill,xv,yv,color = c_color,/device
+END
+
+PRO defroi_refresh,im,width=width,height=height,xpos=xpos,ypos=ypos,print=print,charsize=charsize
+
+	xl=80
+	yl=80
+	wd=340
+	ht=340
+	graph_region,xl,yl,wd,ht
+	TVSCL,congrid(im,wd,ht),xl,yl
+	
+END
+
+PRO defroi_listregion,im,picke,region_data,region=region,refresh=refresh,width=width,height=height,xpos=xpos,ypos=ypos,print=print,charsize=charsize,reverse=reverse
+;
+; NAME:
+;   DEFROI_LISTREGION
+;
+; PURPOSE:
+;   List region of interest
+;
+; INPUT: 
+;   Im          - image array
+;   Picke       - vector of selected ROI numbers in byte
+;   Region_data - returns the data structure for a selected region
+;
+;	region_data = { nelem: sel_no, $  number of elements in region
+;		el_list: el_list, $   elements indices in region
+;		total:  sel_total, $    Total
+;		ave:    ave, $		Average
+;		var:    var, $          Variance
+;		dev:    dev, $          Standard deviation
+;		min:    temp_min, $     Minimum in region    
+;		max:    temp_max  $     Maximum in region  
+; KEYWORD:
+;     REGION    - specifies the region number, default 1
+;     CHARSIZE  - if specified, mark the region with the region number
+;     PRINT     - list the values of the region element
+;
+
+	xl=80
+	yl=80
+	wd=340
+	ht=340
+	graph_region,xl,yl,wd,ht
+	if keyword_set(refresh) then TVSCL,congrid(im,wd,ht),xl,yl
+
+	sz = size(im)
+	multiplier = [float(wd)/sz(1),float(ht)/sz(2)]
+ 	region_no = region 
+	nregion = max(picke)
+	if region_no gt nregion then begin
+		str = 'Error: ROI '+strtrim(nregion,2) + ' not found!'
+		r = dialog_message(str,/error)
+		return
+	end
+	nelem = n_elements(picke)
+	csize=1
+	if keyword_set(charsize) then csize=charsize
+
+if  keyword_set(print) then $
+print,'      IJ           I           J      IM(I,J)      ROI#'
+xtr = strtrim(region_no,2)
+
+	orient = 45
+	if keyword_set(reverse) then orient = -45
+	device,set_graphics_function=6
+	for ij=0,nelem-1 do begin
+		if picke(ij) eq region_no then begin
+		i = ij mod sz(1)
+		j = ij / sz(1)
+		xv = xl + multiplier(0)*[i,i+1,i+1,i,i]
+		yv = yl + multiplier(1)*[j,j,j+1,j+1,j]
+		polyfill,xv,yv,line_fill=1,orientation=orient,/device
+
+		if csize gt 0 then $
+		xyouts,xv(0),yv(0),xtr,/device,charsize=csize
+
+if keyword_set(print) then print,ij,i,j,im(i,j),region_no
+		if n_elements(sel_list) eq 0 then begin
+			sel_list = im(i,j) 
+			el_list = ij
+		end else begin
+			sel_list = [sel_list, im(i,j)]
+			el_list = [el_list,ij]
+		end
+		end
+	end
+	device,set_graphics_function=3
+
+	if n_elements(sel_list) gt 1 then begin
+		sel_total = total(sel_list)
+		sel_no = n_elements(sel_list)
+		res = moment(sel_list,sdev=dev,mdev=mdev)
+		ave = res(0)
+		var = res(1)
+		temp_min = min(sel_list,jmin)
+		temp_max = max(sel_list,jmax)
+		min_i = el_list(jmin) MOD sz(1)
+		min_j = el_list(jmin) / sz(1)
+		max_i = el_list(jmax) MOD sz(1)
+		max_j = el_list(jmax) / sz(1)
+	end
+
+	if n_elements(sel_no) then $
+	region_data = { nelem: sel_no, $
+		el_list: el_list, $
+		total:  sel_total, $
+		ave:    ave, $
+		var:    var, $
+		dev:    dev, $
+		min_i:	min_i, $
+		min_j:	min_j, $
+		max_i:	max_i, $
+		max_j:	max_j, $
+		min:    temp_min, $
+		max:    temp_max  $
+	}	
+
+END
+
+PRO defroi_listall,im,picke,width=width,height=height,xpos=xpos,ypos=ypos,file=file,print=print,charsize=charsize,addlist=addlist,minuslist=minuslist
+;
+;     CHARSIZE  - if specified, mark the pixel with region number
+;     PRINT     - list the values of the region element
+;     file      - override the default filename 'roi.pick' if file is specified 
+;
+
+x0=80
+y0=80
+wd=340
+ht=340
+	graph_region,x0,y0,wd,ht
+csize = 0.
+if keyword_set(charsize) then csize=charsize
+if keyword_set(width) then wd = width
+if keyword_set(height) then ht = height
+if keyword_set(xpos) then x0 = xpos
+if keyword_set(ypos) then y0 = ypos
+TVSCL,congrid(im,wd,ht),x0,y0
+
+sz = size(im)
+multiplier = [wd/sz(1),ht/sz(2)]
+filename = 'roi.pick'
+if keyword_set(file) then filename = file
+
+nelem = sz(1)*sz(2)
+picke = make_array(nelem,/byte)
+
+	found = findfile(filename,count=ct)
+	if ct gt 0 then begin
+	u_openr,unit,filename,/XDR
+	u_read,unit,picke
+	u_close,unit
+	end
+	; redefine the region of interest
+	if nelem lt n_elements(picke) then begin
+		addlist = 1 
+		picke = make_array(nelem,/byte)
+	end
+
+	if nelem gt n_elements(picke) then begin
+		addlist = 1
+		picke = make_array(nelem,/byte)
+	end
+
+	if keyword_set(addlist) then begin
+		defroi_addlist,picke,addlist
+		u_openw,unit,filename,/XDR
+		u_write,unit,picke
+		u_close,unit
+		end
+
+	if keyword_set(minuslist) then begin
+		if minuslist(0) lt 0 then $
+		defroi_minuslist,picke,region=-minuslist(0) else $
+		defroi_minuslist,picke,minuslist
+		u_openw,unit,filename,/XDR
+		u_write,unit,picke
+		u_close,unit
+		end
+
+found = findfile(filename,count=ct)
+if ct eq 0 then begin
+	er = dialog_message(filename+' not found',/Error)
+	return
+end
+
+	max_region = max(picke)
+
+	; marked the readin  picked elements
+
+  for k=1,max_region do begin
+	defroi_listregion,im,picke,region_data,region=k,charsize=csize ;,/print
+  end
+
+END
+
+
+PRO defroi_pick,im,picke,width=width,height=height,xpos=xpos,ypos=ypos,listall=listall,clear=clear,new=new,modify=modify,print=print,region=region,ave=ave,dev=dev,var=var,readonly=readonly,charsize=charsize
+;    LMB - toggle the pixel selection, the selected pixel is marked by lines
+;    MMB - print the data value at the mouse cursor position
+;    RMB - terminate the selection and update the saved ROI, default filename
+;          'roi.pick'
+; INPUT
+;    Im     - input image array
+;    Picke  - returns the vector indicator 1 - picked, 0 - not picked
+; KEYWORD
+;    XPOS   - image lower left pixel position
+;    YPOS   - image lower bottom pixel position
+;    WIDTH  - total width of pixels used for displaying im
+;    HEIGHT - total height of pixels used for displaying im
+;    CLEAR  - refresh the TV 
+;    NEW    - saving as new roi.pick file
+;    MODIFY - read in previous roi.pick and let the user modify the ROI by
+;             toggling the desired pixel
+;    PRINT  - if specified, print the array result
+;    READONLY - only read the region data no modification allowed
+;    CHARSIZE - charsize mark the picked pixel
+;    REGION - specified the region number to be examined, default 0
+;    EL_LIST - returns the selected element list for the specified region
+;    AVE     - returns the average value for the specified region
+;    DEV     - returns the standard deviation value for the specified region
+;    VAR     - returns the variance for the specified region
+
+region_no = 1
+if keyword_set(region) then region_no = region
+
+csize = 1
+if keyword_set(charsize) then csize=charsize
+
+x0=80
+y0=80
+wd=340
+ht=340
+	graph_region,x0,y0,wd,ht
+if keyword_set(width) then wd = width
+if keyword_set(height) then ht = height
+if keyword_set(xpos) then x0 = xpos
+if keyword_set(ypos) then y0 = ypos
+; TVSCL,congrid(im,wd,ht),x0,y0
+
+sz = size(im)
+multiplier = [float(wd)/sz(1),float(ht)/sz(2)]
+filename = 'roi.pick'
+if keyword_set(modify) then begin
+	 if strlen(strtrim(modify,2)) gt 1 then filename = modify
+end
+vmax = max(im)
+vmin = min(im)
+
+nelem = sz(1)*sz(2)
+picke = make_array(nelem,/byte)
+
+found = findfile(filename,count=ct)
+if ct gt 0 then begin
+	if keyword_set(modify) then begin
+		u_openr,unit,filename,/XDR
+		u_read,unit,picke
+		u_close,unit
+
+
+	; marked the readin  picked elements
+
+	for ij=0,nelem-1 do begin
+		if picke(ij) eq region_no then begin
+		i = ij mod sz(1)
+		j = ij / sz(1)
+;		xv = x0 + multiplier(0)*[i,i+1,i+1,i,i]
+;		yv = y0 + multiplier(1)*[j,j,j+1,j+1,j]
+;		polyfill,xv,yv,line_fill=1,orientation=45,/device
+if keyword_set(print) then print,ij,i,j,im(i,j),region_no
+		if n_elements(sel_list) eq 0 then begin
+			sel_list = im(i,j) 
+			el_list = ij
+		end else begin
+			sel_list = [sel_list, im(i,j)]
+			el_list = [el_list,ij]
+		end
+		end
+	end
+
+		if n_elements(sel_list) gt 1 then begin
+		sel_total = total(sel_list)
+		sel_no = n_elements(sel_list)
+		res = moment(sel_list,sdev=dev,mdev=mdev)
+		ave = res(0)
+		var = res(1)
+		temp_min = min(sel_list,jmin)
+		temp_max = max(sel_list,jmax)
+		min_i = jmin MOD sz(1)
+		min_j = jmin / sz(1)
+		max_i = jmax MOD sz(1)
+		max_j = jmax / sz(1)
+		end
+
+	if keyword_set(readonly) then begin
+	device,set_graphics_function=3
+	return
+	end
+	end
+end ;  if else new=1
+
+	device,set_graphics_function=6
+
+	str = ['You are in ROI discrete pixel selection mode', $
+		'for region # ='+strtrim(region_no)]
+r = dialog_message(str,/info)
+cursor,x,y,/device,/down
+
+ while (!mouse.button ne 4) do begin
+	i = fix((x-x0)/multiplier(0))
+	j = fix((y-y0)/multiplier(1))
+	ij = j*sz(1)+i
+	if !mouse.button eq 1 then begin
+	if ij lt nelem then begin
+	if picke(ij) eq 0 then picke(ij) = region_no else picke(ij)=0
+ 
+	; mark/unmark  the picked elements
+
+	xv = x0 + multiplier(0)*[i,i+1,i+1,i,i]
+	yv = y0 + multiplier(1)*[j,j,j+1,j+1,j]
+	polyfill,xv,yv,line_fill=1,orientation=-45,/device 
+	
+ if keyword_set(print) then print,ij,i,j,im(i,j),region_no
+	end
+	end
+		 
+ cursor,x,y,/device,/DOWN
+ end
+
+device,set_graphics_function=3
+
+	if !mouse.button eq 4 then begin
+		device,set_graphics_function=3
+		if keyword_set(modify) or keyword_set(new) then begin
+		u_openw,unit,filename,/XDR
+		u_write,unit,picke
+		u_close,unit
+		end
+;	defroi_listall,im,charsize=csize
+	return
+	end
+END
 
 PRO multiroi_help
 
 str = ['DEFROI_PICK allows the user flexiblly redefine the ROIs by', $
-	'free hand drawing or toggling the pixel elements.', $ 
+	'free-hand drawing and picking the pixel elements.', $ 
 	'Element selected is marked with hash line and associated ROI number', $
+	'','The function of each button are listed below:','', $
+	'Drawing Area- Draw the marked image area', $
+	'Msg Info    - Hint about mouse operation below the drawing area', $ 
 	'Done        - Close the multi-roi selection program', $
 	'Help...     - Show this on-line help', $
-	'Color...    - Change the IDL window color map', $
+	'Color...    - Change the IDL window color map ', $
 	'Refresh     - Refresh TV image', $
-	'ShowAll ROIs - Redraw all the selected elements', $
+	'ShowAll ROIs - Redraw and mark all the selected elements', $
 	'ROI #:      - Show list of existing ROIs defined for the image', $
-	'              Re-display the ROI statistic in the scroll area', $
+	'              Select the number will re-display the ROI statistic', $
+	'              in the scroll area', $
 	'Draw PolyROI - Redraw the PolyROI for a selected ROI #', $ 
 	'Modify ROI  - Select/unselect pixels for a selected ROI #', $ 
 	'Add ROI     - Add an additional ROI to the ROI # list', $
 	'Del ROI     - Delete the selected ROI', $
-	'Zoom Mod/Add- Zoom a box region, modify and add newly picked pixel elements into the ROI', $
-	'Zoom Del    - Zoom a box region and delete picked pixel elements from the ROI', $
+	'Zoom Add    - Zoom a box region, pick pixel elements to be added to the ROI', $
+	'Zoom Del    - Zoom a box region, pick pixel elements to be deleted from the ROI', $
 	'Query Image - Query image mode, RMB to stop', $
+	'Offset Val: - Offset value for the ROI statistic calculation', $
+	'Charsize:   - Specify the charsize used in marking the pixel', $
 	'Scroll Area - Display the ROI statistics if new ROI# is selected', $
-	'Save As ... - Save the scroll window content to a disk file', $
-	'Print       - Print the scroll window content to printer', $
-	'Clear       - Clear the scroll window', $
-	'Offset Val: - Offset value', $
-	'charsize:   - Specify the charsize used in marking the pixel' $
+	'Save As ... - Save the statistic scroll window content to a disk file', $
+	'Print       - Print the statistic scroll window content to printer', $
+	'Clear       - Clear the statistic scroll window' $
 	]
 	r = dialog_message(str,/info)
 END
 
-PRO multiroi_pick_Event, Event
-
-
-  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
-  WIDGET_CONTROL, Event.Top, GET_UVALUE=defroi_pickinfo 
-
-  CASE Ev OF 
-
-  'DEFROIPICK_DRAW': BEGIN
-      END
-  'DEFROIPICK_DONE': BEGIN
-	WIDGET_CONTROL,Event.Top,/DESTROY
-	return
-      END
-  'DEFROIPICK_REFRESH': BEGIN
-	defroi_refresh,defroi_pickinfo.im0
-      END
-  'DEFROIPICK_HELP': BEGIN
-	multiroi_help	
-      END
-  'DEFROIPICK_COLOR': BEGIN
-	xloadct,GROUP=Event.top	
-      END
-  'DEFROIPICK_ALL': BEGIN
-	im = defroi_pickinfo.im0
-	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
-	defroi_pickinfo.picke = picke
-      END
-  'DEFROIPICK_LISTREGION': BEGIN
+PRO multiroi_pickregion,defroi_pickinfo,region
 	im = defroi_pickinfo.im0
 	picke = defroi_pickinfo.picke
-	region = defroi_pickinfo.region_id
-	defroi_refresh,im
-	defroi_listregion,im,picke,region_data,region=region
-	END
-  'DEFROIPICK_LIST': BEGIN
-	r = widget_info(Event.Id,/list_select)
-	defroi_pickinfo.region_id = r+1
-	im = defroi_pickinfo.im0
-	picke = defroi_pickinfo.picke
-	region = defroi_pickinfo.region_id
+
 	nelem = total(picke eq region)
 	if nelem gt 0 then begin
 
@@ -86,6 +580,7 @@ PRO multiroi_pick_Event, Event
 	if n_elements(region_data) eq 0 then $
 	str = [str, $
 		 "ERROR: no statistic for region " + string(region), $
+		'        at 2 pixels required for statistics ', $
 		"***************************",'']
 	if n_elements(region_data) then begin
 
@@ -110,21 +605,87 @@ PRO multiroi_pick_Event, Event
 	end
 	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=str,/append
         end
+END
+
+PRO multiroi_picklistall,defroi_pickinfo
+
+	im = defroi_pickinfo.im0
+	picke = defroi_pickinfo.picke
+	nregion = max(picke)
+
+	FOR region=1,nregion DO BEGIN
+	multiroi_pickregion,defroi_pickinfo,region
+	END
+END
+
+
+PRO multiroi_pick_Event, Event
+
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+  WIDGET_CONTROL, Event.Top, GET_UVALUE=defroi_pickinfo 
+
+  xsize = defroi_pickinfo.xsize
+  ysize = defroi_pickinfo.ysize
+  
+  CASE Ev OF 
+
+  'DEFROIPICK_DRAW': BEGIN
+      END
+  'DEFROIPICK_DONE': BEGIN
+	WIDGET_CONTROL,Event.Top,/DESTROY
+	return
+      END
+  'DEFROIPICK_REFRESH': BEGIN
+	defroi_refresh,defroi_pickinfo.im0
+      END
+  'DEFROIPICK_HELP': BEGIN
+	multiroi_help	
+      END
+  'DEFROIPICK_COLOR': BEGIN
+	xloadct,GROUP=Event.top	
+      END
+  'DEFROIPICK_ALL': BEGIN
+	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=''
+	multiroi_picklistall,defroi_pickinfo
+	im = defroi_pickinfo.im0
+	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
+	defroi_pickinfo.picke = picke
+      END
+  'DEFROIPICK_LISTREGION': BEGIN
+	im = defroi_pickinfo.im0
+	picke = defroi_pickinfo.picke
+	region = defroi_pickinfo.region_id
+	defroi_refresh,im
+	defroi_listregion,im,picke,region_data,region=region
+	END
+  'DEFROIPICK_LIST': BEGIN
+	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=''
+	r = widget_info(Event.Id,/list_select)
+	defroi_pickinfo.region_id = r+1
+	im = defroi_pickinfo.im0
+	picke = defroi_pickinfo.picke
+	region = defroi_pickinfo.region_id
+	multiroi_pickregion,defroi_pickinfo,region
       END
   'DEFROIPICK_DEL': BEGIN
 	picke = defroi_pickinfo.picke
 	region = defroi_pickinfo.region_id
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
-	xyouts,1,1,'***Del ROI '+strtrim(region,2)+' ***',/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
+	xyouts,1,ysize-19,'***Del ROI '+strtrim(region,2)+' ***',/device
 	im = defroi_pickinfo.im0
 	defroi_listall,im,picke,charsize=defroi_pickinfo.csize,minuslist=-region
 	defroi_pickinfo.picke = picke
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
       END
   'DEFROIPICK_ADD': BEGIN
 	picke = defroi_pickinfo.picke
 	region = max(picke) + 1
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
-	xyouts,1,1,'***Add ROI '+strtrim(region,2)+': LMB pick element, RMB stop***',/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
+	xyouts,1,ysize-19,'***Add ROI '+strtrim(region,2)+': LMB pick element, RMB stop***',/device
 	defroi_pickinfo.region_max = region  
 	str = string( defroi_pickinfo.list(1:defroi_pickinfo.region_max))
 	WIDGET_CONTROL,defroi_pickinfo.listwid,set_value=str
@@ -135,16 +696,20 @@ PRO multiroi_pick_Event, Event
 	defroi_pickinfo.region_id = defroi_pickinfo.region_max
 	region = defroi_pickinfo.region_id
 ;	defroi_pick,im,picke,region=region,/modify
-	defroi_pick,im,picke,region=region,modify=defroi_pickinfo.class+'roi.pick'
+	defroi_pick,im,picke,region=region,modify='roi.pick'
 	defroi_pickinfo.picke = picke
 	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_info.bg,/device
       END
   'DEFROIPICK_QUERY': BEGIN
 	if defroi_pickinfo.help then $
-	r = dialog_message("Use Right Mouse Button to stop query.",/info)
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
-	xyouts,1,1,defroi_pickinfo.cursor_val,/device
+	str="Use Right Mouse Button to stop query."
+	WIDGET_CONTROL,defroi_pickinfo.msg,SET_VALUE=str
+;	r = dialog_message("Use Right Mouse Button to stop query.",/info)
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
+	xyouts,1,ysize-19,defroi_pickinfo.cursor_val,/device
 	cursor,x,y,/device,/change
 	while (!mouse.button ne 4) do begin
 	x = !mouse.x
@@ -160,11 +725,15 @@ PRO multiroi_pick_Event, Event
 	if j ge sz(2) then j = sz(2) - 1
 	str = '***IMAGE('+strtrim(i,2)+','+strtrim(j,2)+')='+strtrim(im(i,j),2)
 	cursor,x,y,/device,/change
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
-	xyouts,1,1,str,/device,charsize=2
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
+	xyouts,1,ysize-19,str,/device,charsize=1.5 ;2
 	end
       END
   'DEFROIPICK_DRAWROI': BEGIN
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
+	xyouts,1,ysize-19,'***Draw PolyROI',/device
         im = defroi_pickinfo.im0
 	sz = size(im)
         defroi_refresh,im
@@ -183,31 +752,36 @@ PRO multiroi_pick_Event, Event
  
         defroi_listall,im,picke,addlist=[arr,defroi_pickinfo.region_id],charsize=defroi_pickinfo.csize
         defroi_pickinfo.picke = picke
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
       END
   'DEFROIPICK_MOD': BEGIN
 	region = defroi_pickinfo.region_id
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
-	xyouts,1,1,'***Modify ROI '+strtrim(region,2)+': LMB pick element, RMB stop***',/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
+	xyouts,1,ysize-19,'***Modify ROI '+strtrim(region,2)+': LMB pick element, RMB stop***',/device
 	im = defroi_pickinfo.im0
 	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
-;	defroi_pick,im,picke,region=region,/modify
-	defroi_pick,im,picke,region=region,modify=defroi_pickinfo.class+'roi.pick'
+	defroi_pick,im,picke,region=region,modify='roi.pick'
 	defroi_pickinfo.picke = picke
 	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
       END
   'DEFROIPICK_ZOOMDEL': BEGIN
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
-	xyouts,1,1,'***ZoomDel: LMB pick element, RMB stop***',/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
+	xyouts,1,ysize-19,'***Zoom Del: LMB pick element, RMB stop***',/device
 	if defroi_pickinfo.help then begin
-	str =['ZoomDel:  resize zoom box, toggle selection, delete from ROI', $
-		'Zoom Box: Drag LMB - Reposition box',$
-		'          Drag RMB - Resize box', $
-		'          Click RMB - Accept the box region', $ 
-		'Pixel select Mode:', $
-		'          LMB - toggle the selection', $
-		'          RMB - stop the selection mode']
-	r=dialog_message(str,/info)
+	str =['Zoom Del:  resize zoom box, toggle selection, delete from ROI', $
+		'Zoom Box Region: ',$
+		'    Drag LMB - Reposition box',$
+		'    Drag RMB - Resize box', $
+		'    Click RMB - Accept box region', $ 
+		'Select Pixels:', $
+		'    LMB - Toggle the selection', $
+		'    RMB - Done with selection ']
+	WIDGET_CONTROL,defroi_pickinfo.msg,SET_VALUE=str
 	end
 	im = defroi_pickinfo.im0
 	xl = defroi_pickinfo.xl
@@ -218,21 +792,24 @@ PRO multiroi_pick_Event, Event
 	region = defroi_pickinfo.region_id
 	defroi_zoombox,im,xl,yl,wd,ht,zoom_box,picke,oldpicke=picke,region=region,/delete
 	defroi_pickinfo.picke = picke
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
       END
   'DEFROIPICK_ZOOMADD': BEGIN
 	region = defroi_pickinfo.region_id
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
-	xyouts,1,1,'***ZoomMod/Add '+strtrim(region,2)+': LMB pick element, RMB stop***',/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
+	xyouts,1,ysize-19,'***Zoom Add '+strtrim(region,2)+': LMB pick element, RMB stop***',/device
 	if defroi_pickinfo.help then begin
-	str =['ZoomAdd:  resize zoom box, toggle selection, add to ROI', $
-		'Zoom Box: Drag LMB - Reposition box',$
-		'          Drag RMB - Resize box', $
-		'          Click RMB - Accept the box region', $ 
-		'Pixel select Mode:', $
-		'          LMB - toggle the selection', $
-		'          RMB - stop the selection mode']
-	r=dialog_message(str,/info)
+	str =['Zoom Add:  resize box, pick pixel', $
+		'Zoom Box Region: ',$
+		'    Drag LMB - Reposition box',$
+		'    Drag RMB - Resize box', $
+		'    Click RMB - Accept box region', $ 
+		'Select Pixels:', $
+		'    LMB - Toggle the selection', $
+		'    RMB - Done with selection']
+	WIDGET_CONTROL,defroi_pickinfo.msg,SET_VALUE=str
 	end
 	im = defroi_pickinfo.im0
 	xl = defroi_pickinfo.xl
@@ -242,7 +819,8 @@ PRO multiroi_pick_Event, Event
 	picke = defroi_pickinfo.picke
 	defroi_zoombox,im,xl,yl,wd,ht,zoom_box,picke,oldpicke=picke,region=defroi_pickinfo.region_id
 	defroi_pickinfo.picke = picke
-	polyfill,[0,500,500,0],[0,0,20,20],color=0,/device
+	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
+		color=defroi_pickinfo.bg,/device
       END
   'DEFROIPICK_TEXT': BEGIN
       Print, 'Event for DEFROIPICK_TEXT'
@@ -276,6 +854,17 @@ PRO multiroi_pick_Event, Event
   'DEFROIPICK_TEXTCLEAR': BEGIN
 	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=''
       END
+  'DEFROIPICK_BACKGROUND': BEGIN
+	WIDGET_CONTROL,defroi_pickinfo.slider,GET_VALUE=bg
+	defroi_pickinfo.bg = bg
+	erase,bg
+	defroi_refresh,defroi_pickinfo.im0
+	picke = defroi_pickinfo.picke
+	im = defroi_pickinfo.im0
+	device,set_graphics_function=3
+	defroi_listall,im,picke,charsize=1
+	device,set_graphics_function=6
+      END
   'DEFROIPICK_OFFSET': BEGIN
 	WIDGET_CONTROL,defroi_pickinfo.offwid,GET_VALUE=str
 	defroi_pickinfo.offset = str
@@ -287,33 +876,72 @@ PRO multiroi_pick_Event, Event
       END
   ENDCASE
 
+  WIDGET_CONTROL,defroi_pickinfo.msg,SET_VALUE=''
   WIDGET_CONTROL, defroi_pickinfo.base, SET_UVALUE=defroi_pickinfo 
 
 END
 
 
 
-PRO multiroi_pick,im, GROUP=Group,CLASS=Class
-
+PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg
+;+
+; NAME: 
+;    MULTIROI_PICK
+;
+; PURPOSE:
+;    This routine provide a flexible 2D image Region Of Interest statistic
+;    program. It supports multiple ROIs by allowing the user dynamically
+;    to select the ROIs and modify the ROIs by toggling the pixels.  
+;
+;    It is a complete mouse driven program. It let user easily generated
+;    the statistic ROI report for an arbitrary input 2D image. 
+;
+; CATEGORY:
+;    Widgets.
+;
+; CALLING SEQUENCE:
+;    
+;    MULTIROI_PICK, IM
+;
+; INPUTS:
+;    IM:     Input 2D image array
+;
+; KEYWORD PARAMETERS:
+;    GROUP:  Specifies the group leader of the widget, the death of the group
+;            leader results in the death of MULTIROI_PICK.
+;
+;    CLASS:  Specifies the file name where the image was originally extracted.
+;            If this keyword is specified, it tells the MULTIROI_PICK where
+;            to store the statistic output file.
+;
+;    BG:     Specifies the background color, default is black
+;
+; MODIFICATION HISTORY:
+;      Written by:     Ben-chin Cha, Aug 4, 2000.
+;      xx-xx-xxxx  bkc Comment    
+;
+;-
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
 
-  multiroi_pick = WIDGET_BASE(GROUP_LEADER=Group, $
-	title='DEFROI_PICK R1.0 ', $
+graph_region,xl,yl,wd,ht,xsize,ysize
+
+  multiroi_pickBase = WIDGET_BASE(GROUP_LEADER=Group, $
+	title='MULTIROI_PICK R1.0 ', $
       ROW=1, $
       MAP=1, $
-      UVALUE='multiroi_pick')
+      UVALUE='multiroi_pickBase')
 
-  BASE2 = WIDGET_BASE(multiroi_pick, $
+  BASE2 = WIDGET_BASE(multiroi_pickBase, $
       ROW=1, $
       MAP=1, $
       UVALUE='BASE2')
 
   BASE3 = WIDGET_BASE(BASE2, $
-      ROW=1, $
+      COLUMN=1, $
       MAP=1, $
       UVALUE='BASE3')
 
@@ -322,8 +950,14 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class
   ;    MOTION_EVENTS=1, $
       RETAIN=2, $
       UVALUE='DEFROIPICK_DRAW', $
-      XSIZE=500, $
-      YSIZE=500)
+      XSIZE=xsize, $
+      YSIZE=ysize)
+
+  TEXTMSG = WIDGET_TEXT( BASE3,VALUE='', $
+      EDITABLE=0, /SCROLL, $
+      UVALUE='DEFROIPICK_MESSAGE', $
+      XSIZE=40, $
+      YSIZE=10)
 
 
   BASE4 = WIDGET_BASE(BASE2, $
@@ -389,11 +1023,11 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class
 
   BUTTON33 = WIDGET_BUTTON( BASE4, $
       UVALUE='DEFROIPICK_ZOOMADD', $
-      VALUE='Zoom_Mod/Add')
+      VALUE='Zoom Add')
 
   BUTTON34 = WIDGET_BUTTON( BASE4, $
       UVALUE='DEFROIPICK_ZOOMDEL', $
-      VALUE='Zoom_Del')
+      VALUE='Zoom Del')
 
   BUTTON31 = WIDGET_BUTTON( BASE4, $
       UVALUE='DEFROIPICK_QUERY', $
@@ -445,12 +1079,15 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class
       UVALUE='DEFROIPICK_TEXTCLEAR', $
       VALUE='Clear')
 
+  Slider = WIDGET_SLIDER( BASE7, MAX=!d.table_size, MIN=0, $
+      UVALUE='DEFROIPICK_BACKGROUND')
+
   BASE8 = WIDGET_BASE(BASE5, $
       ROW=1, $
       MAP=1, $
       UVALUE='BASE8')
 
-  WIDGET_CONTROL, multiroi_pick, /REALIZE
+  WIDGET_CONTROL, multiroi_pickBase, /REALIZE
 
   ; Get drawable window index
 
@@ -464,8 +1101,9 @@ defroi_pickinfo = { $
 	path : 'ROI'+ !os.file_sep, $
 	class : 'ROI'+ !os.file_sep, $
 	help : 1, $
-	base : multiroi_pick, $
+	base : multiroi_pickBase, $
 	text : TEXT6, $
+	msg : TEXTMSG, $
 	wid : DRAW23_Id, $
 	listwid : LIST41, $
 	list: roilist, $
@@ -474,17 +1112,22 @@ defroi_pickinfo = { $
 	offwid : offset_field, $
 	offset : 0., $
 	cursor_val : cursor_val, $
-	xl : 80, $
-	yl : 80, $
-	wd : 340, $
-	ht : 340, $
-	scale : [340/sz(1),340/sz(2)], $
+	xsize : xsize, $
+	ysize : ysize, $
+	xl : xl, $
+	yl : yl, $
+	wd : wd, $
+	ht : ht, $
+	scale : [wd/sz(1),ht/sz(2)], $
+	bg : 0, $
+	slider : slider, $
 	region_id : 1, $
 	region_max : 1, $
 	picke: make_array(n_elements(im),/byte), $
 	im0 : im $
 	}
 
+	if keyword_set(bg) then defroi_pickinfo.bg = bg
 	if keyword_set(class) then begin
 		 defroi_pickinfo.class = class
 		 len = strpos(class,!os.file_sep,/reverse_search)
@@ -502,7 +1145,7 @@ defroi_pickinfo = { $
 	end
   	WIDGET_CONTROL, LIST41, SET_LIST_SELECT=0
 
-  WIDGET_CONTROL, multiroi_pick, SET_UVALUE=defroi_pickinfo 
+  WIDGET_CONTROL, multiroi_pickBase, SET_UVALUE=defroi_pickinfo 
 	
-  XMANAGER, 'multiroi_pick', multiroi_pick
+  XMANAGER, 'multiroi_pick', multiroi_pickBase
 END
