@@ -5,6 +5,7 @@ include $(EPICS)/config/CONFIG_EXTENSIONS
 DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt
 SCRIPTS = setup_ezcaIDL ezcaidl_startup.pro \
 	os.init PS_open.pro u_read.pro plot1d.pro \
+	ez_fit.pro ezfit \
 	catcher_v1.pro catcher_v1.init catcher toImage.pro\
 	catcher.exe2 catcher.exe2.idl5 \
 	viewer dcviewer.pro viewer_startup.pro \
