@@ -30,8 +30,9 @@ COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
 	WIDGET_CONTROL,sds_const_state.sel1ID,GET_VALUE=st
 	if strlen(strtrim(st,2)) gt 0 then begin
         parse_num,st,res
+	id = where(res lt HDF_Query.numSDS)
 	if res(0) lt HDF_Query.numSDS and res(0) ge 0 then begin
-	SDS_multi1d,seq=res,data=data,dname=dname,error=error ;,/echo
+	SDS_multi1d,seq=res(id),data=data,dname=dname,error=error ;,/echo
 	if error eq 0 then begin
 	  sz = size(data)
 	  if HDF_Query.naxis gt 1 then x = *HDF_Query.yarr else $
@@ -52,8 +53,9 @@ COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
 	WIDGET_CONTROL,sds_const_state.sel2ID,GET_VALUE=st
 	if strlen(st) gt 0 then begin
         parse_num,st,res
+	id = where(res lt HDF_Query.numSDS)
 	if res(0) lt HDF_Query.numSDS and res(0) ge 0 then begin 
-	SDS_multi2d,seq=res,data=data,dname=dname,/echo
+	SDS_multi2d,seq=res(id),data=data,dname=dname,/echo
 	endif else begin
 	st = ['Error: Invalid SDS # entered!', '', $
 		 'Valid SDS # : [0-'+strtrim(HDF_Query.NUMSDS-1,2)+']']
