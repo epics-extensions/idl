@@ -1,3 +1,11 @@
+                        CATCHER R2.2.2a  RELEASE NOTE 
+                        ==========================
+
+The repeat of firstline in 2D scan is fixed. The 2D image problem due to
+"Nextwork lost connection" is fixed.
+
+The default device font is used instead of TrueType font after PS plot. 
+
                         CATCHER R2.2.2  RELEASE NOTE 
                         ==========================
 
