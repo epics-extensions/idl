@@ -8,7 +8,6 @@ COMMON RENAME_BLOCK,rename_ids
   CASE Ev OF 
 
   'RENAME_DIALOGACCEPT': BEGIN
-      Print, 'Event for Accept'
 	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
 	WIDGET_CONTROL,rename_ids.old_id,GET_VALUE=file1
 	WIDGET_CONTROL,rename_ids.new_id,GET_VALUE=file2
@@ -17,7 +16,20 @@ COMMON RENAME_BLOCK,rename_ids
 	if strmid(pathdir(0),len-1,1) ne !os.file_sep then $
 		pathdir = pathdir(0)+!os.file_sep
 	oldname = strtrim(file1(0),2)
-	newname = pathdir+strtrim(file2(0),2)
+	found = findfile(oldname)
+	if found(0) eq '' then begin
+		st =[ 'Filename: ','',oldname,'', 'not found!']
+		res = dialog_message(st,/info)
+		return
+	end
+	newname = pathdir(0)+strtrim(file2(0),2)
+	found = findfile(newname)
+	if found(0) ne '' then begin
+		st =[ 'Filename: ','', newname,'','already exists!', $
+		    '','Do you want to over-write the old content?']
+		res = dialog_message(st,/question)
+		if res eq 'No' then return	
+	end
 	spawn,!os.mv + ' '+ oldname + ' '+newname +' &',res
 	WIDGET_CONTROL,Event.Top,/DESTROY
       END
