@@ -5,7 +5,6 @@
 # Author: Ben-chin Cha
 # 
 
-
 if ("$1" == "-h" | "$1" == "-help") then
 	goto help:
 endif
@@ -15,18 +14,18 @@ set xf=""; set yf=""; set zf=""; set wf=""; set vf=""
 set HOST_ARCH = `/usr/local/epics/startup/HostArch`
 
 if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/setup_ezcaIDL
+	source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/ezcaidl_setup
 else
-	source $EPICS_EXTENSIONS/bin/$HOST_ARCH/setup_ezcaIDL
+	source $EPICS_EXTENSIONS/bin/$HOST_ARCH/ezcaidl_setup
 endif
 
-	source /usr/local/rsi/idl_5.1/bin/idl_setup
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl51"
+	source /usr/local/rsi/idl_5.3/bin/idl_setup
+	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl53"
 	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl51"
+	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl53"
 	endif
-	if -e catcher.exe2.idl51 then
-	set exe = "-rt=catcher.exe2.idl51"
+	if -e catcher.exe2.idl53 then
+	set exe = "-rt=catcher.exe2.idl53"
 	endif
 
 # echo $exe
@@ -91,39 +90,29 @@ else
 endif 
 end
 
-# check for existing catcher processor
-# set STARTUP="catcher -n -D"
-# set PROG="catcher."
-# set PSTEST=""
-# set PSTEST=`/usr/bin/ps -e | grep $PROG | awk '{ print $4 }'`
-# if ( "$PSTEST" != "" ) then
-# 	xterm -e viewer &
-# 	exit
-# endif
-
 set xyz = "catcher_v1"
-	echo "" >! go_catcher2
+	echo "" >! go_catcher
 
 if ("$x" != "") then
 	set xyz = $xyz','$x
-	echo $xf >>! go_catcher2
+	echo $xf >>! go_catcher
 endif
 if ("$y" != "") then
  	set xyz = $xyz','$y
-	echo $yf >>! go_catcher2
+	echo $yf >>! go_catcher
 endif
 if ("$z" != "") then
 	 set xyz = $xyz','$z
-	echo $zf >>! go_catcher2
+	echo $zf >>! go_catcher
 endif
 if ("$w" != "") then
 	 set xyz = $xyz','$w
-	echo $wf >>! go_catcher2
-   echo "scanData.y_handshake=' '" >>! go_catcher2
+	echo $wf >>! go_catcher
+   echo "scanData.y_handshake=' '" >>! go_catcher
 endif
 if ("$v" != "") then
 	 set xyz = $xyz','$v
-	echo $vf >>! go_catcher2
+	echo $vf >>! go_catcher
 endif
 
 echo ".run catcher_v1" >! go_catcher
@@ -131,7 +120,7 @@ echo ".run catch1d_user" >>! go_catcher
 echo $xyz >>! go_catcher
 
 	idl $exe go_catcher
-	rm go_catcher2
+	rm go_catcher
 	rm go_catcher
 exit
 help::
@@ -145,8 +134,8 @@ echo ""
 echo DESCRIPTION
 echo "     catcher provides the user with very flexible file specification"
 echo "     feature to startup the IDL data catcher program.  The data"
-echo "     catcher program is written in IDL 4.0.1, and ezcaIDL CA interface "
-echo "     routines which in terms uses EPICS 3.12.2 channel access "
+echo "     catcher program is written in IDL 5.3, and ezcaIDL CA interface "
+echo "     routines which in terms uses EPICS 3.13.x channel access "
 echo "     library routines.  "
 echo "" 
 echo "     Currently, the data catcher can capture both 1D and 2D scan data"
