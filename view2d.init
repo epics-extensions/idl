@@ -1,6 +1,7 @@
 
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
   widget_ids = {                  $ 
       base        : MAIN13_2,     $
@@ -140,4 +141,6 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
    WIDGET_CONTROL, widget_ids.x_min, SET_VALUE = 0
 
 ;   LOADCT,39      ;inherit from the parent
+        if n_elements(R_ORIG) eq 0 then $
+        catch1d_get_pvtct
 
