@@ -109,7 +109,7 @@ PRO view3d_2Dpick1D,da3D,rank,k,xa=xa,ya=ya,group=group
 
 END
 
-PRO view3d_2Dascii,data,rank,kindex,px=px,py=py,title=title,format=format,group=group,outfile=outfile
+PRO view3d_2Dascii,data,rank,kindex,report,px=px,py=py,title=title,format=format,group=group,outfile=outfile
 
 	if n_elements(rank) eq 0 then rank = 2
 	if rank gt 2 then rank = 2
@@ -217,7 +217,10 @@ PRO view3d_2Dredisplay,state,Event
 		plot2d,im,xarr=x,yarr=y,title=title,group=state.base
 	   end
 	1: begin
-		view3d_2Dascii,im,rank,kindex,px=x,py=y,title=title,group=Event.top
+	view3d_2Dascii,im,rank,kindex,report,px=x,py=y,title=title,group=Event.top
+	outpath = state.outpath + 'ASCII'
+	rename_dialog,outpath,report,state.class+'_'+report,Group=group
+
 	   end
 	2: begin
 	xdr_open,unit,'scan2d_roi.im',/write
@@ -284,7 +287,7 @@ END
 
 
 
-PRO view3d_2D, data, rank, xv,yv,zv, GROUP=Group,title=title,slicer3=slicer3
+PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outpath=outpath,class=class
 ;+
 ; NAME:
 ;       VIEW3D_2D 
@@ -311,6 +314,8 @@ PRO view3d_2D, data, rank, xv,yv,zv, GROUP=Group,title=title,slicer3=slicer3
 ;  GROUP:     Specifies the widget ID of the parent group
 ;  TITLE:     Specifies the window title
 ;  SLICER3:   Calls the slicers if it is non-zero
+;  OUTPATH:   Specifies the output directory path
+;  CLASS:     Specifies the source file class name 
 ;
 ; RESTRICTIONS:
 ;    The environment variables must be set by source in 
@@ -329,6 +334,7 @@ PRO view3d_2D, data, rank, xv,yv,zv, GROUP=Group,title=title,slicer3=slicer3
 ;                       If xv,yv,zv are given it will try to display data
 ;                       against the input coordinates. If invalid coordinates
 ;                       are entered, it will try to display data against index #.
+;       04-24-2001  bkc Add Outpath, Class keywords on the command line
 ;-
 
 
@@ -429,7 +435,12 @@ PRO view3d_2D, data, rank, xv,yv,zv, GROUP=Group,title=title,slicer3=slicer3
   if n_elements(yv) eq 0 then yv = indgen(sz(2))
   if n_elements(zv) eq 0 then zv = indgen(sz(3))
 
+  cd,current=p
+  p = p + !os.file_sep
+
   view3drv_state = { $
+	outpath: p, $
+	class: '', $
 	base:VIEWDRV3D, $
 	display:0, $
 	rank: rank, $
@@ -445,6 +456,8 @@ PRO view3d_2D, data, rank, xv,yv,zv, GROUP=Group,title=title,slicer3=slicer3
 	data: ptr_new(/allocate_heap) $
 	}
   if keyword_set(slicer3) then view3drv_state.slicer3 = 1
+  if keyword_set(outpath) then view3drv_state.outpath = outpath
+  if keyword_set(class) then view3drv_state.class = class
 		
   *view3drv_state.data = data
   *view3drv_state.x = xv
