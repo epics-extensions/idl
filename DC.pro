@@ -521,7 +521,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.23 2002/03/18 20:20:16 cha Exp $
+; $Id: DC.pro,v 1.24 2002/05/09 18:39:44 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -616,9 +616,28 @@ if keyword_set(init) eq 0 then begin  ;Supply default values for box:
 	y0 = !d.y_size/2 - ny/2
 	endif
 
-button = 0
-goto, middle
+	if nx lt 0 then begin
+		x0 = x0 + nx
+		nx = -nx
+	endif
+	if ny lt 0 then begin
+		y0 = y0 + ny
+		ny = -ny
+	endif
 
+	x0 = x0 > 0
+	y0 = y0 > 0
+	x0 = x0 < (!d.x_size-1 - nx)	;Never outside window
+	y0 = y0 < (!d.y_size-1 - ny)
+
+	px = [x0, x0 + nx, x0 + nx, x0, x0] ;X points
+	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
+
+	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
+	cursor, x, y, 2, /dev	;Wait for a button
+
+button = 0
 while 1 do begin
 	old_button = button
 	cursor, x, y, 2, /dev	;Wait for a button
@@ -665,7 +684,6 @@ while 1 do begin
 		return
 		endif
 middle:
-
 	if nx lt 0 then begin
 		x0 = x0 + nx
 		nx = -nx
@@ -684,6 +702,7 @@ middle:
 	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
 
 	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
 	wait, .1		;Dont hog it all
 	endwhile
 end
@@ -778,20 +797,28 @@ COMMON GOTO_BLOCK,goto_n,goto_pv,goto_val
 	goto_val = make_array(1,4,/double)
 	goto_pv = w_plotspec_id.goto_pv  ;make_array(4,/string)
 
-	if keyword_set(SCANPV) then begin
+	def = scanData.p_def
+
         piname=scanData.pv+['.P1PV','.P2PV','.P3PV','.P4PV']
+	ti = where (def > 0)
+	if ti(0) eq -1 then return
+	piname = piname(ti)
+
+	if keyword_set(SCANPV) then begin
 	ln = cagetArray(piname, goto_pv, /string)
 	if ln lt 0 then return 
 	end
 
 	k=0
 	for i=0,3 do begin
+		if def(i) then begin
 		s1 = goto_pv(i)
 		if strtrim(s1,2) ne '' then begin
 		xmax = MAX(scanData.pa(0:num_pts,i))
 		xmin = MIN(scanData.pa(0:num_pts,i))
 		goto_val(0,i) = xmin + f1 * (xmax - xmin)	
 		k=k+1
+		end
 		end
 	end
 
@@ -821,14 +848,12 @@ COMMON XY_COORD_BLOCK, xy_id, xy_wid
 ;	WIDGET_CONTROL,xy_wid.y,GET_VALUE=yvalue
       END
   'BUTTON9': BEGIN
-      Print, 'Event for GoTo'
 	WIDGET_CONTROL,xy_wid.x,GET_VALUE=xvalue
 	val = float(xvalue(0))
 	xycoord_setmotor,val
 	WIDGET_CONTROL, xy_wid.base,/DESTROY,BAD_ID=bad
       END
   'BUTTON10': BEGIN
-      Print, 'Event for Close'
 	WIDGET_CONTROL,Event.top,/DESTROY
 	xy_wid.base = 0L
 	xycoord,/CLEAN
@@ -2880,7 +2905,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
 	if strtrim(pv(0),2) eq '' then begin
 		scanData.pv = ''
-		scanData.pvconfig = ''
+		scanData.pvconfig(0) = ''
 		return
 	end
 	len = strpos(pv(0),'.')
@@ -2888,7 +2913,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 	if caSearch(newpv+'.EXSC') eq 0 then begin
       	WIDGET_CONTROL,catcher_setup_ids.pv,SET_VALUE=newpv
 	scanData.pv = newpv
-	scanData.pvconfig = newpv
+	scanData.pvconfig(0) = newpv
 	pventry_event
 	endif else begin
 		w_warningtext,'Error: invalid SCAN 1D Pvname',40,2
@@ -2898,6 +2923,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       WIDGET_CONTROL,catcher_setup_ids.y_pv,GET_VALUE=pv
 	if strtrim(pv(0),2) eq '' then begin
 		scanData.y_pv = ''
+		scanData.pvconfig(1) = ''
 		return
 	end
 	len = strpos(pv(0),'.')
@@ -2905,6 +2931,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 	if caSearch(newpv+'.EXSC') eq 0 then begin
         WIDGET_CONTROL,catcher_setup_ids.y_pv,SET_VALUE=newpv
 	scanData.y_pv = newpv
+	scanData.pvconfig(1) = newpv
 	pventry2_event
 	endif else begin
 		w_warningtext,'Error: invalid SCAN 2D Pvname',40,2
@@ -2921,11 +2948,15 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 	if caSearch(newpv+'.EXSC') eq 0 then begin
         WIDGET_CONTROL,catcher_setup_ids.y_pv,SET_VALUE=newpv
 	scanData.y_pv = newpv
+	scanData.pvconfig(1) = newpv
 	pventry2_event
 	endif else begin
 		w_warningtext,'Error: invalid SCAN 2D Pvname',40,2
 	end
-	endif else scanData.y_pv = ''
+	endif else begin
+		scanData.y_pv = ''
+		scanData.pvconfig(1) = ''
+	end
 
       WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
 	if strtrim(pv(0),2) ne '' then begin
@@ -2934,14 +2965,14 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 	if caSearch(newpv+'.EXSC') eq 0 then begin
       	WIDGET_CONTROL,catcher_setup_ids.pv,SET_VALUE=newpv
 	scanData.pv = newpv
-	scanData.pvconfig = newpv
+	scanData.pvconfig(0) = newpv
 	pventry_event
 	endif else begin
 		w_warningtext,'Error: invalid SCAN 1D Pvname',40,2
 	end
 	endif else begin
 		scanData.pv = ''
-		scanData.pvconfig = ''
+		scanData.pvconfig(0) = ''
 	end
       WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
 
@@ -2972,8 +3003,8 @@ if n_elements(catcher_setup_scan) eq 0 then begin
 		}
 	end
 
-	catcher_setup_scan.pv = scanData.pv
-	catcher_setup_scan.y_pv = scanData.y_pv
+	catcher_setup_scan.pv = scanData.pvconfig(0) ; scanData.pv
+	catcher_setup_scan.y_pv = scanData.pvconfig(1) ; scanData.y_pv
 END
 
 
@@ -3241,6 +3272,7 @@ if scanData.realtime eq 0 then begin
 if scanData.debug eq 1 then $
 print,'REALTIME_INIT: add caScan at # ',w_plotspec_id.seqno
 
+scanData.p_def = realtime_id.def(0:3)
 scanData.px = make_array(4000,/float)
 scanData.pa = make_array(4000,4,/double)
 scanData.da = make_array(4000,scanData.lastDet(0),/float)
@@ -4658,7 +4690,8 @@ WIDGET_CONTROL,/HOURGLASS
 
 ; reset to config pv names
  
-		scanData.pv = scanData.pvconfig
+		scanData.pv = scanData.pvconfig(0)
+		scanData.y_pv = scanData.pvconfig(1)
 
  		pventry_event ;======
 ;		before_sys_scan
@@ -4693,7 +4726,8 @@ if n_params() lt 1 then begin
 
 ; reset the pv name in viewing mode and save the config pv for later on
 ;      scan mode
-scanData.pvconfig = scanData.pv  
+scanData.pvconfig(0) = scanData.pv  
+scanData.pvconfig(1) = scanData.y_pv  
 
 WIDGET_CONTROL, /HOURGLASS
 
@@ -4780,42 +4814,10 @@ w_viewscan_format = CW_FIELD( row1,VALUE=scanData.code+scanData.format, $
       XSIZE=8, $
       UVALUE='VIEWSPEC_FORMAT')
 
+@vw2d.bm
+
    if maxno gt 1 then begin
 
-  BMP167 = [ $
-    [ 0b, 0b, 0b, 0b ], $
-    [ 162b, 32b, 239b, 1b ], $
-    [ 162b, 160b, 40b, 3b ], $
-    [ 162b, 160b, 40b, 2b ], $
-    [ 162b, 32b, 40b, 2b ], $
-    [ 162b, 36b, 40b, 2b ], $
-    [ 162b, 36b, 38b, 2b ], $
-    [ 182b, 46b, 33b, 2b ], $
-    [ 148b, 170b, 33b, 2b ], $
-    [ 156b, 187b, 32b, 2b ], $
-    [ 136b, 177b, 32b, 1b ], $
-    [ 136b, 177b, 239b, 1b ], $
-    [ 0b, 0b, 0b, 0b ], $
-    [ 0b, 0b, 0b, 0b ], $
-    [ 0b, 0b, 0b, 0b ], $
-    [ 46b, 34b, 220b, 59b ], $
-    [ 36b, 114b, 86b, 100b ], $
-    [ 100b, 83b, 66b, 4b ], $
-    [ 228b, 83b, 66b, 4b ], $
-    [ 164b, 218b, 66b, 12b ], $
-    [ 164b, 138b, 194b, 57b ], $
-    [ 164b, 138b, 122b, 96b ], $
-    [ 36b, 250b, 82b, 64b ], $
-    [ 36b, 138b, 82b, 64b ], $
-    [ 36b, 138b, 94b, 108b ], $
-    [ 46b, 138b, 208b, 59b ], $
-    [ 0b, 0b, 0b, 0b ], $
-    [ 0b, 0b, 0b, 0b ], $
-    [ 0b, 0b, 0b, 0b ], $
-    [ 0b, 0b, 48b, 51b ], $
-    [ 0b, 0b, 48b, 51b ], $
-    [ 0b, 0b, 0b, 0b ]  $
-  ]
    VIEW2D_BTN = WIDGET_BUTTON( row1,VALUE=BMP167, $
       UVALUE='VIEWSPEC_2DIMAGE')
    end
@@ -4832,87 +4834,15 @@ w_viewscan_seqno = WIDGET_TEXT(BASE2,VALUE=strtrim(maxno,2), $
 		UVALUE='VIEWSPEC_SEQNO', XSIZE = 8)
 
 if maxno gt 1 then begin
-  BMP767 = [ $
-    [ 1b, 0b ], $
-    [ 3b, 0b ], $
-    [ 7b, 0b ], $
-    [ 15b, 0b ], $
-    [ 31b, 0b ], $
-    [ 63b, 0b ], $
-    [ 127b, 0b ], $
-    [ 255b, 0b ], $
-    [ 255b, 0b ], $
-    [ 127b, 0b ], $
-    [ 63b, 0b ], $
-    [ 31b, 0b ], $
-    [ 15b, 0b ], $
-    [ 7b, 0b ], $
-    [ 3b, 0b ], $
-    [ 1b, 0b ]  $
-  ]
   BMPBTN10_first = WIDGET_BUTTON( BASE2,VALUE=BMP767, $
       UVALUE='VIEWSPEC_FIRST')
 
-  BMP688 = [ $
-    [ 0b, 0b ], $
-    [ 0b, 0b ], $
-    [ 0b, 0b ], $
-    [ 0b, 8b ], $
-    [ 0b, 24b ], $
-    [ 0b, 48b ], $
-    [ 0b, 96b ], $
-    [ 192b, 255b ], $
-    [ 192b, 255b ], $
-    [ 0b, 96b ], $
-    [ 0b, 48b ], $
-    [ 0b, 24b ], $
-    [ 0b, 8b ], $
-    [ 0b, 0b ], $
-    [ 0b, 0b ], $
-    [ 0b, 0b ]  $
-  ]
   BMPBTN7_next = WIDGET_BUTTON( BASE2,VALUE=BMP688, $
       UVALUE='VIEWSPEC_NEXT')
 
-  BMP686 = [ $
-    [ 0b, 0b ], $
-    [ 0b, 0b ], $
-    [ 0b, 0b ], $
-    [ 16b, 0b ], $
-    [ 24b, 0b ], $
-    [ 12b, 0b ], $
-    [ 14b, 0b ], $
-    [ 255b, 3b ], $
-    [ 255b, 3b ], $
-    [ 14b, 0b ], $
-    [ 12b, 0b ], $
-    [ 24b, 0b ], $
-    [ 16b, 0b ], $
-    [ 0b, 0b ], $
-    [ 0b, 0b ], $
-    [ 0b, 0b ]  $
-  ]
   BMPBTN9_prev = WIDGET_BUTTON( BASE2,VALUE=BMP686, $
       UVALUE='VIEWSPEC_PREV')
 
-  BMP809 = [ $
-    [ 0b, 128b ], $
-    [ 0b, 192b ], $
-    [ 0b, 224b ], $
-    [ 0b, 240b ], $
-    [ 0b, 248b ], $
-    [ 0b, 252b ], $
-    [ 0b, 254b ], $
-    [ 0b, 255b ], $
-    [ 0b, 255b ], $
-    [ 0b, 254b ], $
-    [ 0b, 252b ], $
-    [ 0b, 248b ], $
-    [ 0b, 240b ], $
-    [ 0b, 224b ], $
-    [ 0b, 192b ], $
-    [ 0b, 128b ]  $
-  ]
   BMPBTN11_last = WIDGET_BUTTON( BASE2,VALUE=BMP809, $
       UVALUE='VIEWSPEC_LAST')
 
@@ -5211,6 +5141,8 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
         view_option.z_min = MIN(newImage,imax)
         view_option.j_min = imax / s(1)
         view_option.i_min = imax mod s(1)
+	view_option.u_k_min = view_option.z_min
+	view_option.u_k_max = view_option.z_max
         if view_option.fullcolor eq 0 then begin
                 view_option.k_max = view_option.z_max
                 view_option.k_min = view_option.z_min
@@ -5371,6 +5303,7 @@ populate:
 	label = labels[*,0]
 	read_desc_engu,label 
 
+	scanData.p_def = realtime_id.def(0:3)
 
         scanData.req_npts = num_pts[0]
         scanData.act_npts = cpt[0]
@@ -7768,7 +7701,8 @@ if scanData.option eq 1 then begin        ; if Acquisition.On is set by user
   ; this is and added CASE statement to see if the event.id
   ; is on that I assigned to a caWidgetAddmonitor ...
 
-scanData.pv = scanData.pvconfig
+scanData.pv = scanData.pvconfig(0)
+scanData.y_pv = scanData.pvconfig(1)
 
   CASE event.id OF
 
@@ -8206,7 +8140,8 @@ if XRegistered('catcher_setup') ne 0 then begin
 
 end
 
-        new_pv_name = scanData.pv
+	if scanData.pvconfig(0) ne '' then scanData.pv = scanData.pvconfig(0)
+	new_pv_name = scanData.pv
 
 w_plotspec_array(0) = new_pv_name
 w_plotspec_id.scan = 0
@@ -8467,7 +8402,8 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 ;found = findfile('go_catcher2')
 ;if found(0) ne '' then read_config,'go_catcher2'
 
-scanData.pvconfig = scanData.pv
+scanData.pvconfig(0) = scanData.pv
+scanData.pvconfig(1) = scanData.y_pv
 if scanData.debug eq 1 then begin
 print,scanData.home
 print,scanData.path
@@ -8640,6 +8576,8 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;                       Use actual number of points instead of requested points
 ;                       for 1D scan data array
 ;                       Fix ASCII report outpath write permission problem
+;       05-02-2002 bkc  Fix setup pvconfig names for any scan names in event
+;                       loop, setup, and pventry_event 
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8661,7 +8599,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
   MAIN13_1 = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $
-      MAP=1, /TLB_SIZE_EVENTS, $
+      MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 ;      TLB_FRAME_ATTR = 8, $
       TITLE='scanSee ( R2.5.1+ )', $
       UVALUE='MAIN13_1')
@@ -8819,7 +8757,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       UVALUE='BASE144')
 
   BASE144_0 = WIDGET_BASE(BASE144, $
-      ROW=1, X_SCROLL_SIZE=500, Y_SCROLL_SIZE=100, $
+      ROW=1, X_SCROLL_SIZE=500, $
       MAP=1, $
       TITLE='DET Selector', $
       UVALUE='BASE144_0')
