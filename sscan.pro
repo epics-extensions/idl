@@ -1110,7 +1110,7 @@ PRO sscan_read3D,SSD,da2D,da3D
 
 	ptr3D = *SSD.sub_scan_ptr(0)
 	if n_elements(ptr3D) eq 0 then return
-t1=systime(1)
+;t1=systime(1)
 	da3D = *SSD.da(0)
 	da2D = *SSD.da(1)
 	cpt = SSD.cpt
@@ -1143,7 +1143,7 @@ t1=systime(1)
 
 	*SSD.da(0) = da3D
 	*SSD.da(1) = da2D
-print,'time used=',systime(1)-t1
+;print,'time used=',systime(1)-t1
 END
 
 PRO sscan_read1D,SSD,seqno,level=level,echo=echo,pa=pa,da=da 
@@ -1296,13 +1296,21 @@ WIDGET_CONTROL,/HOURGLASS
 		title='SSCAN: 3D Scan #'+strtrim(SSD.scanno,2)
 		if SSD.nb_det(1) gt 0 then panimage,da2D,numd=10,title=title else $
 		begin
-		sz = size(da3d)
+		; only 3D data detected, extract second slice from da3D
+		sz = size(da3D)
 		if sz(0) eq 4 then begin
-		da = da3d(*,*,0,*)       ; 1st scan 
-		da = da3d(*,*,1,*)       ; 2nd scan
-		da = reform(da,SSD.npts(0),SSD.npts(1),SSD.nb_det(0))
-		title='SSCAN: 3D Scan #'+strtrim(SSD.scanno,2)+' slicer'
-		panimage,da,numd=10,title=title
+		da = make_array(sz(1),sz(2),SSD.detMax(0))
+		id_def = SSD.id_def(4:4+SSD.detMax(0)-1,0)
+		ip=0
+		for i=0,SSD.detMax(0)-1 do begin
+		  if id_def(i) gt 0 then begin
+		  da(*,*,i) = da3d(*,*,1,ip)       ; 2nd scan
+		  ip=ip+1
+		  end
+		end
+
+		title='SSCAN: 3D Scan #'+strtrim(SSD.scanno,2)+'  Zslicer:1'
+		panimage,da,id_def,numd=10,title=title
 		end
 		end
 	end
