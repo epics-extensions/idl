@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-device,pseudo=8
+;device,pseudo=8
 ;device,decomposed=0
 device,retain=2
 
