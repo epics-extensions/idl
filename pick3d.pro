@@ -321,8 +321,9 @@ PRO PICK3D_Event, Event
 
   'PICK3D_PICKFILE': BEGIN
 	pick3d_sensitive_off,pick3d_state
+	flt = '*'+pick3d_state.suffix+'*'
 	file = dialog_pickfile(get_path=p,/read,/must_exist,path=pick3d_state.path, $
-		filter='*.scan*',title='Select 3D Scan File Only')
+		filter=flt,title='Select 3D Scan File Only')
 	if file eq '' then return
 	pick3d_state.path = p 
 	pick3d_state.filename = file
@@ -331,6 +332,8 @@ PRO PICK3D_Event, Event
 	pick3d_state.class = strmid(file,id+1,strlen(file)-id)
 	ip = strpos(pick3d_state.class,'_',/reverse_search)
 	pick3d_state.prefix = strmid(pick3d_state.class,0,ip+1)
+	ip = strpos(file,'.',/reverse_search)
+	pick3d_state.suffix = strmid(file,ip,strlen(file)-ip)
 
 	WIDGET_CONTROL,pick3d_state.fileWID,SET_VALUE=file
 	; set hardware type
@@ -715,7 +718,7 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
 	xdrname: '3dimage.xdr', $
 	class: '', $
 	prefix: '', $
-	suffix: '.scan', $
+	suffix: '.mda', $  ;.scan', $
 	scanno: -1, $
 	last: -1, $
 	dim: -1, $
@@ -734,12 +737,16 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
   found = findfile('pick3d.config',count=ct)
   if ct gt 0 then begin
   	pick3d_readConfig,filename,path
+	po = strpos(filename,'.',/reverse_search)
+	pick3d_state.suffix = strmid(filename,po,strlen(filename)-po)
+
   	if filename ne '' then pick3d_state.filename = filename
   	if path ne '' then pick3d_state.path = path
 	out= pick3d_state.path + '.tmp'
 	openw,1,out,error=error
 	if error eq 0 then pick3d_state.outpath = pick3d_state.path
 	close,1
+	
   end
 
   if keyword_set(file) then begin
