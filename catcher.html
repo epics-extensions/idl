@@ -14,7 +14,7 @@ this routine, refer to the IDL Online Help Navigator
 or type: <P>
 <PRE>     ? mk_html_help</PRE><P>
 at the IDL command line prompt.<P>
-<STRONG>Last modified: </STRONG>Mon Apr 29 18:01:46 1996.<P>
+<STRONG>Last modified: </STRONG>Mon Aug 26 11:06:18 1996.<P>
  
 <HR>
  
@@ -23,7 +23,8 @@ at the IDL command line prompt.<P>
 <UL>
 <LI><A HREF="#BOX_CURSOR">BOX_CURSOR</A>
 <LI><A HREF="#CATCHER_V1">CATCHER_V1</A>
-<LI><A HREF="#CW_TERM">CW_TERM</A>
+<LI><A HREF="#CW_TERM[1]">CW_TERM[1]</A>
+<LI><A HREF="#CW_TERM[2]">CW_TERM[2]</A>
 <LI><A HREF="#PLOT1D">PLOT1D</A>
 <LI><A HREF="#U_READ[1]">U_READ[1]</A>
 <LI><A HREF="#U_READ[2]">U_READ[2]</A>
@@ -116,7 +117,7 @@ at the IDL command line prompt.<P>
 <A NAME="CATCHER_V1">
 <H2>CATCHER_V1</H2></A>
 <A HREF="#BOX_CURSOR">[Previous Routine]</A>
-<A HREF="#CW_TERM">[Next Routine]</A>
+<A HREF="#CW_TERM[1]">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
@@ -157,6 +158,12 @@ at the IDL command line prompt.<P>
                be saved with the captured scan data. If not specified,
                the default environment file name 'catch1d.env' is 
                assumed.
+     NOSAVE:   Turns off the autosave feature. If it is specified, the
+               data catcher will be able to display the life data but
+               data will not be recorded.
+     VIEWONLY: Runs the data catcher as a scan data browser. If it is 
+               specified, it can only display the recorded scan data 
+               from a saved data file. 
      GROUP:    The widget ID of the group leader of the widget.  If this 
                keyword is specified, the death of the group leader results in
                the death of CATCHER_V1.
@@ -220,10 +227,10 @@ at the IDL command line prompt.<P>
 <STRONG>(See catcher_v1.pro)</STRONG><P>
 <HR>
  
-<A NAME="CW_TERM">
-<H2>CW_TERM</H2></A>
+<A NAME="CW_TERM[1]">
+<H2>CW_TERM[1]</H2></A>
 <A HREF="#CATCHER_V1">[Previous Routine]</A>
-<A HREF="#PLOT1D">[Next Routine]</A>
+<A HREF="#CW_TERM[2]">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
@@ -293,9 +300,82 @@ at the IDL command line prompt.<P>
 <STRONG>(See catcher_v1.pro)</STRONG><P>
 <HR>
  
+<A NAME="CW_TERM[2]">
+<H2>CW_TERM[2]</H2></A>
+<A HREF="#CW_TERM[1]">[Previous Routine]</A>
+<A HREF="#PLOT1D">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+	cw_term
+
+ PURPOSE:
+      writtable text window widget
+
+ CATEGORY:
+	Compound widgets.
+
+ CALLING SEQUENCE:
+	widget_id = CW_TERM(parent)
+
+ INPUTS:
+       PARENT - The ID of the parent widget.
+
+ KEYWORD PARAMETERS:
+	BGROUP_NAMES:	An array of strings to be associated with
+			each button and returned in the event structure as VALUE.
+	BGEVENT_FUNCT:	The name of an user-supplied event function 
+			for the buttons. This function is called with the return
+			value structure whenever a button is pressed, and 
+			follows the conventions for user-written event
+			functions.
+	FONT:		The name of the font to be used for the text output 
+			If this keyword is not specified, the default
+			font is used.
+	FRAME:		Specifies the width of the frame to be drawn around
+			the base.
+       FILENAME:       Copy contents of file into widget
+       RESET:          Clear existing widget contents and write new value/file.
+                       The parent widget is the existing widget id. 
+	MAP:		If set, the base will be mapped when the widget
+			is realized (the default).
+	SCROLL:		If set, the base will include scroll bars to allow
+			viewing a large text area through a smaller viewport.
+	SET_VALUE:	The initial value of the text widget. This is equivalent
+			to the later statement:
+
+			WIDGET_CONTROL, widget, set_value=value
+
+       TITLE:          New Window title
+	UVALUE:         The user value for the compound widget
+
+	XSIZE:		The width of the text widget
+	YSIZE:		The height of the text widget
+
+ OUTPUTS:
+       The ID of the created widget is returned.
+
+ COMMON BLOCKS:
+	None.
+
+ SIDE EFFECTS:
+
+ PROCEDURE:
+	WIDGET_CONTROL, id, SET_VALUE=value can be used to change the
+		current value displayed by the widget.
+
+	WIDGET_CONTROL, id, GET_VALUE=var can be used to obtain the current
+		value displayed by the widget.
+
+ MODIFICATION HISTORY:
+  01  8-9-95  jps  	modified from idl's cw_tmpl.pro
+</PRE><P>
+<STRONG>(See view2d.pro)</STRONG><P>
+<HR>
+ 
 <A NAME="PLOT1D">
 <H2>PLOT1D</H2></A>
-<A HREF="#CW_TERM">[Previous Routine]</A>
+<A HREF="#CW_TERM[2]">[Previous Routine]</A>
 <A HREF="#U_READ[1]">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
@@ -692,6 +772,10 @@ at the IDL command line prompt.<P>
                keyword is specified, the death of the group leader results in
                the death of VIEW2D.
 
+     FILE:    The input image file name.  If this keyword is specified, the
+              file should contain the image data must be in the data catcher
+              created format. 
+          
  OUTPUTS:
        It provides option of postscript plot of drawing area.
 
