@@ -7,6 +7,310 @@
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
 
+@xdr_open.pro
+@PS_open.pro
+@panimage.pro
+@wc.pro
+
+PRO SDS_CONST_Event, Event
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+  widget_control, Event.top, get_uvalue=sds_const_state,/no_copy
+
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+
+  'SDS_CONST_1DARRAY': BEGIN
+	WIDGET_CONTROL,sds_const_state.sel1ID,GET_VALUE=st
+	if strlen(strtrim(st,2)) gt 0 then begin
+        parse_num,st,res
+	SDS_multi1d,seq=res,data=data,dname=dname ;,/echo
+	x = *HDF_Query.xarr
+	plot1d,x,data,legend=dname,Group=Event.top
+	end
+      END
+  'SDS_CONST_2DARRAY': BEGIN
+	WIDGET_CONTROL,sds_const_state.sel2ID,GET_VALUE=st
+	if strlen(st) gt 0 then begin
+        parse_num,st,res
+	SDS_multi2d,seq=res,data=data,dname=dname,/echo
+	end
+      END
+  'SDS_CONST_2DARRAY2': BEGIN
+	WIDGET_CONTROL,sds_const_state.sel2ID,GET_VALUE=st
+	if strtrim(st,2) gt 1 then begin
+        parse_num,st,res
+	SDS_multi2d,seq=res,data=data,dname=dname 
+	sz = size(data)
+	if sz(0) eq 3 then $
+	xarr = *HDF_Query.xarr
+	yarr = *HDF_Query.yarr
+	image2d,data,xarr,yarr,zdescs=dname,/seqnm,Group=Event.top 
+	end
+      END
+  'SDS_CONST_DONE': BEGIN
+	WIDGET_CONTROL,Event.top,/DESTROY
+	return
+      END
+  ENDCASE
+  widget_control, Event.top, set_uvalue=sds_const_state,/no_copy
+END
+
+
+
+PRO SDS_construct, GROUP=Group
+
+  if XRegistered('SDS_CONST') then return
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+
+  SDS_CONST = WIDGET_BASE(GROUP_LEADER=Group, $
+      ROW=1, $
+      MAP=1, $
+      TITLE='SDS CONSTRUCT MULTIPLE ARRAYS', $
+      UVALUE='SDS_CONST')
+
+  BASE2 = WIDGET_BASE(SDS_CONST, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE2')
+  lab1 = widget_label(BASE2,value='Please refer SDS scroll list for data array dimension ',/align_left)
+  lab1 = widget_label(BASE2,value='  Only same dimension 1D/2D data can be entered together')
+  lab1 = widget_label(BASE2,value='      e.g. range of seq # : 47-100',/align_left)
+  lab1 = widget_label(BASE2,value='      e.g. comma seperated seq # : 4,5,10-15',/align_left)
+  lab1 = widget_label(BASE2,value='  Entered values are accepted with <CR>',/align_left)
+
+  FieldVal714 = [ $
+    '' ]
+  BASE3 = WIDGET_BASE(BASE2, /ROW, MAP=1, UVALUE='BASE3')
+  FIELD3 = CW_FIELD( BASE3,VALUE=FieldVal714, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='1D seq#:', $
+      UVALUE='SDS_CONST_1DARRAY', $
+      XSIZE=35)
+;  BUTTON3 = WIDGET_BUTTON( BASE3,UVALUE='SDS_CONST_1DARRAY',VALUE='PLOT1D... ')
+
+  BASE4 = WIDGET_BASE(BASE2, /ROW, MAP=1, UVALUE='BASE4')
+  FIELD4 = CW_FIELD( BASE4,VALUE='', $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='2D seq#:', $
+      UVALUE='SDS_CONST_2DARRAY', $
+      XSIZE=35)
+  BUTTON4_1 = WIDGET_BUTTON( BASE4,UVALUE='SDS_CONST_2DARRAY2',VALUE='IMAGE2D...')
+
+  BUTTON5 = WIDGET_BUTTON( BASE2, $
+      UVALUE='SDS_CONST_DONE', $
+      VALUE='Done')
+
+  sds_const_state = { base: SDS_CONST,$
+	sel1ID : FIELD3, $
+	sel2ID : FIELD4 $
+	}
+  WIDGET_CONTROL, SDS_CONST, /REALIZE
+  widget_control, SDS_CONST, set_uvalue=sds_const_state
+  XMANAGER, 'SDS_CONST', SDS_CONST
+END
+
+PRO SDS_multi1d,seq1,seq2,seq=seq,data=data,dname=dname,echo=echo
+;+
+; SDS_MULTI1D,[seq1,seq2 / seq=seq] ,data=data,dname=dname[,echo=echo]
+;
+; Construct the 1D data array from a set of SDS 1D data.
+;
+; INPUT:
+;	seq1   - specify the start seq # for SDS 1D vector data
+;	seq2   - specify the end seq # for SDS 1D vector data
+; KEYWORD:
+;	seq    - list of zero based SDS seq number instead of seq1,seq2
+;	data   - return the constructed 1D vector array
+;	dname  - return the name attribute array for the returned vector array 
+;	echo   - plot1d to be called for constructed 1D vector array
+; RESTRICTION:
+;	All SDS 1D vector data must be from a same scan which has the
+;	same dimension size.
+; EXAMPLE:
+;	SDS_MULTI1D,seq1=6,seq2=46,/echo
+;-
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+
+if keyword_set(seq) eq 0 then begin
+	nd = seq2-seq1+1
+	seq = indgen(nd)+seq1
+endif else begin
+	nd = n_elements(seq)
+end
+	dname = strarr(nd)
+	for i=0,nd-1 do begin
+	SDS,v,seqno=seq(i)
+	sz = size(v)
+	if sz(0) eq 1 then begin
+	if i eq 0 then begin
+		L = 0
+		data = make_array(sz(1),nd)
+		data(*,L) = v(*)
+	endif else begin
+		if n_elements(data) eq 0 then begin
+		 r = dialog_message('Not 1D data selected',/error)
+		 return
+		end
+		L = L+1	
+		data(*,L) = v(*)
+	end
+	dname(L) = HDF_Query.tname
+	end
+	end
+	if n_elements(data) eq 0 then begin
+	  r = dialog_message('Not 2D data selected',/error)
+	  return
+	end
+	if keyword_set(echo) then plot1d,data,legend=dname
+END
+
+PRO SDS_multi2d,seq1,seq2,seq=seq,data=data,dname=dname,echo=echo
+;+
+; SDS_MULTI2D,[seq1,seq2 / seq=seq],data=data,dname=dname[,echo=echo]
+;
+; Construct the 2D iamge array from a set of SDS 2D image data.
+;
+; INPUT:
+;	seq1   - required, specify the start seq # for SDS 2D image data
+;	seq2   - required, specify the end seq # for SDS 2D image data
+; KEYWORD:
+;       seq    - specify list of seq # instead of range of seq1,seq2
+;	data   - return the constructed 2D image array
+;	dname  - return the name attribute array for the returned image array 
+;	echo   - panimage to be called for constructed 2D image array
+; RESTRICTION:
+;	All SDS 2D image data must be from a same scan which has the
+;	same dimension size.
+; EXAMPLE:
+;	SDS_MULTI2D,seq1=47,seq2=130,/echo
+;-
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+
+if keyword_set(seq) eq 0 then begin
+	nd = seq2-seq1+1
+	seq = indgen(nd)+seq1
+endif else begin
+	nd = n_elements(seq)
+end
+	dname = strarr(nd)
+	tvlct,r,g,b,/get
+	rgb = reform([r,g,b],256,3)
+	for i=0,nd-1 do begin
+	SDS,v,seqno=seq(i)
+	sz = size(v)
+	if sz(0) eq 2 then begin
+	if i eq 0 then begin
+		L = 0
+		data = make_array(sz(1),sz(2),nd)
+		data(*,*,L) = v(*,*)
+	endif else begin
+		if n_elements(data) eq 0 then begin
+		 r = dialog_message('Not 2D data selected',/error)
+		 return
+		end
+		L = L+1	
+		data(*,*,L) = v(*,*)
+	end
+	dname(L) = HDF_Query.tname
+	end
+	end
+	if n_elements(data) eq 0 then begin
+	  r = dialog_message('Not 2D data selected',/error)
+	  return
+	end
+	if keyword_set(echo) then begin
+		det_def = make_array(nd,value=1)
+;		panimage,data,det_def,numd=10,detnm=dname
+		panimage_sel,data,det_def,detnm=dname
+	end
+END
+
+
+PRO SDS,DATA,seqno=seqno
+;+
+; NAME:
+;	SDS
+;
+; PURPOSE:
+;	This routine allows the hdfb user to extract the desired SDS data 
+;	array variable from the currently opened HDF/NEXUS file which can 
+;	be any type of SDS data supported by hdfb. 
+;
+; CALLING SEQUENCE:
+;       SDS, DATA [,SEQNO=i]
+;
+; OUTPUT:
+;       DATA:    Variable to return the extracted SDS data array 
+;
+; KEYWORD PARAMETERS:
+; 	SEQNO=i: Specify the desired zero-based SDS sequence number in the 
+;                opened HDF file, if not specified, the current SDS data
+;		 in the core will be returned
+;
+; COMMON BLOCKS:
+;       HDF_QUERY_BLOCK
+;
+; SIDE EFFECTS:
+;       The max and min value will be shown as the default comment.
+;
+; RESTRICTIONS:
+;       The input HDF/NEXUS file must be already opened by the hdfb browser,
+;	and it should contains SDS data set(s) on it.
+;
+; EXAMPLES:
+;   Example 1 - Extract the current SDS set as variable 'IM'
+;
+;	SDS, IM
+;
+;   Example 2 - Extract the 8th set SDS from the opened HDF file 
+;
+;	SDS, DATA, seqno=7
+; 
+;-
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+; extract current SDS data or specified by the input seqno
+
+	if n_elements(seqno) then begin
+	if seqno lt HDF_Query.NUMSDS then begin
+
+	sds_id = HDF_SD_SELECT(HDF_Query.sd_id,seqno)
+	HDF_SD_GETINFO,sds_id, LABEL=Ti, UNIT=read_unit, NAME=n
+	HDF_SD_GETDATA,SDS_ID,Data
+	;print,'NAME=',n
+	HDF_Query.tname= n
+	HDF_SD_ENDACCESS,sds_id
+	; 
+	HDF_Query.seqno = seqno
+	*HDF_Query.data = data
+	endif else begin
+	st = ['Error: Invalid SDS # entered!', '', $
+		 'Valid SDS # : [0-'+strtrim(HDF_Query.NUMSDS-1,2)+']']
+	r = dialog_message(/error,st)
+	end
+	return
+	end
+
+	A = ptr_valid(1,/cast)
+	if n_elements(*A) eq 0 then begin
+	st = ['Usage: SDS, DATA [,SEQNO=i]','','where','', $
+		'DATA     - output variable, returns the current SDS data array',  $
+		'SEQNO=i  - keyword to specify the zero-based SDS seqno']	
+	r = dialog_message(/error,st)
+	return
+	end
+	DATA = *A	
+
+END
+
 
 PRO SDSVGname,names
 COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
@@ -198,11 +502,13 @@ CASE no OF
 	HDF_DFSD_DIMGET,0, LABEL=xl, UNIT=xu
 	HDF_DFSD_DIMGET,1, LABEL=yl, UNIT=yu
 		y1=min(data)
-		y2=max(data)*1.5
+		y2=max(data)
                 !p.multi(0)=!p.multi(1)
-                TVSCL, Data
+;                TVSCL, Data
+	newdata = fix(float(Data-y1)/(y2-y1)*!d.table_size)
+	TV,congrid(newdata,!d.x_size/2,!d.y_size-20)
                 !p.multi(0)=!p.multi(1)-1
-                surface, Data, zrange=[y1,y2]
+                surface, Data, zrange=[y1,y2*1.5]
 
 ;	if type eq 1 then begin
 ;		for j=0,dim(1)-1 do begin
@@ -344,6 +650,7 @@ HDF_Query.tname= n
 HDF_SD_ENDACCESS,sds_id
 ;=====
 
+*HDF_Query.data = Data
 ;print,'RECNO',HDF_Query.seqno
 ;help,Data
 if keyword_set(attr) then begin
@@ -382,8 +689,10 @@ type = s(n_elements(s)-2)
 		if s(1) eq 1 then begin 
 			plot,[-1,-1],XStyle=4,YStyle=4
 			xyouts, 0.2*!d.x_size, 0.25*!d.y_size, string(data),/DEVICE
-		endif else $
-			plot, YRANGE=[y1-dy,y2+dy], data, POS=[0.15,0.2,0.8,0.9] 
+		endif else begin 
+			plot,YRANGE=[y1-dy,y2+dy],data,POS=[0.15,0.2,0.8,0.9], $
+				XStyle=1,YStyle=1 
+		end
 		endif else begin
 		plot,[-1,-1],XStyle=4,YStyle=4
 		xyouts, 0.2*!d.x_size, 0.25*!d.y_size, string(data),/DEVICE
@@ -402,37 +711,39 @@ type = s(n_elements(s)-2)
 			end
 		endif else begin
 		y1=min(data)
-		y2=max(data)*1.5
+		y2=max(data)
 		old_win = !d.window
 		!p.multi = [0,2,0,0,0]
 		!p.multi(0)=!p.multi(1)
-		TVSCL, CONGRID(data,!d.x_size/2, !d.y_size-20)
+;		TVSCL, CONGRID(data,!d.x_size/2, !d.y_size-20)
+	newdata = fix(float(data-y1)/(y2-y1)*!d.table_size)
+	TV,congrid(newdata,!d.x_size/2,!d.y_size-20)
 		!p.multi(0)=!p.multi(1)-1
-		surface, Data , zrange=[y1,y2] 
+		surface, Data , zrange=[y1,y2*1.5] 
 		end
 		END
 		3: BEGIN
 		plot,[-1,-1],XStyle=4,YStyle=4
 		y1=min(data)
-		y2=max(data)*1.5
+		y2=max(data)
 		wide = 50
 		left = 30
 		bott = 50
 		space = 10+wide
 		newdata = congrid(data,wide,wide,s(3))
 		old_win = !d.window
-		!p.multi = [0,2,0,0,0]
-		!p.multi(0)=!p.multi(1)
-;		for i=0,dim(2)-1 do TV, newdata(*,*,i) , i*(wide+10)+50, 50 
+		!p.multi = 0
 ; only show first 12 images from the 3D data array
 		last = dim(2) - 1
 		if last gt 11 then last = 11
 		for i=0,last do begin
 			id = i/6 
 			ip = i mod 6
-			TVSCL, newdata(*,*,i) , ip*space+left, id*space+bott
+;			TVSCL, newdata(*,*,i) , ip*space+left, id*space+bott
+	temp = newdata(*,*,i)
+	temp = fix(float(temp-y1)/(y2-y1)*!d.table_size)
+	TV,temp,  ip*space+left, id*space+bott
 		end
-		!p.multi(0)=!p.multi(1)-1
 		END
 		ELSE: HDF_scrolltext,'No plot supported for'+string(no)+'D data',60,3
 	ENDCASE
@@ -451,6 +762,8 @@ type = s(n_elements(s)-2)
 ;
 ;if keyword_set(view) then begin
 	if HDF_Query.view eq 1 then begin 
+	str='RECNO ' + strtrim(HDF_Query.seqno,1) + ': ' + HDF_Query.tname
+	sz = size(data)
 	old_win = !d.window
 	CASE no OF 
 	  0: BEGIN
@@ -459,23 +772,42 @@ type = s(n_elements(s)-2)
 	     END
 	  1: BEGIN
 		if type ne 1 and n_elements(data) gt 1 then begin
-		plot1d,data
+		if HDF_Query.real and HDF_Query.naxis gt 0 then begin
+		xv = indgen(sz(1))
+		if sz(1) eq n_elements(*HDF_Query.xarr) then xv = *HDF_Query.xarr
+		plot1d,xv,data,title=str,wtitle=HDF_Query.file
+		endif else $
+		plot1d,data,title=str,wtitle=HDF_Query.file,xtitle='Index #'
 		endif else begin
 		plot1d,[-1,-1],XStyle=4,YStyle=4,title=title,xtitle=u
 		xyouts, 0.2*!d.x_size, 0.25*!d.y_size, string(data),/DEVICE
 		end
 	     END
 	  2: BEGIN
-		plot2d,data,itools=1,wtitle=HDF_Query.file
+	if HDF_Query.real and HDF_Query.naxis gt 0 then begin
+	xv = indgen(sz(1))
+	yv = indgen(sz(2))
+ 	if sz(0) ge 1 and sz(1) eq n_elements(*HDF_Query.xarr) then $
+		xv = *HDF_Query.xarr
+	if sz(0) ge 2 and sz(2) eq n_elements(*HDF_Query.yarr) then $
+		yv = *HDF_Query.yarr
+		plot2d,data,xarr=xv,yarr=yv,itools=1,title=str,wtitle=HDF_Query.file
+	endif else $
+		plot2d,data,itools=1,title=str,wtitle=HDF_Query.file, $
+			xtitle="Index #",ytitle="Index #"
 	     END
 	  3: BEGIN
-		view3d_2D,data ; ,/slicer3
+		xv = indgen(sz(1))
+		yv = indgen(sz(2))
+		zv = indgen(sz(3))
+	if HDF_Query.naxis gt 0 then begin
+	if sz(2) eq n_elements(*HDF_Query.xarr) then yv = *HDF_Query.xarr
+	if sz(3) eq n_elements(*HDF_Query.yarr) then zv = *HDF_Query.yarr
+	end
+		view3d_2D,data,0,xv,yv,zv,title=str ; ,/slicer3
 	     END
 		ELSE: HDF_scrolltext,['Sorry, currently there is no separate plot window','supported for this type of data.'],60,3
 	ENDCASE
-	str='RECNO ' + strtrim(HDF_Query.seqno,1) + ': ' + HDF_Query.tname
-	XYOUTS, !d.x_size/2, !d.y_size-10 , ALIGNMENT=0.5, /DEVICE, $
-		STRING(str), charsize=1
 
 	WSET,old_win
 	end
@@ -1838,11 +2170,14 @@ CASE no OF
   2: BEGIN
 	erase
 	y1 = min(data)
-	y2 = max(data)*1.5
+	y2 = max(data)
+	if y1 eq y2 then return
 	!p.multi(0) = !p.multi(1)
-	TVSCL,CONGRID(data,!d.x_size/2,!d.y_size-20)
+;	TVSCL,CONGRID(data,!d.x_size/2,!d.y_size-20)
+	newdata = fix(float(data-y1)/(y2-y1)*!d.table_size)
+	TV,congrid(newdata,!d.x_size/2,!d.y_size-20)
 	!p.multi(0) = !p.multi(1) - 1
-	SURFACE,data,zrange=[y1,y2]
+	SURFACE,data,zrange=[y1,y2*1.5]
 	; if view plot is desired
 	if HDF_Query.view eq 1 then begin
 		old_win = !d.window			;plot area
@@ -2251,7 +2586,7 @@ COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
                 y2=max(data)
                 dy = 0.1 * (y2-y1)
                 if dy eq 0 then dy = 1
-                plot, YRANGE = [y1-dy,y2+dy], data, POS=[0.15,0.2,0.8,0.9] 
+                plot, YRANGE = [y1-dy,y2+dy], data, POS=[0.15,0.2,0.8,0.9]
 	   end
 	2: begin
 ;               tv,data
@@ -4457,6 +4792,26 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
         WIDGET_CONTROL,sdsData_id.slider, SET_VALUE=HDF_Query.seqno
         WIDGET_CONTROL,sdsData_id.list, SET_LIST_SELECT=HDF_Query.seqno
       END
+  'SDS_DATA_HELP': BEGIN
+	str = [$
+  'DumpSDSHeader - dump the brief info of all SDS records found in file', $
+  'First         - display the 1st SDS record from the input file', $
+  'Next          - display the next SDS record from the input file', $
+  'Prev          - display the previous SDS record from the input file', $
+  'Last          - display the last SDS record from the input file', $
+  'Help...       - display this help message', $
+  'SDS # field   - enter/display current SDS seqno picked ', $
+  'SDS # slider  - select/display current SDS seqno picked ', $
+  'Multiple SDSs... - dialog for group same dimension data arrays together',$
+  'SDS List      - select SDS entry from the scroll list of SDS records ', $
+  'X droplist    - select/check X axis, shown only if axis records detected',$ 
+  'Y droplist    - select/check Y axis, shown only if axis records detected',$ 
+  'RAxis Plot... - plot window axis in real value, shown only if axis records detected', $
+  'Close         - close the SDS selection dialog', $
+  '','By default, the Plot Window is plotted in step size.',$
+  'The "RAxis Plot..." button will replot the Plot Window in real axis' ] 
+	r = dialog_message(str,/info,title='Help on Query SDS')
+      END
   'SDS_DATA_SEQNO': BEGIN
       WIDGET_CONTROL,sdsData_id.seqwid, GET_VALUE=seqno
         seqno = fix(seqno(0))
@@ -4476,6 +4831,37 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
         HDF_Query.seqno = seqno
         ReadHDFOneRecord,HDF_Query.file, data, /view
         if HDF_Query.text gt 0 then datatotext,data
+      END
+  'SDS_DATA_IAXIS': BEGIN
+	axis = *HDF_Query.axis
+        HDF_Query.seqno = axis(Event.index)
+	iview = HDF_Query.view
+	HDF_Query.view = 0
+	ReadHDFOneRecord,HDF_Query.file, xarr ;, /view
+	HDF_Query.view = iview 
+	*HDF_Query.xarr = xarr
+      END
+  'SDS_DATA_JAXIS': BEGIN
+	axis = *HDF_Query.axis
+        HDF_Query.seqno = axis(Event.index)
+	iview = HDF_Query.view
+	HDF_Query.view = 0
+	ReadHDFOneRecord,HDF_Query.file, yarr ;, /view
+	HDF_Query.view = iview
+	*HDF_Query.yarr = yarr
+      END
+  'SDS_DATA_AXIS': BEGIN
+	HDF_Query.real = 1
+        WIDGET_CONTROL,sdsData_id.seqwid, GET_VALUE=seqno
+	HDF_Query.seqno = seqno
+	iview = HDF_Query.view
+	HDF_Query.view = 1
+	ReadHDFOneRecord,HDF_Query.file, data, /view 
+	HDF_Query.view = iview
+	HDF_Query.real = 0
+      END
+  'SDS_CONST_ARRAY': BEGIN
+	SDS_construct,Group=Event.top
       END
   'SDS_DATA_NAME': BEGIN
         HDF_Query.seqno = Event.index 
@@ -4525,11 +4911,18 @@ if no lt 1 then return
   if n_elements(sdsData_id) eq 0 then HDFSDSDATA_init
 
         sdsnames = strarr(no)
-;	sdsvgname,sdsnames
+	lists = strarr(no)
 	for i=0,HDF_Query.numSDS-1 do begin
+
 	sds_id = HDF_SD_SELECT(HDF_Query.sd_id,i)
-	HDF_SD_GETINFO,sds_id,NAME=n
+	HDF_SD_GETINFO,sds_id,dims=d,ndims=nd,NAME=n, type=ty,unit=unit
+ 	str =''
+	for k=0,nd-1 do begin
+        str = str+strtrim(d(k),2)
+	if k ge 0 and k lt (nd-1) then str = str + ','
+	end
 	sdsnames(i) = n
+	lists(i) = strtrim(i,2)+': '+ n +'   -> array( '+str+' )' 
 	HDF_SD_ENDACCESS,sds_id
 	end
 	
@@ -4577,6 +4970,10 @@ if no lt 1 then return
       UVALUE='SDS_DATA_LAST', $
       VALUE='Last')
 
+  SDS_DATA_HELP = WIDGET_BUTTON( BASE4, $
+      UVALUE='SDS_DATA_HELP', $
+      VALUE='Help...')
+
   BASE9 = WIDGET_BASE(BASE2, $
       ROW=1, $
       MAP=1, $
@@ -4595,12 +4992,49 @@ if no gt 1 then begin
   sdsData_id.slider = SLIDER11
 end
 
-  ListVal738 = sdsnames
-  LIST4 = WIDGET_LIST( BASE2,VALUE=ListVal738, $
+
+  LIST4 = WIDGET_LIST( BASE2,VALUE=lists, $
       UVALUE='SDS_DATA_NAME', $
-      YSIZE=5)
-  if n_elements(sdsnames) gt 1 then $
-  WIDGET_CONTROL,LIST4,SET_LIST_TOP=n_elements(sdsnames)-2
+      YSIZE=7)
+  if no gt 1 then $
+  WIDGET_CONTROL,LIST4,SET_LIST_TOP=no/2
+
+  BASE11 = WIDGET_BASE(BASE2, ROW=1, MAP=1, UVALUE='BASE11')
+  sl1 = strmatch(strmid(sdsnames,0,4),'axis')
+  sl1 =  where(sl1 > 0)
+  *HDF_Query.axis = sl1
+  HDF_Query.naxis =  -1
+  
+  if sl1(0) ge 0 then begin
+  naxis = n_elements(sl1)
+  if naxis gt 0 then begin
+  HDF_Query.naxis = naxis
+  axisnames = sdsnames(sl1)
+
+  iaxis = WIDGET_DROPLIST( BASE11,VALUE=axisnames, $
+      UVALUE='SDS_DATA_IAXIS',title='X' )
+  widget_control,iaxis,set_droplist_select=0
+  SDS,data,seqno=sl1(0)
+  *HDF_Query.xarr = data
+  if naxis gt 1 then begin
+  jaxis = WIDGET_DROPLIST( BASE11,VALUE=axisnames, $
+      UVALUE='SDS_DATA_JAXIS',title='Y' )
+lll = 1
+nm1 = axisnames(0)
+ll = where(strmatch(axisnames,nm1) > 0)
+if n_elements(ll) gt 1 then lll = ll(1)
+  widget_control,jaxis,set_droplist_select=lll
+  SDS,data,seqno=sl1(lll)
+  *HDF_Query.yarr = data
+  end
+  SDS_DATA_AXIS = WIDGET_BUTTON( BASE11, $
+      UVALUE='SDS_DATA_AXIS', $
+      VALUE='RAxis Plot...')
+  SDS_CONST = WIDGET_BUTTON( BASE9, $
+      UVALUE='SDS_CONST_ARRAY', $
+      VALUE='Multiple SDSs...')
+  end
+  end
 
   SDS_DATA_EXIT = WIDGET_BUTTON( BASE2, $
       UVALUE='SDS_DATA_EXIT', $
@@ -4746,7 +5180,7 @@ seq:
 	HDFSDSDATA_checkfile,r(i),Event
 END
 
-PRO PDMENU4_Event, Event
+PRO HDFB_PDMENU4_Event, Event
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
   CASE Event.Value OF 
@@ -4783,9 +5217,9 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
       Print, 'Event for HDF_DRAW3'
       END
 
-  ; Event for PDMENU4
-  'PDMENU4': BEGIN
-	PDMENU4_Event, Event
+  ; Event for HDFB_PDMENU4
+  'HDFB_PDMENU4': BEGIN
+	HDFB_PDMENU4_Event, Event
 	END
   ; Event for PDMENUSETUP3
   'PDMENUSETUP3': BEGIN
@@ -5169,7 +5603,13 @@ HDF_Query = { $,
 	vg_seqno : 0, $
 	anlevel: 0, $		; set annotate dump level
 	glevel: 0, $		; set group dump level
-	seqno : 0 $
+	seqno : 0, $
+	naxis : -1, $
+	real : 0, $ 		; plot as step/real number
+	axis : ptr_new(/allocate_heap), $	; SDS axis1 index number
+	xarr : ptr_new(/allocate_heap), $
+	yarr : ptr_new(/allocate_heap), $
+	data : ptr_new(/allocate_heap) $
 	}	
 
   HDF_Query_id = { $
@@ -5234,7 +5674,7 @@ end
   MAIN13_HDF = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $
       MAP=1, $
-      TITLE='HDF Query', $
+      TITLE='HDF Query (R1.1)', $
       UVALUE='MAIN13_HDF')
 
   BASE0 = WIDGET_BASE(MAIN13_HDF, $
@@ -5254,8 +5694,8 @@ end
 
   ]
 
-  PDMENU4 = CW_PDMENU( BASE0_1, MenuDesc167, /RETURN_FULL_NAME, $
-      UVALUE='PDMENU4')
+  HDFB_PDMENU4 = CW_PDMENU( BASE0_1, MenuDesc167, /RETURN_FULL_NAME, $
+      UVALUE='HDFB_PDMENU4')
 
   MenuDescsetup167 = [ $
       { CW_PDMENU_S,       3, 'Setup' }, $ ;        0
@@ -5335,7 +5775,7 @@ WIDGET_CONTROL, HDF_AN_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.anlevel
       NONEXCLUSIVE=1, $
       LABEL_LEFT='Check Options:', $
       UVALUE='BGROUP3')
-;  WIDGET_CONTROL,BGROUP3,SET_VALUE=[0,1]
+;  WIDGET_CONTROL,BGROUP3,SET_VALUE=[0,1,0]
 ;  HDF_Query.view = 1
 
   ByteOString= [ $
@@ -5361,7 +5801,7 @@ WIDGET_CONTROL, HDF_AN_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.anlevel
       XSIZE=draw_xsize, $
       YSIZE=draw_ysize)
 
-  !p.multi = [0,2]
+;  !p.multi = [0,2]
 
 
 	HDF_Query_id.base = MAIN13_HDF
