@@ -341,6 +341,9 @@ PRO PICK3D_Event, Event
 	det = pick3d_state.pickDet
 	view3d_pickDet, pick3d_state, data, Event
       END
+  'PICK3D_LOADCT': BEGIN
+	XLOADCT,group=Event.top
+      END
   'PICK3D_FILENAME': BEGIN
 	pick3d_sensitive_off,pick3d_state
 	WIDGET_CONTROL,pick3d_state.fileWID,GET_VALUE=file
@@ -564,6 +567,10 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
   BUTTON4 = WIDGET_BUTTON( BASE3, $
       UVALUE='PICK3D_PICKFILE', $
       VALUE='File...')
+
+  BUTTON5 = WIDGET_BUTTON( BASE3, $
+      UVALUE='PICK3D_LOADCT', $
+      VALUE='Color...')
 
   BUTTON29 = WIDGET_BUTTON( BASE3, $
       UVALUE='PICK3D_HELP', $
