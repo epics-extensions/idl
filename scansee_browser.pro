@@ -62,8 +62,7 @@ END
 
 
 PRO scansee_browser, GROUP=Group
-
-
+loadct,39
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
