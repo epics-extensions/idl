@@ -58,7 +58,7 @@ FUNCTION nbElem,dim,vector
   return, res
 END
 
-FUNCTION read_scan_rest,lun,Scan,dim,offset,dump
+FUNCTION read_scan_rest,lun,Scan,dim,offset,DetMax,dump
 ON_IOERROR, BAD	
 
   rank=0
@@ -123,7 +123,7 @@ end
      readu,lun, num
      pos_num[i]=num
      readu,lun,pos_info
-if dump then print,"====>positioner: ",i,num
+if dump then print,"read_scan_rest====>positioner: ",i,num
 if dump then help,pos_info,/st
   end
 
@@ -131,7 +131,7 @@ if dump then help,pos_info,/st
      readu,lun,num
      det_num[i]=num
      readu,lun,det_info
-if dump then print,"====>detector: ",i,num
+if dump then print,"read_scan_rest====>detector: ",i,num
 if dump then help,det_info,/st
   end
 
@@ -146,18 +146,18 @@ if dump then help,det_info,/st
      readu,lun,tmp
      if(cpt NE 0) then $
        (*(*Scan.pa)[rank-1])[offset:offset+cpt-1,pos_num[i]]=tmp[0:cpt-1]
-if dump then print,"====>positioner offset: ", offset
+if dump then print,"read_scan_rest====>positioner offset: ", offset
 if dump then print,tmp
   end
 
   tmp=fltarr(npts)
   for i=0,nb_det-1 do begin
      readu,lun,tmp
+     if det_num[i] lt DetMax then $
      if(cpt NE 0) then $
        (*(*Scan.da)[rank-1])[offset:offset+cpt-1,det_num[i]]=tmp[0:cpt-1]
-;print,'READ_SCAN_REST: rank=',rank,'   Nelem=',n_elements(tmp),'   Detector=',i+1
-if dump then print,"====>detector offset: ", offset
-if dump then print,tmp
+if dump then print,"read_scan_rest====>detector offset: ", offset
+;if dump then print,tmp
   end
 
   if(rank GT 1) then begin
@@ -165,7 +165,7 @@ if dump then print,tmp
     nb_sub= cpt
     if(cpt NE npts) then nb_sub=nb_sub+1
     for i=1,nb_sub do begin
-      res= read_scan_rest(lun,Scan,dim+1,sub_offset,dump)
+      res= read_scan_rest(lun,Scan,dim+1,sub_offset,DetMax,dump)
       if(res NE 1) then goto,BAD
     end
   end
@@ -180,7 +180,7 @@ end
 
 
 
-FUNCTION read_scan_first,lun,Scan,dim,dump
+FUNCTION read_scan_first,lun,Scan,dim,DetMax,dump
 ON_IOERROR, BAD	
 
   ndet = 85 ; 15
@@ -233,7 +233,7 @@ end
 
   if(nb_det NE 0) then det_num=intarr(nb_det)
 
-  (*Scan.da)[rank-1]= ptr_new(fltarr(size,ndet), /NO_COPY)
+  (*Scan.da)[rank-1]= ptr_new(fltarr(size,DetMax), /NO_COPY)
 ;  (*(*Scan.da)[rank-1])[*]= !VALUES.F_NAN
 
   det_info= { $
@@ -297,20 +297,21 @@ if dump then help,det_info,/st
      readu,lun,tmp
 if dump then print,'====>detector: ',i,nb_det
 if dump then print,'====>tmp: ',tmp  
+     if det_num[i] lt DetMax then $
      if(cpt NE 0) then (*(*Scan.da)[rank-1])[0:cpt-1,det_num[i]]=tmp[0:cpt-1]
   end
 
 if dump then print,'====>end step1 rank=',rank
   if(rank GT 1) then begin
     res=0
-    res= read_scan_first(lun,Scan,dim+1,dump)
+    res= read_scan_first(lun,Scan,dim+1,DetMax,dump)
 if dump then print,'====>read_scan_first res=',res, rank
     if(res NE 1) then goto,BAD
     offset= LONG((*Scan.npts)[rank+dim-2])
     nb_sub= cpt-1
     if(cpt NE npts) then nb_sub=nb_sub+1
     for i=1,nb_sub do begin
-      res= read_scan_rest(lun,Scan,dim+1,offset,dump)
+      res= read_scan_rest(lun,Scan,dim+1,offset,DetMax,dump)
       if(res NE 1) then goto,BAD
     end
   end
@@ -322,7 +323,7 @@ BAD:
 end  
 
 
-FUNCTION read_scan,filename, Scan, dump=dump
+FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet
 
   debug = 0
   if keyword_set(dump) then debug = dump
@@ -370,12 +371,16 @@ FUNCTION read_scan,filename, Scan, dump=dump
   *Scan.pa= ptrarr(tmp.rank)
   *Scan.da= ptrarr(tmp.rank)
 
-  if(read_scan_first(lun, Scan, 0,debug) NE 1) then goto,BAD
-    dims=(*Scan.npts)[0:tmp.rank-1]
+  ; extract the first DetMax detectors only
+  DetMax = ndet
+  if keyword_set(lastDet) then DetMax = lastDet 
+
+  if(read_scan_first(lun, Scan, 0,DetMax,debug) NE 1) then goto,BAD
+
   for i=0,tmp.rank-1 do begin
     dims=(*Scan.npts)[i:tmp.rank-1]
     *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,4])
-    *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims,ndet])
+    *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims,DetMax])
   end
 
   res= *Scan.scanno
