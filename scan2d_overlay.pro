@@ -1659,7 +1659,14 @@ pro scan2d_overlay_onClose, Event
 end
 ;-----------------------------------------------------------------
 pro scan2d_overlay_onHelp, Event
-	str = 'Help on Scan2d_Overlay'
+	str = ['The multiple file selection is accomplished by clicking the',$
+	'file with the Left Mouse Button (LMB) in the file selection box:','', $
+	'       LMB       - select only the picked file', $
+	'       CNTL-LMB  - add the picked file to the selection list', $
+	'       SHIFT-LBM - add all the files between the last two click files', $
+	'                   to the selection list', $
+	'Press the OK or Open button accept all the fiels selected', $
+	'']
 	r = dialog_message(str,/info)
 end
 ;-----------------------------------------------------------------
