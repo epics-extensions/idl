@@ -1,4 +1,4 @@
-;  catcher_v1.init (R2.2.2c4)
+;  catcher_v1.init (R2.2.2c6)
  
   widget_ids = {                  $ 
       base        : MAIN13_1,     $
@@ -57,7 +57,7 @@ option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 viewonly:0, $ 
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'CATCHER_V1', $
-      release     : '(R2.2.2c4)', $
+      release     : '(R2.2.2c6)', $
       dataversion : '', 	  $  new field in R1.5.5.0
       pv          : '',           $
       pvconfig    : '',           $
@@ -81,7 +81,6 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       act_npts    : 0,          $
       readin_npts    : 0,          $
       	px         : FLTARR(4000), $
-      	dx         : make_array(4000,/double), $
 	pa : Make_array(4000,4,/double), $
 	da : FLTARR(4000,15), $	
         voigt : make_array(11,15,/double), $
@@ -158,6 +157,7 @@ realtime_id = { $
         mpts    : 0, $
 	def     : make_array(19,/int), $     ; 1 PV defined, 2 time defined
 	axis 	: 0, $
+	xsetup  : make_array(6,/double), $  ; P1SP,P1EP,P1CV,P1SM,P1AR,P1PP
 	xmin	: 0., $
 	xmax	: 0., $
 	ymin	: 0., $
