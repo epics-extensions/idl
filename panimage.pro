@@ -116,9 +116,9 @@ PRO PANIMAGE_ascii,file,ret,panimageinfo
 
 	openw,1,file
 	for i=0,num do begin
-		printf,1,""
-		printf,1,""
-		printf,1,"DETECTOR #",strtrim(ret(i)+1,2),'  (',panimageinfo.detname(ret(i)),')'
+		printf,1,";"
+		printf,1,";"
+		printf,1,";DETECTOR #",strtrim(ret(i)+1,2),'  (',panimageinfo.detname(ret(i)),')'
 		im = panimageinfo.image_array(*,*,ret(i))
 		for j=0,panimageinfo.width-1 do begin
 		printf,1,format=fmt,j,im(j,*)
