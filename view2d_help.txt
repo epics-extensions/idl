@@ -262,7 +262,7 @@ Images group consists of 15 buttons. For a given scan set at most
 15 images can be saved. The actaul images saved depend on the scan 
 record setup.  If the selected button with image it will be plotted right
 away, it the selected button without image the error message window will
-pop up. 
+pop up. The XL,XR,YL,YR reflects the scan range of each scan. 
 
 
 
@@ -282,7 +282,7 @@ information widgets: cursor location X, Y, and Z value.
 In TV image mode, click the right mouse button in the drawing area will
 draw a bounding box which can be re-sized and re-positioned by the mouse.
 Click the right mouse button again will zoom the region enclosed by the
-bounding box. 
+bounding box.  The XL,XR,YL,YR fields will reflects the new zoom region.
 
 
 			    --IMAGE-- Values Area 
@@ -301,21 +301,23 @@ will set the center position of the positioner P1 of scan1 and scan2
 records to the cursor @ X, Y value respectively.
 
 
-			    PROBE XZ Button
+			   XL, XR, YL, YR Fields 
 
-The XZ button turns on the XZ query mode, a user must use the left mouse
-button to query the X and Z values in the XZ profile window. The values 
-at the cursor are updated beneath the XZ button.  The middle or right mouse 
-button terminates this query mode.
+The XL,YL, XR,YR fields initially reflects the scan image start and
+end ranges. The zoom box mode will re-set the region of interest XL,XR,YL,YR. 
+The XL,YL, XR,YR fields show the bounding box zoom region of 2D interested 
+range. The values of these fields will be automatically updated if the Right
+Mouse Button is pressed consecutively in the drawing area.
 
 
 
-			    PROBE YZ Button
+			   Set New 2D Scan Ranges 
 
-The YZ button turns on the YZ query mode, a user must use the left mouse
-button to query the Y and Z values in the YZ profile window. The values 
-at the cursor are updated beneath the YZ button.  The middle or right mouse 
-button terminates this query mode.
+This button accepts the values of the XL, XR, YL, and YR fields and put these
+new values to the scan1.P1SP, scan1.P1EP, scan2.P1SP, and scan2.P1EP. This
+dynamically reset the scan range of the positioner P1 in scan1 and scan2 record.
+
+
 
 
 			    X, Y Plot Ranges
