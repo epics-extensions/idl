@@ -645,8 +645,16 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	WIDGET_CONTROL,statistic_2dids.commentid,GET_VALUE=f
 	statistic_2dids.comment = f
 	END
+  'STATISTIC_2DMULTIROI': BEGIN
+	len = strpos(statistic_2dids.picked,"_roi",/reverse_search)
+	if len ge 0 then class = strmid(statistic_2dids.file,0,len+1)
+	multiroi_pick,statistic_2dids.im0,class=class ;,Group=Event.top
+	WIDGET_CONTROL,Event.top,/DESTROY
+	return
+	END
   'STATISTIC_2DBACKMODE': BEGIN
 	statistic_2dids.back = Event.Index
+
 	if Event.Index eq 2 then $
 	WIDGET_CONTROL,statistic_2dids.fileid,SET_VALUE=statistic_2dids.picked else $
 	WIDGET_CONTROL,statistic_2dids.fileid,SET_VALUE=statistic_2dids.file
@@ -800,9 +808,9 @@ scan2d_ROI_default
 	END
   'STATISTIC_2DHELP': BEGIN
      st = [$
-	'This program supports 3 types of ROI: rectangular region, low and high', $
-	'value filter, and polygonal region. The default mode is the rectangle', $
-	'ROI','',$
+	'This program supports 4 types of ROI: rectangular region, low and high', $
+	'value filter, polygonal region, and multiple-ROI selections. The initial', $
+	'default mode is the rectangle ROI','',$
 	'It is assumed that the ROI file named ended with file type "roi.xdr"',$
 	'and the ROI report file ended with file type "roi.rpt". For accessing',$
 	'files not follow this name rule a user can modify the Filter field', $
@@ -810,6 +818,9 @@ scan2d_ROI_default
 	'For easy of file management, it is recommanded that all the files ', $
 	'related to 2D-ROI are stored or grouped in a subdirectory "ROI"', $
 	'below the scan data directory.','', $
+	'For multiROIs picking mode, the ROI is re-defined every time the new image ',$
+	'is loading in. The default suffix file name roi.pick and rois.rpt are', $
+	'used for multiROIs.', $
 	'        *** Brief User Interface Functions Given Below ***','', $
 	'Drawing Area Mouse Button Functions:',$
 	'    RectROI mode',$
@@ -826,6 +837,7 @@ scan2d_ROI_default
 	'           RectROI    - Rectangle ROI mode', $
 	'           FilterROI  - Filter ROI based on Low and High values mode', $
 	'           PolyROI    - Polygon ROI mode', $
+	'MultiROIs... Button   - Multiple ROIs selection program', $
 	'Help... Button        - Display this help window',$
 	'Color... Button       - Run XLOADCT program to select different color tables',$
 	'Done    Button        - Close this program', $
@@ -1236,9 +1248,13 @@ ysize = 300
       MAP=1, $
       UVALUE='BASE5')
 
-Btns928 = ['RectROI', 'FilterROI', 'PolyROI']
+Btns928 = ['RectROI', 'FilterROI', 'PolyROI']   ;,'MultiROIs']
 back_versus = WIDGET_DROPLIST(BASE5, VALUE=Btns928, $
         UVALUE='STATISTIC_2DBACKMODE', TITLE='ROI Mode:')
+
+  BUTTON5 = WIDGET_BUTTON( BASE5, $
+      UVALUE='STATISTIC_2DMULTIROI', $
+      VALUE='MultiROIs...')
 
   BUTTON6 = WIDGET_BUTTON( BASE5, $
       UVALUE='STATISTIC_2DHELP', $
