@@ -30,6 +30,7 @@ w_plotspec_id = { $
         log:    0, $   ; 0 - linear, 1 - log, 2 - linear, y>0
         grid:   0, $
         mode:   1, $		; default is viewing mode
+	goto_pv: ['','','',''], $
         x_axis_u :   0, $
         autosave:       0, $
 	scan: 0,$
