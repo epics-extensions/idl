@@ -1,20 +1,29 @@
 #!/bin/csh -f
 # 
-# usage: catcher -c test.config -d test.trashcan -e test.env 
+# usage: catcher [-h -v -n  -c test.config -d test.trashcan -e test.env ] 
 #
 # Author: Ben-chin Cha
 # 
 if ("$1" == "-h" | "$1" == "-help") then
 	goto help:
 endif
-source $EPICS_EXTENSIONS/bin/sun4/setup_ezcaIDL
-set x = "" ; set y = ""; set z=""
+source ~cha/epics/extensions/bin/sun4/setup_ezcaIDL
+set x = "" ; set y = ""; set z=""; set w=""; set v=""
 if -e catch1d.config then
 	cp catch1d.config catch1d.config.tmp
-else
-	echo ";  " >! catch1d.config
 endif
-while ( "$1" !=  "" & "$2" != "") 
+
+while ( "$1" !=  "" )
+if ( "$1" == "-n" | "$1" == "-N" | "$1" == "-Nosave" ) then 
+	set w = 'nosave=1'
+	shift
+endif
+if ( "$1" == "-v" | "$1" == "-V" | "$1" == "-ViewOnly" ) then 
+	set v = 'viewonly=1'
+	shift
+endif
+
+if ("$2" != "") then 
    switch("$1")
    case -config:  
    case -c:  
@@ -37,6 +46,7 @@ while ( "$1" !=  "" & "$2" != "")
 	breaksw
    endsw
    shift; shift
+endif
 end
 
 set xyz = "catcher_v1"
@@ -50,6 +60,12 @@ endif
 if ("$z" != "") then
 	 set xyz = $xyz','$z
 endif
+if ("$w" != "") then
+	 set xyz = $xyz','$w
+endif
+if ("$v" != "") then
+	 set xyz = $xyz','$v
+endif
 echo $xyz >! go_catcher
 cat go_catcher
 	idl go_catcher 
@@ -60,7 +76,7 @@ echo NAME
 echo "      catcher - run the EPICS IDL data catcher program "
 echo ""
 echo SYNOPSIS
-echo "      catcher [ -c file.config ] [ -d file.data ] [ -e file.env ] "
+echo "      catcher [-c file.config] [-d file.data] [-e file.env] [-h] [-n] [-v]"
 echo ""
 echo DESCRIPTION
 echo "     catcher provides the user with very flexible file specification"
@@ -82,7 +98,9 @@ echo "            should begin with alphabetic character and must separate"
 echo "            with the option with a blank space. "
 echo ""
 echo "            If this option is not specified, the default file"
-echo "            'catch1d.config' will be used."
+echo "            'catch1d.config' will be used. At the normal completion"
+echo "            a new version of configuration will be saved or updated"
+echo "            in the directory where the data catcher was invoked."
 echo "" 
 echo "     -d fn  Assign the acquisition data file to be used. The file name"
 echo "            should begin with alphabetic character and must separate"
@@ -98,11 +116,24 @@ echo "            additional environment variables to be saved with the "
 echo "            acquired scan data."
 echo ""
 echo "            If this option not specified, the default file"
-echo "            'catch1d.env' will be used."
+echo "            'catch1d.env' will be used. The default location of the"
+echo "            environment file is where the data catcher is invoked."
+echo "            If the same named environment file is found in the data"
+echo "            directory then that version overrides the default."
 echo ""
 echo "     -h     Generate this online help page."
+echo ""
+echo "     -n     Start the data catcher in no save mode, new scan data will"
+echo "            be captured in this mode but they will not be saved in file."
+echo "            Configuration file will not be updated."
+echo ""
+echo "     -v     Start the data catcher as view only mode, no new scan data"
+echo "            will be captured for this mode."
+echo "            Configuration file will not be updated."
 echo ""
 echo EXAMPLES
 echo "     catcher -c test.config -d test.data -e test.env "
 echo "     catcher -c test.config "
 echo "     catcher -d test.dat"
+echo "     catcher -v "
+echo ""
