@@ -5,8 +5,6 @@
 ; @view1d.pro
 ; @view2d.pro
 
-
-
 PRO COMMANDTEXT_Event, Event
 
 
@@ -356,6 +354,11 @@ PRO dcViewer,data=data,file=file, XDR=XDR, GROUP=Group
 ;-
 
 COMMON DCVIEWER_BLOCK,dcviewer_ids
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+
+;   LOADCT,39      ;inherit from the parent
+        if n_elements(R_ORIG) eq 0 then $
+        catch1d_get_pvtct
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
