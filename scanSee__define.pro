@@ -221,9 +221,11 @@ class=class,outpath=outpath
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       03-02-2000      PA1D, DA1D returns actual number of points saved
+;       07-20-2000      Set scanno to -1 for the case of read error
 ;-
 
 	errcode = -1
+	scanno = -1
 	if self.scanno lt 0 or self.dim lt 1 then return
 	errcode = 0
 
@@ -1130,7 +1132,11 @@ title=title,group=group,all=all,_extra=e
 
 	dir = self.outpath+'ASCII'+!os.file_sep
 	found = findfile(dir,count=ct)
-	if ct lt 1 then spawn,!os.mkdir + ' ' +dir
+	if ct lt 1 then begin
+		spawn,!os.mkdir + ' ' +dir
+		openw,1,dir+'1'
+		close,1
+	end
 
 	dim = self.dim
 	cpt = *(*self.gD).cpt
@@ -1525,18 +1531,21 @@ FUNCTION scanSee::Init,file=file,help=help
 	return,0
 	end
 
-	catch,error_status
-	if error_status ne 0 then begin
-	str = ['Error!  Error!','Wrong type of file entered!']
-	res = dialog_message(str,/Error)
-	return,0
-	end
+;	catch,error_status
+;	if error_status ne 0 then begin
+;	str = ['Error!  Error!','Wrong type of file entered!']
+;	res = dialog_message(str,/Error)
+;	return,1
+;	end
 
 	scanimage_alloc,filename,gD,scanno
+
 	self.gD = gD
 	
-	self.dim = *(*gD).dim 
 	self.scanno = *(*gD).scanno 
+	if self.scanno lt 0 then return,1
+
+	self.dim = *(*gD).dim 
 	num_pts = *(*gD).num_pts
 	self.width = num_pts(0)
 	if self.dim eq 2 then self.height = num_pts(1)
