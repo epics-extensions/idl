@@ -198,7 +198,8 @@ The drawing area is used for displaying TV, SURFACE, CONTOUR, and SHOW3
 plot.  The XSURFACE uses its own drawing window.
 
 In TV image mode, clicking the Left Mouse Button (LMB) in the drawing area 
-will redraw the cursor cross-hair and update the X, Y, Z value widgets.
+will redraw the cursor cross-hair and update the cursor @ X, @ Y, and Z 
+value widgets.
 
 In TV image mode, click the Middle Mouse Button (MMB) in the drawing area 
 will popup the XZ and YZ image value query windows and update the image 
@@ -207,24 +208,42 @@ information widgets: cursor location X, Y, and Z value.
 In TV image mode, click the right mouse button in the drawing area will
 draw a bounding box which can be re-sized and re-positioned by the mouse.
 Click the right mouse button again will zoom the region enclosed by the
-bounding box. 
+bounding box.  The XL,XR,YL,YR fields will reflects the new zoom region.
 
 
-			    PROBE XZ Button
+			   Cursor @ X, @ Y Fields, Z Value
 
-The XZ button turns on the XZ query mode, a user must use the left mouse
-button to query the X and Z values in the XZ profile window. The values 
-at the cursor are updated beneath the XZ button.  The middle or right mouse 
-button terminates this query mode.
+Click the LMB at drawing area updates the value at the cursor @ X, @ Y 
+fields. The Z label reflects the corresponding image value at the cursor
+X, Y location.
+ 
+			 	Set New P1PV
+
+The press button to accept the value in the cursor @ X and @ Y fields 
+and call CAPUT to set the new values for the positioner X and Y
+corresponding to the 2D image graph.
+
+
+			 	Set New P1CV
+
+The press button to accept the value in cursor @ X and @ Y and call CAPUT 
+to set the values as the new center positions (P1CP) of the  positioner P1 
+corresponding to the 2D image scan.
+
+
+			   XL, XR, YL, YR Fields 
+
+The XL,YL, XR,YR fields show the bounding box zoom region of 2D interested 
+range. The values of these fields will be automatically updated if the Right
+Mouse Button is pressed consecutively in the drawing area.
 
 
 
-			    PROBE YZ Button
+			   Set New 2D Scan Ranges 
 
-The YZ button turns on the YZ query mode, a user must use the left mouse
-button to query the Y and Z values in the YZ profile window. The values 
-at the cursor are updated beneath the YZ button.  The middle or right mouse 
-button terminates this query mode.
+This button accepts the values of the XL, XR, YL, and YR fields and put these
+new values to the scan1.P1SP, scan1.P1EP, scan2.P1SP, and scan2.P1EP. This
+dynamically reset the scan range of the positioner P1 in scan1 and scan2 record.
 
 
 			    X, Y Plot Ranges
