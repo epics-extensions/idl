@@ -198,13 +198,101 @@ py = self.yarr(0:h-1)
 	end
 END
 
-PRO scan2d::ASCII2D,detno,format=format,group=group
+PRO scan2d::DetListString,detno=detno,list
+; return the list strin
+; if detno specified find from every scan
+; if nothing found return ''
+;
+	i = self.scanno_current
+	if i lt 1 then i = 1
+	list = ''
+
+	if keyword_set(detno) then begin
+	if detno lt 1 then detno = 1
+	i1 = 1
+	i2 = self.scanno_2d_last
+	for i=i1,i2 do begin
+		no = self.image_no(i-1)+detno
+		if no le self.image_no(i) then begin
+			if i eq 1 then list=strtrim(no,2) else $
+			list = list+','+strtrim(no,2)
+		end
+	end
+	endif else $
+	list = strtrim(self.image_no(i-1)+1,2)+'-'+strtrim(self.image_no(i),2)	
+
+END
+
+
+PRO scan2d::ASCII2D,detno,pick=pick,all=all,whole=whole,nowin=nowin,format=format,group=group
+;+
+; NAME:
+;	scan2d::ASCII2D
+;
+; PURPOSE:
+;       This method allows the user to create the 2D ASCII data file(s)
+;       for the selected detector number. The ASCII file created will be
+;       automatically suffixed with its 4 digit image sequence number and
+;       '.txt' 
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]ASCII2D, Detno [,/ALL] [,/NOWIN] [,FORMAT=format]
+;                             [,/WHOLE] [,GROUP=group]
+;
+; ARGUMENTS:
+;     Detno:     Specify the detector number desired for current opened
+;                2D scan, default 1.
+;
+; KEYWORDS:
+;     WHOLE:     If specified, pick all detectors from the current 2D scan #
+;     ALL:       If specified, pick all images from the 2D image file
+;     PICK:      If specified, pick the same detno out of every 2D scan
+;     NOWIN:     If specified, only the ASCII files will be created but the
+;                xdisplayfile window will not be shown. 
+;     FORMAT:    If specified, override the default output format
+;     GROUP:     Specifies the parent group ID, the destroy of parent window 
+;                results the destroy of this child window
+;
+; EXAMPLE:
+;     Example 1 generates ASCII report for detector 5 for the current 2D scan #
+;
+;               v2->ascii2d,5
+;
+;     Example 2 generates ASCII report for detector 5 for every 2D scan 
+;       contained in the image file.
+;
+;               v2->ascii2d,5,/PICK
+;
+;-
+	begin_no = 1
+	end_no = self.scanno_2d_last
 
 	detector = 1
 	if n_elements(detno) then detector = detno
-	list = self.image_no(self.scanno_current-1)+detector
-	self->ascii,list,format=format,GROUP=group
 
+	if keyword_set(pick) then begin
+		self->detliststring,detno=detector,lists
+		if lists eq '' then begin
+			r = dialog_message('Detector'+strtrim(detector,2)+' not found!',/Info)
+			return
+		end
+		self->ascii,lists,format=format,nowin=nowin,GROUP=group
+		return
+	end
+
+	if keyword_set(all) then begin
+		for i=begin_no,end_no do begin
+		for j=self.image_no(i-1),self.image_no(i)-1 do begin
+			list = j+1
+			self->ascii,list,format=format,nowin=nowin,GROUP=group
+		end
+		end
+		return
+	end
+
+	if keyword_set(whole) then self->detliststring,list 
+	self->ascii,list,format=format,nowin=nowin,GROUP=group
+	
 END
 
 
@@ -543,7 +631,8 @@ title = '2D Scan # '+string(self.scanno_current) + $
 if keyword_set(outfile) then begin
 sz = size(outfile)
 if sz(n_elements(sz)-2) ne 7 then begin 
-suf0 = ''; fileSeqString,no,suf0
+suf0 = ''
+fileSeqString,no,suf0
 file = self.name+'.'+ suf0+ '.txt'
 endif else file = outfile+ '.txt'
 end
@@ -581,7 +670,7 @@ dir = self.outpath + 'ASCII' + !os.file_sep
 found = findfile(dir,count=ct)
 if ct eq 0 then spawn,!os.mkdir + ' '+dir
 
-report = dir+filname
+report = dir+filename
 endif else report = filename
 
 openw,fw,report,/get_lun
@@ -1232,7 +1321,7 @@ PRO scan2d::View2d,detno,plot=plot,group=group
 END
 
 
-PRO scan2d::View,no,scanno=scanno,detector=detector,noread=noread,noplot=noplot,type=type,winId=winId
+PRO scan2d::View,no,rscanno,rdetno,scanno=scanno,detector=detector,noread=noread,noplot=noplot,type=type,winId=winId
 ;+
 ; NAME:
 ;	scan2d::View
@@ -1246,10 +1335,13 @@ PRO scan2d::View,no,scanno=scanno,detector=detector,noread=noread,noplot=noplot,
 ;       generated the printer copy from the PS file, idl.ps, if desired.
 ;
 ; CALLING SEQUENCE:
-;       Obj->[scan2d::]View, No, SCANNO=scanno, DETECTOR=detector, NOREAD=noread
+;       Obj->[scan2d::]View [,No] [,Rscanno] [,Rdetno] 
+;               [,SCANNO=scanno] [,DETECTOR=detector] [,NOREAD=noread]
 ;
 ; ARGUMENTS:
 ;     No       Specifies the sequence number of the image record. 
+;     Rscanno  Returns the 2D scanno number of the image record. 
+;     Rdecno   Returns the detector number of the image record. 
 ;
 ; KEYWORDS:
 ;     SCANNO:    It specifies the 2D scan number. If specified,it ignore the 
@@ -1303,7 +1395,7 @@ if keyword_set(noread) then goto,plotonly
 		self->point_lun,no-1
 	end
 
-	self->Read
+	self->Read,scanno_2d=rscanno,detector=rdetno
 
 plotonly:
 
