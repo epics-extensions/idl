@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.53 2003/05/05 20:48:49 cha Exp $
+; $Id: catcher_v1.pro,v 1.54 2003/09/15 21:31:24 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -471,7 +471,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.53 2003/05/05 20:48:49 cha Exp $
+; $Id: catcher_v1.pro,v 1.54 2003/09/15 21:31:24 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -9112,15 +9112,6 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
 if scanData.pvfound eq -1 then return
 
-;	ln = cagetArray([scanData.pv+'.P1PV', scanData.pv+'.D1PV'],s1,/string)
-;	if ln eq 0 and (s1(0) eq '' or s1(1) eq '') then $ 
-;	begin
-;	st = ['Warning: may be P#PV/D#PV/SCAN are not properly set', $
-;		'       for the scan record -  '+scanData.pv]
-;	w_warningtext,st
-;	return
-;	end
-	
 	w_plotspec_id.scan = 1
 	set_sensitive_off
 	setPlotLabels
@@ -9137,7 +9128,6 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 
 	if scanData.pvfound eq -1 then return
 	if caSearch(scanData.pv) eq 0 then begin
-;	ln = caget(scanData.pv+'.EXSC',pd) 
 	ln = cagetArray(scanData.pv+'.EXSC',pd) 
 	if ln eq 0 and pd(0) gt 0 then begin
 	x = caputArray(scanData.pv+'.EXSC',0)
@@ -9156,7 +9146,6 @@ print,'ENTER catch1d_Stop_yScan'
 if scanData.pvfound eq -1 then return
 
         if strlen(scanData.y_pv) lt 1 then return
-;        ln = caget(scanData.y_pv+'.EXSC',pd)
         ln = cagetArray(scanData.y_pv+'.EXSC',pd)
         if ln eq 0 and pd(0) gt 0 then begin
         x = caputArray(scanData.y_pv+'.EXSC',0)
@@ -9203,7 +9192,6 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
 if scanData.pvfound eq -1 then return
 
-;	ln = caget(scanData.y_pv+'.P1PV',s1)
 	ln = cagetArray(scanData.y_pv+'.P1PV',s1)
 	if ln eq 0 and s1(0) eq ''  then $ 
 	begin
@@ -9429,9 +9417,7 @@ if ret eq -1 then begin                 ; ****may be error in caCheckMonitor
 ; check whether 2D scan started by outside CA clients
 ;
 
-	  if strlen(scanData.y_pv) gt 0 and scanData.y_scan eq 0 then begin
-; ????? for some reason caGet is not working on solaris
-;		id = caGet(scanData.y_pv+'.EXSC',pd) 
+	if strlen(scanData.y_pv) gt 0 and scanData.y_scan eq 0 then begin
 	if caSearch(scanData.y_pv+'.EXSC') eq 0 then begin 
 		id = cagetArray(scanData.y_pv+'.EXSC',pd) 
 		if pd(0) eq 1 then  catch1d_Start_yScan
@@ -9460,7 +9446,6 @@ end
       IF (scanFlag EQ 1) THEN BEGIN
 	ln = caMonitor(scanData.pv+'.NPTS',ret,/check)
 	if ret(0) gt 0 then begin
-;	ln = caget(scanData.pv+'.NPTS',pd)
 	ln = cagetArray(scanData.pv+'.NPTS',pd)
 	scanData.req_npts = pd(0) 
 
@@ -9541,7 +9526,6 @@ end
 	if w_plotspec_id.mode eq 0 then begin
 
 	  if scanData.y_scan eq 1 then begin
-;		id = caGet(scanData.y_pv+'.EXSC',pd) 
 		id = cagetArray([scanData.y_pv+'.EXSC',scanData.y_pv+'.DATA'],pd,/short) 
 		if pd(0) eq 0  and pd(1) eq 1 then begin
 ;		if pd(0) eq 0  and scanData.y_seqno lt scanData.y_req_npts then begin
@@ -9745,10 +9729,7 @@ end
 
 ; create 2D data arrays
 
-;help,scanData.req_npts
-;help,scanData.y_req_npts
 	make_2d_data,data_2d,scanData.x_dpt,scanData.req_npts,scanData.y_req_npts
-;help,data_2d,/struct
 
 	if caSearch(scanData.pv+'.EXSC') eq 0 then begin
 	if caMonitor(scanData.pv+'.EXSC',/check) ne 0 then begin
@@ -10022,6 +10003,8 @@ end
 			mes = dialog_message(st,/Error,dialog_parent=widget_ids.base)
 			return      
 		end
+
+	if strlen(scanData.pv) gt 0 then u = caMonitor(scanData.pv+'.EXSC',/add)
 
 	found = findfile(scanData.trashcan)
 	if found(0) eq '' then begin
