@@ -376,9 +376,11 @@ help,printer_info.reverse
       END
   ENDCASE
 
-if printer_info.name ne '' and OS_SYSTEM.os_family eq 'unix' then $
+if printer_info.name ne '' then begin
+	if OS_SYSTEM.os_family eq 'unix' then $
 	OS_SYSTEM.printer = '-P'+printer_info.name + ' ' else $
-	OS_SYSTEM.printer = ''
+	OS_SYSTEM.printer = printer_info.name 
+end
 
 END
 
@@ -455,7 +457,7 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='BASE2')
 
   LABEL3 = WIDGET_LABEL( BASE2, $
-      FONT='-adobe-times-medium-r-normal--20-140-100-100-p-96-iso8859-1', $
+	FONT=!os.font, $
       UVALUE='LABEL3', $
       VALUE='Setup PS Printer')
 
