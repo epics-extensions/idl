@@ -25,14 +25,17 @@
 ;help,/struct,!error_state
 ;END
 
-FUNCTION u_writePermitted,filename
+FUNCTION u_writePermitted,filename,VT=VT
 ;
 ; check for filename write permission
 ;
 ; existed
 	found = findfile(filename)
 	if found(0) ne '' then begin
-	ret= dialog_message(['Do you want to overwrite the existed file : ',$
+	ret=''
+	if keyword_set(VT) then $ 
+	read,ret,prompt='Overwrite the existed file - '+filename+' (Yes/No) ?' else $
+	ret= widget_message(['Do you want to overwrite the existed file : ',$
 		'','     '+filename], $
 			/question)
 	if strupcase(ret) eq 'NO' then return,-1
@@ -41,6 +44,8 @@ FUNCTION u_writePermitted,filename
         CATCH,error_status
 ;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
 	if error_status eq -215 or error_status eq -206 then begin
+		if keyword_set(VT) then $
+		read,ret,prompt=!err_string+string(!err) else $
                 ret=WIDGET_MESSAGE(!err_string + string(!err))
                 if n_elements(unit) then u_close,unit
                 return,-1
@@ -424,6 +429,11 @@ if error_status  eq -229 or error_status eq -219 or error_status eq -184 then be
 	return
 	end
 
+IF EOF(unit) THEN begin
+	print,'Error! Error! Error!'
+	print,'Error: wrong type or bad data encountered'
+	return 
+END
 readu,unit,s
 
 if (s(0) gt 1L) then begin	; two dim
@@ -558,7 +568,7 @@ help1:
 END
 
 
-PRO u_bi2xdr,filename,help=help
+PRO u_bi2xdr,filename,help=help,VT=VT
 ;+
 ; NAME:
 ;       U_BI2XDR
@@ -572,7 +582,7 @@ PRO u_bi2xdr,filename,help=help
 ;
 ; CALLING SEQUENCE:
 ;
-;       U_BI2XDR, 'filename' [,/Help]
+;       U_BI2XDR, 'filename' [,/VT] [,/Help]
 ;
 ; INPUTS:
 ;       filename:   The data file should contain pure binary data objects.
@@ -582,6 +592,8 @@ PRO u_bi2xdr,filename,help=help
 ;                   It contains the converted XDR binary data objects.
 ;
 ; KEYWORD PARAMETERS:
+;       VT:     If a dumb terminal without X window server is used, 
+;               this option must be set, e.g. a telnet session.
 ;       HELP:   If this keyword is set, a simple on line help is given.
 ;
 ; RESTRICTIONS:
@@ -601,8 +613,12 @@ PRO u_bi2xdr,filename,help=help
 if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
 
 	found = findfile(filename)
-	if found(0) eq '' then return
-
+	if found(0) eq '' then begin
+		print,'Error: '+filename+' not found!'
+		return
+		end
+	if keyword_set(VT) then $
+	OK_WRITE = u_writePermitted(filename+'.xdr',/VT) else $
 	OK_WRITE = u_writePermitted(filename+'.xdr')
 	if OK_WRITE lt 0 then return
 
@@ -618,6 +634,8 @@ if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
         maxno = id
         u_close,unit
         u_close,unit2
+	if keyword_set(VT) then $
+	print,string(maxno)+' sets of binary objects saved in "'+ filename+'.xdr"' else $
         ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
 		filename+'.xdr"')
 
@@ -632,7 +650,6 @@ help1:
 	print,'The file "filename.xdr" created will be IDL platform independent.'
 	print,''
 END
-
 ;
 ; this routine is requied for generate the runtime executable
 ;
@@ -774,16 +791,6 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	; use xloadct reverse video, reverse legend only  
 
-;	if printer_info.reverse then begin
-;	r_curr = reverse(r_orig)
-;	g_curr = reverse(g_orig)
-;	b_curr = reverse(b_orig)
-;	endif else begin
-;	r_curr = r_orig
-;	g_curr = g_orig
-;	b_curr = b_orig
-;	end
-;	TVLCT,r_curr,g_curr,b_curr
 
 	    if printer_info.color gt 0 then $
 		device,filename=psfile,/color,bits=8, $
@@ -847,7 +854,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	if !d.name eq 'PS' then begin
-	!P.FONT=1
+	!P.FONT=-1
 	device,/close
 
 	r_curr = r_orig
@@ -1163,7 +1170,7 @@ if XRegistered('PS_printer') then return
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.8 1998/05/15 22:40:49 cha Exp $
+; $Id: view1d.pro,v 1.9 1998/08/10 18:56:05 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1331,7 +1338,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.8 1998/05/15 22:40:49 cha Exp $
+; $Id: view1d.pro,v 1.9 1998/08/10 18:56:05 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1403,11 +1410,11 @@ pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 ;	June, 1993 - Bill Thompson
 ;			prevented the box from having a negative size.
 ;       04-18-96   bkc  Made the box color more visible.
+;       05-28-98   bkc  Reset bounding box color 
 ;-
 
 device, get_graphics = old, set_graphics = 6  ;Set xor
-col = !d.n_colors -1
-col = 2
+col = !d.n_colors - 2
 
 if keyword_set(message) then begin
 	st = [$,
