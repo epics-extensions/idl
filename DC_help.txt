@@ -58,11 +58,12 @@ Plot Options Menu
     Labels...   - dialog sets 1D plot title and lebels  
 
 ViewData Menu
-    1D/2D...    - calls 1D/2D W_VIEWSCAN sub-program or SB (scan browser)
-    1D/2D/3D... - calls stand alone system program SB (scan browser) 
-                  (for 1D/2D/3D scan file)
-    PICK3D...   - calls stand alone system program pick3d 
-		  (target for large dimension 3D scan file)
+    1D/2D...       - calls 1D/2D W_VIEWSCAN sub-program or SB (scan browser)
+    IMAGE2D...     - pass 2D image_array to IMAGE2D program for 2D/3D scan 
+    1D/2D/3D...    - calls stand alone system program SB (scan browser) 
+                     (for 1D/2D/3D scan file)
+    PICK3D...      - calls stand alone system program pick3d 
+		     (target for large dimension 3D scan file)
 
 Print Menu
     Plot        - sends 1D plot to printer
@@ -96,6 +97,10 @@ Help Menu
     Version...        - show version #
     Release Note...   - show release note
     Help...           - show this help page
+
+Bypass 3D:(Droplist)  - YES (default option) implies to bypass the reading 
+                        of 3D data array
+                        NO implies to read in appropriate 3D data array
 
 Status Field
     The status text field shows the monitored status of the scan record,
