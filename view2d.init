@@ -6,6 +6,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
       xsurface    : 0L,  $
       top_base    : BASE68,       $
       sel_base    : BASE185,       $
+      sel_image   : IMAGE186,       $
       slider	  : 0L,  $
       seqno	  : FIELD100, $
       plot_wid    : DRAW62,       $
@@ -37,7 +38,10 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	x_pv	: '', $
 	y_pv	: '', $
 	file_1d	: '', $
-	scanno_2d  : 0, $  	; current 2d scan #
+	scanno_2d : 0, $  	; current readin 2d scan #
+	scanno_current : 0, $  	; current viewed 2d scan #
+	scanno_2d_last : 0, $  	; last 2d scan # from opened file
+	image_no  : make_array(1000,/int), $ ; detector 1 image no for scanno_2d #
 	scanno  : 0, $  	; current image at the end 1d scan #
 	width   : 100, $  	; current image width 
 	height  : 100, $  	; current image height
