@@ -579,6 +579,8 @@ END
 
 PRO plot1d_replot,state
 COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
+ 
+if !d.name eq 'WIN' then device,decomposed=1
 
 	state.xsize = !d.x_size
 	state.ysize = !d.y_size
@@ -794,6 +796,8 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	xyouts,real_xr,real_yl, state.legend(i)
 	end
 end
+
+if !d.name eq 'WIN' then device,decomposed=0
 
 END
 
