@@ -7,21 +7,17 @@
 PRO open_binary_type,unit,filename,type,wid
 ; check the binary type and return lun unit and XDR type
  
-if !d.name eq 'X' then begin
-        type = 0
-        U_OPENR,unit,filename
-        u_read,unit,version
-        if string(version(0)) eq '' then begin
-                u_close,unit
-                U_OPENR,unit,filename,/XDR
-                type = 1
-        end
+	type = 1
+	U_OPENR,unit,filename,/XDR
+        u_read,unit,version,errcode
 	u_rewind,unit
-end
-if !d.name eq 'WIN' then begin
-        U_OPENR,unit,filename,/XDR
-        type = 1
-end
+
+        if errcode lt 0 then begin
+	u_close,unit
+	type = 0
+	U_OPENR,unit,filename
+        end
+
         if n_params() eq 4 then WIDGET_CONTROL,wid,set_droplist_select=type
 END
 
