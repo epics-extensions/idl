@@ -1,2 +1,4 @@
+@os.init
 .run u_read
+.run plot2d
 .run scan2d__define
