@@ -151,28 +151,97 @@ PRO DC_view_cleanup,state
 	v = 0
 END
 
+PRO scansee_getLabels,labels,id_def,rank=rank,label_state,def=def
+; rank : 0-scanH, 1-scan1, 2-scan2
+;
+	irank = 0
+	if keyword_set(rank) then irank=rank
+	id = id_def(4:88,irank)
+	def = where(id gt 0) 
+	ndet = n_elements(def)
+	s_array = labels(267*irank:(irank+1)*267-1)
+	s_array = reform(s_array,89,3)
+	p_name = s_array(0:3,0)
+	p_desc = s_array(0:3,1)
+	p_unit = s_array(0:3,2)
+	d_name = s_array(4:88,0)
+	d_desc = s_array(4:88,1)
+	d_unit = s_array(4:88,2)
+	label_state = {  $
+		p_name : p_name , $
+		p_desc : p_desc, $
+		p_unit : p_unit, $
+		d_name : d_name , $
+		d_desc : d_desc, $
+		d_unit : d_unit, $
+		ndet : ndet, $
+		def : def, $
+		rank : irank $
+	}
+
+END
+
+PRO scansee_pickouter1d,state,Event,rank=rank
+
+	rk=0
+	if keyword_set(rank) then rk=rank
+
+	v = state.v
+	v->read,dim=dim,cpt=cpt, $
+                da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
+                pv=pv,x=xa,y=ya,im=im,labels=labels,id_def=id_def
+
+;        if dim eq 2 then begin
+	if dim eq 2 then rk = 1
+	if dim eq 3 then rk = 2
+	scansee_getLabels,labels,id_def,rank=rk,label_state
+	descs = strtrim(label_state.d_name,2) + ' ' +  $
+		strtrim(label_state.d_desc,2) + ' ' +  $
+		strtrim(label_state.d_unit,2)
+	legend = state.detname + ': '+ descs
+	xdisplayfile,text=legend,Group=Event.top,title='Di Info for : '+pv(rk)+ ' (Scan # '+ strtrim(state.fileno,2) +')'
+
+	idet = id_def(4:88,rk)   ; outer loop 1D
+	nd = where(idet gt 0)	
+	dname = state.detname(nd)
+	da = make_array(cpt(rk),n_elements(nd))
+	for i=0,n_elements(nd)-1 do begin
+	da(*,i) = da1d(*,nd(i))
+	end
+	ipos = state.paxis
+	if ipos ge 4 then x = indgen(cpt(rk)) else $
+	x = pa1d(*,ipos)	
+	plot1d,x,da,Group=Event.top,/data,legend=dname, $ ;xylegend=[1.5,-1.5], $
+		title=pv(rk),comment='Scan # '+strtrim(state.fileno,2)
+;	end
+END
+
+
 PRO VIEWSPEC_3D_2DMENU_event, Event, state
 
   title=''
   v = state.v
 	v->read,view=state.detno,dim=dim,cpt=cpt, $
 		da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
-		da3d=da3d,pa3d=pa3d, $
+		da3d=da3d,pa3d=pa3d,pv=pv, $
 		x=xa,y=ya,im=im,labels=labels,id_def=id_def
 	x = pa2d(*,0) 
 	y = pa1d(*,0)
 
   CASE Event.Value OF
-  '2D Menu.Pick 2D...': BEGIN
+  '3D_2D Menu.VW2D...': BEGIN
+	; to be implemented
+     END
+  '3D_2D Menu.Pick 2D...': BEGIN
 	pick2d,da2d,x,y,GROUP=Event.top,class=state.class,path=state.outpath
      END
-  '2D Menu.PanImages...': BEGIN
+  '3D_2D Menu.PanImages...': BEGIN
 	sz = size(da2d)
 	def = state.def(4:4+sz(3)-1,1)
 ;	def = demake_array(sz(3),value=1,/int)
 	panimage_sel,da2d,def,title='3D_2D ( All 2D Di)',Group=Event.top
      END
-  '2D Menu.Calibration...': BEGIN
+  '3D_2D Menu.Calibration...': BEGIN
 	sz = size(da2d)
 	def = make_array(sz(3),value=1,/int)
 	new_win = state.wid2d
@@ -184,11 +253,13 @@ PRO VIEWSPEC_3D_2DMENU_event, Event, state
                 title=title,Group=Event.top, $
                 xv = x, yv=y
     END
-  '2D Menu.CALIB1D...': BEGIN
+  '3D_2D Menu.Plot/Pick 1D...': BEGIN
+	scansee_pickouter1d,state,Event,rank=2
+    END
+  '3D_2D Menu.CALIB1D...': BEGIN
 	x = y
 	sz = size(da1d)
 	def = make_array(sz(2),value=1,/int)
-help,x,da1d
 	plot1d,x,da1d,Group=Event.top,/data
         calibration_factor,da1d,def,xv=x,title='3D_2D ( All 1D Di)', $
 		Group=Event.top
@@ -324,6 +395,7 @@ PRO AllASCII1DSetup, state, GROUP=Group
   XMANAGER, 'ALLASCII1DSETUP', ALLASCII1DSETUP
 
 END
+
 PRO PDMENU_ASCII1D_Event,state,Event
 
   v = state.v
@@ -340,6 +412,47 @@ PRO PDMENU_ASCII1D_Event,state,Event
   ENDCASE
 END
 
+PRO scanSee_PDMENU2D_Info_Event,state,Event
+  CASE Event.Value OF
+  'Color.Color...': BEGIN
+	xloadct,Group=Event.top
+    END
+  'Color.Restore Pvt...': BEGIN
+       found = findfile('pvtcolors.dat')
+        if found(0) eq ''  then begin
+                st = ['Error: Private color table never been saved before. ', $
+              '       You have to use Color->Save Pvt... to save the private color first, before', $
+              '       you can load it into the scanSee program.']
+               xdisplayfile,text=st,Group=Event.top 
+        endif else begin
+                restore,'pvtcolors.dat'
+                TVLCT,red,green,blue
+	end
+	return
+    END
+  'Color.Save Pvt...': BEGIN
+	tvlct,red,green,blue,/get
+	save,red,green,blue,file='pvtcolors.dat'
+	return
+    END
+  'Info.Scan Records...': BEGIN
+    v = state.v
+	v->read,dim=dim,cpt=cpt, $
+		da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
+		da3d=da3d,pa3d=pa3d,pv=pv, $
+		x=xa,y=ya,im=im,labels=labels,id_def=id_def
+	for i=1,dim do begin
+	rank=i-1
+	scansee_getLabels,labels,id_def,rank=rank,label_state
+	descs = strtrim(label_state.d_name,2) + ' ' +  $
+		strtrim(label_state.d_desc,2) + ' ' +  $
+		strtrim(label_state.d_unit,2)
+	legend = state.detname + ': '+ descs
+	xdisplayfile,text=legend,Group=Event.top,title='Di Info for : '+pv(rank)+ ' (Scan # '+ strtrim(state.fileno,2) +')'
+	end
+    END
+  ENDCASE
+END
 
 PRO scanSee_PDMENU2D_PanImage_Event,state,Event
 
@@ -435,9 +548,6 @@ PRO SS_VIEWSPEC_Event, Event
   	WIDGET_CONTROL, state.basefileWID,SENSITIVE=1
     END
 
-  'VIEWSPEC_LOADCT': BEGIN
-	xloadct,GROUP=Event.top
-    END
   'VIEWSPEC_HELP': BEGIN
     str = [ $
 	'This program can display and extract scan data for 1D/2D/3D scan file.','', $
@@ -446,7 +556,12 @@ PRO SS_VIEWSPEC_Event, Event
 	'At the normal completion of scanBrowser this configuration file is updated.',$
 	'', $
 	'File...     - uses the file selection dialog picking the initial file',$
-	'Color...    - calls the xloadct routine', $
+	'Color      - Color pull down menu', $
+	'        Color...       - call the xloadct routine', $
+	'        Restore Pvt... - restore color table from the pvtcolors.dat', $
+	'        Save Pvt...    - save color table to the pvtcolors.dat file', $
+	'Info       - Scan record info pull down menu', $
+	'        Scan Records...   - Pi & Di info in scan records', $
 	'Help...     - show this help page', $
 	'DONE        - close the scanBrowser program',$
 	'','                      WORKED ON FILENAME',$
@@ -476,6 +591,8 @@ PRO SS_VIEWSPEC_Event, Event
 	'PLOT2D...       - access various plot2d features of 2D image', $
 	'ASCII2D...      - saves and displays the ASCII report of 2D image', $
 	'PanImage...     - panImage with option of save TIFF/XDR/PICT file', $
+	'Vw2D Images...  - access with Vw2d image processing program', $
+	'2D_1D Data...   - access the outer most 1D scan data', $
 ;	'Overlay Plot... - overlays plot of multiple 1D scan lines ',$ 
 ;	'Help 1D Line #...- hints on selecting multiple lines of a detector', $
 ;	'                   defaults to line 1 ', $
@@ -554,6 +671,8 @@ PRO SS_VIEWSPEC_Event, Event
 	WIDGET_CONTROL,state.filenoWID,SET_VALUE=seqno
 	DC_view_init,filename,state
 	WIDGET_CONTROL,state.filenameWID,SET_VALUE=filename
+	WIDGET_CONTROL,state.sliderWID,SET_SLIDER_MAX=seqno
+	WIDGET_CONTROL,state.sliderWID,SET_VALUE=seqno
       END
   'VIEWSPEC_LINE_SEQNO': BEGIN
       WIDGET_CONTROL,event.ID,GET_VALUE=n
@@ -575,6 +694,7 @@ PRO SS_VIEWSPEC_Event, Event
   'VIEWSPEC_PICKXAXIS': BEGIN
 	if state.dim eq 1 then $
 	v->plot1d,state.lineno,group=Event.top,xsel=Event.Index  ;.xaxis
+	state.paxis = Event.Index
       END
   'VIEWSPEC_STATISTIC': BEGIN
 	title = '1D Line # '+strtrim(state.lineno,2) + $
@@ -719,6 +839,10 @@ PRO SS_VIEWSPEC_Event, Event
   'VIEWSPEC_PICK1D': BEGIN
 	v->calibration,pick1d=state.detno,GROUP=Event.top
       END
+  'VIEWSPEC_2D_1DOUTER': BEGIN
+	scansee_pickouter1d,state,Event,rank=1
+        return
+      END
   'VIEWSPEC_VW2D': BEGIN
 	v->vw2d,GROUP=Event.top
       END
@@ -728,6 +852,7 @@ PRO SS_VIEWSPEC_Event, Event
   'PDMENU2D_PANIMAGE_SCANSEE': scanSee_PDMENU2D_PanImage_Event,state,Event
   'PDMENU3D_PANIMAGE_SCANSEE': scanSee_PDMENU3D_PanImage_Event,state,Event
   'PDMENU_ASCII1D': PDMENU_ASCII1D_Event,state,Event
+  'PDMENU2D_INFO_SCANSEE': scanSee_PDMENU2D_Info_Event,state,Event
   ENDCASE
 
       WIDGET_CONTROL,event.top,SET_UVALUE=state
@@ -745,6 +870,9 @@ PRO scanSee, GROUP=Group, fileno=fileno, format=format, filename=filename
 ;   02-02-2001   bkc  R2.2 support big 3D scan data set
 ;                     Add hourglass for initialization
 ;                     If 3D data is too big the 3D data can be read by selection;                     only
+;   06-18-2002   bkc  R2.3 
+;                     Add Info Record, Color table menus
+;                     Add Plop/pick 1D data in 3D_2D and 2D_1D menu
 ;-
 
 if XRegistered('SS_VIEWSPEC') then return
@@ -779,6 +907,7 @@ loadct,39
 	wid2D: -1, $        ; pan image win
 	slice: 0, $     ; axial slice #
 	rank: 2, $      ; z axis
+	paxis: 0, $     ; positioner axis picked
 	filename : '/home/sricat/CHA/data/rix/cha:_0001.scan', $
 	format : 'G18.8', $
 	fileno : 0, $
@@ -810,7 +939,7 @@ loadct,39
   if keyword_set(filename) then DC_view_ids.filename = filename
 
   SS_VIEWSPEC = WIDGET_BASE(GROUP_LEADER=Group, $
-      COLUMN=1, title='scanBrowser R2.2', $
+      COLUMN=1, title='scanBrowser R2.3', $
       MAP=1, $
       UVALUE='SS_VIEWSPEC')
   DC_view_ids.base = SS_VIEWSPEC
@@ -823,9 +952,18 @@ loadct,39
       UVALUE='VIEWSPEC_FILE_OPEN', $
       VALUE='File...')
 
-  BUTTON4 = WIDGET_BUTTON( BASE1, $
-      UVALUE='VIEWSPEC_LOADCT', $
-      VALUE='Color...')
+  MenuDesc770 = [ $
+      { CW_PDMENU_S,       1, 'Color' }, $ ;        0
+        { CW_PDMENU_S,       0, 'Color...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'Restore Pvt...' }, $ ;        2
+        { CW_PDMENU_S,       2, 'Save Pvt...' }, $ ;        3
+      { CW_PDMENU_S,       3, 'Info' }, $ ;        4
+        { CW_PDMENU_S,       2, 'Scan Records...' } $  ;      7
+
+  ]
+
+  PDMENU2_info = CW_PDMENU( BASE1, MenuDesc770, /RETURN_FULL_NAME, $
+      UVALUE='PDMENU2D_INFO_SCANSEE')
 
   BUTTON3 = WIDGET_BUTTON( BASE1, $
       UVALUE='VIEWSPEC_HELP', $
@@ -907,6 +1045,7 @@ filetype = WIDGET_LABEL( BASE4, $
       UVALUE='VIEWSPEC_PICKXAXIS', $
       VALUE=['P1','P2','P3','P4','Step #'],TITLE='vs')
   WIDGET_CONTROL,BUTTON19,SET_DROPLIST_SELECT=0
+  DC_view_ids.paxis  = 0 
 
 ;  BUTTON16 = WIDGET_BUTTON( BASE12, $
 ;      UVALUE='VIEWSPEC_ASCII1D', $
@@ -963,10 +1102,12 @@ filetype = WIDGET_LABEL( BASE4, $
       COLUMN=1, UVALUE='BASE28_6')
 
   MenuDesc496 = [ $
-      { CW_PDMENU_S,       3, '2D Menu' }, $ ;        0
+      { CW_PDMENU_S,       3, '3D_2D Menu' }, $ ;        0
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
+;        { CW_PDMENU_S,       0, 'VW2D...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Pick 2D...' }, $ ;        1
-        { CW_PDMENU_S,       2, 'Calibration...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'Calibration...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'Plot/Pick 1D...' }, $ ;        2
         { CW_PDMENU_S,       2, 'CALIB1D...' } $ ;        2
   ]
   DC_view3d_2dmenu = CW_PDMENU( BASE28_6, MenuDesc496, /RETURN_FULL_NAME, $
@@ -1051,6 +1192,10 @@ filetype = WIDGET_LABEL( BASE4, $
   BUTTON38 = WIDGET_BUTTON( BASE28_1, $
       UVALUE='VIEWSPEC_VW2D', $
       VALUE=BMP167,/BITMAP)
+
+  BUTTON38 = WIDGET_BUTTON( BASE28_1, $
+      UVALUE='VIEWSPEC_2D_1DOUTER', $
+      VALUE='2D_1D Data... ')
 
   BASE28_3 = WIDGET_BASE(BASE28_0, /FRAME, $
       COLUMN=1, UVALUE='BASE28_3')
