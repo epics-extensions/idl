@@ -19,7 +19,7 @@ endif
 set x = "" ; set y = ""; set z=""; set w=""; set v=""
 set xf=""; set yf=""; set zf=""; set wf=""; set vf=""
 
-source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
+source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 source $PVT_LOC/ezcaidl_setup
 
 # echo $exe
@@ -119,7 +119,11 @@ echo ".run scan2d_overlay" >>! go_catcher
 echo ".run catch1d_user" >>! go_catcher
 echo $xyz >>! go_catcher
 
+	if "$exe" != "" then
 	source /usr/local/rsi/idl_6.0/bin/idl_setup
+	else
+	source /usr/local/rsi/idl/bin/idl_setup
+	endif
 	idl -32 $exe go_catcher
 	rm go_catcher
 exit
