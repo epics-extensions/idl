@@ -8,7 +8,7 @@ sep = ','
 if n_elements(inString) then x = inString
 if keyword_set(operator) then sep = operator
 
-	y = str_sep(x,sep)
+	y = strsplit(x,sep,/extract)
 
 	nl = n_elements(y) 
 	factor = make_array(nl,value=1.)
@@ -16,7 +16,7 @@ if keyword_set(operator) then sep = operator
 
 	for i=0,n_elements(z)-1 do begin
 	if z(i) gt 0 then begin
-		p = str_sep(y(i),"*")
+		p = strsplit(y(i),"*",/extract)
 		factor(i) = fix(p[0])
 		y(i) = p[1]
 	end
@@ -34,7 +34,7 @@ if n_elements(inString) then x = inString
 sep = ','
 if keyword_set(separator) then sep = separator
 
-	y = str_sep(x,sep)
+	y = strsplit(x,sep,/extract)
 	z = strpos(y,'*')
 
 	no = n_elements(z)
@@ -46,7 +46,7 @@ if keyword_set(separator) then sep = separator
 			factor = [factor,float(y(i))]
 	end
 	if z(i) gt 0 then begin
-		p = str_sep(y(i),'*')
+		p = strsplit(y(i),'*',/extract)
 		dnl = fix(p(0))
 		for j =0,dnl-1 do begin
 		if n_elements(factor) eq 0 then factor = float(p[1]) else $
@@ -229,10 +229,6 @@ if n_elements(x_hwd) gt 0 then begin
 	if list then printf,unit,'x_hpeak:',x_hpeak
 	if list then printf,unit,'y_hpeak:',y_hpeak
 
-	if list then begin
-	free_lun,unit
-	close,unit
-	end
 
 	; plot if view specified
 
@@ -264,10 +260,6 @@ end
 
 ; Find peaks
 
-	if list then begin
-	openw,unit,/append,report,/get_lun
-	printf,unit,'========'
-	end
 
 if keyword_set(FIT) eq 0 then begin
 
