@@ -14,7 +14,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
       slider	  : 0L,  $
       seqno	  : FIELD100, $
       plot_wid    : DRAW62,       $
-      plot_area   : DRAW62_Id,    $
+      plot2d_area   : DRAW62_Id,    $
       y_max       : FIELD246,     $
       y_min       : FIELD157,     $
       x_max       : FIELD159,     $
@@ -85,9 +85,9 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	yzline_yo : [0.,0.],$
 	yzline_zo : [0.,0.],$
 	s_wid   : -1, $       ; window id for saved pixmap
-	xarr	: make_array(1000), $
-	yarr	: make_array(1000), $
-	image	: make_array(1000,1000,/float) $
+	xarr	: make_array(1001), $
+	yarr	: make_array(1001), $
+	image	: make_array(1001,1001,/float) $
 ;	xarr	: make_array(512), $
 ;	yarr	: make_array(512), $
 ;	image	: make_array(512,512,/float) $
