@@ -517,7 +517,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.18 2001/06/21 19:10:38 cha Exp $
+; $Id: DC.pro,v 1.19 2001/07/02 20:17:14 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -5033,16 +5033,15 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	da1D = *(*gD).da1D
 	pa2D = *(*gD).pa2D
 	da2D = *(*gD).da2D
-
 	catch2d_file.scanno_2d = scanno
 	catch2d_file.scanno_current = scanno
 	catch2d_file.id_def = id_def(4:89-1,0) 
 
-	max_pidi = catch2d_file.last -1  
+	max_pidi = n_elements(id_def(*,0))  
 	pv1_desc = labels(max_pidi,0)
-	if pv1_desc eq '' then pv1_desc = labels(0,0)
+	if pv1_desc eq '' then pv1_desc = labels(view_option.pickx,0)
 	pv2_desc = labels(max_pidi,1)
-	if pv2_desc eq '' then pv2_desc = labels(0,1)
+	if pv2_desc eq '' then pv2_desc = labels(view_option.pickx,1)
 	pvs0 = [pv(0:1),filename,pv1_desc,pv2_desc]
 
 	seqno = 0
@@ -5055,7 +5054,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	if y_name eq '' then y_name = labels(i,0)
 	pvs = [ pvs,y_name]
 	nos = [cpt(0),num_pts(0),cpt(1),detector,scanno,num_pts(1)]
-	x = pa2D(*,0,0)
+	x = pa2D(*,view_option.pickx)    ;0,0)    
 	y = pa1D(*,0)
 	image = da2D(*,*,i-4)
 
@@ -5102,11 +5101,11 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 
 	catch2d_file.scanno_2d = scanno
 
-	max_pidi = n_elements(id_def) / 2
-	pv1_desc = labels(max_pidi,0)
-	if pv1_desc eq '' then pv1_desc = labels(0,0)
-	pv2_desc = labels(max_pidi,1)
-	if pv2_desc eq '' then pv2_desc = labels(0,1)
+	max_pidi = n_elements(id_def(*,0))
+	pv1_desc = labels(max_pidi+view_option.pickx,0)
+	if pv1_desc eq '' then pv1_desc = labels(view_option.pickx,0)
+	pv2_desc = labels(max_pidi+view_option.pickx,1)
+	if pv2_desc eq '' then pv2_desc = labels(view_option.pickx,1)
 	filename = catch2d_file.name
 	pvs0 = [pv(0:1),filename,pv1_desc,pv2_desc]
 
@@ -5119,10 +5118,9 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 	if y_name eq '' then y_name = labels(i,0)
 	pvs = [ pvs,y_name]
 	nos = [cpt(0),num_pts(0),cpt(1),detector,scanno,num_pts(1)]
-	x = pa2D(*,0,0)
+	x = pa2D(*,view_option.pickx)    ;,0,0)
 	y = pa1D(*,0)
 	image = da2D(*,*,seqno)
-
 		scanno_2d = nos(4)
 		detector = nos(3) + 1
 	
@@ -5182,9 +5180,7 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 	end
 	END
 
-
-
-END
+   END
 END
 
 PRO fileSeqString,no,suf0
@@ -7926,8 +7922,8 @@ end ;     end of if scanData.option = 1
 	w_plotspec_id.xcord = 0
 	if Event.Index eq 0 then w_plotspec_id.x_axis_u = 1 else $
 	w_plotspec_id.xcord = Event.Index - 1
+	setPlotLabels
 	if realtime_id.ind eq 1 then begin
-		setPlotLabels
 		realtime_id.no = 0
 		realtime_xrange,1,xmin,xmax
 		realtime_id.axis = 1
@@ -8487,6 +8483,8 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;                       Fix the realtime problem 
 ;                       Defined lastDet is used in realtime
 ;       05-16-2001 bkc  Accept both '.scan' or '.mda' suffix for scan file
+;       06-28-2001 bkc  R2.5
+;                       Fix xtitle in 1D plot
 ;                       
 ;-
 ;
@@ -8511,7 +8509,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R2.4 )', $
+      TITLE='scanSee ( R2.5 )', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
