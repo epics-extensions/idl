@@ -246,8 +246,15 @@ PRO plot1d_dialogs_Event, Event
 	plot1d_help
       END
   'plot1d_npt': BEGIN
-	WIDGET_CONTROL,Event.Id,GET_VALUE=cpt
+	WIDGET_CONTROL,state.CPT_WID0,GET_VALUE=cpt0
+	WIDGET_CONTROL,state.CPT_WID,GET_VALUE=cpt
+	if cpt lt cpt0 then begin
+		cpt = cpt0+1
+		WIDGET_CONTROL,state.CPT_WID,SET_VALUE=cpt
+	end
+	state.cpt0 = cpt0
 	state.cpt = cpt
+  	plot1d_replot,state
       END
   'plot1d_comment': BEGIN
 	WIDGET_CONTROL,Event.Id,GET_VALUE=val
@@ -470,10 +477,6 @@ state.list_sel = indgen(n_elements(state.selection))
 		UVALUE='plot1d_yexpand')
   widget_control,yexpand,set_droplist_select=state.yexpand
 
-  npt_slidet = WIDGET_SLIDER(BASE2_2,value=state.npt, $
-	title='NPT Plotted:', $
-	maximum=state.npt,minimum=2,UVALUE='plot1d_npt')
-
   BASE2_411 = WIDGET_BASE(BASE2, $
       /ROW, $
       MAP=1, $
@@ -588,6 +591,15 @@ end
       XSIZE=45, $
       YSIZE=2)
 
+  npt_slidet0 = WIDGET_SLIDER(BASE2_41,value=1, $
+	title='Start NPT:', $
+	maximum=state.npt,minimum=1,UVALUE='plot1d_npt')
+  npt_slidet = WIDGET_SLIDER(BASE2_41,value=state.npt, $
+	title='End NPT:', $
+	maximum=state.npt,minimum=1,UVALUE='plot1d_npt')
+  state.cpt_wid0 = npt_slidet0
+  state.cpt_wid = npt_slidet
+
   BASE6 = WIDGET_BASE(BASE2, $
       ROW=1, $
       MAP=1, $
@@ -690,10 +702,11 @@ if !d.n_colors gt 256 then device,decomposed=0
 	s = size(y) 
 	end
 
+	cpt0 = state.cpt0-1 
 	cpt = state.cpt-1 
-	y = y(0:cpt,*)
+	y = y(cpt0:cpt,*)
 	s = size(y)
-	x = x(0:cpt,*)   
+	x = x(cpt0:cpt,*)   
 
 	if state.userscale eq 0 then begin
 		state.xrange = [min(x),max(x)]
@@ -1319,6 +1332,9 @@ state = { $
 	factor: rfactor, $
 	NPT: sz(1), $   ; requested NPT 
 	CPT: sz(1), $   ; plotted CPT
+	CPT0: 1, $
+	CPT_WID0:0L, $
+	CPT_WID:0L, $
 	x: xa, $
 	y: ya $
 	}
