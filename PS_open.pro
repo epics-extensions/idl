@@ -1,4 +1,11 @@
 ;
+; this routine is requied for generate the runtime executable
+;
+PRO os_init
+@os.init
+END
+
+;
 ; PS_open,'name.ps'               name defalut to idl
 ;
 PRO PS_init
@@ -46,6 +53,7 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 END
 
 PRO PS_close
+COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	if !d.name eq 'PS' then begin
@@ -57,13 +65,12 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 	b_curr = b_orig
 	TVLCT,r_orig,g_orig,b_orig
 
-	set_plot,'X'
-;	set_plot,!olddevice 
+	set_plot,OS_SYSTEM.device
 	end
 END
 
 PRO PS_enscript,fileName
-COMMON PRINTER_BLOCK,printer_info
+COMMON SYSTEM_BLOCK,OS_SYSTEM
 
 	if n_elements(fileName) eq 0 then begin
 		print,'Usage: PS_enscript, <fileName>'
@@ -73,15 +80,13 @@ COMMON PRINTER_BLOCK,printer_info
 		print,'Usage: PS_enscript, <fileName>'
 		return
 	end
-	ptr = ''
-	if n_elements(printer_info) gt 0 then begin
-	if strlen (printer_info.name) gt 0 then ptr = '-P'+  printer_info.name
-	end
-	spawn,['enscript', ptr,  '-r', fileName], /noshell
+	if OS_SYSTEM.os_family eq 'unix' then $
+	spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer ,  '-r', fileName], /noshell else $
+	spawn,[OS_SYSTEM.prt, fileName, OS_SYSTEM.printer]
 END
 
 PRO PS_print,psfile
-COMMON PRINTER_BLOCK,printer_info
+COMMON SYSTEM_BLOCK,OS_SYSTEM
 
 	if (n_elements(psfile) ne 0) then begin 
 		if strtrim(psfile,2) eq '' then begin
@@ -90,18 +95,16 @@ COMMON PRINTER_BLOCK,printer_info
 		end
 	end else psfile = 'idl.ps'
 
-	ptr = ''
-	if n_elements(printer_info) gt 0 then begin
-	if strlen(printer_info.name) gt 0 then ptr = '-P'+printer_info.name + ' '
-	end
-
-        str =  'lpr ' + ptr +  psfile
+	if OS_SYSTEM.os_family eq 'unix' then $
+        str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile $
+	else str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
         spawn,str
 	print,str
 END
 
 
 PRO PS_printer_Event, Event
+COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON PRINTER_BLOCK,printer_info
 
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
@@ -141,6 +144,11 @@ COMMON PRINTER_BLOCK,printer_info
       ENDCASE
       END
   ENDCASE
+
+if printer_info.name ne '' and OS_SYSTEM.os_family eq 'unix' then $
+	OS_SYSTEM.printer = '-P'+printer_info.name + ' ' else $
+	OS_SYSTEM.printer = printer_info.name
+
 END
 
 
