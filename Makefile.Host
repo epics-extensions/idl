@@ -20,7 +20,7 @@ IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 	fit_statistic.pro calibration_factor.pro calibra_pick1d.pro \
 	calibdrv.pro iplot1d.pro overlay_1d.pro \
 	h5b.pro plot2d_image.pro saveImage.pro \
- 	dc2ins_2d dc2ins_1d \
+ 	dc2ins_2d dc2ins_1d wd_readascii.pro \
 	go_scan1d  go_scan2d \
 	dc2tiff.pro scan2d_convert.pro \
 	ez_fit.pro catch1d.tbl fixIndexFile.pro \
@@ -34,6 +34,7 @@ IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 	hdfb.pro NX__define.pro nexus_scan.pro \
 	DC.init DC.pro vw2d.bm view3d_slicer.pro \
 	sscan.pro sscan__define.pro user_scan.pro wc.pro \
+	sb2rpt.pro view4d.pro \
 	multiroi_pick.pro xdr_open.pro \
 	pick3d.pro view3d_2dsum.pro pick2d.pro \
  	view3d_2d.pro panimage.pro slide_image.pro \
@@ -44,14 +45,14 @@ IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 SCRIPTS_DEFAULT = ezcaidl_setup idluserdir_setup \
 	calibra scanBrowser \
 	idlvm scanSee.sav catcher.sav viewer.sav SB.sav img.sav pick3d.sav \
-	sscan.sav SB2.sav sscan \
+	sscan.sav SB2.sav mca.sav readascii.sav \
 	dc2tiff \
 	ezfit \
 	catcher toimage \
 	viewer mda2vol \
 	dc2hdf img \
 	hdfb.sav hdfb NX h5b.sav h5b \
-	scanSee \
+	scanSee sscan \
 	SB \
 	pick3d 
 #	volviewer \
