@@ -35,18 +35,18 @@ PRO view3d_2dsum_result,state
 
       CASE state.dpy_type OF
       0: begin
-	plot2d,image,title=state.class+file
+	plot2d,image,xarr=state.xv,yarr=state.yv,title=state.class+file
 	end
       1: begin
 	view3d_sum_ascii,image,rank,title=state.class,outfile=file,group=state.base
 	end
       2: begin
 	comment = state.class+file
-	scan2d_roi,image,group=state.base,comment=comment   ;x,y
+	scan2d_roi,image,group=state.base,comment=comment,state.xv,state.yv
 	end
       3: begin
 	Print,'Button PICK1D Pressed'
-	calibra_pick1d,image,group=state.base,title=state.class+file  ;xa=xa,ya=ya
+	calibra_pick1d,image,group=state.base,title=state.class+file,xa=state.xv,ya=state.yv
 	end
       4: begin
 	tvscl,congrid(image,100,100)
@@ -208,7 +208,7 @@ PRO VIEW3D_2DSUM_Event, Event
 	state.PS = 1
 	view3d_2dsum_plot,state	
       END
-  'VIEW3D_SUM_PSARRAY': BEGIN
+  'VIEW3D_SUM_SCREENDATA': BEGIN
 	state.PS = 2
 	view3d_2dsum_plot,state	
       END
@@ -228,8 +228,33 @@ PRO VIEW3D_2DSUM_Event, Event
 	state.dpy_type = 3
 	view3d_2dsum_result,state	
       END
+  'VIEW3D_SUM_HELP': BEGIN
+     str = ['','        ** DRAWING AREAS ** ', $
+	'Draw1 : Plot ROI signal for given I,J,K1, and K2', $
+	'        LMB(Button 1) - control K1 slider and left blue line', $
+	'        MMB(Button 2) - control K2 slider and right blue line', $
+	'Draw2 : 2D Image show the sum of ROI between K1 and K2', $
+	'        Click new cursor position in draw2 updates I,J indices and ', $
+	'        updates the corresponding line plots in draw1 and draw3', $
+	'Draw3 : Profile plots at crossline passing I,J of the image area', $
+	'','        ** SLIDER BARS **', $
+	'I vertical slider bar:  show current I index', $
+	'J vertical slider bar:  show current J index', $
+	'Left horizontal slider bar:  show ROI indices K1', $
+	'Right horizontal slider bar:  show ROI indices K2', $
+	'','        ** BUTTON EVENTS ** ', $
+	'PLOT2D...      - use plot2d program draw the resultant ROI image', $
+	'ASCII...       - get ASCII data of the resultant ROI image', $
+	'ROI2D...       - call scan2d_roi with the resultant ROI image', $
+	'PICK1D...      - call row/column slicer with the resultant ROI image', $
+	'Screen Data... - dump the screen data of the draw1 in ascii', $
+	'PS Plot        - send the plot of the draw1 to PS printer', $
+	'HELP...        - pop up this help info', $
+	'DONE           -  close this program' $
+	]
+	xdisplayfile,text=str,title='VIEW3D_SUM_2DROI HELP',GROUP=Event.top
+      END
   'VIEW3D_SUM_DONE': BEGIN
-      Print, 'Event for Done'
 	widget_control,Event.top,/DESTROY
 	return
       END
@@ -272,7 +297,7 @@ PRO VIEW3D_2DSUM_Event, Event
 
 END
 
-PRO view3d_2dsum_init,data,rank,view3d_2dsumState
+PRO view3d_2dsum_init,data,rank,va1,va2,va3,view3d_2dsumState
 	sz = size(data)
    
      CASE rank OF
@@ -298,6 +323,29 @@ PRO view3d_2dsum_init,data,rank,view3d_2dsumState
 ; j = id / sz(1) mod sz(2) 
 ; k = id / (sz(1)*sz(2))
 ; print,v1,v2,i,j,k, data(i,j,k)
+	if n_elements(va1) eq 0 then begin
+		xv = indgen(imax)
+		yv = indgen(jmax)
+		zv = indgen(kmax)
+	endif else begin
+	CASE rank of 
+	  0: begin
+		xv = va2
+		yv = va3
+		zv = va1
+  	  end
+	  1: begin
+		xv = va1
+		yv = va3
+		zv = va2
+	  end
+	  2: begin
+		xv = va1
+		yv = va2
+		zv = va3
+	  end
+	ENDCASE
+	end
 
 	view3d_2dsumState = {$
 		class: '', $
@@ -321,14 +369,16 @@ PRO view3d_2dsum_init,data,rank,view3d_2dsumState
 		k2_pick: kmax-1, $
 		min : v1, $
 		max : v2, $
+		xv : xv, $
+		yv : yv, $
+		zv : zv, $
 		image: make_array(imax,jmax), $
 		data: data $
 		}
 
-
 END
 
-PRO view3d_2dsum,data,rank,class=class, GROUP=Group
+PRO view3d_2dsum,data,rank,xv,yv,zv,class=class, GROUP=Group
 ;+
 ; NAME:
 ;       VIEW3D_2DSUM
@@ -351,6 +401,9 @@ PRO view3d_2dsum,data,rank,class=class, GROUP=Group
 ;       DATA:   Input 3D data array
 ;       RANK:   Specifies the summation axial direction, default to 0
 ;               0 - X axis, 1 - Y axis, 2 - Z axis
+;	XV:     X axis positional vector
+;	YV:     Y axis positional vector
+;	ZV:     Z axis positional vector
 ;
 ; KEYWORD PARAMETERS:
 ;       CLASS:      A string used to annotate the special ROI. If specified
@@ -372,7 +425,8 @@ PRO view3d_2dsum,data,rank,class=class, GROUP=Group
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 31, 2001.
-;       xx-xx-xxxx  bkc comment
+;       07-11-2002  bkc Add input parameters XV,YV,ZV for positional vectors 
+;                       corresponding to the 3D data array
 ;-
 
 sz = size(data)
@@ -385,7 +439,7 @@ end
 
 if n_elements(rank) eq 0 then rank=0
 
-	view3d_2dsum_init,data,rank,view3d_2dsumState
+	view3d_2dsum_init,data,rank,xv,yv,zv,view3d_2dsumState
 
   if keyword_set(class) then view3d_2dsumState.class = class
 
@@ -489,31 +543,35 @@ if n_elements(rank) eq 0 then rank=0
 
   plot2d_b = WIDGET_BUTTON( BASE6, $
       UVALUE='VIEW3D_SUM_PLOT2D', $
-      VALUE='PLOT2D')
+      VALUE='PLOT2D...')
 
   ascii2d_b = WIDGET_BUTTON( BASE6, $
       UVALUE='VIEW3D_SUM_ASCII2D', $
-      VALUE='ASCII2D')
+      VALUE='ASCII2D...')
 
   roi2d_b = WIDGET_BUTTON( BASE6, $
       UVALUE='VIEW3D_SUM_ROI2D', $
-      VALUE='ROI2D')
+      VALUE='ROI2D...')
 
   pick1d_b = WIDGET_BUTTON( BASE6, $
       UVALUE='VIEW3D_SUM_PICK1D', $
-      VALUE='PICK1D')
+      VALUE='PICK1D...')
 
   viewdata_b = WIDGET_BUTTON( BASE6, $
-      UVALUE='VIEW3D_SUM_PSARRAY', $
-      VALUE='Screen Data')
+      UVALUE='VIEW3D_SUM_SCREENDATA', $
+      VALUE='Screen Data...')
 
   postscpt_b = WIDGET_BUTTON( BASE6, $
       UVALUE='VIEW3D_SUM_PS', $
       VALUE='PS Plot')
 
+  BUTTON23 = WIDGET_BUTTON( BASE6, $
+      UVALUE='VIEW3D_SUM_HELP', $
+      VALUE='HELP...')
+
   BUTTON24 = WIDGET_BUTTON( BASE6, $
       UVALUE='VIEW3D_SUM_DONE', $
-      VALUE='Done')
+      VALUE='DONE')
 
   WIDGET_CONTROL, VIEW3D_2DSUM_BASE, /REALIZE
 
