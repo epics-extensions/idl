@@ -97,12 +97,21 @@ PRO DC_view_init, filename , DC_view_ids, print=print
 	WIDGET_CONTROL,DC_view_ids.list3dWID,SET_LIST_SELECT=DC_view_ids.slice
 	end
 
-	if dim eq 1 then v->plot1d,group=DC_view_ids.base
-	if dim eq 2 then v->view2d,DC_view_ids.detno,group=DC_view_ids.base
+	type = ' 3D Data '
+	if dim eq 1 then begin
+		v->plot1d,group=DC_view_ids.base
+		type = ' 1D Data '
+	end
+	if dim eq 2 then begin
+		v->view2d,DC_view_ids.detno,group=DC_view_ids.base
+		type = ' 2D Data '
+	end
 ;	if dim eq 3 then v->view3d_2d,DC_view_ids.detno,group=DC_view_ids.base
 	if dim eq 3 then WIDGET_CONTROL,DC_view_ids.base3dWID,SENSITIVE=1 else $
 		WIDGET_CONTROL,DC_view_ids.base3dWID,SENSITIVE=0
 
+	WIDGET_CONTROL,DC_view_ids.filetypeWID,set_value=type
+	
 END
 
 PRO DC_view_cleanup,state
@@ -298,7 +307,7 @@ slice = state.slice
         end
   '3D PanImage.PanImages+XDR': begin
 	DC_viewOutputFilename,state,'.pan.','XDR',filename
-        v->view3d_panImage,slice,rank,gif=filename
+        v->view3d_panImage,slice,rank,xdr=filename
         end
   '3D PanImage.PanImages...': begin
         v->view3d_panImage,slice,rank
@@ -638,6 +647,7 @@ loadct,39
 	base2DWID: 0L,$
 	base1DWID1:0L, $
 	base1DWID2:0L, $
+	filetypeWID : 0L, $
 	filenameWID : 0L, $
 	filenoWID : 0L, $
 	sliderWID: 0L, $
@@ -751,6 +761,13 @@ loadct,39
       UVALUE='VIEWSPEC_FILE_NAME', /DYNAMIC_RESIZE, $
       VALUE=DC_view_ids.filename)
   DC_view_ids.filenameWID = LABEL11
+
+filetype = WIDGET_LABEL( BASE4, $
+;      FONT='-dt-application-bold-i-normal-serif-34-240-100-100-p-170-iso8859-1', $
+      FONT='-dt-application-bold-i-normal-serif-34-240-100-100-p-170-*', $
+      VALUE=' 3D ')
+  DC_view_ids.filetypeWID = filetype
+
 
   BASE12 = WIDGET_BASE(BASE4, $
       ROW=1, $
