@@ -282,25 +282,23 @@ COMMON NEXUS_BLOCK,nexus_state
 		bgn_seq = seq_start(i)
 		V->findSDS,dn,seq_d1,ref,d1,ndims=ndims,dims=dims, $
 			/nowin,start=bgn_seq
-
 	if n_elements(d1) eq 0 then begin
-	   	r = dialog_message('Detector not defined',/error)
-;		goto,endloop
-   		return
-	end
+	   	r = dialog_message('Detector '+dname[id-1]+' not defined for scan # '+ $
+			strtrim(nexus_state.scanno(i),2),/error)
+		end
 
 	;   check for missing data for the scan
 
 	if seq_d1 lt seqs(i) then begin
 		if n_elements(dpick) eq 0 then dpick=i else dpick=[dpick,i]
-	end
+		end
 	end
 	end
 
 endloop:
 	nscan = n_elements(dpick)
 	if nscan lt 1 then begin
-	   	r = dialog_message('Detector not defined',/error)
+	   	r = dialog_message('Not 1D scan for specified detector found ',/error)
    		return
 	end
 
@@ -1297,7 +1295,7 @@ PRO NEXUS_SCAN_PICK1D_Event, Event
 	state.sel_scanno = 0
 	sel_scanno = widget_info(Event.id,/list_select)
 	state.sel_scanno(sel_scanno) = 1
-;	print,state.sel_scanno
+;	print,,state.sel_scanno
       END
   'NEXUS_SEL_NPTS': BEGIN
 	widget_control,Event.ID,get_value=npt
@@ -1629,6 +1627,7 @@ COMMON NEXUS_BLOCK,nexus_state
 	nexus_scan_help
       END
   'NEXUS_SCAN_OVERLAY1D': BEGIN
+	if nexus_state.Nscan gt 1 then $ 
 	nexus_scan_pick1d,group=Event.top
       END
   'NEXUS_SCAN_LISTING': BEGIN
