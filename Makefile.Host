@@ -40,7 +40,7 @@ SCRIPT2 = ezcaidl_setup setup_ezcaIDL \
 	viewer \
 	dc2hdf \
 	hdfb \
-	scanSee vw2d scanSee.exe2.idl53 scanSee.exe2.idl54 \
+	scanSee vw2d scanSee.exe2.idl53 \
 	SB \
  	dc2ins_2d dc2ins_1d \
 	pick3d 
