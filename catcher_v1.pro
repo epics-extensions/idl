@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.57 2004/04/13 20:36:01 cha Exp $
+; $Id: catcher_v1.pro,v 1.58 2004/07/13 17:08:15 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -140,8 +140,6 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
   endif else begin
 
     y=10000
-;    if OS_SYSTEM.os_family eq 'unix' then begin
-;	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
 	WC,FILENAME,y
 
 	lines=long(y(0))
@@ -149,7 +147,6 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
 	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
 	return
 	end
-;    end
 
 	  a = strarr(y(0))				;Maximum # of lines
 	  i = 0L
@@ -200,12 +197,6 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 		/SCROLL, $
 		VALUE = a)
 
-;state = { $
-;	 base: filebase, $
-;	 filetext: filetext, $
-;	 file: '' $
-;	 }
- 
  state = { ourGroup: ourGroup, $
 	filename: title, $
 	filetext: filetext, $
@@ -493,7 +484,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.57 2004/04/13 20:36:01 cha Exp $
+; $Id: catcher_v1.pro,v 1.58 2004/07/13 17:08:15 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1353,32 +1344,22 @@ END
 PRO catch1d_get_pvtct
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
-; 8 bit visual
+; set ORIG color 
 
-	if  !d.n_colors lt 16777216 then begin
-		tvlct,red,green,blue,/get
-	endif else begin
-
-; 24 bit visual
-	file = 'catch1d.tbl'
+	file = 'pvtcolors.dat'
 	found = findfile(file)
-	if found(0) eq '' then begin
-		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		found1 = findfile(file)
-		if found1(0) eq '' then $
-		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		end
+	if found(0) ne '' then begin
 	restore,file
 	tvlct,red,green,blue
+	endif else begin
+	LOADCT,39
+	tvlct,red,green,blue,/get
 	end
-
-; set ORIG color 
 
 	R_ORIG = red
 	G_ORIG = green
 	B_ORIG = blue
 
-	LOADCT,39
 END
 
 PRO zoom_to_box
@@ -2073,10 +2054,10 @@ COMMON field_block, field_max, field_name, field_name_array, field_value, field_
 ; check for 5.19 or newer version
 	if scanData.pv eq '' then return
 	r = cagetarray(scanData.pv+'.VERS',pd)
+	if n_elements(pd) gt 0 then begin 
 	if pd(0) gt 5.18 then scanData.new=1 else scanData.new=0
 print,scanData.pv,'.VERS',pd
-;	r = cagetarray(scanData.pv+'.D1PV',pd)
-;	if r eq -1 then scanData.new = 1 else scanData.new=0
+	end
 
 ; scan field init
 ; if n_elements(field_name) eq 0 then begin
@@ -3345,8 +3326,6 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 COMMON w_statistic_block,w_statistic_ids
 
-if !d.n_colors gt !d.table_size then device,decomposed=1
-
    WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
    if total(wf_sel) eq 0 then return
    x_axis = w_plotspec_id.x_axis_u
@@ -3489,7 +3468,8 @@ if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
 restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
 TVLCT,red,green,blue
-end
+endif else device,decomposed=1
+
 
 if !d.name ne 'PS' then WSET, widget_ids.plot_area
 ;   ERASE
@@ -3667,8 +3647,8 @@ footer_note= 'comment: ' + strtrim(w_plotspec_array(5))
 	ydis = 0.1*!d.y_ch_size
 	xyouts,xdis,ydis,footer_note,/device
 
-if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue
-if !d.n_colors gt !d.table_size then device,decomposed=0
+if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue else $
+device,decomposed=0
 END
 
 
@@ -3817,6 +3797,8 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
 	color = w_plotspec_id.colorI(id)
+	if !d.n_colors gt !d.table_size then color = w_plotspec_id.colorV(id)
+
 	if w_plotspec_id.color eq 0 then color = !d.n_colors-1
 
 	if !d.name eq 'PS' then color = 0
@@ -10393,7 +10375,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R3.1)', $
+      TITLE='Scan Data Catcher (R3.1+)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $

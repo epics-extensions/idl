@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-;  catcher_v1.init (R3.1)
+;  catcher_v1.init (R3.1+)
  
   widget_ids = {                  $ 
       base        : MAIN13_1,     $
@@ -52,15 +52,17 @@ w_plotspec_id = { $
 	xticklen: 0.04, $
 	yticklen: 0.02, $
 	gridstyle: 0, $
+	colorV: make_array(19,/LONG), $ 
 	colorI: make_array(19,/LONG,value=!d.n_colors-2) $ 
         }
 
 ;   device,bypass_translation=0
-   loadct,39
-   colorI = lonarr(19)
-   getLineColors,colorI
-   w_plotspec_id.colorI = colorI
 ;   plotoption_setcolor		; init color index array
+;   loadct,39
+   colorI = lonarr(19)
+   getLineColors,colorI,v=colorV
+   w_plotspec_id.colorI = colorI
+   w_plotspec_id.colorV = colorV
    
    scanData  =  {                 $
 XDR : 1, $   ; 0 - native binary,  1 - in xdr binary
