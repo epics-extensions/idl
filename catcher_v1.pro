@@ -6,7 +6,472 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.52 2002/08/02 15:38:55 jba Exp $
+; $Id: catcher_v1.pro,v 1.53 2003/05/05 20:48:49 cha Exp $
+
+; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
+;	Unauthorized reproduction prohibited.
+PRO XDispFile_evt, event
+
+
+WIDGET_CONTROL, event.top, GET_UVALUE = state
+WIDGET_CONTROL, event.id, GET_UVALUE=Ev
+
+CASE Ev OF 
+'EXIT': WIDGET_CONTROL, event.top, /DESTROY
+'FILE_PRINT': begin
+	r = findfile(state.filename,count=ct)
+	if r(0) ne '' then begin
+		PS_enscript,state.filename
+	endif else begin
+	WIDGET_CONTROL,state.filetext,GET_VALUE=str
+	openw,unit,'tmp',/GET_LUN
+	for i=0,n_elements(str)-1 do printf,unit,str(i)
+	FREE_LUN,unit
+	PS_enscript,'tmp'
+	end
+   end
+ENDCASE
+END
+
+
+PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
+	HEIGHT = HEIGHT, TEXT = TEXT, FONT = font, BLOCK=block,MODAL=MODAL
+;+
+; NAME: 
+;	XDISPLAYFILE
+;
+; PURPOSE:
+;	Display an ASCII text file using widgets and the widget manager.
+;
+; CATEGORY:
+;	Widgets.
+;
+; CALLING SEQUENCE:
+;	XDISPLAYFILE, Filename
+;
+; INPUTS:
+;     Filename:	A scalar string that contains the filename of the file
+;		to display.  The filename can include a path to that file.
+;
+; KEYWORD PARAMETERS:
+;	FONT:   The name of the font to use.  If omitted use the default
+;		font.
+;	GROUP:	The widget ID of the group leader of the widget.  If this 
+;		keyword is specified, the death of the group leader results in
+;		the death of XDISPLAYFILE.
+;
+;	HEIGHT:	The number of text lines that the widget should display at one
+;		time.  If this keyword is not specified, 24 lines is the 
+;		default.
+;
+;	TEXT:	A string or string array to be displayed in the widget
+;		instead of the contents of a file.  This keyword supercedes
+;		the FILENAME input parameter.
+;
+;	TITLE:	A string to use as the widget title rather than the file name 
+;		or "XDisplayFile".
+;
+;	WIDTH:	The number of characters wide the widget should be.  If this
+;		keyword is not specified, 80 characters is the default.
+;
+;	BLOCK:  Set this keyword to have XMANAGER block when this application 
+;	        is registered. By default the Xmanager keyword NO_BLOCK 
+;	        is set to 1
+;	MODAL: 
+; OUTPUTS:
+;	No explicit outputs.  A file viewing widget is created.
+;
+; SIDE EFFECTS:
+;	Triggers the XMANAGER if it is not already in use.
+;
+; RESTRICTIONS:
+;	None.
+;
+; PROCEDURE:
+;	Open a file and create a widget to display its contents.
+;
+; MODIFICATION HISTORY:
+;	Written By Steve Richards, December 1990
+;	Graceful error recovery, DMS, Feb, 1992.
+;       12 Jan. 1994  - KDB
+;               If file was empty, program would crash. Fixed.
+;       4 Oct. 1994     MLR Fixed bug if /TEXT was present and /TITLE was not.
+;      14 Jul. 1995     BKC Increased the max line to variable size.
+;      16 Jun. 1997     BKC Max dispalyable line is 10000 for non-unix OS system.
+;      28 Aug. 1997     BKC Add the printer button, file name label, it uses the
+;                       PS_print,file to print.
+;      30 Jul. 2002     BKC Add the block, modal keywords take care the 
+;                       animation help problem
+;      09 Aug  2002     BKC fix the problem with no input filename case
+;-
+COMMON SYSTEM_BLOCK,OS_SYSTEM
+                                                        ;use the defaults if
+IF(NOT(KEYWORD_SET(HEIGHT))) THEN HEIGHT = 24		;the keywords were not
+IF(NOT(KEYWORD_SET(WIDTH))) THEN WIDTH = 80		;passed in
+
+if n_elements(block) eq 0 then block=0
+noTitle = n_elements(title) eq 0
+
+IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
+  IF noTitle THEN TITLE = FILENAME     
+  OPENR, unit, FILENAME, /GET_LUN, ERROR=i		;open the file and then
+  if i lt 0 then begin		;OK?
+	a = [ !err_string, ' Can not display ' + filename]  ;No
+  endif else begin
+
+    y=10000
+    if OS_SYSTEM.os_family eq 'unix' then begin
+	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+
+	lines=long(y(0))
+	if lines eq 0 then begin
+	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
+	return
+	end
+    end
+
+	  a = strarr(y(0))				;Maximum # of lines
+	  i = 0L
+	  c = ''
+	  while not eof(unit) do begin
+		readf,unit,c
+		a(i) = c
+		i = i + 1
+		if i ge y(0) then goto,stopread
+		endwhile
+	  stopread:
+	  a = a(0:(i-1)>0)  ;Added empty file check -KDB
+	  FREE_LUN, unit				;free the file unit.
+  endelse
+ENDIF ELSE BEGIN
+    IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = 'XDisplayFile'
+    a = TEXT
+ENDELSE
+
+ourGroup = 0L
+if n_elements(group) eq 0 then ourGroup = widget_base() else ourGroup=group
+
+if keyword_set(MODAL) then $
+filebase = WIDGET_BASE(TITLE = TITLE, /MODAL, $		;create the base
+		GROUP=ourGROUP,/COLUMN ) else $
+filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
+		GROUP=ourGROUP,/COLUMN ) 
+
+label=WIDGET_LABEL(filebase,value=TITLE)
+rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
+fileprint = WIDGET_BUTTON(rowbtn, $			;create a Print Button
+		VALUE = "Print", $
+		UVALUE = "FILE_PRINT")
+
+filequit = WIDGET_BUTTON(rowbtn, $			;create a Done Button
+		VALUE = "Done", $
+		UVALUE = "EXIT")
+
+IF n_elements(font) gt 0 then $
+ filetext = WIDGET_TEXT(filebase, $			;create a text widget
+		XSIZE = WIDTH, $			;to display the file's
+		YSIZE = HEIGHT, $			;contents
+		/SCROLL, FONT = font, $
+		VALUE = a) $
+ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
+		XSIZE = WIDTH, $			;to display the file's
+		YSIZE = HEIGHT, $			;contents
+		/SCROLL, $
+		VALUE = a)
+
+;state = { $
+;	 base: filebase, $
+;	 filetext: filetext, $
+;	 file: '' $
+;	 }
+ 
+ state = { ourGroup: ourGroup, $
+	filename: title, $
+	filetext: filetext, $
+	notitle: noTitle}
+
+WIDGET_CONTROL,filebase,SET_UVALUE=state
+
+WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
+
+Xmanager, "XDisplayFile", $				;register it with the
+		filebase, $				;widget manager
+		GROUP_LEADER = GROUP, $
+		EVENT_HANDLER = "XDispFile_evt",NO_BLOCK=(NOT(FLOAT(block))) 
+
+END  ;--------------------- procedure XDisplayFile ----------------------------
+
+;*************************************************************************
+; Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+; National Laboratory.
+; Copyright (c) 2002 The Regents of the University of California, as
+; Operator of Los Alamos National Laboratory.
+; This file is distributed subject to a Software License Agreement found
+; in the file LICENSE that is included with this distribution. 
+;*************************************************************************
+
+
+PRO RENAME_DIALOG_Event, Event
+COMMON RENAME_BLOCK,rename_ids
+
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+  'RENAME_PATH': BEGIN
+	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
+	len = strlen(pathdir(0))
+	found = findfile(pathdir(0),count=ct)
+	if ct eq 0 then spawn, !os.mkdir +' '+ pathdir(0)
+	END
+  'RENAME_DIALOGACCEPT': BEGIN
+	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
+	WIDGET_CONTROL,rename_ids.old_id,GET_VALUE=file1
+	WIDGET_CONTROL,rename_ids.new_id,GET_VALUE=file2
+	if strtrim(file2(0),2) eq '' then return
+	len = strlen(pathdir(0))
+	if strmid(pathdir(0),len-1,1) ne !os.file_sep then $
+		pathdir = pathdir(0)+!os.file_sep
+	found = findfile(pathdir(0),count=ct)
+	if ct eq 0 then spawn,!os.mkdir+ ' '+pathdir(0)
+	oldname = strtrim(file1(0),2)
+	found = findfile(oldname)
+	if found(0) eq '' then begin
+		st =[ 'Filename: ','',oldname,'', 'not found!']
+		res = dialog_message(st,/info)
+		return
+	end
+	newname = pathdir(0)+strtrim(file2(0),2)
+
+found = findfile(pathdir(0)+'*',count=ct)
+if ct eq 0 then begin
+	r = strpos(pathdir(0),!os.file_sep,2,/reverse_search,/reverse_offset)
+        sdir = strmid(pathdir(0),r+1,strlen(pathdir(0))-r-2)
+	r = dialog_message(['Directory: '+pathdir(0),' does not exist yet!!!', $
+		'You have to first create the sub-directory :','',sdir], $
+		/Info,title='Error in Rename')
+	newname = dialog_pickfile(path=pathdir(0),get_path=p,file=file2(0),$
+		title='Please create the '+sdir+' sub-directory')
+end
+	found = findfile(newname)
+	if found(0) ne '' then begin
+		st =[ 'Filename: ','', newname,'','already exists!', $
+		    '','Do you want to over-write the old content?']
+		res = dialog_message(st,/question)
+		if res eq 'No' then return	
+	end
+	spawn,[!os.mv, oldname, newname],/noshell
+
+	WIDGET_CONTROL,Event.Top,/DESTROY
+      END
+  'RENAME_DIALOGCANCEL': BEGIN
+	WIDGET_CONTROL,Event.Top,/DESTROY
+      END
+  ENDCASE
+END
+
+
+; DO NOT REMOVE THIS COMMENT: END RENAME_DIALOG
+; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
+
+
+
+PRO rename_dialog, pathdir,oldname,newname, GROUP=Group
+COMMON RENAME_BLOCK,rename_ids
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+
+  RENAME_DIALOG = WIDGET_BASE(GROUP_LEADER=Group, $
+      ROW=1, $
+      MAP=1, $
+	TITLE='Rename File ...', $
+      UVALUE='RENAME_DIALOG')
+
+  BASE2 = WIDGET_BASE(RENAME_DIALOG, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE2')
+
+  RENAME_OLD = CW_FIELD( BASE2,VALUE=oldname, $
+      ROW=1, $
+      STRING=1, $
+  ;    RETURN_EVENTS=1, $
+      TITLE='Old Filename:', $
+      UVALUE='RENAME_OLD', $
+      XSIZE=60)
+
+  RENAME_PATH = CW_FIELD( BASE2,VALUE=pathdir, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Dest Path:', $
+      UVALUE='RENAME_PATH', $
+      XSIZE=60)
+
+  new=''
+  if n_elements(newname) then new=newname
+  RENAME_NEW = CW_FIELD( BASE2,VALUE=new, $
+      ROW=1, $
+      STRING=1, $
+  ;    RETURN_EVENTS=1, $
+      TITLE='New Filename:', $
+      UVALUE='RENAME_NEW', $
+      XSIZE=60)
+
+  BASE5 = WIDGET_BASE(BASE2, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE5')
+
+  BUTTON6 = WIDGET_BUTTON( BASE5, $
+      UVALUE='RENAME_DIALOGACCEPT', $
+      VALUE='Accept')
+
+  BUTTON7 = WIDGET_BUTTON( BASE5, $
+      UVALUE='RENAME_DIALOGCANCEL', $
+      VALUE='Cancel')
+
+  rename_ids = { $
+	path: pathdir, $
+	oldname: oldname, $
+	newname: oldname, $
+	path_id: RENAME_PATH, $
+	old_id: RENAME_OLD, $
+	new_id: RENAME_NEW $
+	}
+
+  WIDGET_CONTROL, RENAME_DIALOG, /REALIZE
+
+  XMANAGER, 'RENAME_DIALOG', RENAME_DIALOG
+END
+;*************************************************************************
+; Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+; National Laboratory.
+; Copyright (c) 2002 The Regents of the University of California, as
+; Operator of Los Alamos National Laboratory.
+; This file is distributed subject to a Software License Agreement found
+; in the file LICENSE that is included with this distribution. 
+;*************************************************************************
+
+@u_read.pro
+
+PRO catch1d_newIndexFile,file,array,XDR=XDR,print=print,TV=TV,header=header,nowrite=nowrite
+;
+; this will fix the index file if there is problem with index data 
+;
+; Get 1D data index
+;
+;      catch1d_newindexfile,file1,array,/xdr,/print
+;
+; Get 2D image file data index, the keyword TV must be set
+;
+; x1 = '2idd:scan1'
+; y = make_array(60,/byte)
+; y(0,0) = byte(x1)
+;
+;   catch1d_newindexfile,file,array,/xdr,/print,/tv,header=y
+;
+
+	filename = '/home/sricat/CHA/user/s2bmb/align2.xdr.bk'
+	if n_elements(file) eq 0 then begin
+		print,'Usage: catch1d_newIndexFile,File [,/XDR] [,/PRINT] [,HEADER=header]'
+		return
+	end
+	filename = file
+
+	buff1 = byte( 'CATCHER_V1')
+	if keyword_set(header) then buff1 = byte(header)
+
+	openr,unit,filename,/get_lun
+	st = fstat(unit)
+	buff = make_array(st.size,/byte)
+	readu,unit,buff
+	close,unit
+	no=0
+	array=0L
+	xdr_offset = 28L
+	sz = size(buff1)
+	shift = sz(n_elements(sz)-1)  
+	if keyword_set(TV) then begin
+		xdr_offset = 24L
+		end
+	if keyword_set(print) then begin
+		print,buff(0:50)
+		print,st.size,shift,xdr_offset
+	end
+
+	for i=xdr_offset,st.size-shift do begin
+		buff2 = buff(i:i+shift-1)
+		diff = total(buff1-buff2) 
+		if diff eq 0. then begin
+		no = no + 1
+		if keyword_set(XDR) then begin
+			if keyword_set(print) then print,no,i-xdr_offset,buff(i:i+shift)
+			if (i-xdr_offset) gt 0 then array = [array,i-xdr_offset]
+			i = i + xdr_offset + shift+1
+			endif else begin
+			if keyword_set(print) then print,no,i-20,buff(i:i+shift)
+			if (i-20) gt 0 then array = [array,i-20]
+			i = i + 20 + shift+1
+			end
+		end
+	end
+	array = [array,st.size]
+
+	if keyword_set(print) then begin
+		print,st.name
+		print,st.size
+		print,no
+		print,array
+	end
+	if keyword_set(nowrite) or keyword_set(TV) then return
+
+	if !d.name eq 'WIN' then openw,unit,filename+'.index',/get_lun,/XDR else $
+	openw,unit,filename+'.index',/get_lun
+	u_write,unit,st.name
+	u_write,unit,st.size
+	u_write,unit,no
+	u_write,unit,array
+	close,unit
+	u_close,unit
+	print,'***New Index File generated***'
+        print,filename+'.index'
+
+END
+
+
+PRO readfixindex,indexfile,fsize,maxno,array
+; The fixed index file on WIN system will be save in XDR format
+; this routine especially written for readin the fixed index file for WIN system
+;
+	if !d.name ne 'WIN' then return
+
+	found = findfile(indexfile,count=ct)
+	if ct eq 0 then return
+
+	t = lonarr(5)
+	openr,unit1,indexfile,/get_lun,/XDR 
+	point_lun,unit1,0
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 7 then fname=''
+	readu,unit1,fname
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 3 then fsize=0L 
+	readu,unit1,fsize
+	readu,unit1,t
+	if t(0) eq 0 and t(1) eq 2 then maxno=0 
+	readu,unit1,maxno
+	readu,unit1,t
+	if t(2) eq 3 then array = make_array(t(1),/long)
+	readu,unit1,array
+	free_lun,unit1
+	close,unit1
+
+END
+; $Id: catcher_v1.pro,v 1.53 2003/05/05 20:48:49 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -839,435 +1304,6 @@ DEVICE,GET_SCREEN_SIZE=ssize
 	TLB_SET_XOFFSET= ssize(0)-200, TLB_SET_YOFFSET= 100
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
-END
-; $Id: catcher_v1.pro,v 1.52 2002/08/02 15:38:55 jba Exp $
-
-; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
-;	Unauthorized reproduction prohibited.
-PRO XDispFile_evt, event
-
-
-WIDGET_CONTROL, event.top, GET_UVALUE = state
-WIDGET_CONTROL, event.id, GET_UVALUE=Ev
-
-CASE Ev OF 
-'EXIT': WIDGET_CONTROL, event.top, /DESTROY
-'FILE_PRINT': begin
-	r = findfile(state.file,count=ct)
-	if r(0) ne '' then begin
-		PS_enscript,state.file
-	endif else begin
-	WIDGET_CONTROL,state.text_area,GET_VALUE=str
-	openw,unit,'tmp',/GET_LUN
-	for i=0,n_elements(str)-1 do printf,unit,str(i)
-	FREE_LUN,unit
-	PS_enscript,'tmp'
-	end
-   end
-ENDCASE
-END
-
-
-PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
-		HEIGHT = HEIGHT, TEXT = TEXT, FONT = font
-;+
-; NAME: 
-;	XDISPLAYFILE
-;
-; PURPOSE:
-;	Display an ASCII text file using widgets and the widget manager.
-;
-; CATEGORY:
-;	Widgets.
-;
-; CALLING SEQUENCE:
-;	XDISPLAYFILE, Filename
-;
-; INPUTS:
-;     Filename:	A scalar string that contains the filename of the file
-;		to display.  The filename can include a path to that file.
-;
-; KEYWORD PARAMETERS:
-;	FONT:   The name of the font to use.  If omitted use the default
-;		font.
-;	GROUP:	The widget ID of the group leader of the widget.  If this 
-;		keyword is specified, the death of the group leader results in
-;		the death of XDISPLAYFILE.
-;
-;	HEIGHT:	The number of text lines that the widget should display at one
-;		time.  If this keyword is not specified, 24 lines is the 
-;		default.
-;
-;	TEXT:	A string or string array to be displayed in the widget
-;		instead of the contents of a file.  This keyword supercedes
-;		the FILENAME input parameter.
-;
-;	TITLE:	A string to use as the widget title rather than the file name 
-;		or "XDisplayFile".
-;
-;	WIDTH:	The number of characters wide the widget should be.  If this
-;		keyword is not specified, 80 characters is the default.
-;
-; OUTPUTS:
-;	No explicit outputs.  A file viewing widget is created.
-;
-; SIDE EFFECTS:
-;	Triggers the XMANAGER if it is not already in use.
-;
-; RESTRICTIONS:
-;	None.
-;
-; PROCEDURE:
-;	Open a file and create a widget to display its contents.
-;
-; MODIFICATION HISTORY:
-;	Written By Steve Richards, December 1990
-;	Graceful error recovery, DMS, Feb, 1992.
-;       12 Jan. 1994  - KDB
-;               If file was empty, program would crash. Fixed.
-;       4 Oct. 1994     MLR Fixed bug if /TEXT was present and /TITLE was not.
-;      14 Jul. 1995     BKC Increased the max line to variable size.
-;      16 Jun. 1997     BKC Max dispalyable line is 10000 for non-unix OS system.
-;      28 Aug. 1997     BKC Add the printer button, file name label, it uses the
-;                       PS_print,file to print.
-;-
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-                                                        ;use the defaults if
-IF(NOT(KEYWORD_SET(HEIGHT))) THEN HEIGHT = 24		;the keywords were not
-IF(NOT(KEYWORD_SET(WIDTH))) THEN WIDTH = 80		;passed in
-
-IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
-  IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = FILENAME     
-  OPENR, unit, FILENAME, /GET_LUN, ERROR=i		;open the file and then
-  if i lt 0 then begin		;OK?
-	a = [ !err_string, ' Can not display ' + filename]  ;No
-  endif else begin
-
-    y=10000
-    if OS_SYSTEM.os_family eq 'unix' then begin
-	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
-
-	lines=long(y(0))
-	if lines eq 0 then begin
-	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
-	return
-	end
-    end
-
-	  a = strarr(y(0))				;Maximum # of lines
-	  i = 0L
-	  c = ''
-	  while not eof(unit) do begin
-		readf,unit,c
-		a(i) = c
-		i = i + 1
-		if i ge y(0) then goto,stopread
-		endwhile
-	  stopread:
-	  a = a(0:(i-1)>0)  ;Added empty file check -KDB
-	  FREE_LUN, unit				;free the file unit.
-  endelse
-ENDIF ELSE BEGIN
-    IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = 'XDisplayFile'
-    a = TEXT
-ENDELSE
-
-filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
-		/COLUMN ) 
-
-label=WIDGET_LABEL(filebase,value=TITLE)
-rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
-fileprint = WIDGET_BUTTON(rowbtn, $			;create a Print Button
-		VALUE = "Print", $
-		UVALUE = "FILE_PRINT")
-
-filequit = WIDGET_BUTTON(rowbtn, $			;create a Done Button
-		VALUE = "Done", $
-		UVALUE = "EXIT")
-
-IF n_elements(font) gt 0 then $
- filetext = WIDGET_TEXT(filebase, $			;create a text widget
-		XSIZE = WIDTH, $			;to display the file's
-		YSIZE = HEIGHT, $			;contents
-		/SCROLL, FONT = font, $
-		VALUE = a) $
-ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
-		XSIZE = WIDTH, $			;to display the file's
-		YSIZE = HEIGHT, $			;contents
-		/SCROLL, $
-		VALUE = a)
-
-state = { $
-	 base: filebase, $
-	 text_area: filetext, $
-	 file: '' $
-	 }
-if n_elements(filename) then state.file = filename
-
-WIDGET_CONTROL,filebase,SET_UVALUE=state
-
-WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
-
-Xmanager, "XDisplayFile", $				;register it with the
-		filebase, $				;widget manager
-		GROUP_LEADER = GROUP, $
-		EVENT_HANDLER = "XDispFile_evt" 
-
-END  ;--------------------- procedure XDisplayFile ----------------------------
-
-
-
-PRO RENAME_DIALOG_Event, Event
-COMMON RENAME_BLOCK,rename_ids
-
-
-  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
-
-  CASE Ev OF 
-  'RENAME_PATH': BEGIN
-	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
-	len = strlen(pathdir(0))
-	found = findfile(pathdir(0),count=ct)
-	if ct eq 0 then spawn, !os.mkdir +' '+ pathdir(0)
-	END
-  'RENAME_DIALOGACCEPT': BEGIN
-	WIDGET_CONTROL,rename_ids.path_id,GET_VALUE=pathdir
-	WIDGET_CONTROL,rename_ids.old_id,GET_VALUE=file1
-	WIDGET_CONTROL,rename_ids.new_id,GET_VALUE=file2
-	if strtrim(file2(0),2) eq '' then return
-	len = strlen(pathdir(0))
-	if strmid(pathdir(0),len-1,1) ne !os.file_sep then $
-		pathdir = pathdir(0)+!os.file_sep
-	found = findfile(pathdir(0),count=ct)
-	if ct eq 0 then spawn,!os.mkdir+ ' '+pathdir(0)
-	oldname = strtrim(file1(0),2)
-	found = findfile(oldname)
-	if found(0) eq '' then begin
-		st =[ 'Filename: ','',oldname,'', 'not found!']
-		res = dialog_message(st,/info)
-		return
-	end
-	newname = pathdir(0)+strtrim(file2(0),2)
-
-found = findfile(pathdir(0)+'*',count=ct)
-if ct eq 0 then begin
-	r = strpos(pathdir(0),!os.file_sep,2,/reverse_search,/reverse_offset)
-        sdir = strmid(pathdir(0),r+1,strlen(pathdir(0))-r-2)
-	r = dialog_message(['Directory: '+pathdir(0),' does not exist yet!!!', $
-		'You have to first create the sub-directory :','',sdir], $
-		/Info,title='Error in Rename')
-	newname = dialog_pickfile(path=pathdir(0),get_path=p,file=file2(0),$
-		title='Please create the '+sdir+' sub-directory')
-end
-	found = findfile(newname)
-	if found(0) ne '' then begin
-		st =[ 'Filename: ','', newname,'','already exists!', $
-		    '','Do you want to over-write the old content?']
-		res = dialog_message(st,/question)
-		if res eq 'No' then return	
-	end
-	spawn,[!os.mv, oldname, newname],/noshell
-
-	WIDGET_CONTROL,Event.Top,/DESTROY
-      END
-  'RENAME_DIALOGCANCEL': BEGIN
-	WIDGET_CONTROL,Event.Top,/DESTROY
-      END
-  ENDCASE
-END
-
-
-; DO NOT REMOVE THIS COMMENT: END RENAME_DIALOG
-; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
-
-
-
-PRO rename_dialog, pathdir,oldname,newname, GROUP=Group
-COMMON RENAME_BLOCK,rename_ids
-
-  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
-
-  junk   = { CW_PDMENU_S, flags:0, name:'' }
-
-
-  RENAME_DIALOG = WIDGET_BASE(GROUP_LEADER=Group, $
-      ROW=1, $
-      MAP=1, $
-	TITLE='Rename File ...', $
-      UVALUE='RENAME_DIALOG')
-
-  BASE2 = WIDGET_BASE(RENAME_DIALOG, $
-      COLUMN=1, $
-      MAP=1, $
-      UVALUE='BASE2')
-
-  RENAME_OLD = CW_FIELD( BASE2,VALUE=oldname, $
-      ROW=1, $
-      STRING=1, $
-  ;    RETURN_EVENTS=1, $
-      TITLE='Old Filename:', $
-      UVALUE='RENAME_OLD', $
-      XSIZE=60)
-
-  RENAME_PATH = CW_FIELD( BASE2,VALUE=pathdir, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Dest Path:', $
-      UVALUE='RENAME_PATH', $
-      XSIZE=60)
-
-  new=''
-  if n_elements(newname) then new=newname
-  RENAME_NEW = CW_FIELD( BASE2,VALUE=new, $
-      ROW=1, $
-      STRING=1, $
-  ;    RETURN_EVENTS=1, $
-      TITLE='New Filename:', $
-      UVALUE='RENAME_NEW', $
-      XSIZE=60)
-
-  BASE5 = WIDGET_BASE(BASE2, $
-      ROW=1, $
-      MAP=1, $
-      UVALUE='BASE5')
-
-  BUTTON6 = WIDGET_BUTTON( BASE5, $
-      UVALUE='RENAME_DIALOGACCEPT', $
-      VALUE='Accept')
-
-  BUTTON7 = WIDGET_BUTTON( BASE5, $
-      UVALUE='RENAME_DIALOGCANCEL', $
-      VALUE='Cancel')
-
-  rename_ids = { $
-	path: pathdir, $
-	oldname: oldname, $
-	newname: oldname, $
-	path_id: RENAME_PATH, $
-	old_id: RENAME_OLD, $
-	new_id: RENAME_NEW $
-	}
-
-  WIDGET_CONTROL, RENAME_DIALOG, /REALIZE
-
-  XMANAGER, 'RENAME_DIALOG', RENAME_DIALOG
-END
-
-@u_read.pro
-
-PRO catch1d_newIndexFile,file,array,XDR=XDR,print=print,TV=TV,header=header,nowrite=nowrite
-;
-; this will fix the index file if there is problem with index data 
-;
-; Get 1D data index
-;
-;      catch1d_newindexfile,file1,array,/xdr,/print
-;
-; Get 2D image file data index, the keyword TV must be set
-;
-; x1 = '2idd:scan1'
-; y = make_array(60,/byte)
-; y(0,0) = byte(x1)
-;
-;   catch1d_newindexfile,file,array,/xdr,/print,/tv,header=y
-;
-
-	filename = '/home/sricat/CHA/user/s2bmb/align2.xdr.bk'
-	if n_elements(file) eq 0 then begin
-		print,'Usage: catch1d_newIndexFile,File [,/XDR] [,/PRINT] [,HEADER=header]'
-		return
-	end
-	filename = file
-
-	buff1 = byte( 'CATCHER_V1')
-	if keyword_set(header) then buff1 = byte(header)
-
-	openr,unit,filename,/get_lun
-	st = fstat(unit)
-	buff = make_array(st.size,/byte)
-	readu,unit,buff
-	close,unit
-	no=0
-	array=0L
-	xdr_offset = 28L
-	sz = size(buff1)
-	shift = sz(n_elements(sz)-1)  
-	if keyword_set(TV) then begin
-		xdr_offset = 24L
-		end
-	if keyword_set(print) then begin
-		print,buff(0:50)
-		print,st.size,shift,xdr_offset
-	end
-
-	for i=xdr_offset,st.size-shift do begin
-		buff2 = buff(i:i+shift-1)
-		diff = total(buff1-buff2) 
-		if diff eq 0. then begin
-		no = no + 1
-		if keyword_set(XDR) then begin
-			if keyword_set(print) then print,no,i-xdr_offset,buff(i:i+shift)
-			if (i-xdr_offset) gt 0 then array = [array,i-xdr_offset]
-			i = i + xdr_offset + shift+1
-			endif else begin
-			if keyword_set(print) then print,no,i-20,buff(i:i+shift)
-			if (i-20) gt 0 then array = [array,i-20]
-			i = i + 20 + shift+1
-			end
-		end
-	end
-	array = [array,st.size]
-
-	if keyword_set(print) then begin
-		print,st.name
-		print,st.size
-		print,no
-		print,array
-	end
-	if keyword_set(nowrite) or keyword_set(TV) then return
-
-	if !d.name eq 'WIN' then openw,unit,filename+'.index',/get_lun,/XDR else $
-	openw,unit,filename+'.index',/get_lun
-	u_write,unit,st.name
-	u_write,unit,st.size
-	u_write,unit,no
-	u_write,unit,array
-	close,unit
-	u_close,unit
-	print,'***New Index File generated***'
-        print,filename+'.index'
-
-END
-
-
-PRO readfixindex,indexfile,fsize,maxno,array
-; The fixed index file on WIN system will be save in XDR format
-; this routine especially written for readin the fixed index file for WIN system
-;
-	if !d.name ne 'WIN' then return
-
-	found = findfile(indexfile,count=ct)
-	if ct eq 0 then return
-
-	t = lonarr(5)
-	openr,unit1,indexfile,/get_lun,/XDR 
-	point_lun,unit1,0
-	readu,unit1,t
-	if t(0) eq 0 and t(1) eq 7 then fname=''
-	readu,unit1,fname
-	readu,unit1,t
-	if t(0) eq 0 and t(1) eq 3 then fsize=0L 
-	readu,unit1,fsize
-	readu,unit1,t
-	if t(0) eq 0 and t(1) eq 2 then maxno=0 
-	readu,unit1,maxno
-	readu,unit1,t
-	if t(2) eq 3 then array = make_array(t(1),/long)
-	readu,unit1,array
-	free_lun,unit1
-	close,unit1
-
 END
 
 PRO catch1d_get_pvtcolor,i,color
@@ -9584,6 +9620,13 @@ end ;     end of if scanData.option = 1
   'BINARY_TYPE': BEGIN
 	scanData.XDR = Event.Index
 	END
+  'PICK_PS': BEGIN
+	ratio = .5 ^ Event.Index
+    	PS_open,'catch1d.ps',scale_factor=ratio
+    	UPDATE_PLOT, scanData.lastPlot
+    	PS_close
+	PS_print,'catch1d.ps'
+	END
 
   'PICK_XAXIS': BEGIN
 	w_plotspec_id.x_axis_u = 0
@@ -10317,6 +10360,7 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;       03-19-02 bkc   - Save 2D image at the end of each 1D scan
 ;                        Add a variation error function FUNCT_ERF1 to
 ;                        ez_fit
+;       03-17-03 bkc   - Add option of selecting 'PS ratio' droplist
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10558,6 +10602,16 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       MAP=1, $
       TITLE='Image', $
       UVALUE='BASE144_1')
+
+  BASE144_2 = WIDGET_BASE(BASE144, $
+      COLUMN=1, $
+      FRAME=2, $
+      MAP=1, $
+      TITLE='PS', $
+      UVALUE='BASE144_2')
+  pick_PS = WIDGET_DROPLIST(BASE144_2, VALUE=['1','1/2','1/4'], $
+        UVALUE='PICK_PS',TITLE='PS ratio')
+  WIDGET_CONTROL,pick_PS,set_droplist_select = 1
 
 ;  Btns913 = ['#','P1','P2','P3','P4', $
 ;	     'D1','D2','D3','D4','D5','D6','D7','D8', $
