@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.38 2004/12/10 23:35:57 cha Exp $
+; $Id: DC.pro,v 1.39 2005/01/11 18:40:53 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -4185,25 +4185,30 @@ endif else begin    ; viewing mode
 	engus = [x_engus,y_engus]
 end
 
+temp_format = '('+scanData.code+scanData.format+')'
+temp_digit = fix(scanData.format)
+
+twd = temp_digit*(total(realtime_id.def) + 1)
+s0 = string(replicate(32b,twd))
 
 	no = n_elements(names)
-	st = ';    I   '
+	st = s0
+	strput,st,';    I   ',0
+	ij=17
         for i=0,no-1 do begin
         if realtime_id.def(i) ne 0 then begin
-                st = st+ ' '+names(i)
+		strput,st,names(i),ij
+		ij=ij+temp_digit
                 end
         end
 	printf,unit,st
 
-;s0 = string(replicate(32b,340))
-twd = strlen(st) > 18*total(realtime_id.def) + 10
-s0 = string(replicate(32b,twd))
-st = s0
+st=s0
 strput,st,';  (Desc)',0  &  ij = 17 
         for i=0,no-1 do begin
         if realtime_id.def(i) ne 0 then begin
                 strput,st,descs(i),ij
-                ij = ij + 18
+                ij = ij + temp_digit
                 end
         end
 printf,unit,st
@@ -4213,15 +4218,12 @@ strput,st,'; (Units)',0  &  ij = 17
         for i=0,no-1 do begin
         if realtime_id.def(i) ne 0 then begin
                 strput,st,engus(i),ij
-                ij = ij + 18
+                ij = ij + temp_digit
                 end
         end
 printf,unit,st
 
 num_npts = scanData.readin_npts
-
-temp_format = '('+scanData.code+scanData.format+')'
-temp_digit = fix(scanData.format)
 
 for i=0,num_npts-1 do begin
 st = s0
@@ -4656,6 +4658,7 @@ PRO scanimage_print,gD,test=test
 	print,'id_def  : ',*gData.id_def
 	print,'pvname  : ',*gData.pv
 	print,'labels  : ',*gData.labels
+	print,'ts      : ',*gData.ts
 	if *gData.dim eq 3 then begin
 	help,*gData.pa3D
 	help,*gData.da3D
@@ -4689,6 +4692,7 @@ PRO scanimage_free,gD
 	if ptr_valid(gData.id_def) then	ptr_free,gData.id_def
 	if ptr_valid(gData.pv) then	ptr_free,gData.pv
 	if ptr_valid(gData.labels) then	ptr_free,gData.labels
+	if ptr_valid(gData.ts) then	ptr_free,gData.ts
 	if ptr_valid(gData.pa1D) then	ptr_free,gData.pa1D
 	if ptr_valid(gData.da1D) then	ptr_free,gData.da1D
 	if ptr_valid(gData.pa2D) then	ptr_free,gData.pa2D
@@ -4703,7 +4707,7 @@ PRO scanimage_cleanup
 	heap_gc
 END
 
-PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet,timestamp=timestamp
+PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet 
 
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
@@ -4713,6 +4717,7 @@ gData = { $
 	id_def	: ptr_new(/allocate_heap), $  ;intarr(19,2), $
 	pv	: ptr_new(/allocate_heap), $  ;['',''], $
 	labels	: ptr_new(/allocate_heap), $  ;strarr(57,2), $
+	ts	: ptr_new(/allocate_heap), $  ; time stamp array
 	pa1D	: ptr_new(/allocate_heap), $
 	da1D	: ptr_new(/allocate_heap), $
 	pa2D	: ptr_new(/allocate_heap), $
@@ -4728,7 +4733,6 @@ gData = { $
 	scanno = read_scan(filename,Scan,pickDet=pickDet,header=header,lastDet=lastDet)
 	if scanno lt 0 then return
 
-	timestamp=Scan.ts1
 	*gData.scanno = scanno
 
 	rix2DC, Scan, gData
@@ -4788,8 +4792,6 @@ if id lt 0 then begin
 ; print,'time used=',t4-t3
 	if scanno lt 0 then return
 
-	w_plotspec_array(4) = Scan.ts1
-
 ; loose the error check
 ; if read error with partially data try to plot it anyway
 	if n_elements(Scan.scanno) lt 1 then begin   ; a new file is picked
@@ -4827,15 +4829,14 @@ print,scanData.trashcan
 	goto, populate
 	endif else begin
 
-	scanimage_alloc,scanData.trashcan, gD, scanno,pickDet=pickDet,timestamp=timestamp   ;, lastDet=DetMax
+	scanimage_alloc,scanData.trashcan, gD, scanno,pickDet=pickDet  ;, lastDet=DetMax
 
-	if n_elements(timestamp) then $
-	w_plotspec_array(4) = timestamp
 
 ;print,'ALLOC gD'
 	if scanno lt 0 then return
 	end
 end ; id >= 0
+
 	scanno = *(*gD).scanno
 	dim = *(*gD).dim
 
@@ -4863,6 +4864,13 @@ end ; id >= 0
 	da1D = *(*gD).da1D
 
 populate:
+
+	ts = *(*gD).ts
+	if id ge 0 then begin
+	tp = ts(id-2)
+	endif else tp = ts(n_elements(ts)-1)
+	if strtrim(tp,2) ne '' then w_plotspec_array(4)=tp
+
 	if dim eq 4 then begin
 	pa4d = *(*gd).pa4d
 	da4d = *(*gd).da4d
@@ -9029,6 +9037,8 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;			Add zoom->pan option
 ;			Fix realtime line color scheme for 24 bit devices
 ;			Plot1d remember previous user setting
+;			Add timestamp array pointer
+;			Add report munu to sscan program
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
