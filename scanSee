@@ -15,7 +15,7 @@ source $PVT_LOC/ezcaidl_setup
 	set exe = "-rt=sscan.sav"
 	endif
 
-# source /usr/local/rsi/idl_6.0/bin/idl_setup
+source /usr/local/rsi/idl_6.0/bin/idl_setup
 echo $exe
 if ( "$1" == "" ) then
 	idl -32 $exe
