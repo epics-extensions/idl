@@ -22,9 +22,12 @@ SCRIPTS = ezcaidl_setup setup_ezcaIDL ezcaidl_startup.pro \
 	view2d.pro view2d.init cursor62_caput.pro makeIDLRef.pro \
 	dc2hdf dc2hdf.pro \
 	hdfb hdfb.pro \
-	scanSee DC.init DC.pro vw2d vw2d.init vw2d.pro view3d_slicer.pro \
-	view3d_2d.pro panimage.pro read_scan.pro \
-	readScan.pro dc2ins_2d dc2ins_1d
+	DC.init DC.pro vw2d.init vw2d.pro view3d_slicer.pro \
+	readScan.pro read_scan.pro \
+	multiroi_pick.pro SB scanSee__define.pro.R2 \
+	scanSee2 DC.init.R2.0 DC.pro.R2.0 vw2d.init.R2.0 vw2d.pro.R2.0 \
+	readScan.pro.R2 read_scan.pro.R2 \
+ 	view3d_2d.pro panimage.pro dc2ins_2d dc2ins_1d
 
 include $(TOP)/config/RULES.Host
 
