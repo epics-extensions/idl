@@ -101,6 +101,16 @@ mk_html_help,'plot1d.pro','html/plot1dRef.html', $
 
 END
 
+PRO plot2dRef
+descript=[ '<H1>plot2d.pro</H1> ', $
+'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This is a general purpose of 2D plot package.' $
+]
+mk_html_help,'plot2d.pro','html/plot2dRef.html', $
+	descript=descript
+
+END
+
 PRO u_readRef
 descript=[ '<H1>u_read.pro</H1> ', $
 'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
@@ -120,11 +130,34 @@ mk_html_help,'PS_open.pro','html/PS_openRef.html', $
 
 END
 
+PRO scan2dOverlayRef
+descript=[ '<H1>scan2d_overlay.pro</H1> ', $
+'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This is a flexible 2D image displaying widget program.',$
+'This program dynamically constructs the 2D composite image from the selected images for a given 2D scan and pops up new composite image window. ', $
+'<P>This program is a sub-program of <I>scan2d__define.pro</I> and is dynamically loaded into <I>scan2d__define</I> at the run-time.' $
+]
+mk_html_help,'scan2d_overlay.pro','html/scan2d_OverlayRef.html', $
+	descript=descript
+
+END
+
+PRO cw_termRef
+descript=[ '<H1>cw_term.pro</H1> ', $
+'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This is a utility program for generating window display terminal. It also provides a button of printing the window contents.' $
+]
+mk_html_help,'cw_term.pro','html/cw_termRef.html', $
+	descript=descript
+
+END
+
 PRO toImageRef
 ;
 descript=[ '<H1>toImage.pro</H1> ', $
 'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
-'This is a utility program for extracting 1D scans and created 2D images.' $
+'This is a utility program for extracting 1D scans and created 2D images.', $
+'This program normally is invoked by <B>toimage</B> script.' $ 
 ]
 mk_html_help,'toImage.pro','html/toImageRef.html', $
 	descript=descript
@@ -158,13 +191,13 @@ descript=[ '<H1>scan1d__define.pro</H1> ', $
 'This program is written in IDL 5.0 object programming language .', $
 'It allows the IDL user easily to access 1D scan data captured by the data catcher', $
 'without bringing up data catcher or viewer.', $
-'<P>For proper operation of the <B>scan1d</B> obect, a user first has to make',$
+'<P>For proper operation of the <B>scan1d</B> object, a user first has to make',$
 'sure that the IDL 5.0 or later is used by his environment settings.', $
 '<P>In order to access <B>scan1d</B> object from other IDL program, a user has to make',$
-'sure that the following environment variable is set before invoking IDL :', $
+'sure that the following environment variables are set before invoking IDL :', $
 '<PRE>     <B>setenv EPICS_EXTENSIONS  /usr/local/epics/extensions </B></PRE>', $
-'<PRE><B>     setenv IDL_STARTUP /usr/local/epics/extensions/bin/$HOST_ARCH/viewer_startup.pro </B></PRE>', $
-'<P>and make sure including the directory <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B>',$
+'<PRE><B>     setenv IDL_STARTUP $EPICS_EXTENSIONS/bin/$HOST_ARCH/viewer_startup.pro </B></PRE>', $
+'and make sure including the directory <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B>',$
 'in his/her IDL search path.', $
 '<P>From the unix operating system to access IDL <I><B>scan1d</B></I> object class by entering :', $
 '<PRE>     <B>idl  go_scan1d</B></PRE>', $
@@ -207,6 +240,60 @@ mk_html_help,'scan2d__define.pro','html/scan2d_ObjectRef.html', $
 	descript=descript
 END
 
+PRO NX_ObjectRef
+;
+descript=[ '<H1>NX__define.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program is written in IDL 5.1 object programming language .', $
+'It provides the IDL user conveninent methods of accessing NX HDF data set.', $
+'<P>In order to access <B>NX</B> object from other IDL program, a user has to make',$
+'sure that the following environment variable is set before invoking IDL :', $
+'<PRE>     <B>setenv EPICS_EXTENSIONS  /usr/local/epics/extensions </B></PRE>', $
+'<PRE><B>     setenv IDL_STARTUP /usr/local/epics/extensions/bin/$HOST_ARCH/viewer_startup.pro </B></PRE>', $
+'<P>and make sure including the directory <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B>',$
+'in his/her IDL search path.', $
+'<P>During an IDL session to access <I><B>NX</B></I> object class by entering :', $
+'<PRE>     <B>.run NX__define</B></PRE>', $
+"</B><P>For an example to create a <I><B>'NX'</B></I> object with variable name as <B>v</B>, ", $
+"where the NX HDF data is saved in the file <B><I>'1.hdf'</I></B>:", $
+
+"<PRE><B>     v = obj_new('NX',file=<I>'1.hdf'</I>)</B></PRE>", $
+
+"<P>To view the HDF file summary:", $
+'<PRE><B>     v->print </B></PRE>' $
+]
+mk_html_help,'NX__define.pro','html/NX_ObjectRef.html', $
+	descript=descript
+END
+
+
+PRO readScanRef
+;
+descript=[ '<H1>readScan.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program is written in IDL 5.1 programming language .', $
+'It provides the IDL user conveninent methods of accessing scan data set ',$
+'automatically saved by the IOC savedata software.',$
+'<P>In order to access <B>scanSee</B> data from other IDL program, a user has to make',$
+'sure that the following environment variable is set before invoking IDL :', $
+'<PRE>     <B>setenv EPICS_EXTENSIONS  /usr/local/epics/extensions </B></PRE>', $
+'<PRE><B>     setenv IDL_STARTUP /usr/local/epics/extensions/bin/$HOST_ARCH/viewer_startup.pro </B></PRE>', $
+'<P>and make sure including the directory <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B>',$
+'in his/her IDL search path.', $
+'<P>During an IDL session to access <I><B>scanSee</B></I> data by entering :', $
+'<PRE>     <B>.run readScan</B></PRE>', $
+"</B><P>For an example to access the scan data with the scan data structure pointer <B>gD</B>, ", $
+"where the scan data is saved in the file <B><I>'rix:._0003.scan'</I></B>:", $
+
+"<PRE><B>     readScanFile,<I>'rix:._0003.scan'</I>,gD</B></PRE>", $
+
+"<P>To view the scan data summary:", $
+'<PRE><B>     scanImage_print,gD </B></PRE>' $
+]
+mk_html_help,'readScan.pro','html/readScan.html', $
+	descript=descript
+END
+
 
 PRO makeIDLRef
 ; This program builds the catcher.html from the source files
@@ -232,11 +319,17 @@ PRO makeIDLRef
 ; plot1dRef
 	plot1dRef
 
+; plot2dRef
+	plot2dRef
+
 ; u_readRef
 	u_readRef
 
 ; PS_openRef
 	PS_openRef
+
+; CW_TermRef
+	CW_TermRef
 
 ;  toImageRef
 
@@ -250,5 +343,11 @@ PRO makeIDLRef
 
 ; scan2d_ObjectRef
 	scan2d_ObjectRef
+
+; NX_ObjectRef
+	NX_ObjectRef
+
+; readScanRef
+	readScanRef
 
 END
