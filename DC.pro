@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.40 2005/03/21 17:46:34 cha Exp $
+; $Id: DC.pro,v 1.41 2005/03/31 17:08:22 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2237,10 +2237,15 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
         end
 	xloadct, GROUP= event.top
 	end
+      18: begin
+	add_caPendEvent,timer=0.1
+	print,'add_caPendEvent,timer=0.1'
+	end
    ELSE:
    ENDCASE
 
 END
+
 
 
 FUNCTION setupOptions,parent,UVALUE=uvalue
@@ -2267,7 +2272,8 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
           { CW_PDMENU_S,       0, '* Off' }, $ ;        2
           { CW_PDMENU_S,       2, '  On' }, $ ;        3
         { CW_PDMENU_S,       0, 'Scan ...' }, $ ;        2
-        { CW_PDMENU_S,       0, 'Color ...' } $ ;        2
+        { CW_PDMENU_S,       0, 'Color ...' }, $ ;        2
+        { CW_PDMENU_S,       0, 'CaPE Timer' } $ ;        2
   ]
 
 ;  PDMENU_setup = CW_PDMENU( BASE68, MenuSetup, /RETURN_FULL_NAME, $
@@ -3667,6 +3673,12 @@ if XRegistered('w_plotspec') ne 0 then return
 	st = scanData.pv
 	title = string(replicate(32b,60))
         title = st +' ('+ scanData.pv +')'
+;	if scanData.y_scan then begin
+;		y_seqno = scanData.y_seqno
+;		if y_seqno gt 0 and y_seqno eq scanData.y_req_npts then $
+;			y_seqno = y_seqno-1
+;		title = st + ' @ y('+strtrim(y_seqno,2) + ')'
+;	end
 
 ; get xlabel
 	xlabel = string(replicate(32b,60))
@@ -3771,7 +3783,7 @@ s0=string(replicate(32b,30))
 for i=0,4+n_elements(DI)-1 do begin
 if strlen(names(i)) gt 1 then begin
         realtime_id.def(i) = 1
-	if i lt 4 then begin
+;	if i lt 4 then begin
         id = strpos(names(i),'.',0)
 	v=s0
         if id ne -1 then strput,v,strmid(names(i),0,id),0 else $
@@ -3780,7 +3792,7 @@ if strlen(names(i)) gt 1 then begin
 	pd=''
 	ln = cagetArray(vd,pd)
         if ln eq '-1' then descs(i)='' else descs(i) = pd
-        end
+;        end
 end
 end
 
@@ -5752,7 +5764,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 ; process the record at the end of scan
 
 if scanData.reverse then begin
-         w_plotspec_id.seqno = scanData.y_seqno
+        w_plotspec_id.seqno = scanData.y_seqno
 end 
 
 str = '2D SCAN #'
@@ -7568,7 +7580,7 @@ PRO user_scan_init, GROUP=Group
 
   XMANAGER, 'user_scan_init', user_scan_init
 END
-
+;
 ;  DC.pro
 ;
 
@@ -7855,7 +7867,11 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 	ix = iy+w_plotspec_id.xcord
 	xdescs = labels(ix,dim-2)
 	if labels(ix+iy,dim-2) ne '' then xdescs = xdescs +' ('+labels(ix+iy,dim-2)+')'
-	zdescs = labels(4+iy:4+iy+n_elements(det_def)-1,dim-2)
+	zdescs = labels(4:4+n_elements(det_def)-1,dim-2)
+	for i=0,n_elements(det_def) - 1 do begin
+	if strlen(labels(4+iy+i,dim-2)) gt 1 then $ 
+	zdescs(i) = labels(4+iy+i,dim-2)
+	end
 	ydescs = labels(iy,dim-1)
 	if labels(iy+iy,dim-1) ne '' then ydescs = ydescs +' ('+labels(iy+iy,dim-1)+')'
 
@@ -8504,10 +8520,15 @@ if w_plotspec_id.realtime eq 1 then begin
 		empty
 		end
 
-	if scanDataReady or scanData.act_npts ge scanData.req_npts then begin
-	catch1dReadScanRecordAppendFile
-	end
 end
+	if scanDataReady or scanData.act_npts ge scanData.req_npts then begin
+	if  scanData.act_npts gt 1 then begin
+	catch1dReadScanRecordAppendFile
+if scanData.debug then $
+print,'A:',scanData.act_npts,scanData.req_npts,scanData.y_seqno,valchange,scanDataReady
+	goto, check2Dend
+	end
+	end
 
 
       ENDIF ELSE BEGIN
@@ -8516,13 +8537,12 @@ end
 ;
 if scanDataReady then begin
 	if w_plotspec_id.scan eq 1 then begin
-if scanData.debug then $
-print,'st1',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.maxno
 	catch1dReadScanRecordAppendFile
 if scanData.debug then $
-print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.maxno
+print,'B:',scanData.act_npts,scanData.req_npts,scanData.y_seqno,valchange,scanDataReady
 	end
 
+check2Dend:
 ;
 ; check whether 2D scan stopped by outside CA clients
 ;
@@ -8835,7 +8855,7 @@ end
 
       IF res EQ 0 THEN BEGIN
         WIDGET_CONTROL, widget_ids.pv_stat, SET_VALUE = '>> PV2 Valid <<'
-	res=caWidgetSetMonitor(new_pv_name+'.EXSC',widget_ids.base,time=.7)
+	res=caWidgetSetMonitor(new_pv_name+'.EXSC',widget_ids.base,time=1.)
 	u = caMonitor(new_pv_name+'.EXSC',/add)
 	u = caMonitor(scanData.y_pv+'.CPT',/add)
 	u = caMonitor(new_pv_name+'.NPTS',/add)
@@ -8954,7 +8974,7 @@ scanData.pvfound = res
 
       IF res EQ 0 THEN BEGIN
         WIDGET_CONTROL, widget_ids.pv_stat, SET_VALUE = '>> PV Valid <<',BAD=bad
-	res=caWidgetSetMonitor(new_pv_name+'.EXSC',widget_ids.base,time=.7)
+	res=caWidgetSetMonitor(new_pv_name+'.EXSC',widget_ids.base,time=1.)
 	u = caMonitor(new_pv_name+'.EXSC',/add)
 	u = caMonitor(new_pv_name+'.NPTS',/add)
 	pd=0
@@ -9339,6 +9359,8 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;			Add add_capendevent,time for 3.14.7
 ;			Increase the time event interval in realtime
 ;			Separate id_def for readin/ realtime case 
+;			Add save as IGOR data in image2d
+;			Add spectrum energy level to view3d_2dsum
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
