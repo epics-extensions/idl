@@ -273,7 +273,8 @@ class=class,outpath=outpath
 	if keyword_set(view) then begin
 	if view gt 1 then detector = view 
 	im = da2d(*,*,detector-1)
-	scan2Ddata,self.gD,detector,/view,xarr=xarr,yarr=yarr,im=im
+	dname = self.detname(detector-1)
+	scan2Ddata,self.gD,detector,/view,xarr=xarr,yarr=yarr,im=im,dname=dname
 	end
 	end
 
@@ -587,7 +588,7 @@ self.win = -1
 		ii = NL-i
 		xi=(i mod NC)*width+width/2 - 5 
 		yi=height/2+ii/NC*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+		xyouts, xi,yi,self.detname(i),/device
 		end
 	end
 
@@ -944,9 +945,10 @@ PRO scanSee::View2D,detno,xarr=xarr,yarr=yarr,im=im,plot=plot,group=group,_extra
 ;-
 	detector = 1
 	if keyword_set(detno) then detector=detno 
+	dname = self.detname(detector-1)
 	if keyword_set(plot) then $
-	scan2Ddata,self.gD,detector,/plot,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e else $
-	scan2Ddata,self.gD,detector,/view,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e
+	scan2Ddata,self.gD,detector,/plot,dname=dname,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e else $
+	scan2Ddata,self.gD,detector,/view,dname=dname,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e
 END
 
 PRO scanSee::ASCII2D,detno,nowin=nowin,view=view,outfile=outfile,plot=plot,format=format,group=group
@@ -984,11 +986,12 @@ PRO scanSee::ASCII2D,detno,nowin=nowin,view=view,outfile=outfile,plot=plot,forma
 ;-
 	detector = 1
 	if keyword_set(detno) then detector=detno 
+	dname = self.detname(detector-1)
 
 	if keyword_set(view) then $
-	scan2Ddata,self.gD,detector,/view,xarr=px,yarr=py,im=data 
+	scan2Ddata,self.gD,detector,/view,dname=dname,xarr=px,yarr=py,im=data 
 	if keyword_set(plot) then $
-	scan2Ddata,self.gD,detector,/plot,xarr=px,yarr=py,im=data ,group=group
+	scan2Ddata,self.gD,detector,/plot,dname=dname,xarr=px,yarr=py,im=data ,group=group
 	if keyword_set(view) or keyword_set(plot) eq 0 then $
 	scan2Ddata,self.gD,detector,xarr=px,yarr=py,im=data,group=group
 
@@ -1268,7 +1271,7 @@ title=title,group=group,all=all,_extra=e
 
 	printf,3,'; Source File: '+self.file
 	printf,3,'; ASCII  File: '+dir+report
-	printf,3,'; ',seqstr
+	printf,3,'; ',strtrim(seqstr,1)
 
 st1='; Defined PI: '
 for i=0,3 do st1 = st1 + strtrim(def(i),2) + '  '
@@ -1280,8 +1283,8 @@ end
 printf,3,st1
 
 	st1 = '; Index #   '
-	for i=0,np-1 do st1 = st1 + x_names(i) + "  "
-	for i=0,n_elements(d_list)-1 do st1 = st1 + y_names(i) + "  "
+	for i=0,np-1 do st1 = st1 + strtrim(x_names(i),2) + "  "
+	for i=0,n_elements(d_list)-1 do st1 = st1 + strtrim(y_names(i),2) + "  "
 	printf,3,st1
 
 	for k=0,pts(0)-1 do begin
@@ -1607,6 +1610,9 @@ FUNCTION scanSee::Init,file=file,help=help
         close,1
         self.outpath = dir
 
+	self.detname =  'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+        	'01','02','03','04','05','06','07','08','09', $
+        	strtrim(indgen(61)+10,2)]
 	return,1
 END
 
@@ -1624,6 +1630,7 @@ struct = {scanSee, $
 	dim     : -1, $
 	xaxis   : 0, $
 	def     : make_array(85,/int), $
+	detname : make_array(85,/string), $
 	nd      : 0, $   ; index of last detector, 0 based
 	width   : 0, $
 	height  : 0, $
