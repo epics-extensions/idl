@@ -1,548 +1,522 @@
+FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
 
-PRO readScanFile,filename,gD,scanno
+PRO rix2DC,Scan,gData
+ON_ERROR,0 ;,1
+ 
+  *gData.scanno  = *Scan.scanno
+  *gData.dim     = *Scan.dim
+  *gData.num_pts = *Scan.npts
+  *gData.cpt     = *Scan.cpt
+  *gData.id_def  = *Scan.id_def
+  *gData.pv      = *Scan.pv
+  *gData.labels  = *Scan.labels
+
+	IF *Scan.dim EQ 1 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[0]
+    *gData.da1D  = *(*Scan.da)[0]
+	  *gData.pa2D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.da2D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
+	ENDIF
+	IF *Scan.dim EQ 2 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[1]
+    *gData.da1D  = *(*Scan.da)[1]
+    *gData.pa2D  = *(*Scan.pa)[0]
+    *gData.da2D  = *(*Scan.da)[0]
+	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
+  ENDIF
+	IF *Scan.dim EQ 3 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[2]
+    *gData.da1D  = *(*Scan.da)[2]
+    *gData.pa2D  = *(*Scan.pa)[1]
+    *gData.da2D  = *(*Scan.da)[1]
+    *gData.pa3D  = *(*Scan.pa)[0]
+    *gData.da3D  = *(*Scan.da)[0]
+	ENDIF
+ 
+  ptr_free,Scan.scanno
+  ptr_free,Scan.dim
+  ptr_free,Scan.npts
+  ptr_free,Scan.cpt
+  ptr_free,Scan.id_def
+  ptr_free,Scan.pv
+  ptr_free,Scan.labels
+  ptr_free,Scan.pa
+  ptr_free,Scan.da
+
+  Scan = 0
+  heap_gc
+
+END
+	
+
+FUNCTION nbElem,dim,vectOR
+  res=1L
+  FOR i=0,dim-1 DO BEGIN
+     res= res*vectOR[i]
+  ENDFOR
+  RETURN, res
+END
+
+
+FUNCTION read_scan_rest,lun,Scan,dim,offset,DetMax,dump,pickDet=pickDet
+ON_IOERROR, BAD	
+
+  rank=0
+  npts=0
+  cpt=0
+  readu,lun,rank,npts,cpt
+  
+;  print,'REST  *** rank,npts,offset', rank,npts,offset
+  
+  IF(rank GT 1) THEN BEGIN
+    sub_scan_ptr=lonarr(npts)
+    readu,lun,sub_scan_ptr
+  ENDIF
+
+  (*Scan.cpt)[rank-1]=cpt;
+
+  ; read the pvname
+  name=''
+  time=''
+  readu,lun,name,time
+  
+  nb_pos=0
+  nb_det=0
+  nb_trg=0
+  readu,lun,nb_pos,nb_det,nb_trg
+
+  IF(nb_pos NE 0) THEN BEGIN
+    pos_num=intarr(nb_pos)
+  ENDIF
+  pos_info= { $
+    pxpv:'', $
+    pxds:'', $
+    pxsm:'', $
+    pxeu:'', $
+    rxpv:'', $
+    rxds:'', $
+    rxeu:'' }
+  IF(nb_det NE 0) THEN BEGIN
+    det_num=intarr(nb_det)
+  ENDIF
+
+  det_info= { $
+    dxpv:'', $
+    dxds:'', $
+    dxeu:'' }
+  IF(nb_trg NE 0) THEN trg_num=intarr(nb_trg)
+  trg_info= { $
+    txpv:'', $
+    txcd: 1.0 } 
+
+  num=0
+  FOR i=0,nb_pos-1 DO BEGIN
+    readu,lun, num
+    pos_num[i]=num
+    readu,lun,pos_info
+  ENDFOR
+
+  FOR i=0,nb_det-1 DO BEGIN
+    readu,lun,num
+    det_num[i]=num
+    readu,lun,det_info
+  ENDFOR
+
+  FOR i=0,nb_trg-1 DO BEGIN
+    readu,lun,num
+    trg_num[i]=num
+    readu,lun,trg_info
+  ENDFOR
+  
+  IF nb_pos GT 0 THEN BEGIN
+    tmp=dblarr(npts)
+    FOR i=0,nb_pos-1 DO BEGIN
+      readu,lun,tmp
+; change to single vector only
+      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[0:cpt-1,pos_num[i]]=tmp[0:cpt-1]
+;	if i eq 0 then $
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,pos_num[i]]=tmp[0:cpt-1]
+    ENDFOR
+  ENDIF
+
+  IF (nb_det GT 0) AND (cpt GT 0) THEN BEGIN
+    tmp=fltarr(npts)
+    point_lun,-lun,filepos
+    IF rank eq 1 and keyword_set(pickDet) THEN BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i]+1 EQ pickDet THEN BEGIN
+          point_lun,lun, (filepos+npts*4L*i)
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+          GOTO,doneDetectors
+        ENDIF
+      ENDFOR
+    ENDIF ELSE BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i] LT DetMax[rank-1] THEN BEGIN
+          point_lun,lun, (filepos+npts*4L*i)
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,det_num[i]]=tmp[0:cpt-1]
+        ENDIF
+      ENDFOR
+    ENDELSE
+  ENDIF
+doneDetectors:
+
+      
+  IF(rank GT 1) THEN BEGIN
+    FOR i=0,npts-1 DO BEGIN
+      IF sub_scan_ptr[i] EQ 0 THEN GOTO,done
+      point_lun,lun,sub_scan_ptr[i]
+      res= read_scan_rest(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet)
+      IF(res NE 1) THEN GOTO,BAD
+    ENDFOR
+done:
+  END
+
+  offset[rank-1]=offset[rank-1]+(*Scan.npts)[rank-1]
+
+  RETURN, 1
+BAD:
+  RETURN, 0
+END  
+
+
+
+FUNCTION read_scan_first,lun,Scan,dim,offset,DetMax,dump,pickDet=pickDet,header=header
+ON_IOERROR, BAD	
+
+  ndet = 85 ; 15
+  ntot = ndet + 4
+
+  rank=0
+  npts=0
+  cpt=0
+  readu,lun,rank,npts,cpt
+
+;  print,'FIRST *** rank,npts,offset', rank,npts,offset
+
+  IF(rank GT 1) THEN BEGIN
+    sub_scan_ptr=lonarr(npts)
+    readu,lun,sub_scan_ptr
+  ENDIF
+
+  (*Scan.cpt)[rank-1]=cpt;
+
+  ; read the pvname
+  name=''
+  time=''
+  readu,lun,name,time
+  (*Scan.pv)[rank-1]=name
+  
+  nb_pos=0
+  nb_det=0
+  nb_trg=0
+  readu,lun,nb_pos,nb_det,nb_trg
+
+IF dump then print,'nb_pos,nb_det,nb_trg:',nb_pos,nb_det,nb_trg
+
+  dims=(*Scan.npts)[rank-1:rank+dim-1]
+  size= nbElem(dim+1, dims)
+  IF(nb_pos NE 0) THEN pos_num= intarr(nb_pos)
+
+  (*Scan.pa)[rank-1]= ptr_new(dblarr(dims[0],4), /NO_COPY)    ; one vector Position
+;  (*Scan.pa)[rank-1]= ptr_new(dblarr(size,1), /NO_COPY)    ; one Position
+;  (*Scan.pa)[rank-1]= ptr_new(dblarr(size,4), /NO_COPY)
+;  (*(*Scan.pa)[rank-1])[*]= !VALUES.D_NAN  
+
+  pos_info= { $
+    pxpv:'', $
+    pxds:'', $
+    pxsm:'', $
+    pxeu:'', $
+    rxpv:'', $
+    rxds:'', $
+    rxeu:'' }
+
+  IF(nb_det NE 0) THEN det_num=intarr(nb_det)
+
+  det_info= { $
+    dxpv:'', $
+    dxds:'', $
+    dxeu:'' }
+
+  IF(nb_trg NE 0) THEN trg_num=intarr(nb_trg)
+  trg_info= { $
+    txpv:'', $
+    txcd: 1.0 }
+
+  num=0
+  FOR i=0,nb_pos-1 DO BEGIN
+    readu,lun, num
+    pos_num[i]=num
+    readu,lun,pos_info
+    IF dump THEN print,"====>position: ",i,num
+    IF dump THEN help,pos_info,/st
+    (*Scan.id_def)[num,rank-1]=1
+    IF(pos_info.rxpv NE '') THEN BEGIN
+	    (*Scan.labels)[num,rank-1]= pos_info.rxpv
+	    (*Scan.labels)[ntot+num,rank-1]= pos_info.rxds
+	    (*Scan.labels)[ntot*2+num,rank-1]= pos_info.rxeu
+    ENDIF ELSE BEGIN
+	    (*Scan.labels)[num,rank-1]= pos_info.pxpv
+	    (*Scan.labels)[ntot+num,rank-1]= pos_info.pxds
+	    (*Scan.labels)[ntot*2+num,rank-1]= pos_info.pxeu
+     ENDELSE
+  ENDFOR
+
+  FOR i=0,nb_det-1 DO BEGIN
+    readu,lun,num
+    det_num[i]=num
+    DetMax[rank-1] = num+1
+;print,'rank,i,detno,detmax',rank,i,num,detMax
+;if rank eq 1 and num gt DetMax then DetMax=num
+    readu,lun,det_info
+    IF dump THEN print,"====>detector: ",i,num
+    IF dump THEN help,det_info,/st
+    (*Scan.id_def)[4+num,rank-1]=1
+    (*Scan.labels)[4+num,rank-1]= det_info.dxpv
+    (*Scan.labels)[ntot+4+num,rank-1]= det_info.dxds
+    (*Scan.labels)[ntot*2+4+num,rank-1]= det_info.dxeu
+  ENDFOR
+
+  IF keyword_set(pickDet) GT 0 and rank eq 1 THEN DetMax[rank-1] = 1
+  (*Scan.da)[rank-1]= ptr_new(fltarr(size,DetMax[rank-1]), /NO_COPY)
+;  (*(*Scan.da)[rank-1])[*]= !VALUES.F_NAN
+
+  FOR i=0,nb_trg-1 DO BEGIN
+    readu,lun,num
+    trg_num[i]=num
+    readu,lun,trg_info
+  ENDFOR
+
+  IF keyword_set(header) THEN RETURN,1
+
+  IF nb_pos GT 0 THEN BEGIN
+    tmp=dblarr(npts)
+    FOR i=0,nb_pos-1 DO BEGIN
+      readu,lun,tmp
+      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[0:cpt-1,pos_num[i]]=tmp[0:cpt-1]
+;	if i eq 0 then $
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,pos_num[i]]=tmp[0:cpt-1]
+    ENDFOR
+  ENDIF
+
+  IF (nb_det GT 0) AND (cpt GT 0) THEN BEGIN
+    point_lun,-lun,filepos
+    tmp=fltarr(npts)
+    IF keyword_set(pickDet) and rank eq 1 THEN BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i]+1 EQ pickDet THEN BEGIN
+          point_lun,lun,filepos+npts*4L*i
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+          GOTO,doneDetectors
+        ENDIF
+      ENDFOR
+    ENDIF ELSE BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i] LT DetMax[rank-1] THEN BEGIN
+          point_lun,lun,filepos+npts*4L*i
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,det_num[i]]=tmp[0:cpt-1]
+        ENDIF
+      ENDFOR
+    ENDELSE
+  ENDIF
+doneDetectors:
+
+
+  IF(rank GT 1) THEN BEGIN
+    IF sub_scan_ptr[0] EQ 0 THEN GOTO,done
+    point_lun,lun,sub_scan_ptr[0]
+    if(read_scan_first(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet) NE 1) THEN GOTO,bad
+    FOR i=1,npts-1 DO BEGIN
+      IF sub_scan_ptr[i] EQ 0 THEN GOTO,done
+      point_lun,lun,sub_scan_ptr[i]
+      if(read_scan_rest(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet) NE 1) THEN GOTO,bad
+    ENDFOR
+done:
+  ENDIF
+
+  offset[rank-1]=offset[rank-1]+(*scan.npts)[rank-1]
+  RETURN, 1
+
+BAD:
+  RETURN, 0
+END  
+
+
+FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,header=header
+; lastDet if specified only detectOR 1 to lastDet is extracted
+; pickDet>=1  if specified only the specified detector is extracted 
+;             it is target for big 3D scan 
+;
 ;+
 ; NAME:
-;       READSCANFILE
+;       FUNCTION READ_SCAN,Filename,Scan,Dump=Dump,LastDet=LastDet,PickDet=PickDet,Header=Header
 ;
 ; PURPOSE:
-;	This procedure reads the scan file which was automatically created 
-;       by the IOC and returns a pointer structure to point to the scan 
-;       data components.  
+;       This function read any 1D/2D/3D scan file and returns a scan pointer 
+;       which consists of few heap pointers to point to the data extracted
+;       from the XDR  scan file.
+; 
+;       If succeed it returns the scan number, otherwise it returns -1.
+;
+; CATEGORY:
+;       Function.
 ;
 ; CALLING SEQUENCE:
-;       READSCANFILE, Filename, Gp, Scanno
+;
+;       READ_SCAN(Filename,Scan, ...)
 ;
 ; INPUTS:
-;	Filename:    Specifies the IOC saved scan file name to be read.
-;
+;       Filename:    Input XDR scan filename
+; 
 ; KEYWORD PARAMETERS:
-;       None.
+;       DUMP :  Set this keyword to specify the plot title string.
+;
+;       PICKDET: Set this keyword to specify the xtitle string.
+;       LASTDET: Set this keyword to specify the xtitle string.
+;       HEADER: Set this keyword to specify the xtitle string.
 ;
 ; OUTPUTS:
-;       Gp:          Parameter used to return the pointer of scan
-;                    structure which consists of the scan data pointers to 
-;                    scan data components 
+;       SCAN: The scan data structure composed of heap data pointers.
+;             
+;             scanno   -  integer pointer of scan number
+;             dim      -  integer pointer of scan dimension 
+;             npts     -  pointer of requested data point vector (dim)
+;             cpt      -  pointer of current data point vector (dim)
+;             id_def   -  pointer of defined Pi & Di integer array (85,dim)
+;             pv       -  pointer of PV names string array  (85,dim)
+;             labels   -  pointer to PV labels string array (85*3,dim)
+;             pa       -  pointer to positioner array pointer  (dim)
+;             da       -  pointer to detecor array pointer  (dim)
 ;
-;       Scanno:      Optional output, it returns the scan number of the file.
+; COMMON BLOCKS:
+;       None.
 ;
-; RESTRICTIONS:
-;       The directory /usr/local/epics/extensions/bin/solaris must be
-;       in your IDL search path.
+; SIDE EFFECTS:
+; RESTRICTIONS: Required scan filename which is automatically saved
+;               by the scan record by IOC. The filename follows the
+;               special sequential rule which is ended with '.scan' type.
 ;
-;       The scan data is saved in XDR format by the IOC scan save data 
-;       software.
-;
-; EXAMPLE:
-;       In the following example it read a 2D scan file 'cha:_0000.scan' from
-;       the directory /home/sricat/CHA/rix directory and the pointer gD is
-;       used to store the scan data structure. 
-;
-;       Then the image of detector 2 is selected and plotted and the 2D
-;       image is returned as Im varaible (15 detectors supported). 
-;
-;       Then for 1D scan # 5, a 1D plot is desired, the positioner 1 is
-;       selected as X axis, the detecor 1,2,3 are selected for Y array.
-;
-;       file = '/home/sricat/CHA/rix/cha:_0000.scan'
-;       ReadScanFile, file, gD
-;       scan2Ddata, gD, 2, /view, xarr=xarr, yarr=yarr, im=im
-;       scan1Ddata, gD, 5, /plot, xarr=x, yarr=y, xsel=0, ysel='0,1,2'
-;
+; EXAMPLES:
+;         filename = '/home/beams/CHA/data/xxx/cha:_0001.scan'
+;         scanno = read_scan(filename,SCAN)
+;          
 ; MODIFICATION HISTORY:
-; 	Written by:	Ben-chin Cha, Sept 4, 1998.
-;	xx-xx-xxxx	comment
+;       Written by:     Originally written by Eric Boucher 
+;                       Modify and extended by Ben-chin K. Cha, Mar. 7, 2001.
+;
 ;-
 
-	if n_params() lt 2 then begin
-		print,'Usage: ReadScanFile, filename, gD [,scanno]'
-	print,''
-	print,'   filename   -  speicifes the scan file created by the IOC savedata software'
-	print,'   gD         -  returns the structure pointer for scan data '
-	print,'   scanno     -  returns scanno '
-		return
+  debug = 0
+  IF keyword_set(dump) THEN debug = dump
+  ON_ERROR,0 ;,1
+  ON_IOERROR,BAD
 
+  res=0
+  ndet = 85 ; 15
+  ntot = ndet+4
+
+  if n_elements(Scan) eq 0 then $
+  Scan = { $
+  	scanno	: ptr_new(/allocate_heap), $  ;0L, $
+  	dim	: ptr_new(/allocate_heap),     $  ;0, $
+  	npts	: ptr_new(/allocate_heap),   $  ;[0,0], $
+  	cpt	: ptr_new(/allocate_heap),     $  ;[0,0], $
+  	id_def	: ptr_new(/allocate_heap), $  ;intarr(ntot,2), $
+  	pv	: ptr_new(/allocate_heap),     $  ;['',''], $
+  	labels	: ptr_new(/allocate_heap), $  ;strarr(ntot*3,2), $
+  	pa	: ptr_new(/allocate_heap),     $
+  	da	: ptr_new(/allocate_heap)      $
+	}
+
+  get_lun, lun
+  openr, /XDR, lun, filename      ;Open the file for input.
+
+  tmp= {$
+    version: 0.0, $
+    scanno : 0L , $
+    rank   : 0L }
+
+  readu,lun, tmp
+
+  npts= intarr(tmp.rank)
+  readu,lun, npts
+  readu,lun, isRegular
+  readu,lun, env_fptr
+
+  *Scan.scanno=tmp.scanno
+  *Scan.dim= tmp.rank
+  *Scan.npts= reverse(npts)
+  *Scan.cpt = intarr(tmp.rank)
+  *Scan.id_def= intarr(ntot,tmp.rank)
+  *Scan.pv= strarr(tmp.rank)
+  *Scan.labels= strarr(ntot*3,tmp.rank)
+  *Scan.pa= ptrarr(tmp.rank)
+  *Scan.da= ptrarr(tmp.rank)
+
+; IF 3D rank exceed 500 set default pickDet=16 
+  IF tmp.rank EQ 3  THEN BEGIN
+  	IF n_elements(pickDet) EQ 0 THEN BEGIN 
+    	IF npts(0) GE 500 OR npts(1) GE 500 OR npts(2) GE 500 THEN pickDet = 16
+	  ENDIF
+  dd =1L *npts(0)*npts(1)*npts(2)
+	if dd gt 5202000L then begin
+		r = dialog_message(['Sorry! 3D scan array too big for IDL ',string(npts)],/error)
+		goto,BAD
 	end
-	if n_elements(gD) then begin
+  ENDIF
 
-;	scanno = read_scan(filename,dim,num_pts,cpt,pv,labels,id_def,pa1D,da1d,pa2D,da2D)
+  ; extract the first DetMax detectORs only
+  DetMax = intarr(tmp.rank)
+  DetMax(*) = 1 ;ndet
+  IF keyword_set(lastDet) THEN DetMax = lastDet 
 
-;	help,dim,num_pts,pv,labels,id_def,pa1D,da1D,pa2D,da2D
+  offset= lonarr(tmp.rank)
 
-	gData = *gD
-	scanno = read_scan(filename,Scan)
-	*gData.scanno = scanno
+  IF(read_scan_first(lun, Scan,0,offset,DetMax,debug,pickDet=pickDet,header=header) NE 1) THEN GOTO,BAD
 
-	if scanno lt 0 then return
+  IF keyword_set(header) THEN GOTO,DONE
 
-	rix2DC, Scan, gData
+  fOR i=0,tmp.rank-1 DO BEGIN
+    dims=(*Scan.npts)[i:tmp.rank-1]
+	if dims[0] le 0 then goto,BAD
+    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims[0],4])       ; vector only
+;    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,1])        ; only one PI
+;    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,4])         
 
-;scanimage_print,gD,/test
+;    IF i eq 0 and keyword_set(pickDet) THEN $
+;      *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims]) ELSE $
+      *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims,DetMax[i]])
+    IF debug THEN BEGIN
+      print,'dims: ',dims
+      help,*(*Scan.pa)[i]
+      help,*(*Scan.da)[i]
+    ENDIF
+  ENDFOR
 
-	endif else begin
-		scanimage_alloc,filename,gD,scanno
-	end
+  res= *Scan.scanno
 
-	if scanno lt 0 then begin
-		print,'Error: readScanFile failed on ',filename
-		return
-	end
+  GOTO,DONE
+BAD:
+  res= -1
+  print, !ERR_STRING
+DONE:
+  free_lun, lun
+
+  RETURN, res
 END
 
 
-PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=height,scanno=scanno,xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv,plot=plot,group=group,dname=dname
-;+
-; NAME:
-;       SCAN2DDATA
-;
-; PURPOSE:
-;	This procedure extracts various 2D scan data components and returns
-;       as IDL varibles from the given scan structure pointer. 
-;
-; CALLING SEQUENCE:
-;       SCAN2DDATA, gD, dN, /VIEW, Im=Im, Xarr=Xarr, Yarr=Yarr, ... 
-;
-; INPUTS:
-;       gD:          Parameter to specify the pointer of scan data structure
-;                    returned by the procedure READSCANFILE
-;       dN:          Speicifies the desired image number, i.e. detector number.
-;
-; KEYWORD PARAMETERS:
-;       Dname:       If specified, overrides the detector name
-;       View:        If specified, the TVSCL of the 2D image is plotted.
-;       Plot:        If specified, the 2D image plot program is called.
-;       Xarr:        Returns the positioner 1 vector of X scan
-;       Yarr:        Returns the positioner 1 vector of Y scan
-;       Im:          Returns the 2D image of the selected detector
-;       Width:       Returns the X width of the 2D image
-;       Height:      Returns the Y height of the 2D image
-;       Xdesc:       Returns the X positioner desc string
-;       Ydesc:       Returns the Y positioner desc string
-;       Xpv:         Returns the X scan record pvname
-;       Ypv:         Returns the Y scan record pvname
-;       Scanno:      Returns the 2D scan number
-;
-; RESTRICTIONS:
-;       Same as READSCANFILE.
-;
-; EXAMPLE:
-;
-;       In the following example it read a 2D scan file 'cha:_0000.scan' from
-;       the directory /home/sricat/CHA/rix directory and the pointer gD is
-;       used to store the scan data structure.
-;
-;       Then the image of detector 2 is selected and plotted and the 2D
-;       image is returned as Im varaible (15 detectors supported).
-;       Then for 1D scan # 5, a 1D plot is desired, the positioner 1 is
-;       selected as X axis, the detecor 1,2,3 are selected for Y array.
-;
-;       file = '/home/sricat/CHA/rix/cha:_0000.scan'
-;       ReadScanFile, file, gD
-;       scan2Ddata, gD, 2, /view, xarr=xarr, yarr=yarr, im=im
-;       scan1Ddata, gD, 5, /plot, xarr=x, yarr=y, xsel=0, ysel='0,1,2'
-;
-; MODIFICATION HISTORY:
-; 	Written by:	Ben-chin Cha, Sept 4, 1998.
-;	xx-xx-xxxx	comment
-;-
-	if n_params() eq 0 then begin
-		print,'Usage: scan2Ddata,gD,seq#,view=view,xarr=xarr,yarr=yarr,'
-		print,'              im=im,width=width,height=height,scanno=scanno,'
-		print,'              xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv'
-
-	print,'INPUT'
-	print,' gD      - specifies the scan data pointer created by scanReadFile'
-	print,' seq#    - specifies the detector seq # [1-15]'
-	print,'KEYWORDS'
-	print,'  VIEW   - if specified, show the 2D image'
-	print,'  xarr   - returns x positioner vector'
-	print,'  yarr   - returns y positioner vector'
-	print,'   im    - returns 2D image of the detector'
-	print,'  width  - returns im  width'
-	print,'  height - returns im  height'
-	print,'  ydesc  - returns y description'
-	print,'  xpv    - returns x pvname'
-	print,'  ypv    - returns y pvname'
-	print,'  scanno - returns 2D scan #'
-		return
-	end
-
-	scanno = *(*gD).scanno
-	if scanno lt 0 then begin
-		print,'Error: scan2Ddata,gD,seq#'
-		print,!err_string+!err
-		return
-	end
-
-        dim = *(*gD).dim
-        num_pts = *(*gD).num_pts
-        cpt = *(*gD).cpt
-        pv = *(*gD).pv
-        labels = *(*gD).labels
-        id_def = *(*gD).id_def
-        pa1D = *(*gD).pa1D
-        da1D = *(*gD).da1D
-
-	if dim eq 2 then begin
-        pa2D = *(*gD).pa2D
-        da2D = *(*gD).da2D
-
-	if (seq-1) lt 0 or seq gt 84 then begin
-		print,'Error: invalid image number - ' ,seq
-		return
-	end
-
-	xarr = pa2d(*,0,0)
-	yarr = pa1d(*,0)
-	sz = size(da2d)
-	if seq gt sz(3) then seq = sz(3)
-	im = da2d(*,*,seq-1)
-	max_pidi = n_elements(id_def)/2
-	xdesc = labels(max_pidi,0)
-	if xdesc eq '' then xdesc = labels(0,0)
-	ydesc = labels(max_pidi,1)
-	if ydesc eq '' then ydesc = labels(0,1)
-	xpv = pv(0)
-	ypv = pv(1)
-	w = cpt(0)
-	h = cpt(1)
-	if h eq 0 then h=num_pts(1)
-
-	if dim eq 2 then w = num_pts(0)
-	width = w
-	height = h
-
-        header_note1 = '2D Scan # '+string(scanno) + $
-                ',    Image seqno ' + string(seq)
-        header_note = 'Image( '+strtrim(w,2)+' , '+  strtrim(h,2)+') '
-
-	if keyword_set(view) then begin
-	loadct,39
-	window,0,xsize=500,ysize=500,title='scan2d Object'
- 
-        ncolors = !d.table_size
-
-          xdis = 0.001 * !d.x_size
-          ydis = !d.y_size - 1.2 * !d.y_ch_size
-          xyouts,xdis,ydis,header_note1,/device,color=ncolors-1
- 
-          ydis = !d.y_size - 2.2 * !d.y_ch_size
-          xyouts,xdis,ydis,header_note,/device,color=ncolors-1
- 
-	if max(im) eq min(im) then begin
-		TV,congrid(!d.table_size*im,!d.x_size -100,!d.y_size-100),50,50
-	endif else $
-        TVSCL,congrid(im,!d.x_size -100,!d.y_size-100),50,50
- 
-	xrange=[xarr(0),xarr(w-1)]
-	yrange=[yarr(0),yarr(h-1)]
-;	xrange=[min(xarr),max(xarr)]
-;	yrange=[min(yarr),max(yarr)]
-	xstyle = 1
-	ystyle = 1
-	if yrange(0) eq yrange(1) then ystyle = 4
-	if xrange(0) eq xrange(1) then xstyle = 4
-
-	if keyword_set(dname) then title = xpv + dname else $
-	title=xpv + 'D'+ strtrim(seq,2)
-        plot,xrange=xrange,yrange=yrange,[-1+yrange(0),-1+yrange(0)],/noerase, $
-                pos=[50./!d.x_size, 50./!d.y_size, $
-                 (!d.x_size-50.)/!d.x_size, (!d.y_size-50.)/!d.y_size], $
-                xstyle=xstyle, ystyle=ystyle, xtitle=xdesc, ytitle=ydesc, $
-                title=title
- 
-	end
-
-	if keyword_set(plot) then $
-        plot2d,im, xarr=xarr, yarr=yarr, $
-                comment=[header_note1,header_note], $
-                xtitle=xdesc, ytitle=ydesc, $
-                title=title, group=group
-
-	endif else begin
-		res = dialog_message('Error: not a 2D scan!',/Error)
-	end
-END
-
-
-PRO parse_num0,instring,ids,sep=sep
-Keysepar = '-'
-if keyword_set(sep) then Keysepar = sep
-res = strpos(instring,keysepar)
-if res ne -1 then begin
-        str = str_sep(instring,keysepar,/trim)
-        no = fix(str(1)) - fix(str(0)) + 1
-        ids = indgen(no) + fix(str(0))
-endif else begin
-        com = strpos(instring,',')
-        if com ne -1 then begin
-                str = str_sep(instring,',')
-                ids = fix(str)
-        endif else begin
-                str = str_sep(instring,' ')
-                ids = fix(str)
-        end
- 
-end
-END
- 
-; parse by sep1 first then by sep2
-; default sep1=',' sep2='-'
-;       instring = '1,2:5,7'
-;       instring = '1,2-5,7'
-PRO parse_num,instring,res,sep1=sep1,sep2=sep2
-        d_sep1 = ','
-        d_sep2 = '-'
-        if keyword_set(sep1) then d_sep1 = sep1
-        if keyword_set(sep2) then d_sep2 = sep2
-        str = str_sep(instring,d_sep1,/trim)
-        res = fix(str(0))
-        for i=0,n_elements(str)-1 do begin
-        newstr =  strtrim(str(i),2)
-        if strlen(newstr) gt 0 then begin
-        parse_num0,newstr,ids,sep=d_sep2
-        if i eq 0 then begin
-                if n_elements(ids) gt 1 then res = ids
-                end
-        if i gt 0 then  res = [res,ids]
-        end
-        end
-END
-
-PRO scan1Ddata,gD,seq,plot=plot,pa=pa,da=da,npts=npts,$
-xsel=xsel,ysel=ysel,xarr=xarr,yarr=yarr, $
-xdesc=xdesc,ydesc=ydesc,xengu=xengu,yengu=yengu, $
-id_def=id_def,scanno_2d=scanno_2d,title=title,group=group
-;+
-; NAME:
-;       SCAN1DDATA
-;
-; PURPOSE:
-;	This procedure extracts scan data and returns as IDL varibles 
-;       from the given scan structure pointer. It is able to extracts
-;       data from either 1D or 2D scan data. 
-;
-; CALLING SEQUENCE:
-;       SCAN1DDATA, gD, sN, /PLOT, Pa=Pa, Da=Da, Xarr=Xarr, Yarr=Yarr, ... 
-;
-; INPUTS:
-;       gD:          Parameter to specify the pointer of scan data structure
-;                    returned by the procedure READSCANFILE
-;       sN:          Speicifies the desired 1D scan number.
-;
-; KEYWORD PARAMETERS:
-;       Plot:        If specified, the selected detector data will be plotted
-;                    by PLOT1D program.
-;       Xsel:        Specifies the desired positioner as X aixs, default 0
-;       Ysel:        Specifies a string of desired detectors, default to all 
-;                    defined detectors in the Da array
-;       Xarr:        Returns the X vector of the selected  positioner
-;       Yarr:        Returns the Y array of the selected detectors
-;       Xdesc:       Returns the X positioner desc string
-;       Ydesc:       Returns the Y positioner desc string
-;       Xengu:       Returns the X positioner engu string
-;       Yengu:       Returns the Y positioner engu string
-;       Npts:        Returns the data points in the X vector
-;       Title:       Returns the inner scan record pvname
-;       Pa:          Returns the original positioner array of inner scan
-;       Da:          Returns the original detecotr array of inner scan
-;       id_def:      Returns the vector of monitored positioners and detectors
-;                    of inner scan record 
-;       Scanno_2d:   Returns the 2D scan number 
-;
-; RESTRICTIONS:
-;       Same as READSCANFILE.
-;
-; EXAMPLE:
-;       In the following example it read a 2D scan file 'cha:_0000.scan' from
-;       the directory /home/sricat/CHA/rix directory and the pointer gD is
-;       used to store the scan data structure.
-;
-;       Then the image of detector 2 is selected and plotted and the 2D
-;       image is returned as Im varaible (15 detectors supported).
-;
-;       Then for 1D scan # 5, a 1D plot is desired, the positioner 1 is
-;       selected as X axis, the detecor 1,2,3 are selected for Y array.
-;
-;       file = '/home/sricat/CHA/rix/cha:_0000.scan'
-;       ReadScanFile, file, gD
-;       scan2Ddata, gD, 2, /view, xarr=xarr, yarr=yarr, im=im
-;       scan1Ddata, gD, 5, /plot, xarr=x, yarr=y, xsel=0, ysel='0,1,2'
-;
-; MODIFICATION HISTORY:
-; 	Written by:	Ben-chin Cha, Sept 4, 1998.
-;	xx-xx-xxxx	comment
-;-
-	if n_params() eq 0 then begin
-		print,'Usage: scan1Ddata,gD,seq#,plot=plot,xarr=x,yarr=y,'
-		print,'              npts=npts,xdesc=xdesc,ydesc=ydesc,...'
-		print,'              pa=pa,da=da,id_def=id_def'
-
-	print,'INPUT'
-	print,' gD      - specifies the scan data pointer created by scanReadFile'
-	print,' seq#    - specifies the scan seq # within 2D scan'
-	print,'KEYWORDS'
-	print,' plot    - 1D plot of yarr if set to 1'
-	print,' xarr    - returns the X axis vector'
-	print,' yarr    - returns the Y array'
-	print,' xsel    - specifies positioner # as x-axis (default 0) '
-	print,' ysel    - a string to specifies a list of detectors, default all monitored detectors'
-	print,' xdesc   - returns x labels for xarr'
-	print,' ydesc   - returns y labels for yarr'
-	print,' npts    - returns number of scan data points'
-	print,' pa      - returns original scan positioner array'
-	print,' da      - returns original scan detector array'
-	print,' id_def  - returns indicators for monitored positoner and detector '
-		return
-	end
-
-	scanno = *(*gD).scanno
-	if scanno lt 0 then begin
-		print,'Error: scan1Ddata,gD,seq#'
-		print,!err_string+ string(!err)
-		return
-	end
-
-        dim = *(*gD).dim
-        num_pts = *(*gD).num_pts
-        cpt = *(*gD).cpt
-        pv = *(*gD).pv
-        labels = *(*gD).labels
-        id_def = *(*gD).id_def
-        pa1D = *(*gD).pa1D
-        da1D = *(*gD).da1D
-
-IF dim EQ 2 THEN BEGIN
-	 print,'**2D scan**'
-        pa2D = *(*gD).pa2D
-        da2D = *(*gD).da2D
-
-	if (seq-1) lt 0 or seq gt cpt(1) then begin
-		str = ['Error: Invalid scan line number'+string(seq), $
-		  '       Valid scan range: [1-' + strtrim(cpt(1),2) + ']']
-		res = dialog_message(str,/error)
-		return
-	end
-
-	title = pv(0)
-	seqno = seq - 1
-	scanno_2d = scanno
-	npts = cpt(0)
-
-	ndim = n_elements(id_def)/2
-	pa = make_array(npts,4,/double)
-	da = make_array(npts,ndim-4)
-	pa[*,*] = pa2D[*,seqno,*]
-	da[*,*] = da2D[*,seqno,*]
-
-	max_pidi = n_elements(id_def)/2
-	desc1 = labels(max_pidi:2*max_pidi-1,0)
-	desc2 = labels(max_pidi:2*max_pidi-1,1)
-	for i=0,max_pidi-1 do begin
-	if id_def(i,0) gt 0 then $
-	if desc1(i) eq '' then desc1(i) = labels(i,0)
-	if id_def(i,1) gt 0 then $
-	if desc2(i) eq '' then desc2(i) = labels(i,1)
-	end
-
-ENDIF ELSE begin
-	 print,'**1D scan**'
-	IF dim EQ 1 THEN BEGIN
-		max_pidi = n_elements(id_def)
-		npts = cpt(0)
-		desc1 = labels(max_pidi:2*max_pidi-1)
-		for i=0,max_pidi-1 do begin
-		if id_def(i) gt 0 then begin
-		if desc1(i) eq '' then desc1(i) = labels(i)
-		end
-		end
-		pa = pa1D(0:npts-1,*)
-		da = da1D(0:npts-1,*)	
-	END
-end
-
-	isel = 0
-	xarr = pa(*,isel)
-	yarr = da
-
-	; set defualt ysel if not set by user
-	if n_elements(ysel) eq 0 then begin
-		st='0'
-		for i=5,max_pidi-1 do begin
-		if id_def(i) gt 0 then  st=st+','+strtrim(i-4,2)
-		end
-		ysel = st
-	end
-	IF keyword_set(xsel) EQ 0 AND keyword_set(ysel) EQ 0 THEN BEGIN
-		xdesc = desc1(0:3)
-		ydesc = desc1(4:max_pidi-1)
-		xengu = labels(2*max_pidi:2*max_pidi+3,0)
-		yengu = labels(2*max_pidi+4:3*max_pidi-1,0)
-	END
-	if keyword_set(xsel) then begin
-		if xsel gt 0 and xsel lt 4 then isel = xsel
-	end
-	xdesc = desc1(isel)
-	xengu = labels(isel,0)
-
-	res=0
-	if keyword_set(ysel) then begin
-	 parse_num,string(ysel),res
-	end
-	no = n_elements(res)
-	yarr = make_array(npts(0),no)
-	ydesc = make_array(no,/string)
-	yengu = make_array(no,/string)
-	for i=0,no-1 do begin
-	yarr(*,i) = da(*,res(i))
-	ydesc(i) = desc1(4+res(i))
-	yengu(i) = labels(max_pidi*2+4+res(i),0)
-	end
-
-	if keyword_set(plot) then begin
-		if n_elements(res) eq 1 then $
-		plot1d,xarr,yarr,title=title, $
-		xtitle=xdesc(0), $
-		ytitle=ydesc(0) else $
-		plot1d,xarr,yarr,title=title, $
-		xtitle=xdesc(0), group=group
-	end
- 
-END
-
-PRO get_1DLines,im,textfile,title,ydesc
-; this function returns columns of 2D im array
-; to get rows  just pass in transpose(im) to this routine
-;
-file='tmp.txt'
-if n_elements(textfile) then file=textfile
-
-s = size(im)
-if n_elements(s) ne 5 then return
-
-	f1="(" + strtrim(s(2),2) + "f14.5" + ")" 
-	openw,1,file
-	if n_elements(title) then printf,1,'; ** '+ title
-	printf,1,'; ** This ASCII file contains a 2D Array'
-	printf,1,'; ** # of fields per line represents total # of Y variables ' 
-	printf,1,'; ** # of values per column represents dim of X.'
-
-	st = ';  YDESC:    '
-
-	ny = n_elements(ydesc)
-	if ny gt 0 then begin
-	for i=0,ny-1 do begin
-		st = st + ydesc(i) + ' : '
-	end
-	end
-	printf,1,st
- 
-	for i=0,s(1)-1 do begin
-		vect = im(i,*)
-	printf,1,string(vect),format=f1
-	end
-	close,1
-END
 
 PRO catch1d_get_pvtcolor,i,color
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
@@ -596,7 +570,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.10 2001/04/04 21:37:34 cha Exp $
+; $Id: vw2d.pro,v 1.11 2001/06/19 19:23:21 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1249,7 +1223,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.10 2001/04/04 21:37:34 cha Exp $
+; $Id: vw2d.pro,v 1.11 2001/06/19 19:23:21 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1786,9 +1760,13 @@ st = ['; ' + T1 + T2 + s1 ]
 
 se = catch2d_file.image_begin $  ;image_no(catch2d_file.scanno_current-1) $
 	+ catch2d_file.detector
+f2 = str_sep(strmid(view_option.format,1,strlen(view_option.format)-1),'.')
+f2 = 'I'+f2(0)
  
+openw,fw,dir+filename,/get_lun
 
 str='; 2D SCAN #  '
+
 openw,fw,dir+filename,/get_lun
 
 printf,fw,str,strtrim(catch2d_file.scanno_current,2) + $
@@ -1817,7 +1795,7 @@ printf,fw, '; ------------------------------'
 ;  other type 
 ;
 if no eq 1 then begin
-	f1 = '(I,f17.7)'
+	f1 = '(I,'+view_option.format+')'
 	for j=0,dim(0)-1 do begin
 	printf,fw,format=f1,j,data(j)
 	end
@@ -1829,14 +1807,15 @@ end
 
 
 if no eq 2 then begin
-	f0 = '(";              (yvalues)",'+ '5000(f17.7,:))'
+	f0 = '(";              (yvalues)",'+ '5000('+view_option.format+',:))'
 	if n_elements(py) gt 0 then printf,fw,format=f0,py
 	if n_elements(py) gt 0 then begin
-		f1 = '(f17.7,I,'+strtrim(dim(1),2)+'(f17.7))' 
-		f0 = '(";                   \ Y",'+strtrim(dim(1),2)+'I17,/,";                  X \",/,";      (xvalues)")'
+		f1 = '('+view_option.format+',I,'+strtrim(dim(1),2)+'('+view_option.format+'))' 
+		f0 = '(";                   \ Y",'+strtrim(dim(1),2)+f2+',/,";                  X \",/,";      (xvalues)")'
+
 		endif else begin
-		f0 = '(";    \ Y",'+strtrim(dim(1),2)+'I17,/,";   X \",/)'
-		f1 = '(I,'+strtrim(dim(1),2)+'(f17.7))' 
+		f0 = '(";    \ Y",'+strtrim(dim(1),2)+f2+',/,";   X \",/)'
+		f1 = '(I,'+strtrim(dim(1),2)+'('+view_option.format+'))' 
 		end
 	printf,fw,format=f0,indgen(dim(1))
 	newdata = transpose(data)
@@ -1858,7 +1837,7 @@ end
 
 if no eq 3 then begin
 	f0 = '("J =    ",'+strtrim(dim(1),2)+'I10,/)'
-	f1 = '(I,'+strtrim(dim(1),2)+'f17.7)'
+	f1 = '(I,'+strtrim(dim(1),2)+''+view_option.format+')'
 	ij=dim(0)*dim(1)
 	newdata = make_array(dim(0),dim(1))
 	for k=0,dim(2)-1 do begin
@@ -3209,8 +3188,7 @@ update:
 		if statistic_2dids.back eq 2 then begin
 			nelem = n_elements(arr)
 		if nelem eq 0 then begin
-		r = dialog_message('You have to define the polygon ROI first',/info)
-		close,1
+		r = dialog_message('You have to define the POLYGON ROI first',/info)
 		return
 		end
 			temp = make_array(nelem)
@@ -3991,7 +3969,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
   'File.Open ...': BEGIN
     PRINT, 'Event for File.Open ...'
 
-        FNAME = '*scan*'
+        FNAME = '*'+catch2d_file.suffix+'*'     ;'*scan*'
         F = PICKFILE(/READ,FILE='',GET_PATH=P,PATH=catch2d_file.path,FILTER=FNAME)
         IF F eq '' THEN begin
                 F = ''
@@ -4011,6 +3989,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	pos = rstrpos(F,OS_SYSTEM.file_sep) ;'/'
 	if pos gt 0 then catch2d_file.name = strmid(F,pos+1,strlen(F))
 	
+	po = strpos(catch2d_file.name,'.',/reverse_search)
+	catch2d_file.suffix = strmid(catch2d_file.name,po,strlen(catch2d_file.name)-po)
 	scansee_setOutpath
     END
 
@@ -4459,6 +4439,11 @@ COMMON w_warningtext_block,w_warningtext_ids
 			title='VW2D Messages',xloc=500
 	catch2d_xycoord2,st
 	END
+  'ASCII_FORMAT': BEGIN
+	WIDGET_CONTROL,Event.id,Get_VALUE=f
+	view_option.format = f(0)
+	view2d_datatotext
+	END
   'ASCII_DATA': BEGIN
 	view2d_datatotext
 	END
@@ -4489,7 +4474,7 @@ END
 
 
 
-PRO VW2D, GROUP=Group, file=file,CA=CA,lastDet=lastDet,DATA=Data
+PRO VW2D,dname=dname, GROUP=Group, file=file,CA=CA,lastDet=lastDet
 ;
 ;+
 ; NAME:
@@ -4521,8 +4506,7 @@ PRO VW2D, GROUP=Group, file=file,CA=CA,lastDet=lastDet,DATA=Data
 ;              file should contain the image data must be in the data catcher
 ;              created format. 
 ;     CA:      If this keyword is specified, reset 2D positioners is possible
-;     DATA:    If this keyword is specified,the input 2D sata array for all 
-;              detector must be supplied 
+;     DNAME:   If specified, the danme will be used instead of default names
 ;
 ; OUTPUTS:
 ;       It provides option of postscript plot of drawing area.
@@ -4572,7 +4556,15 @@ PRO VW2D, GROUP=Group, file=file,CA=CA,lastDet=lastDet,DATA=Data
 ;       02-09-01 bkc   R2.2
 ;                      Created with new version of read_scan.pro.R2
 ;		       Fix the renew image region
-;                      
+;       05-29-01 bkc   R2.3
+;                      Accept both '.scan' or '.mda' suffix for scan files 
+;                      Add format control on 2D image ASCII data display
+;       06-07-01 bkc   R2.4
+;                      Assign detector name allowed on command lines
+;                      scan2d_roi allow save and read filter range
+;                      Mutiroi_pick can read the fileter ROI from scan2d_roi
+;                      ScanSee_overlay 1D scan plot is available
+;
 ;-
 ;
 @os.init
@@ -4583,7 +4575,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VW2D (R2.2)'
+  version = 'VW2D (R2.4)'
 
   VW2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -4671,8 +4663,13 @@ if XRegistered('VW2D_BASE') ne 0 then return
       TITLE='View btns', $
       UVALUE='BASE185')
 
-  ascii_data = WIDGET_BUTTON( BASE185, VALUE='ASCII ...', $
+  base185_1 = widget_base(BASE185,/row,/frame)
+  ascii_data = WIDGET_BUTTON( BASE185_1, VALUE='ASCII ...', $
       UVALUE='ASCII_DATA')
+
+  ascii_fmt = widget_text( BASE185_1,VALUE='G17.7', $
+      ysize=1, /editable, $
+      UVALUE='ASCII_FORMAT', XSIZE=5)
 
   refresh_data = WIDGET_BUTTON( BASE185, VALUE='ReNew', $
       UVALUE='REFRESH_DATA')
@@ -4682,6 +4679,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
   detname = 'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
         '01','02','03','04','05','06','07','08','09', $
         strtrim(indgen(61)+10,2)]
+  if keyword_set(dname) then detname = dname
   lis = [detname(15:84),detname(0:14)]
 
   LISTSIM = WIDGET_LIST( BASE185,VALUE=lis, $
@@ -4698,7 +4696,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
   BASE186 = WIDGET_BASE(VW2D_BASE, $
       ROW=1, $
       MAP=1, $
-      TITLE='Detector btns', $
+      TITLE='Detector btns', /scroll, $
       UVALUE='BASE186')
   Btns_detector = [ $
     '1', $
@@ -4717,9 +4715,16 @@ if XRegistered('VW2D_BASE') ne 0 then return
     'E', $
     'F' $
          ]
+  if keyword_set(dname) then begin
+    Btns_detector=dname(0:14)
+    IMAGE186 = CW_BGROUP( BASE186, Btns_detector, $
+      ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
+      UVALUE='IMAGE186') ;,/scroll,X_scroll_SIZE=700)
+  endif else begin
   IMAGE186 = CW_BGROUP( BASE186, Btns_detector, $
       ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
       UVALUE='IMAGE186')
+  end
 
 
   BASE62 = WIDGET_BASE(VW2D_BASE, $
