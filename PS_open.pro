@@ -139,16 +139,6 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	; use xloadct reverse video, reverse legend only  
 
-;	if printer_info.reverse then begin
-;	r_curr = reverse(r_orig)
-;	g_curr = reverse(g_orig)
-;	b_curr = reverse(b_orig)
-;	endif else begin
-;	r_curr = r_orig
-;	g_curr = g_orig
-;	b_curr = b_orig
-;	end
-;	TVLCT,r_curr,g_curr,b_curr
 
 	    if printer_info.color gt 0 then $
 		device,filename=psfile,/color,bits=8, $
@@ -212,7 +202,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	if !d.name eq 'PS' then begin
-	!P.FONT=1
+	!P.FONT=-1
 	device,/close
 
 	r_curr = r_orig
