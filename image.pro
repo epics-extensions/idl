@@ -719,6 +719,22 @@ close_config:
         WIDGET_CONTROL, Event.top, /DESTROY
 end
 ;-----------------------------------------------------------------
+pro OnSavePVTColor, Event
+	TVLCT,red,green,blue,/GET
+        save,red,green,blue,file='pvtcolors.dat'
+end
+;-----------------------------------------------------------------
+pro OnLoadPVTColor, Event
+        found = findfile('pvtcolors.dat')
+        if found(0) eq '' then begin
+        str = 'Error: Private color table never been saved before'
+        r = dialog_message(str,/error)
+        endif else begin
+        restore,'pvtcolors.dat'
+        TVLCT,red,green,blue
+        end
+end
+;-----------------------------------------------------------------
 pro OnColor, Event
 	XLOADCT,GROUP=Event.top
 end
@@ -2018,6 +2034,14 @@ pro WID_BASE_0_event, Event
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
         OnColor, Event
     end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_81'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnLoadPVTColor, Event
+    end
+    Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_82'): begin
+      if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
+        OnSavePVTColor, Event
+    end
     Widget_Info(wWidget, FIND_BY_UNAME='W_MENU_3'): begin
       if( Tag_Names(Event, /STRUCTURE_NAME) eq 'WIDGET_BUTTON' )then $
         OnBottomUpTVImage, Event
@@ -2227,6 +2251,11 @@ pro WID_BASE_0, GROUP_LEADER=wGroup, xsize=xsize,ysize=ysize,config=config,_EXTR
   W_MENU_34 = Widget_Button(W_MENU_7, UNAME='W_MENU_34'  $
 	,VALUE='Restore Input Color Table')
 
+  W_MENU_81 = Widget_Button(W_MENU_7, UNAME='W_MENU_81'  $
+	,VALUE='Load Private Color Table')
+
+  W_MENU_82 = Widget_Button(W_MENU_7, UNAME='W_MENU_82'  $
+	,VALUE='Save Private Color Table')
 
   W_MENU_14 = Widget_Button(WID_BASE_0_MBAR, UNAME='W_MENU_14' ,/MENU  $
       ,VALUE='SaveTVRD')
