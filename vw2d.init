@@ -25,8 +25,12 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
       x_cursor	:  CURSOR62_X, $
       y_cursor	:  CURSOR62_Y, $
       z_cursor	:  CURSOR62_Z, $
-	xzl	:  CURSOR62_XZL, $
-	yzl	:  CURSOR62_YZL, $
+;	xzl	:  CURSOR62_XZL, $
+;	yzl	:  CURSOR62_YZL, $
+	x1WID	: CURSOR62_X1, $ 
+	y1WID	: CURSOR62_Y1, $
+	x2WID	: CURSOR62_X2, $
+	y2WID	: CURSOR62_Y2, $
 	x1	: !x, $
 	y1	: !y, $
 	x2	: !x, $
@@ -36,7 +40,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
   cd,current=h
 
   catch2d_file = {                $
-	version : 'R2.5', $
+	version : 'R2.5.1', $
 	home    : h, $
 	path    : h+!os.file_sep,   $ ;'/', $
 	outpath : h+!os.file_sep, $
