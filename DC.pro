@@ -339,7 +339,7 @@ DONE:
   return, res
 END
 
-; $Id: DC.pro,v 1.6 1999/09/22 19:24:27 cha Exp $
+; $Id: DC.pro,v 1.7 1999/10/25 20:37:22 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1523,6 +1523,7 @@ XMANAGER, 'w_statistic',w_statistic_base, GROUP_LEADER = GROUP
 w_statistic_ids = { base : w_statistic_base }
 
 END
+@fit_statistic.pro
 
 PRO  getStatisticDeviation_1d,id1,y,mean,sdev,mdev,st
 	mean=0.
@@ -1575,237 +1576,6 @@ if n_elements(x_peak) gt 0 then begin
 
 END
 
-
-
-
-
-;
-; find  fwh_max, c_mass, peak for a given x,y array
-;
-PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm,fwhm_xl,fwhm_wd, $
-	FIT=FIT,XINDEX=XINDEX,LIST=LIST
-
-xindex = keyword_set(XINDEX)
-list = keyword_set(LIST)
-
-nx = n_elements(x)
-a=make_array(nx,/float)
-da=make_array(nx,/float)
-ny=make_array(nx,/float)
-slopey=make_array(nx,/float)
-
-ymin = min(y)
-ymax = max(y)
-ny = y - ymin
-
-peak = ymax
-hpeak = 0.5 * max(ny)
-y_hpeak= hpeak + ymin
-
-; area = int_tabulated(x,ny)
-; harea = 0.5 * area
-
-d0=0
-for i=1,nx-1 do begin
-	dx = x(i) - x(i-1)
-	if dx ne 0. then begin
-	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
-	d0 = d0 + da(i)
-	a(i) = d0
-	slopey(i)= (ny(i)-ny(i-1))/dx
-	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
-	end
-end
-
-area = d0
-harea = 0.5 * area
-
-; Find c_mass
-
-newtons_method,x,a,harea,c_mass
-if list then print,'===='
-if list then print,'C_mass',harea,c_mass
-
-
-; Find half peaks
-
-if list then print,'===='
-nohwdl=0
-nohwdr=0
-x_hwdl=0
-x_hwdr=0
-for i=1,nx-1 do begin
-	yl = ny(i-1) - hpeak
-	yr = ny(i) - hpeak
-       if yl*yr lt 0. and yl lt 0. then begin
-		nohwdl = [nohwdl, i-1]
-;		print,i-1,y(i-1)
-		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
-		x_hwdl= [x_hwdl,x_sol]
-		end
-       if yl*yr lt 0. and yl gt 0. then begin
-		nohwdr = [nohwdr, i-1]
-;		print,i-1,y(i-1)
-		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
-		x_hwdr= [x_hwdr,x_sol]
-		end
-end
-;print,'nohwdl',nohwdl, x_hwdl
-;print,'nohwdr',nohwdr, x_hwdr
-	lo=0
-	fwhm = 0.
-if n_elements(nohwdl) gt 1 then begin 
-	x_hwd = x_hwdl(1:n_elements(nohwdl)-1)
-	nohw = n_elements(x_hwd)
-if n_elements(nohwdr) gt 1 then begin
-	x_hwde = x_hwdr(1:n_elements(nohwdr)-1)
-	nohwe = n_elements(x_hwde)
-	fwhm = make_array(nohw,/float)
-	for i=0,nohw-1 do begin
-		x1 = x_hwd(i)
-	for j=0,nohwe-1 do begin
-		if x_hwde(j) ne x1 then begin
-			fwhm(i) = abs(x_hwde(j) - x1)
-			lo=lo+1
-;			print,'FWHM',lo,fwhm(i)
-			goto,outer
-			end
-		end
-	outer:
-	end
-	end
-	FWHM = max(fwhm)
-end
-
-;if n_elements(nohwdr) gt 1 then begin
-;	if n_elements(x_hwd) gt 0 then $
-;	x_hwd = [x_hwd, x_hwdr(1:n_elements(nohwdr)-1)] else $
-;	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
-;	end
-;if n_elements(x_hwd) gt 0 then begin
-;	x_HPeak = x_hwd(sort(x_hwd))
-;	if list then print,'hpeak,y_hpeak',hpeak,y_hpeak
-;	if list then print,'HPeak pts:',x_HPeak
-;end
-
-; Find peaks
-
-if keyword_set(FIT) then begin
-nopeaks=0
-if list then print,'===='
-for i=1,nx-1 do begin
-       if slopey(i-1) gt 0 and slopey(i-1)*slopey(i) lt 0. then begin
-;		print,i,slopey(i-1),slopey(i)
-		nopeaks = [nopeaks, i]
-		end
-end
-;print,'nopeaks',nopeaks
-no = n_elements(nopeaks)-1
-if no gt 0 then begin
-x_peak = make_array(no,/float)
-y_peak = make_array(no,/float)
-for i=1,no do begin
-	i2= nopeaks(i)
-	i1= i2-1
-	newtons_method,[x(i1),x(i2)],[slopey(i1),slopey(i2)],0.,x_sol,notfound
-	if notfound eq 0 then begin
-if list then 	print,'Peak #',i,x_sol,y(i1)
-		x_peak(i-1)= x_sol
-		y_peak(i-1) = y(i1)
-		end
-end
-endif else begin
-	y_peak = ymax
-	if y(0) gt y(nx-1) then x_peak = x(0) else x_peak = x(nx-1)
-if list then 	print,'Ymax at pt ',y_peak,x_peak
-end
-endif else begin
-
-	for i=0,nx -1 do begin
-		if y(i) eq peak then begin
-		x_peak = x(i)
-		y_peak = peak
-		return
-		end
-	end
-end
-
-END
-
-PRO find_hpeak,x,nx,xindex=xindex
-print,'===='
-fwh_max= make_array(4,/float)
-ix = nx / 4
-x_index = indgen(nx)
-for m=0,3 do begin
-i1 = ix *m 
-i2 = i1+ix-1
-newx = x(i1:i2)
-newy = ny(i1:i2)
-
-xindex = keyword_set(XINDEX)
-	if xindex then begin
-	newx = x_index(i1:i2)
-	newtons_method_norm,newx,newy,hpeak,n1,x_sol,notfound
-	fwh_max_x1 = x(n1) + x_sol * (x(n1+1) - x(n1))
-	endif else begin
-	newtons_method,newx,newy,hpeak,fwh_max_x1,notfound
-	end
-
-	if notfound then print,'HPeak RANGE #',m+1,'     ENCOUNTERED NOT FOUND PROBLEM' 
-	fwh_max(m)=fwh_max_x1
-	print,'HPeak RANGE #',m+1,fwh_max(m)
-end
-END
-
-
-PRO newtons_method,x,y,y_sol,x_sol,notfound
-notfound = 0
-nx = n_elements(y)
-n1 = 0 
-n2 = nx-1 
-RETEST:
-;print,'N1,N2',n1,n2,y(n1),y(n2)
-if (n2-n1) le 1 then begin
-	if (y_sol - y(n2)) * (y_sol - y(n1)) gt 0 then begin
-		x_sol= x(n1)
-		notfound = 1
-		return
-		end
-	if (x(n2)-x(n1)) eq 0. then begin
-		x_sol = x(n1)
-		return
-	end
-	x_sol = x(n1)+ (y_sol - y(n1)) /(y(n2)-y(n1)) *(x(n2)-x(n1))
-	 return
-	end
- 
-nm = (n2-n1)/ 2 + n1
-fm = y (nm)
-;print,nm,fm,y_sol
-if abs(fm-y_sol) le 1.e-5 then begin
-	x_sol = x(nm)
-;	print,'Stop at NM,x_sol',nm,x_sol
-	return
-endif else begin
-	if (fm-y_sol) *(y(n2) - y_sol) gt 0 then begin
-		n2 = nm
-	endif else  begin
-		n1 = nm
-	end
-	goto,RETEST
-	end
-END
-
-;
-; using index and factor instead of real value for x array
-;
-PRO newtons_method_norm,x,y,y_sol,n1,x_sol,notfound
-	rx = float(x)
-	newtons_method,rx,y,y_sol,x_sol,notfound
-	n1 = fix(x_sol)
-	x_sol = x_sol-float(n1)
-END
 
 
 PRO zoom_to_box
@@ -5682,8 +5452,8 @@ RESETSENSE:
 		save_outfile=report_path+w_plotspec_array(3)+'.'+sss
 		summary_report_dump,filename,save_outfile,i,i,view1d_summary_id.header
 	if scanData.debug eq 1 then print,save_outfile
-	w_plotspec_id.mode = 0
 	end
+	w_plotspec_id.mode = 0
      end
 
 endif else w_warningtext,'Error:  Data file " '+filename+' " not found!'
@@ -7278,11 +7048,17 @@ end
 x = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord)
 y = make_array(scanData.act_npts,15)
 y(*,*) = scanData.da(0:scanData.act_npts-1,0:14)
+WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
+for i=0,14 do begin
+	if wf_sel(i) then begin
+	if n_elements(jpick) eq 0 then jpick=i else jpick=[jpick,i]
+	end
+end
 
   CASE Event.Value OF
 
   'Fitting.Ez_Fit ...': BEGIN
-        ez_fit,x=x,y=y,GROUP=Event.Top
+        ez_fit,x=x,y=y,GROUP=Event.Top,jpick=jpick
         END
   'Fitting.1D Binary': BEGIN
 	u_openw,unit,'fitting.bin1d',/XDR
@@ -8199,6 +7975,7 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;       08-30-1999      R1.2d
 ;                       Validate the PS plot of zoom result. 
 ;       09-20-1999      View Report automatically generates it if file not found
+;       10-15-1999      Automatically load the first selected curve to ezfit
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
