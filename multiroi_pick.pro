@@ -51,14 +51,6 @@ end
 	region_no = 1
 	if keyword_set(region) then region_no = region
 
-	otv = tvrd(xl,yl,wd,ht)
-;help,otv
-
-	bg=0
-	if keyword_set(background) then bg=background
-	erase,bg
-	TVSCL,congrid(im,wd,ht),xl,yl
-
 	sz = size(im)
 	factor = [float(wd)/sz(1), float(ht)/sz(2)]
 
@@ -78,14 +70,12 @@ end
 	if iyl eq iyr and iyr gt 0 then iyl = iyr-1
 	if ixl eq ixr and ixr gt 0 then ixl = ixr-1
 	zoom_box = [ixl,iyl,ixr,iyr]
-;print,ixl,iyl, ixr,iyr
 
 	im_sub = im(ixl:ixr,iyl:iyr)
 	vmax = max(im)
 	vmin = min(im)
 	top = (!d.table_size-1) * (max(im_sub)-vmin)/(vmax-vmin)
 	
-	if !d.name ne 'X' then begin
 	oldpicke = reform(oldpicke,sz(1),sz(2))
 	oldpicke = oldpicke(ixl:ixr,iyl:iyr)
 	multiplier = [float(wd)/(ixr-ixl+1),float(ht)/(iyr-iyl+1)]
@@ -103,14 +93,6 @@ end
 	defroi_listregion,im_sub,oldpicke,region=k,/reverse 
 	end
 
-	endif else begin
-	; zoombox TV region
-
-	x1 = fix(factor(0)*[ixl,ixr+1])
-	y1 = fix(factor(1)*[iyl,iyr+1])
-	sub_otv = otv(x1(0):x1(1)-1,y1(0):y1(1)-1)
-	tv,congrid(sub_otv,wd,ht),xl,yl,top=top
-	end
 
 	; call pick
 
@@ -196,11 +178,8 @@ END
 
 PRO defroi_refresh,im,width=width,height=height,xpos=xpos,ypos=ypos,print=print,charsize=charsize
 
-;	xl=80
-;	yl=80
-;	wd=340
-;	ht=340
 	graph_region,xl,yl,wd,ht
+	erase
 	TVSCL,congrid(im,wd,ht),xl,yl
 	
 END
@@ -327,6 +306,7 @@ if keyword_set(width) then wd = width
 if keyword_set(height) then ht = height
 if keyword_set(xpos) then x0 = xpos
 if keyword_set(ypos) then y0 = ypos
+erase
 TVSCL,congrid(im,wd,ht),x0,y0
 
 sz = size(im)
@@ -494,7 +474,7 @@ end ;  if else new=1
 
 	str = ['You are in ROI discrete pixel selection mode', $
 		'for region # ='+strtrim(region_no), $
-		'LMB to pick/unpick the pixel, RMB to stop ']
+		'LMB to pick/unpick the pixel, RMB to stop selection.']
 r = dialog_message(str,/info)
 cursor,x,y,/device,/down
 
@@ -568,6 +548,7 @@ str = [ 'For detail information, please refer','', $
 	'Save As ... - Save the statistic scroll window content to a disk file', $
 	'Print       - Print the statistic scroll window content to printer', $
 	'Clear       - Clear the statistic scroll window', $
+	'Bg color:   - Slider control for displaying query image data', $
 	'ROIsTIFF    - Show TIFF filename corresponding to ROIs filename ', $
 	'Done        - Close the multi-roi selection program' $
 	]
@@ -725,10 +706,6 @@ WIDGET_CONTROL,/HOURGLASS
 	if defroi_pickinfo.help then $
 	str="Use Right Mouse Button to stop query."
 	WIDGET_CONTROL,defroi_pickinfo.msg,SET_VALUE=str
-;	r = dialog_message("Use Right Mouse Button to stop query.",/info)
-	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
-		color=defroi_pickinfo.bg,/device
-	xyouts,1,ysize-19,defroi_pickinfo.cursor_val,/device
 	cursor,x,y,/device,/change
 	while (!mouse.button ne 4) do begin
 	x = !mouse.x
@@ -744,6 +721,7 @@ WIDGET_CONTROL,/HOURGLASS
 	if j ge sz(2) then j = sz(2) - 1
 	str = '***IMAGE('+strtrim(i,2)+','+strtrim(j,2)+')='+strtrim(im(i,j),2)
 	cursor,x,y,/device,/change
+	device,set_graphics_function=3
 	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
 		color=defroi_pickinfo.bg,/device
 	xyouts,1,ysize-19,str,/device,charsize=1.5 ;2
@@ -916,9 +894,9 @@ WIDGET_CONTROL,/HOURGLASS
 	type = defroi_pickinfo.tifftype
       tvlct,r,g,b,/get
       case type of 
-	0: write_tiff,pngname,reverse(TVRD(),2),red=r,green=g,blue=b 
-	1: write_png,pngname,TVRD(),r,g,b
-        2: write_pict,pngname,TVRD(),r,g,b
+	0: save_tiff,file=pngname,win=defroi_pickinfo.wid,path=defroi_pickinfo.path
+	1: save_png,file=pngname,win=defroi_pickinfo.wid,path=defroi_pickinfo.path
+	2: save_pict,file=pngname,win=defroi_pickinfo.wid,path=defroi_pickinfo.path
       endcase
 ; print,'pngname=',pngname
       END
@@ -1048,6 +1026,10 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg,comment=comment,header=heade
 ;		       Improve the efficiency for handling very large image data
 ;      05-14-2002  bkc Add the option of read/save the multiple roi.pick file 
 ;                      Add the option of saving Tiff/Png/Pict image file
+;      07-27-2004  bkc Fixed the problem with image query mode if the slider 
+;		       background color been set by user
+;		       Add the comment label if comment is specified
+;		       Update save TIFF/PNG/PICT to support 8/24 bit device
 ;-
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
@@ -1058,7 +1040,7 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg,comment=comment,header=heade
 graph_region,xl,yl,wd,ht,xsize,ysize
 
   multiroi_pickBase = WIDGET_BASE(GROUP_LEADER=Group, $
-	title='MULTIROI_PICK R1.1 ', $
+	title='MULTIROI_PICK R1.1+', $
       ROW=1, $
       MAP=1, $
       UVALUE='multiroi_pickBase')
@@ -1176,6 +1158,8 @@ graph_region,xl,yl,wd,ht,xsize,ysize
 
   if keyword_set(header) then $
   label1 = WIDGET_LABEL(BASE5,VALUE=header)
+  if keyword_set(comment) then $
+  label1 = WIDGET_LABEL(BASE5,VALUE=comment)
 
   BASE5_0 = WIDGET_BASE(BASE5, $
       ROW=1, $
@@ -1218,7 +1202,8 @@ graph_region,xl,yl,wd,ht,xsize,ysize
       UVALUE='DEFROIPICK_TEXTCLEAR', $
       VALUE='Clear')
 
-  Slider = WIDGET_SLIDER( BASE7, MAX=!d.table_size, MIN=0, $
+  label2 = WIDGET_LABEL(BASE7,VALUE='  Bg color:')
+  Slider = WIDGET_SLIDER( BASE7, MAX=!d.table_size-2, MIN=0,/scroll, $
       UVALUE='DEFROIPICK_BACKGROUND')
 
   BASE8 = WIDGET_BASE(BASE5, $
