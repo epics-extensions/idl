@@ -74,9 +74,10 @@ if n_elements (printer_info) eq 0 then $
 	reverse: 0, $
 	base: 0L, $
 	ptr_field:0L }
-if n_elements(r_curr) eq 0 then begin
-	LOADCT,39
-	end
+; inherit from the parent process
+;if n_elements(r_curr) eq 0 then begin
+;	LOADCT,39  
+;	end
 END
 
 PRO PS_open,psfile,TV=TV
@@ -457,7 +458,7 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='BASE2')
 
   LABEL3 = WIDGET_LABEL( BASE2, $
-	FONT=!os.font, $
+;	FONT=!os.font, $
       UVALUE='LABEL3', $
       VALUE='Setup PS Printer')
 
@@ -1108,7 +1109,7 @@ help1:
 END
 
 
-; $Id: ez_fit.pro,v 1.1 1998/02/26 19:51:32 cha Exp $
+; $Id: ez_fit.pro,v 1.2 1998/03/03 15:46:48 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1281,9 +1282,11 @@ END  ;--------------------- procedure XDisplayFile ----------------------------
 
 
 PRO catch1d_get_pvtcolor,i,color
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 ; 24 bits
-	catch1d_get_pvtct,red,green,blue
-	color = red(i) + green(i)*256L + blue(i)*256L ^2
+	if n_elements(R_ORIG) eq 0 then $
+	catch1d_get_pvtct
+	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
 ;	plot,indgen(10),color=color
 END
 
@@ -1292,7 +1295,16 @@ PRO catch1d_save_pvtct
 	save,red,green,blue,file='catch1d.tbl'
 END
 
-PRO catch1d_get_pvtct,red,green,blue
+PRO catch1d_get_pvtct
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+
+; 8 bit visual
+
+	if  !d.n_colors lt 16777216 then begin
+		tvlct,red,green,blue,/get
+	endif else begin
+
+; 24 bit visual
 	file = 'catch1d.tbl'
 	found = findfile(file)
 	if found(0) eq '' then begin
@@ -1300,10 +1312,20 @@ PRO catch1d_get_pvtct,red,green,blue
 		found1 = findfile(file)
 		if found1(0) eq '' then $
 		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-	end
+		end
 	restore,file
 	tvlct,red,green,blue
+	end
+
+; set ORIG color 
+
+	R_ORIG = red
+	G_ORIG = green
+	B_ORIG = blue
+
+	LOADCT,39
 END
+
 
 PRO plot1d_replot,state
 COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
@@ -1361,7 +1383,7 @@ in_symbol(0)=psym
 	
 ;	dcl = state.color / 16
 	dcl = !d.table_size-2
-	ncv = 7
+	ncv = 4  ;7
 	colorlevel = dcl / ncv
 	for i= 1 ,s(2) - 1 do begin
 		if state.autocolor eq 1 then begin
@@ -5697,7 +5719,7 @@ PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin K. Cha, 09-12-97.
-;	xx-xx-xxxx	comment
+;	02-27-98	Inherit color tables from the calling program
 ;-
 
 COMMON EZ_FIT_BLOCK,ezfitData,image
@@ -5769,7 +5791,7 @@ os_init
 
   EZFIT_MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       /COLUMN, $
-      TITLE='EZ_FIT', $
+      TITLE='EZ_FIT (R1.0)', $
       MAP=1, $
       UVALUE='EZFIT_MAIN13')
   ezfitData.base = EZFIT_MAIN13
@@ -5868,8 +5890,6 @@ os_init
       TITLE='ASCII File:', $
       XSIZE=60, $
       UVALUE='EZFIT_FIELD5')
-
-  loadct,39
 
   WIDGET_CONTROL, EZFIT_MAIN13, /REALIZE
 
