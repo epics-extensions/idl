@@ -461,42 +461,39 @@ case fix(type) of
 	1: if (s(0) eq 2) then begin		; byte
 		x = make_array(s(1),s(2),/byte) 
 	   endif else begin
-		if !d.name eq 'WIN' then x = bytarr(s(1)) else x = bytarr(fix(int))
+		x = bytarr(int)  	
 	   end
 	2: if (s(0) eq 2) then begin		; int
 		x = make_array(s(1),s(2),/int) 
 	   endif else begin
-		if !d.name eq 'WIN' then x = intarr(s(1)) else  x = intarr(fix(int))  	
+		x = intarr(int)  	
 	   end
 	3: if (s(0) eq 2) then begin		; long 
 		x = make_array(s(1),s(2),/long) 
 	   endif else begin
-		if !d.name eq 'WIN' then x = lonarr(s(1)) else  x = lonarr(fix(int))	
+		x = lonarr(int)  	
 	   end
 	4: if (s(0) eq 2) then begin		; float
 		x = make_array(s(1),s(2),/float) 
 	   endif else begin
-		if !d.name eq 'WIN' then x = fltarr(s(1)) else  x = fltarr(fix(int))  	
+		x = fltarr(int)  	
 	   end
 	5: if (s(0) eq 2) then begin		; double 
 		x = make_array(s(1),s(2),/double) 
 	   endif else begin
-		if !d.name eq 'WIN' then x = make_array(s(1),/double)  else $	
-		x = make_array(fix(int),/double)  	
+		x = make_array(int,/double)  	
 	   end
 	6: if (s(0) eq 2) then begin		; complex
 		x = make_array(s(1),s(2),/complex) 
 	   endif else begin
-		if !d.name eq 'WIN' then x = make_array(s(1),/complex)  else $	
-		x = make_array(fix(int),/complex)  	
+		x = make_array(int,/complex)  	
 	   end
 	7: if (s(0) eq 2) then begin		; string
 		print,'Error u_write/u_read can only support single string array'
 		print,'size=',s
 		return
 	   endif else begin
-		if !d.name eq 'WIN' then x = make_array(s(1),/string,value=string(replicate(32b,s(4))))  else $	
-		x = make_array(fix(int),/string,value=string(replicate(32b,s(4))))  	
+		x = make_array(int,/string,value=string(replicate(32b,s(4))))  	
 	   end
 else: begin
 	print,'type=',type
@@ -505,6 +502,7 @@ else: begin
 		return
 	end
 endcase
+
 	readu,unit,x
 ERRCODE = 0
 END
