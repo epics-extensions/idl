@@ -870,7 +870,6 @@ IF dim EQ 2 THEN BEGIN
 	title = pv(0)
 	seqno = seq - 1
 	scanno_2d = scanno
-	yvalue = pa1D(seqno,0)
 	npts = cpt(0)
 
 	ndim = n_elements(id_def)/2
@@ -893,15 +892,15 @@ ENDIF ELSE begin
 	 print,'**1D scan**'
 	IF dim EQ 1 THEN BEGIN
 		max_pidi = n_elements(id_def)
-		npts = cpt
+		npts = cpt(0)
 		desc1 = labels(max_pidi:2*max_pidi-1)
 		for i=0,max_pidi-1 do begin
 		if id_def(i) gt 0 then begin
 		if desc1(i) eq '' then desc1(i) = labels(i)
 		end
 		end
-		pa = pa1D
-		da = da1D	
+		pa = pa1D(0:npts-1,*)
+		da = da1D(0:npts-1,*)	
 	END
 end
 
