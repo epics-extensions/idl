@@ -1655,6 +1655,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 	WIDGET_CONTROL, ezfitData.text_area, SET_VALUE=str	
         end
 
+	if n_elements(readascii_info) then $
 	WIDGET_CONTROL,readascii_info.table, $
 	 set_table_select=[ ezfitData.J_index, 0, $
 		ezfitData.J_index,ezfitData.width-1 ], BAD_ID=b
@@ -1683,6 +1684,7 @@ COMMON W_READASCII_BLOCK,readascii_info
         end
 
 	; row
+	if n_elements(readascii_info) then $
 	WIDGET_CONTROL,readascii_info.table, $
 	 set_table_select=[0,ezfitData.I_index, $
 		ezfitData.width-1, ezfitData.I_index], BAD_ID=b
@@ -1711,6 +1713,7 @@ COMMON W_READASCII_BLOCK,readascii_info
         end
 
 	; column
+	if n_elements(readascii_info) then $
 	WIDGET_CONTROL,readascii_info.table, $
 	 set_table_select=[ezfitData.J_index,0, $
 		ezfitData.J_index,ezfitData.height-1], BAD_ID=b
@@ -3921,6 +3924,8 @@ PRO ezfit_readImageData,x,y,im,filename=filename
 
 file='fitting.bin'
 if keyword_set(filename) then file=strtrim(filename,2)
+r = findfile(file,count=ct)
+if ct eq 0 then return
 u_openr,unit,file,/XDR
 u_read,unit,x
 u_read,unit,y
@@ -3932,6 +3937,7 @@ END
 PRO ezfit_get2DData,F,image2
 COMMON EZ_FIT_BLOCK,ezfitData,image
 		ezfit_readImageData,xarray,yarray,image,filename=F 
+	if n_elements(xarray) eq 0 then return
 		ezfitData.im = image
 		ezfit_init2D,xarray,yarray,image2
 		ezfitData.file = F
