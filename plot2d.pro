@@ -717,6 +717,11 @@ COMMON COLORBAR,colorbar_data
 	WIDGET_CONTROL,setup_info.Azslider,SET_VALUE=ch
 	plot2d_state.Az = ch(0) 
       END
+  'plot2d_asciifmt': BEGIN
+	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
+	plot2d_state.format = ch(0) 
+        plot2d_asciiReport,plot2d_state,Event
+      END
   'plot2d_setupSLIDER4': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
 	WIDGET_CONTROL,setup_info.Az,SET_VALUE=ch
@@ -977,6 +982,11 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       VALUE=plot2d_state.az, $
       XSIZE=100,SCROLL=1)
 
+  plot2d_format = CW_FIELD( BASE24,VALUE=plot2d_state.format, $
+      ROW=1, RETURN_EVENTS=1, TITLE='ASCII Format:', $
+      UVALUE='plot2d_asciifmt', $
+      XSIZE=6)
+
   BASE47 = WIDGET_BASE(plot2d_setupMain13, $
       ROW=1, $
       MAP=1, $
@@ -1163,8 +1173,8 @@ colorbar_data.max = plot2d_state.pixel_max
 ; readjust if vertical colorbar assumed
 if colorbar_data.horiz eq 0 then begin
 	colorbar_data.x = !d.x_size-right*0.75
-	colorbar_data.width = 20
-	colorbar_data.height = (!d.y_size-top-bottom) / 2
+;	colorbar_data.width = 20
+;	colorbar_data.height = (!d.y_size-top-bottom) / 2
 	colorbar_data.y = (!d.y_size - colorbar_data.height)/2
 end
 
@@ -1281,6 +1291,25 @@ end
 
 END
 
+PRO plot2d_asciiReport,plot2d_state,Event
+
+	im = plot2d_state.data
+	x = plot2d_state.xarr
+	y = plot2d_state.yarr
+	nx = n_elements(x)
+	f1 = '('+ strtrim(nx+1,2)+plot2d_state.format+')'
+	openw,1,'plot2d.txt'
+	printf,1,plot2d_state.title
+	  for i=0,nx-1 do begin
+	  lineA = reform(im(i,*))
+	  printf,1,format=f1,x(i),lineA
+	  end
+	close,1
+	xdisplayfile,'plot2d.txt',Group=Event.top
+	cd,current=cpath
+	rename_dialog,cpath,'plot2d.txt','',Group=Event.top
+END
+
 ;
 ;
 PRO Plot2dMAIN13_Event, Event
@@ -1318,23 +1347,7 @@ ENDIF
       1: plot2d_state.plottype= 1  	;surface
       2: plot2d_state.plottype= 2  	;contour
       3: plot2d_state.plottype= 3  	;shade_surf
-      4: begin 		;data window
-	im = plot2d_state.data
-	x = plot2d_state.xarr
-	y = plot2d_state.yarr
-	nx = n_elements(x)
-	f1 = '('+ strtrim(nx+1,2)+'G17.7)'
-	openw,1,'plot2d.txt'
-	printf,1,plot2d_state.title
-	  for i=0,nx-1 do begin
-	  lineA = reform(im(i,*))
-	  printf,1,format=f1,x(i),lineA
-	  end
-	close,1
-	xdisplayfile,'plot2d.txt',Group=Event.top
-	cd,current=cpath
-	rename_dialog,cpath,'plot2d.txt','',Group=Event.top
-	end
+      4: plot2d_asciiReport,plot2d_state,Event
 ;      5: begin
 ;	PS_open,'idl.ps',/TV
 ;	plot2d_replot,plot2d_state
@@ -1442,6 +1455,8 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;
 ;       CHARSIZE: Set this keyword to specify the plot charsize, default 1.
 ;
+;       CLASSNAME:  Set classname used in output file construction.
+;
 ;       COMMENT:  Set this keyword to write any notes on the graph.
 ;
 ;       RXLOC:  Set notes X ratio to plot device width, default 0.01.
@@ -1523,6 +1538,8 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;                       Default backgrand color change to white
 ;                       Initial colorbar use relative location
 ;                       PS use the TVRD exactly as shown on screen
+;       05-29-2001      Add ascii format control on data output
+;                       Allow the Color bar width, height ajustment
 ;-
 COMMON COLORBAR, colorbar_data
 
@@ -1599,6 +1616,7 @@ if keyword_set(classname) then class = classname
 	ztitle:zl, $
 	footnote: 1, $
 	comment: make_array(5,/string), $ 
+	format: 'G17.7', $
 	xloc:xloc, $
 	yloc:yloc, $
 	zoom:1.0, $
