@@ -1,6 +1,33 @@
 @PS_open.pro
 
+
+PRO catch1d_get_pvtcolor,i,color
+; 24 bits
+	catch1d_get_pvtct,red,green,blue
+	color = red(i) + green(i)*256L + blue(i)*256L ^2
+;	plot,indgen(10),color=color
+END
+
+PRO catch1d_save_pvtct
+	tvlct,red,green,blue,/get
+	save,red,green,blue,file='catch1d.tbl'
+END
+
+PRO catch1d_get_pvtct,red,green,blue
+	file = 'catch1d.tbl'
+	found = findfile(file)
+	if found(0) eq '' then begin
+		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
+		found1 = findfile(file)
+		if found1(0) eq '' then $
+		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
+	end
+	restore,file
+	tvlct,red,green,blue
+END
+
 PRO plot1d_replot,state
+COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
 
 	state.xsize = !d.x_size
 	state.ysize = !d.y_size
@@ -24,8 +51,10 @@ erase
 
 if !d.name eq 'PS' then cl = 0
 
+color = cl 
+if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
 if s(0) eq 1 then $
-	PLOT,state.x,state.y,COLOR=cl, $
+	PLOT,state.x,state.y, COLOR=color, $
 		xrange=state.xrange, yrange = state.yrange, $
 		ylog=state.ylog, xlog=state.xlog, psym=psym, $
 		thick=thick, xthick=thick, ythick=thick,$
@@ -43,7 +72,7 @@ in_symbol = make_array(s(2),/int)
 in_color(0)= cl
 in_line(0)= line
 in_symbol(0)=psym
-	PLOT,state.x,state.y,COLOR=cl, $
+	PLOT,state.x,state.y,COLOR=color, $
 		xrange=state.xrange, yrange = state.yrange, $
 		ylog=state.ylog, xlog=state.xlog, $
 		thick=thick, xthick=thick, ythick=thick,$
@@ -52,15 +81,22 @@ in_symbol(0)=psym
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
 	
 ;	dcl = state.color / 16
-	dcl = !d.n_colors -2
-	dcl = dcl MOD 256
-	ncv = 8
+	dcl = !d.table_size-2
+	ncv = 7
 	colorlevel = dcl / ncv
 	for i= 1 ,s(2) - 1 do begin
 		if state.autocolor eq 1 then begin
 		ii = i / ncv
 		im = i MOD ncv
 		cl = dcl -ii -im*colorlevel
+		in_color(i) = cl
+		color = cl
+		; if 24 bits use cl_val
+        	if !d.n_colors eq 16777216 then begin
+                	catch1d_get_pvtcolor,cl,t_color
+                	color = t_color
+                	end
+
 		end
 		if psym gt 0 then psym = psym+1
 		if psym lt 0 then psym = psym-1
@@ -71,15 +107,16 @@ if i eq 2 and psym gt 0 then psym=psym+1
 
 		if line gt 0 then line = line+1
 		in_line(i) = line
-		in_symbol(i) = psym mod 10
+		in_symbol(i) = psym 
 		z = y(0:s(1)-1,i)
 
 		if state.curvfit then begin
 			psym=7      ; if curve fitting is true
 		end
-		OPLOT,state.x,z,COLOR=cl,linestyle=line, psym=psym, $
+		OPLOT,state.x,z,COLOR=color,linestyle=line, psym=psym mod 7, $
 			thick=thick 
 		psym = in_symbol(i)
+; print,i,psym,cl,line
 	end
 end
 
@@ -129,11 +166,18 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 
 	x=[real_x1,real_xl]
 	y=[real_yl,real_yl]
-	if psym ne 0 then $
-	oplot,x,y,linestyle=in_line(i),color=in_color(i),thick=2
-	oplot,x,y,linestyle=in_line(i),color=in_color(i),psym=in_symbol(i),thick=2
+	color = in_color(i)
+        ; if 24 bits use cl_val
+	if !d.n_colors eq 16777216 then begin
+	catch1d_get_pvtcolor,in_color(i),t_color
+	color = t_color
+	end
 
-	xyouts,real_xr,real_yl, state.legend(i), color=in_color(i)
+	if psym ne 0 then $
+	oplot,x,y,linestyle=in_line(i),color=color,thick=2
+	oplot,x,y,linestyle=in_line(i),color=color,psym=in_symbol(i),thick=2
+
+	xyouts,real_xr,real_yl, state.legend(i)
 	end
 end
 
@@ -353,6 +397,7 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;       10-28-96 bkc   Add the xstyle and ystyle keywords 
 ;       07-01-97 bkc   Comment out LOADCT,39 inherit color from parent process 
 ;       08-11-97 bkc   Add the curvfit support, only two curves allowed 
+;       12-22-97 bkc   Add the 24 bit color visual device support 
 ;-
 
 ;LOADCT,39
@@ -380,7 +425,7 @@ xl = ''
 yl =''
 ti = ''
 wti='Plot1d'
-cl = !d.n_colors - 1
+cl = !d.table_size - 1
 leg =['']
 footnote = ''
 add_line=0
