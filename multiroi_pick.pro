@@ -147,7 +147,7 @@ END
 PRO defroi_addlist,picke,elist
 	nel = n_elements(elist) - 1
 	region_no = elist(nel)
-	for i=0,nel-1 do begin
+	for i=0L,nel-1 do begin
 		ij = elist(i)
 ;		if picke(ij) eq 0 then picke(ij) = region_no
 		if picke(ij) ne region_no then picke(ij) = region_no
@@ -159,14 +159,14 @@ PRO defroi_minuslist,picke,elist,region=region
 	; 1 - delete selected region
 	if keyword_set(region) then begin
 		region_no = region
-		for i=0,n_elements(picke)-1 do begin
+		for i=0L,n_elements(picke)-1 do begin
 			if picke(i) eq region_no then picke(i)=0
 		end
 	return
 	end
 	; 2 - delete the marked elements
 	nel = n_elements(elist)
-	for i=0,nel-1 do begin
+	for i=0L,nel-1 do begin
 		ij = elist(i)
 		if picke(ij) gt 0 then picke(ij) = 0
 	end
@@ -188,10 +188,10 @@ END
 
 PRO defroi_refresh,im,width=width,height=height,xpos=xpos,ypos=ypos,print=print,charsize=charsize
 
-	xl=80
-	yl=80
-	wd=340
-	ht=340
+;	xl=80
+;	yl=80
+;	wd=340
+;	ht=340
 	graph_region,xl,yl,wd,ht
 	TVSCL,congrid(im,wd,ht),xl,yl
 	
@@ -224,10 +224,10 @@ PRO defroi_listregion,im,picke,region_data,region=region,refresh=refresh,width=w
 ;     PRINT     - list the values of the region element
 ;
 
-	xl=80
-	yl=80
-	wd=340
-	ht=340
+;	xl=80
+;	yl=80
+;	wd=340
+;	ht=340
 	graph_region,xl,yl,wd,ht
 	if keyword_set(refresh) then TVSCL,congrid(im,wd,ht),xl,yl
 
@@ -251,7 +251,7 @@ xtr = strtrim(region_no,2)
 	orient = 45
 	if keyword_set(reverse) then orient = -45
 	device,set_graphics_function=6
-	for ij=0,nelem-1 do begin
+	for ij=0L,nelem-1 do begin
 		if picke(ij) eq region_no then begin
 		i = ij mod sz(1)
 		j = ij / sz(1)
@@ -312,10 +312,10 @@ PRO defroi_listall,im,picke,width=width,height=height,xpos=xpos,ypos=ypos,file=f
 ;     file      - override the default filename 'roi.pick' if file is specified 
 ;
 
-x0=80
-y0=80
-wd=340
-ht=340
+;x0=80
+;y0=80
+;wd=340
+;ht=340
 	graph_region,x0,y0,wd,ht
 csize = 0.
 if keyword_set(charsize) then csize=charsize
@@ -415,10 +415,10 @@ if keyword_set(region) then region_no = region
 csize = 1
 if keyword_set(charsize) then csize=charsize
 
-x0=80
-y0=80
-wd=340
-ht=340
+;x0=80
+;y0=80
+;wd=340
+;ht=340
 	graph_region,x0,y0,wd,ht
 if keyword_set(width) then wd = width
 if keyword_set(height) then ht = height
