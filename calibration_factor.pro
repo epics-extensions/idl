@@ -237,8 +237,8 @@ PRO CALIBRA_Event, Event
 	CALIBRA_printEqu, Event
 
 ; check for missing detector data
-
-	if info.oper(1) ge info.height then begin
+ 
+	if info.oper(1) gt info.ldet then begin
 	r = dialog_message('Error: no data defined for D'+strtrim(info.oper(1)+1,2),/error)
 	return
 	end
@@ -266,7 +266,7 @@ PRO CALIBRA_Event, Event
 
 	if info.no gt 1 then begin
 	for i=2,info.no do begin
-	if info.oper(i) ge info.height then begin
+	if info.oper(i) gt info.ldet then begin
 	r = dialog_message('Error: no data defined for D'+strtrim(info.oper(i)+1,2),/error)
 	return
 	end
@@ -306,7 +306,7 @@ PRO CALIBRA_Event, Event
 	if info.dim eq 2 then begin
 	xarr = info.xv
 	yarr = info.yv
-	plot2d,temp,xarr=xarr,yarr=yarr,title=info.equa_str
+	plot2d,temp,xarr=xarr,yarr=yarr,title=info.equa_str,classname=info.classname
 	end
 	info.image_final = temp
   	WIDGET_CONTROL, info.base, SET_UVALUE=info
@@ -652,6 +652,7 @@ end
 	   id_def: id_def, $
 	   xv: xv, $
 	   yv: yv, $
+	   ldet: 0, $     ; last detector defined
 	   dim:dim, $
 	   width: sz(1), $
 	   height: sz(2), $
@@ -660,6 +661,7 @@ end
 	}
 
   for i=0,14 do begin
+	if id_def(i) gt 0 then info.ldet = i
 	info.meth_uvalue(i) = 'CALIBRA_METHOD'+ strtrim(i,2)
 	info.oper_uvalue(i) = 'CALIBRA_OPER'+ strtrim(i,2)
   end
