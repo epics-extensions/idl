@@ -9,7 +9,7 @@
 ;
 ; panimage.pro
 ;
-PRO panimage_sel_init,panimageinfo,image_array,det_def
+PRO panimage_sel_init,panimageinfo,image_array,det_def,detnm=detnm
 
   sz = size(image_array)
 
@@ -19,6 +19,8 @@ PRO panimage_sel_init,panimageinfo,image_array,det_def
 	strtrim(indgen(61)+10,2), $
  	strtrim(indgen(9)+1,2),'A','B','C','D','E',+'F']
   l123 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D1-DF']
+
+  if keyword_set(detnm) then detname= detnm
 
   panimageinfo = {  $
 	title : '',$
@@ -52,12 +54,13 @@ END
 PRO PANIMAGE_SEL_accept,ret,title,panimageinfo
 ;  construct a image_subarray according to the selected ret vector
 ;
-;  ret - contains the Di index number, ordered in D01,...,D70,D1,D2,...,DF
+;  ret - contains the Di index number
 ;  title - specifies5 the panwindow title text
 ;  panimageinfo - structure defined in panimage_sel
 ;
 
 	sz = size(panimageinfo.image_array)
+	if ret(0) gt sz(3) then return  ; outsize range select
 
 	num = n_elements(ret)
 	if num gt sz(3) then num = sz(3)
@@ -69,20 +72,7 @@ PRO PANIMAGE_SEL_accept,ret,title,panimageinfo
 	end
 	new_win = panimageinfo.new_win
 
-detname = [panimageinfo.detname(70:84),panimageinfo.detname(0:69)]
-
-; database ordering
-
-if num eq 85 then id_def = [panimageinfo.id_def(15:84), panimageinfo.id_def(0:14)]
-
-id_def = intarr(num)
-	ret_conv = ret - 15
-	for i=0,num-1 do begin
-	if ret(i) lt 15 then ret_conv(i) = ret(i) + 70
-	if ret(i) lt num then $
-	id_def(i) = panimageinfo.id_def(ret(i))	
-	end
-	detname = panimageinfo.detname(ret_conv)
+	detname = panimageinfo.detname(ret)
 
 	def = panimageinfo.id_def(ret)
 
@@ -144,7 +134,6 @@ PRO PANIMAGE_SEL_Event, Event
   'PANIMAGE_ALL': BEGIN
 	ret = indgen(85) 
 	title = panimageinfo.title + ' : All read detectors'
-	ret_conv = [ret(0:69)+15,ret(70:84)-70]
 	ret_conv = ret(0:panimageinfo.ndet-1)
 	PANIMAGE_SEL_accept,ret_conv,title,panimageinfo
 	panimageinfo.sel_list = ret_conv 
@@ -169,14 +158,9 @@ PRO PANIMAGE_SEL_Event, Event
 	num = WIDGET_INFO(panimageinfo.list_wid,/LIST_NUMBER)
 	if ret(0) lt 0 then begin
 		ret = indgen(85) 
-		ret_conv = [ret(0:69)+15,ret(70:84)-70]
 		ret_conv = ret(0:panimageinfo.ndet-1)
 	endif else begin
-	ret_conv = intarr(n_elements(ret)) 
-	for i=0,n_elements(ret)-1 do begin
-		if ret(i) lt 70 then ret_conv(i) = ret(i) + 15
-		if ret(i) ge 70 then ret_conv(i) = ret(i) - 70
-	end
+	ret_conv = ret
 	end
 	title = panimageinfo.title
 	PANIMAGE_SEL_accept,ret_conv,title,panimageinfo
@@ -230,7 +214,7 @@ END
 
 
 
-PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,panimageinfo,tiff=tiff,path=path
+PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,panimageinfo,tiff=tiff,path=path,detnm=detnm
 ;+
 ; NAME: 
 ;   panImage_Sel
@@ -240,7 +224,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 ;       image_array.
 ;
 ; CALLING SEQUENCE:
-;       panImage_sel, Image_array, det_def [,TITLE='description']
+;       panImage_sel, Image_array, det_def [,TITLE='description'] [,DETNM=detnm]
 ;
 ; ARGUMENTS:
 ;  Image_array:  Image_array(Width,Height,Ndets) specifies the 2D
@@ -253,6 +237,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 ;     TITLE:     Specifies the title of the panImage window
 ;     TIFF:      Specifies the output tiff file name 
 ;     PATH:      Specifies the output data path
+;     DETNM:     Specifies the Ndets image ID names
 ;
 ;-
 
@@ -260,7 +245,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  panimage_sel_init,panimageinfo,image_array,det_def
+  panimage_sel_init,panimageinfo,image_array,det_def,DETNM=DETNM
 
   PANIMAGE_SEL = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
@@ -313,6 +298,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
   LIST6 = WIDGET_LIST( BASE2_20,VALUE=panimageinfo.detname, /MULTIPLE,  $
       UVALUE='PANIMAGE_LIST', XSIZE=10, $
       YSIZE=5)
+  widget_control,LIST6,set_list_top=15
   pan_accept = WIDGET_BUTTON( BASE2_20,VALUE='Accept', $
       UVALUE = "PANIMAGE_ACCEPT")
   pan_all = WIDGET_BUTTON( BASE2_20,VALUE=" All ", $
