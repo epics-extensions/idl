@@ -1455,7 +1455,7 @@ device,retain=2
       XSIZE=4)
   if ezfitdata.dim eq 2 then $
   xslider = widget_slider(BASE3,value=1,max=ezfitdata.width-1, $
-		xsize=50, title='Row', $ 
+		xsize=50, title='', $ 
 		UVALUE='GETVECTOR_XSLIDER')
 
 
@@ -1470,8 +1470,8 @@ device,retain=2
       XSIZE=4)
 
   if ezfitdata.height gt 0 then $
-  slider = widget_slider(BASE3,value=1,max=ezfitdata.height-1, $
-		xsize=50, title='Column',$
+  slider = widget_slider(BASE3,value=0,max=ezfitdata.height-1, $
+		xsize=50, title='', $ 
 		UVALUE='GETVECTOR_SLIDER')
 
   DRAW6 = WIDGET_DRAW( BASE2, $
@@ -4504,7 +4504,6 @@ END
 @PS_open.pro
 @u_read.pro
 @plot1d.pro
-@fit_user.pro
 ;@regressfit.pro
 ;@readascii.pro
 ;@lorentzian.pro
@@ -5245,3 +5244,4 @@ os_init
   XMANAGER, 'EZFIT_MAIN13', EZFIT_MAIN13
 END
 
+@fit_user.pro
