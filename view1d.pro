@@ -1,4 +1,4 @@
-; $Id: view1d.pro,v 1.19 2000/04/20 15:53:13 cha Exp $
+; $Id: view1d.pro,v 1.20 2002/07/31 21:27:33 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -11,7 +11,8 @@ WIDGET_CONTROL, event.id, GET_UVALUE=Ev
 CASE Ev OF 
 'EXIT': WIDGET_CONTROL, event.top, /DESTROY
 'FILE_PRINT': begin
-	if state.file ne '' then begin
+	r = findfile(state.file,count=ct)
+	if r(0) ne '' then begin
 		PS_enscript,state.file
 	endif else begin
 	WIDGET_CONTROL,state.text_area,GET_VALUE=str
@@ -172,7 +173,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.19 2000/04/20 15:53:13 cha Exp $
+; $Id: view1d.pro,v 1.20 2002/07/31 21:27:33 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -248,7 +249,7 @@ pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 ;-
 
 device, get_graphics = old, set_graphics = 6  ;Set xor
-col = !d.n_colors - 2
+col = !d.table_size - 2
 
 if keyword_set(message) then begin
 	st = [$,
@@ -267,9 +268,28 @@ if keyword_set(init) eq 0 then begin  ;Supply default values for box:
 	y0 = !d.y_size/2 - ny/2
 	endif
 
-button = 0
-goto, middle
+	if nx lt 0 then begin
+		x0 = x0 + nx
+		nx = -nx
+	endif
+	if ny lt 0 then begin
+		y0 = y0 + ny
+		ny = -ny
+	endif
 
+	x0 = x0 > 0
+	y0 = y0 > 0
+	x0 = x0 < (!d.x_size-1 - nx)	;Never outside window
+	y0 = y0 < (!d.y_size-1 - ny)
+
+	px = [x0, x0 + nx, x0 + nx, x0, x0] ;X points
+	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
+
+	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
+	cursor, x, y, 2, /dev	;Wait for a button
+
+button = 0
 while 1 do begin
 	old_button = button
 	cursor, x, y, 2, /dev	;Wait for a button
@@ -316,7 +336,6 @@ while 1 do begin
 		return
 		endif
 middle:
-
 	if nx lt 0 then begin
 		x0 = x0 + nx
 		nx = -nx
@@ -335,6 +354,7 @@ middle:
 	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
 
 	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
 	wait, .1		;Dont hog it all
 	endwhile
 end
@@ -1993,9 +2013,9 @@ win_state = WIDGET_INFO(view1d_widget_ids.plot_wid, /GEOMETRY)
    ;extract valid data from global arrays
 
    ; If plotting before p1 was read ...
-   IF num_pts le 1 then begin
+   IF num_pts lt 1 then begin
 	res = dialog_message('You have to open the input file first !',/Error)
-	return
+;	return
    END 
 
    view1d_check_xaxis,num_pts,p1,xmin,xmax
@@ -2429,7 +2449,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	ch_ratio = float(!d.y_ch_size) / !d.y_size
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
-	color = view1d_plotspec_id.colorI(id1)
+	color = view1d_plotspec_id.colorI(id)
         ; 24 bit visual case
         if !d.n_colors eq 16777216 then begin
                 catch1d_get_pvtcolor,color,t_color
