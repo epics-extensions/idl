@@ -1,3 +1,90 @@
+                        CATCHER 1.5.3 RELEASE NOTE 
+                        ==========================
+
+The major improvement in this release are that the various plot options 
+are made available during the realtime and the problem of re-plot with 
+different positioner and X axis at the real time is fixed. Both positioner
+readback pvnames and driver pvnames of the scan record  are monitored.
+ 
+<< Plot Options >>
+
+  * Log scale will not plot if max value is less than 1, this restriction is
+    removed. 
+  * New features at the realtime 
+    Allow selection of different positioner during the realtime
+    Allow selection of different X axis during the realtime
+    Allow changing plot options color,line,symbol,grid,log during the realtime
+    Allow changing of Y plot ranges during the realtime
+    Allow changing of user scale or auto scale during the realtime
+
+<< Debug Option >>
+
+  * Add a new debug off/on option to the setup menu. Starting from this 
+    version the terminal printing output will not automatically be
+    generated unless the Setup->Debug->On option is set.
+
+<< Monitor Positioner >>
+
+  * Starting from this release the positioner readback PV names are also 
+    monitored by the data catcher.  The data catcher will return the
+    readback array either the readback PV names defined or the dirver
+    PV names defined. 
+
+<< Index File >>
+
+  * Index file is updated at the end of each scan. This will take care of
+    the scenerio if the data catcher was killed accidentally by the system 
+    rebooting. If a user suspected that the data catcher is not displaying 
+    the scan data correctly, a user can move the corresponding 'index' file 
+    away, and restart the data catcher, then a brand new index file will be
+    automatically recreated.
+
+<< License Problem >>
+   
+  * Start from this version if the data catcher detects that no license 
+    is obtained by the user, it will pops up a message window to show 
+    the no license problem and  exit the data catcher program.
+
+
+                        CATCHER 1.5.2 RELEASE NOTE 
+                        ==========================
+
+The major improvement in this release is that the data catcher is able 
+to support both IDL developer license and run-time license. The default
+license used by the catcher script is run-time license. A user can  
+access the IDL developer license by using the -D option on the command
+line.
+
+<< catcher >>
+
+The script catcher has been modified that it supports both IDL run-time
+license and developer license.  
+
+	catcher                   ( use runtime license)
+
+	catcher -D		  ( use developer license)
+
+
+<< Startup >>
+
+It is observed that the data catcher R1.5.1 startup is kind of slow if
+there is no configuration file at the start up directory and IOC
+is not connected. This problem is fixed in R1.5.2, it will start as
+efficiently as the case with configuration file.
+
+<< Print->Plot >>
+
+In R1.5.1 when viewing scan data offline, or there is no configuration
+file in the startup directory, the Print->Plot menu may pick the step #
+for plot. This problem is fixed in R1.5.2.
+
+<< Plot Labels >>
+
+Breakdown the tie between the set labels and set user plot ranges.
+This way the user interface for set ranges is more flexible. Remove
+the feature of automatic replot at the CR of changing xmin, xmax,
+ymin, and ymax.
+
 
                         CATCHER 1.5.1 RELEASE NOTE 
                         ==========================
