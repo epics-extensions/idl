@@ -20,12 +20,12 @@ else
 endif
 
 	source /usr/local/rsi/idl_5.4/bin/idl_setup
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl54"
+	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl53"
 	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl54"
+	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl53"
 	endif
 	if -e catcher.exe2.idl53 then
-	set exe = "-rt=catcher.exe2.idl54"
+	set exe = "-rt=catcher.exe2.idl53"
 	endif
 
 # echo $exe
