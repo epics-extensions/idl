@@ -333,16 +333,18 @@ st=['You are in the define rectangular ROI mode', $
 	'Release and move LMB to show the ROI box']
 WIDGET_CONTROL,statistic_2dids.message,SET_VALUE=st
 	wset,statistic_2dids.wid
+	if !d.n_colors gt !d.table_size then begin
+	tvscl,congrid(statistic_2dids.im,300,300), $
+		statistic_2dids.margin_l,statistic_2dids.margin_b, $
+		xsize=statistic_2dids.xsize,ysize=statistic_2dids.ysize
+	endif else $
 	tv,statistic_2dids.pixmap,statistic_2dids.margin_l,statistic_2dids.margin_b
 
 device,set_graphics_function=6
-	wset,statistic_2dids.wid
 	cursor,x1,y1,/device,/change ; /nowait
 
 while(!err eq 1) do begin
-
 	cursor,x2,y2,/device,/change,/nowait   ; draw continuously 
-
 	plots,[x1,x2,x2],[y1,y1,y2],/device,thick=2
 	plots,[x1,x1,x2],[y1,y2,y2],/device,thick=2
 
@@ -353,6 +355,7 @@ if  n_elements(x2) eq 0 then begin
 	device,set_graphics_function=3
 	return
 end
+
 statistic_2dids.x1 = x1 - statistic_2dids.margin_l
 statistic_2dids.x2 = x2 - statistic_2dids.margin_l
 if x2 lt x1 then begin 
@@ -1136,6 +1139,7 @@ PRO scan2d_ROI,im,x,y,debug=debug,header=header,roifile=roifile,rptfile=rptfile,
 ;       01-24-2001  bkc R1.1
 ;                       Handle large image array, improve the efficiency
 ;       12-05-2003  bkc Fix the problem of inverse order of ROI
+;	08-07-2004  bkc Add support for true color devices
 ;-
 
 ;
@@ -1279,7 +1283,7 @@ ysize = 300
   if keyword_set(debug) then statistic_2dids.debug=1
 
   scan2d_ROI = WIDGET_BASE(GROUP_LEADER=Group, $
-      TITLE='2D Statistic ROI (R1.1)', $
+      TITLE='2D Statistic ROI (R1.2)', $
       COLUMN=1, $
       MAP=1, $
       UVALUE='scan2d_ROI')
