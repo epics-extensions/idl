@@ -154,33 +154,42 @@ for i=1,nx-1 do begin
 		 nohwdl = [nohwdl, i-1]
 		 x_hwdl = [x_hwdl,x(i-1)]
 		end
+		if yr eq 0. and yl ne yr then begin
+		 nohwdr = [nohwdr, i]
+		 x_hwdr = [x_hwdr,x(i)]
+		end
 	end
 end
-if list then print,'nohwdl',nohwdl, x_hwdl
-if list then print,'nohwdr',nohwdr, x_hwdr
+if list then $
+ print,'nohwdl',nohwdl, x_hwdl
+if list then  $
+print,'nohwdr',nohwdr, x_hwdr
 	lo=0
-	fwhm = 0.
+	FWHM = 0.
+	xfwhm = 0.
 if n_elements(nohwdl) gt 1 then begin 
 	x_hwd = x_hwdl(1:n_elements(nohwdl)-1)
 	nohw = n_elements(x_hwd)
 if n_elements(nohwdr) gt 1 then begin
 	x_hwde = x_hwdr(1:n_elements(nohwdr)-1)
 	nohwe = n_elements(x_hwde)
-	fwhm = make_array(nohw,/float)
+;	xfwhm = make_array(nohw,/float)
 	for i=0,nohw-1 do begin
 		x1 = x_hwd(i)
 	for j=0,nohwe-1 do begin
-		if x_hwde(j) ne x1 then begin
-			fwhm(i) = abs(x_hwde(j) - x1)
-			lo=lo+1
-			if list then print,'FWHM',lo,fwhm(i)
-			goto,outer
-			end
+		if x_hwde(j) gt x1 then begin
+		dxfwhm = x_hwde(j) - x_hwd(i)
+		lo=lo+1
+		if lo eq 1 then xfwhm = dxfwhm else $
+		xfwhm = [xfwhm,dxfwhm]
+		if list then print,'FWHM',lo,xfwhm(i-1)
+		goto,outer
 		end
+	end
 	outer:
 	end
 	end
-	FWHM = max(fwhm)
+	FWHM = max(xfwhm,imax)
 end
 
 ;if n_elements(nohwdr) gt 1 then begin
@@ -189,7 +198,7 @@ end
 ;	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
 ;	end
 if n_elements(x_hwd) gt 0 then begin
-	x_HPeak = x_hwd(sort(x_hwd))
+	x_HPeak = x_hwd(imax) 
 	x_hwdl = x_hwd
 	if n_elements(x_hwde) then x_hwdr = x_hwde
 	if list then print,'0.5*(ymax-ymin)',hpeak
@@ -202,9 +211,20 @@ if n_elements(x_hwd) gt 0 then begin
 	ya= make_array(nx,2)
 	ya(0,0)=y(*)
 	ya(0,1) = y(*)*0 + y_hpeak
-	comment=[ 'FWHM='+strtrim(fwhm,2) +',  Cntro='+strtrim(c_mass,2), $
-		'yhpeak='+strtrim(y_hpeak,2), $
-		'xhpeak='+strtrim(x_hpeak,2)]
+	comment=[ 'FWHM='+strtrim(FWHM,2) +',  Cntro='+strtrim(c_mass,2), $
+		'yhpeak='+strtrim(y_hpeak,2) + '  xhpeak='+strtrim(x_hpeak,2)]
+	nef = n_elements(xfwhm)
+	nel = n_elements(x_hwde)
+	for i=0,n_elements(x_hwd)-1 do begin
+		st =' xl='+strtrim(x_hwd(i),2) 
+		if nel gt 0 and i lt nel then $
+		  st = st +'   xr='+strtrim(x_hwde(i),2)
+		if nef gt 0 and i lt nef then $
+		  st = st +'   fwhm='+strtrim(xfwhm(i),2)
+		comment=[comment,st] 
+	end
+
+	if n_elements(comment) gt 10 then comment=[comment(0:8),'. . .']
 	if keyword_set(title) then $
 	plot1d,x,ya,comment=comment,title=title else $
 	plot1d,x,ya,comment=comment
