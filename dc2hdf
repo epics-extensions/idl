@@ -1,6 +1,7 @@
 #!/bin/csh -f
 setenv IDL_STARTUP /usr/local/epics/extensions/bin/$HOST_ARCH/viewer_startup.pro
-echo ".run dc2hdf" >! go_DChdf
+echo ".run PS_open" >! go_DChdf
+echo ".run dc2hdf" >>! go_DChdf
 echo "catcher2hdf" >>! go_DChdf
 idl go_DChdf
 rm go_DChdf
