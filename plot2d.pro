@@ -1465,6 +1465,9 @@ if event.PRESS eq 2 then begin
 		xtitle='X Values',Group=Event.top
 end
       END
+  'ITOOL_MENU': BEGIN
+	PDMENU3_Event, Event
+      END
   'BGROUP2': BEGIN
 ;      plot2d_state = plot2d_stateInit
       CASE Event.Value OF
@@ -1543,6 +1546,33 @@ end
 END
 
 
+PRO PDMENU3_Event, Event
+
+WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
+
+  CASE Event.Value OF
+
+
+  'ITOOLS.iImage': BEGIN
+    PRINT, 'Event for ITOOLS.iImage'
+	iImage,plot2d_state.data, $
+		plot2d_state.xarr,plot2d_state.yarr, $
+;		xrange=plot2d_state.range(0:1), $
+;		yrange=plot2d_state.range(2:3), $
+		title=plot2d_state.title,GROUP=Event.top
+    END
+  'ITOOLS.iSurface': BEGIN
+	iSurface,plot2d_state.data, $
+		plot2d_state.xarr,plot2d_state.yarr, $
+		title=plot2d_state.title,GROUP=Event.top
+    END
+  'ITOOLS.iContour': BEGIN
+	iContour,plot2d_state.data, $
+		plot2d_state.xarr,plot2d_state.yarr, $
+		title=plot2d_state.title,GROUP=Event.top
+    END
+  ENDCASE
+END
 
 
 PRO plot2d,data,tlb,win, width=width, height=height, $
@@ -1550,7 +1580,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 	title=title, xtitle=xtitle, ytitle=ytitle, ztitle=ztitle, $
 	xarr=xarr,yarr=yarr, NCOLORS=NCOLORS, $
 	rxloc=rxloc, ryloc=ryloc, comment=comment, classname=classname, $
-	stamp=stamp, wTitle=wTitle, GROUP=Group
+	stamp=stamp, wTitle=wTitle, GROUP=Group,itools=itools
 
 ;+
 ; NAME:
@@ -1630,6 +1660,8 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;
 ;       NCOLORS: If this keyword is specified, it overrides the actual size 
 ;                of the color table used in plot2d.
+;
+;	ITOOLS:  If specified the iTools menu is added
 ;
 ; OPTIONAL_OUTPUTS:
 ;       TLB: The widget ID of the top level base returned by the PLOT2D.
@@ -1851,6 +1883,8 @@ if keyword_set(comment) then begin
         plot2d_state.comment(0) = plot2d_state.comment(0)+ $
 		' (Max='+strtrim(maxvl,2) + ', Min='+strtrim(minvl,2)+')'
 
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
   Plot2dMAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       /TLB_SIZE_EVENTS, $	; resizable window
       /COLUMN, $
@@ -1859,6 +1893,8 @@ if keyword_set(comment) then begin
       UVALUE='Plot2dMAIN13')
 
   BASE1 = WIDGET_BASE(Plot2dMAIN13, /ROW)
+  BASE1_0 = WIDGET_BASE(BASE1, /ROW)
+  BASE1_t = WIDGET_BASE(BASE1, /ROW)
   Btns111 = [ $
     'TV', $
     'SURFACE', $
@@ -1868,8 +1904,21 @@ if keyword_set(comment) then begin
     'PICK1D...',$
     'ROI2D...',$
 	'HELP ...']
-  BGROUP2 = CW_BGROUP( BASE1, Btns111, $
+  BGROUP2 = CW_BGROUP( BASE1_0, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
+
+  if keyword_set(ITOOLS) then begin
+  MenuDesc309 = [ $
+      { CW_PDMENU_S,       3, 'ITOOLS' }, $ ;        0
+        { CW_PDMENU_S,       0, 'iImage' }, $ ;        1
+        { CW_PDMENU_S,       0, 'iSurface' }, $ ;        2
+        { CW_PDMENU_S,       2, 'iContour' } $  ;      3
+
+  ]
+
+  PDMENU3 = CW_PDMENU( BASE1_t, MenuDesc309, /RETURN_FULL_NAME, $
+      UVALUE='ITOOL_MENU')
+  end
 
   BASE1_1 = WIDGET_BASE(Plot2dMAIN13, /ROW)
   DRAW3 = WIDGET_DRAW( BASE1_1, XSIZE=xsize, YSIZE=ysize, RETAIN=2, $
