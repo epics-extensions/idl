@@ -18,9 +18,11 @@ PRO plot1d_replot,state
 
 ; one dim array 
 
-if !d.name eq 'X' then WSET,state.winDraw
+if !d.name ne 'PS' then WSET,state.winDraw
 !p.multi = [0,1,0,0,0]
 erase
+
+if !d.name eq 'PS' then cl = 0
 
 if s(0) eq 1 then $
 	PLOT,state.x,state.y,COLOR=cl, $
@@ -48,13 +50,17 @@ in_symbol(0)=psym
 		linestyle=line, psym=psym, $
 		xmargin=xmgin, ymargin=ymgin, $
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
+	
+;	dcl = state.color / 16
+	dcl = !d.n_colors -2
+	dcl = dcl MOD 256
+	ncv = 8
+	colorlevel = dcl / ncv
 	for i= 1 ,s(2) - 1 do begin
 		if state.autocolor eq 1 then begin
-		cl = cl - 4 
-		if cl le 1 then cl = state.color - 2
-;		cl = cl - 16 
-;		if cl le 1 then cl = state.color - 8
-		in_color(i) = cl
+		ii = i / ncv
+		im = i MOD ncv
+		cl = dcl -ii -im*colorlevel
 		end
 		if psym gt 0 then psym = psym+1
 		if psym lt 0 then psym = psym-1
@@ -67,6 +73,10 @@ if i eq 2 and psym gt 0 then psym=psym+1
 		in_line(i) = line
 		in_symbol(i) = psym
 		z = y(0:s(1)-1,i)
+
+		if state.curvfit then begin
+			psym=7      ; if curve fitting is true
+		end
 		OPLOT,state.x,z,COLOR=cl,linestyle=line, psym=psym, $
 			thick=thick 
 	end
@@ -140,7 +150,7 @@ IF (ev.id EQ ev.top) then begin
 	WIDGET_CONTROL,state.id_draw, SCR_XSIZE=ev.x, SCR_YSIZE=ev.y
 
 	; if device is X
-	if !d.name eq 'X' then  WSET,state.winDraw
+	if !d.name ne 'PS' then  WSET,state.winDraw
 
 	plot1d_replot, state
 
@@ -175,11 +185,12 @@ PRO plot1d, x, y, id_tlb, windraw, $
 	legend=legend, xylegend=xylegend, $
 	width=width, height=height, $
 	comment=comment, cleanup=cleanup, $
+	curvfit=curvfit, $
 	xstyle=xstyle, ystyle=ystyle, $
 	wtitle=wtitle, button=button, GROUP=GROUP
 ;+
 ; NAME:
-;	PLOT1D
+;       PLOT1D
 ;
 ; PURPOSE:
 ;       This routine provides a general purpose flexible cartesion plot
@@ -201,11 +212,11 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;  
 ;
 ; CATEGORY:
-;	Widgets.
+;       Widgets.
 ;
 ; CALLING SEQUENCE:
 ;
-;	PLOT1D, [X,] Y [, ID_TLB, ID_DRAW]
+;       PLOT1D, [X,] Y [,ID_TLB]  [,ID_DRAW]
 ;
 ; INPUTS:
 ;       X:      The vector array for X abscissa.
@@ -224,6 +235,9 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;
 ;       COLOR:  Set this keyword to specify the color number used
 ;               in the plot routine.
+;
+;      CURVFIT: Set this keyword if two curves are plotted, first curve
+;               is the fitted curve, the second curve is data to be fitted. 
 ;
 ;       SYMBOL: Set this keyword to specify data plotted as symbol, set to -1
 ;               data plot as symbol and connected with line.
@@ -332,14 +346,15 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;           PLOT1D,x,y,comment=['Comment line1','Comment line2'],/stamp
 ;
 ; MODIFICATION HISTORY:
-;       Written by:     Ben-chin Cha, Mar. 7, 1996.
+;       Written by:     Ben-chin K. Cha, Mar. 7, 1996.
 ;
-;       04-26-96    Add the window cleanup keyword 
-;       10-28-96    Add the xstyle and ystyle keywords 
+;       04-26-96 bkc   Add the window cleanup keyword 
+;       10-28-96 bkc   Add the xstyle and ystyle keywords 
+;       07-01-97 bkc   Comment out LOADCT,39 inherit color from parent process 
+;       08-11-97 bkc   Add the curvfit support, only two curves allowed 
 ;-
 
-
-LOADCT,39
+;LOADCT,39
 
 ; check any data provided
 
@@ -364,7 +379,7 @@ xl = ''
 yl =''
 ti = ''
 wti='Plot1d'
-cl = !d.n_colors
+cl = !d.n_colors - 1
 leg =['']
 footnote = ''
 add_line=0
@@ -381,6 +396,7 @@ state = { $
 	autocolor: 1, $ 	; automatic use different color for each curve
 	color:cl, $
 	symbol: 0, $
+	curvfit: 0, $		; whether data is from curve fitting
 	xtitle:xl, $
 	ytitle:yl, $
 	title:ti, $
@@ -400,7 +416,7 @@ state = { $
 	legendon: 0, $
 	legend: leg, $
 	xylegend: [.75,0.35], $
-	thick: 1, $
+	thick: 2, $
 	linestyle: 0, $
 	x: xa, $
 	y: ya $
@@ -445,6 +461,8 @@ if keyword_set(ymargin) then begin
 	if n_elements(ymargin) eq 2 then state.ymargin=ymargin
 	end
 
+if keyword_set(curvfit) then state.curvfit = 1
+
 if keyword_set(width) then xsize=width
 if xsize lt 350 then xsize=350
 if keyword_set(height) then ysize=height
@@ -473,7 +491,7 @@ WIDGET_CONTROL,id_draw,get_value=windraw
 	state.id_draw = id_draw
 	state.xsize = g_tlb.scr_xsize
 	state.ysize = g_tlb.scr_ysize
-	if !d.name eq 'X' then WSET,windraw
+	if !d.name ne 'PS' then WSET,windraw
 	
 	plot1d_replot, state
 
