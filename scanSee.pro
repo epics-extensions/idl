@@ -1,4 +1,4 @@
-@scanSee__define
+;@scanSee__define
 
 PRO DC_view_writeConfig,state
 	openw,unit,'scanSee.config',/get_lun
@@ -30,6 +30,14 @@ PRO DC_view_init, filename , DC_view_ids, print=print
 		scanno=scanno,id_def=id_def, $
 		pa1d=pa1d,da1d=da1d,pa2d=pa2d,da2d=da2d,pa3d=pa3d,da3d=da3d, $
 		x=x,y=y,z=z,class=class,outpath=outpath
+
+	if scanno lt 0 then begin
+		str = ['Error encountered in reading the file:',filename,'', $
+			'You have to use File... selection dialog','' , $
+			'to select a new file.']
+		r=dialog_message(str, /Error)
+		return
+	end
 
 	if keyword_set(print) then $
 	help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,da1d,pa2d,da2d, $
