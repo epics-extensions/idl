@@ -16,3 +16,4 @@ setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
 echo ".run ez_fit" >! go_ezfit
 echo "ez_fit" >>! go_ezfit
 idl go_ezfit
+rm go_ezfit
