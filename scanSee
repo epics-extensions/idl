@@ -11,17 +11,17 @@ source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
 source $PVT_LOC/ezcaidl_setup
 
 if $HOST_ARCH == "solaris-sparc" then 
-	set exe = "-rt=$PVT_LOC/../../idllib/scanSee.exe2.idl55"
+	set exe = "-rt=$PVT_LOC/../../idllib/scanSee.exe2.idl60"
 	else
 	set exe = "-rt=$PVT_LOC/scanSee.exe2.idl55"
 endif
-	if -e scanSee.exe2.idl55 then
-	set exe = "scanSee.exe2.idl55"
+	if -e scanSee.exe2.idl60 then
+	set exe = "scanSee.exe2.idl60"
 	endif
 
 echo $exe
 if ( "$1" == "" ) then
-	source /usr/local/rsi/idl_5.5/bin/idl_setup
+	source /usr/local/rsi/idl_6.0/bin/idl_setup
 	idl -32 $exe
 exit
 endif
@@ -41,7 +41,7 @@ echo ".run user_scan.pro" >>! go_viewer
 echo "$xdr" >>! go_viewer
 cat go_viewer
 #if `isainfo -b` == 64 then
-	source /usr/local/rsi/idl_5.5/bin/idl_setup
+	source /usr/local/rsi/idl_6.0/bin/idl_setup
 	idl -32 go_viewer
 #else
 #	source /usr/local/rsi/idl_5.3/bin/idl_setup
