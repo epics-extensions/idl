@@ -197,8 +197,8 @@ PRO scan1d::Plot,no,ix=ix,iy=iy
 ; PURPOSE:
 ;       The method reads and plots the next scan record from the opened 
 ;       logical unit. Scan record supports 4 positioners and 15 detectors.
-;       Default plot all present detectors will be plotted. If X vector
-;       with constant value then vector index will be used in X axis.
+;       Default option all present detectors will be plotted. If X vector
+;       is a constant value then vector index will be used in X axis.
 ;
 ; CALLING SEQUENCE:
 ;       Obj->[scan1d::]Plot [,Seqno] [,IX=#] [,IY='#,...']
@@ -234,13 +234,14 @@ PRO scan1d::Plot,no,ix=ix,iy=iy
 		if no gt 0 and no le self.maxno then $
 		self->point_lun,no-1
 	end
-		self->read,seqno=seqno,pts=pts,np=np,nd=nd,pa=pa,da=da,def=def,stamp=stamp
+		self->read,seqno=seqno,pts=pts,np=np,nd=nd,pa=pa,da=da,def=def,stamp=stamp,x_descs=x_descs,y_descs=y_descs,x_names=x_names,y_names=y_names,x_engus=x_engus,y_engus=y_engus
 ;help,pa,da,seqno,pts,np,nd,def
 
-	x = pa(*,0)
+	p_pick = 0
 	if n_elements(ix) then begin
-		if ix gt 0 and ix le np then x = pa(*,ix-1)
+		if ix gt 1 and ix le np then p_pick = ix - 1
 	end 
+	x = pa(*,p_pick)
 	if MIN(x) eq MAX(x) then x = indgen(pts)
 	
 	if n_elements(iy) then begin
@@ -266,9 +267,11 @@ PRO scan1d::Plot,no,ix=ix,iy=iy
 	  end
 	endif else y = da
 
+	xtitle = x_descs(p_pick)
+	if xtitle eq '' then xtitle=x_names(p_pick)
 	comment = ' Scan # '+string(seqno)
 	comment = [comment, 'File : '+ self.file, stamp]
-	plot1d,x,y,title=title,comment=comment
+	plot1d,x,y,title=title,comment=comment,xtitle=xtitle
 END
 
 ;
