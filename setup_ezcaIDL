@@ -43,8 +43,8 @@ if -e ezcaidl_startup.pro  then
         setenv  IDL_STARTUP ezcaidl_startup.pro 
 endif
 
-# release 4.0
-source /usr/local/rsi/idl/bin/idl_setup
+# release 5.0
+#source /usr/local/rsi/idl_5/bin/idl_setup
 setenv IDL_DEVICE X
 
 #echo EZCA_IDL_SHARE $EZCA_IDL_SHARE
