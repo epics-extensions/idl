@@ -62,6 +62,7 @@
 ;
 ; MODIFICATION HISTORY:
 ;  01  8-9-95  jps  	modified from idl's cw_tmpl.pro
+;  02  5-13-99  bkc  	modified check for 80 columns for enscript print on unix
 ;-
 
 
@@ -245,6 +246,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 			/DEFAULT_NO, DIALOG_PARENT=Event.top)
 		  IF ANS EQ 'Yes' THEN BEGIN
 		  WIDGET_CONTROL, state.text_id, GET_VALUE=value, BAD_ID=bad_id
+		width = max(strlen(value))
 			; open the scratch file for printing
 		  fileName = state.win_file
 		  OPENW, unit, fileName, /GET_LUN, ERROR=error	;
@@ -254,6 +256,8 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		     printf,unit, FORMAT='(A)',value
 	     	     FREE_LUN, unit			;free the file unit.
 		     if OS_SYSTEM.os_family eq 'unix' then begin
+		     if width le 80 then $
+		     spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, fileName], /noshell else $
 		     spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, '-r', fileName], /noshell
 		     spawn,[OS_SYSTEM.rm, '-f', fileName], /noshell
 		     endif else begin
