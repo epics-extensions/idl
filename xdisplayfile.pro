@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: xdisplayfile.pro,v 1.4 2002/08/02 15:39:06 jba Exp $
+; $Id: xdisplayfile.pro,v 1.5 2002/08/09 19:38:34 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -102,6 +102,7 @@ PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
 ;                       PS_print,file to print.
 ;      30 Jul. 2002     BKC Add the block, modal keywords take care the 
 ;                       animation help problem
+;      09 Aug  2002     BKC fix the problem with no input filename case
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
                                                         ;use the defaults if
@@ -185,7 +186,7 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 ;	 }
  
  state = { ourGroup: ourGroup, $
-	filename: filename, $
+	filename: title, $
 	filetext: filetext, $
 	notitle: noTitle}
 
