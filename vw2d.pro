@@ -471,8 +471,10 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 	  ENDIF
   dd =1L *npts(0)*npts(1)*npts(2)
 	if dd gt 5202000L then begin
-		r = dialog_message(['Sorry! 3D scan array too big for IDL ',string(npts)],/error)
-		goto,BAD
+	msg = ['Sorry! 3D scan array dimension too big', string(npts), $
+		'Only one detector returned : ',string(pickDet)]
+	r = dialog_message(msg,/error)
+;	goto,BAD
 	end
   ENDIF
 
@@ -498,9 +500,11 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 ;      *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims]) ELSE $
       *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims,DetMax[i]])
     IF debug THEN BEGIN
-      print,'dims: ',dims
+      print,'dims: ',dims, '  pickDet=',pickDet
       help,*(*Scan.pa)[i]
       help,*(*Scan.da)[i]
+      print,min(*(*Scan.pa)[i]),max(*(*Scan.pa)[i])
+      print,min(*(*Scan.da)[i]),max(*(*Scan.da)[i])
     ENDIF
   ENDFOR
 
@@ -570,7 +574,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.13 2001/07/10 15:36:50 cha Exp $
+; $Id: vw2d.pro,v 1.14 2002/03/18 21:35:39 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1223,7 +1227,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.13 2001/07/10 15:36:50 cha Exp $
+; $Id: vw2d.pro,v 1.14 2002/03/18 21:35:39 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1318,9 +1322,28 @@ if keyword_set(init) eq 0 then begin  ;Supply default values for box:
 	y0 = !d.y_size/2 - ny/2
 	endif
 
-button = 0
-goto, middle
+	if nx lt 0 then begin
+		x0 = x0 + nx
+		nx = -nx
+	endif
+	if ny lt 0 then begin
+		y0 = y0 + ny
+		ny = -ny
+	endif
 
+	x0 = x0 > 0
+	y0 = y0 > 0
+	x0 = x0 < (!d.x_size-1 - nx)	;Never outside window
+	y0 = y0 < (!d.y_size-1 - ny)
+
+	px = [x0, x0 + nx, x0 + nx, x0, x0] ;X points
+	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
+
+	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
+	cursor, x, y, 2, /dev	;Wait for a button
+
+button = 0
 while 1 do begin
 	old_button = button
 	cursor, x, y, 2, /dev	;Wait for a button
@@ -1367,7 +1390,6 @@ while 1 do begin
 		return
 		endif
 middle:
-
 	if nx lt 0 then begin
 		x0 = x0 + nx
 		nx = -nx
@@ -1386,6 +1408,7 @@ middle:
 	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
 
 	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
 	wait, .1		;Dont hog it all
 	endwhile
 end
@@ -3538,6 +3561,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	return
    end
 
+		
    shades = (image-view_option.z_min)/(view_option.z_max-view_option.z_min)*!d.table_size
 
 	CASE view_option.surface OF
@@ -3913,6 +3937,15 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 	seqno = catch2d_file.seqno
 	scanimage_readRecord,seqno,gD,/view
 
+; update start/end range
+	x_max = catch2d_file.width-1
+	y_max = catch2d_file.height-1
+        WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE= catch2d_file.xarr(0)
+        WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE= catch2d_file.xarr(x_max)
+        WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE= catch2d_file.yarr(0)
+        WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE= catch2d_file.yarr(y_max)
+
+
 END
 
 
@@ -4265,16 +4298,17 @@ COMMON w_warningtext_block,w_warningtext_ids
 
 	view = view_option.surface
 
-      IF ((Event.PRESS EQ 1) AND (view EQ 0)) THEN BEGIN
+      IF view eq 0 then begin
+      IF ((Event.PRESS EQ 1) ) THEN BEGIN
 	catch2d_xycoord_TV, x, y, Event
 	END
 
-      IF ((Event.PRESS EQ 2) AND (view EQ 0)) THEN BEGIN
+      IF ((Event.PRESS EQ 2) ) THEN BEGIN
 	catch2d_xydist2, Event
 	return
 	END
 
-      IF ((Event.PRESS EQ 4) AND (view EQ 0)) THEN BEGIN
+      IF ((Event.PRESS EQ 4) ) THEN BEGIN
 	hide_cross,view_option.x,view_option.y,view_option.d_wid,view_option.s_wid
 	nx = 50 
 	ny = 50 
@@ -4284,15 +4318,33 @@ COMMON w_warningtext_block,w_warningtext_ids
 	my_box_cursor, x0, y0, nx,ny, /INIT
 
 	if view_option.user eq 1 then begin
-		x_min = (x0-view_option.margin_b) / $
+		x_min = float(x0-view_option.margin_l) / $
 			catch2d_file.x_mag + view_option.x_min
-		x_max = (x0+nx-view_option.margin_b) / $
+	x_min = fix(x_min)
+		x_max = float(x0+nx-view_option.margin_l) / $
 			catch2d_file.x_mag + view_option.x_min
-		y_min = (y0-view_option.margin_l) / $
+	x_max = ceil(x_max)
+		y_min = float(y0-view_option.margin_b) / $
 			catch2d_file.y_mag + view_option.y_min
-		y_max = (y0+ny-view_option.margin_l) / $
+	y_min = fix(y_min)
+		y_max = float(y0+ny-view_option.margin_b) / $
 			catch2d_file.y_mag + view_option.y_min
+	y_max = ceil(y_max)
 
+	if x_max gt view_option.x_max then x_max = view_option.x_max - 1
+	if y_max gt view_option.y_max then y_max = view_option.y_max - 1
+
+openw,1,'box.txt'
+printf,1,'lower_left',catch2d_file.xarr(x_min),catch2d_file.yarr(y_min)
+printf,1,'upper_right',catch2d_file.xarr(x_max),catch2d_file.yarr(y_max)
+close,1
+
+; update start/end range
+	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE= catch2d_file.xarr(x_min)
+	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE= catch2d_file.xarr(x_max)
+	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE= catch2d_file.yarr(y_min)
+	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE= catch2d_file.yarr(y_max)
+	
 	WIDGET_CONTROL,widget_ids.plot_wid,/CLEAR_EVENTS
 		WIDGET_CONTROL,widget_ids.x_min, $
 			SET_VALUE = strtrim( fix(x_min),2)
@@ -4311,6 +4363,7 @@ COMMON w_warningtext_block,w_warningtext_ids
 	end
 	return
 	END
+	end
       END
 
   'REFRESH_DATA': BEGIN
@@ -4408,16 +4461,28 @@ COMMON w_warningtext_block,w_warningtext_ids
 		w_warningtext,str,60,3,title='VW2D Messages'
 	END
   'CURSOR62_X': BEGIN
-	WIDGET_CONTROL,Event.id,GET_VALUE=x
-	WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
-	catch2d_ydist,fix(x(0))	, Event
-	catch2d_zcursor,x(0),y(0)
+;	WIDGET_CONTROL,Event.id,GET_VALUE=x
+;	WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
+;	catch2d_ydist,fix(x(0))	, Event
+;	catch2d_zcursor,x(0),y(0)
 	END
   'CURSOR62_Y': BEGIN
-	WIDGET_CONTROL,Event.id,GET_VALUE=y
-	WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
-	catch2d_xdist,fix(y(0))	, Event
-	catch2d_zcursor,x(0),y(0)
+;	WIDGET_CONTROL,Event.id,GET_VALUE=y
+;	WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
+;	catch2d_xdist,fix(y(0))	, Event
+;	catch2d_zcursor,x(0),y(0)
+	END
+  'CURSOR62_X1': BEGIN
+	END
+  'CURSOR62_X2': BEGIN
+	END
+  'CURSOR62_Y1': BEGIN
+	END
+  'CURSOR62_Y2': BEGIN
+	END
+  'CURSOR62_XYRANGE': BEGIN
+;	if view_option.CA then  $
+	cursor62_caput,3
 	END
   'CURSOR62_XZ': BEGIN
 	if catch2d_file.xzdraw eq 0 then begin
@@ -4455,10 +4520,12 @@ COMMON w_warningtext_block,w_warningtext_ids
       Print, 'Event for Information Block'
       END
   'CURSOR62_CAPUT0': BEGIN
-	if view_option.CA then cursor62_caput,1
+;	if view_option.CA then $
+	cursor62_caput,1
         END
   'CURSOR62_CAPUT': BEGIN
-	if view_option.CA then cursor62_caput,2
+;	if view_option.CA then $
+	cursor62_caput,2
         END
   ELSE:     ;don't stop of no matches
   ENDCASE
@@ -4571,6 +4638,11 @@ PRO VW2D,dname=dname, GROUP=Group, file=file,CA=CA,lastDet=lastDet
 ;       06-27-01 bkc   R2.5
 ;                      Add pickx into vw2d
 ;
+;       03-08-02 bkc   R2.5.1
+;                      Use RMB zoom to set new 2D scan ranges of interest
+;                      Add XL,XR,YL,YR, and Set button for setting new
+;                      2D scan ranges.
+;                      Remove YZ, XZ probe
 ;-
 ;
 @os.init
@@ -4736,7 +4808,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
   PLOT62 = WIDGET_BASE( BASE62, /COLUMN)
   LABEL60 = WIDGET_LABEL( PLOT62, $
       UVALUE='LABEL60', $
-      VALUE='3 Mouse Buttons:  LMB -Values, MMB - Line plots, RMB - Zoom_In')
+      VALUE='3 Buttons:  LMB -Values, MMB - Line plots, RMB - Zoom_In')
  
   DRAW62 = WIDGET_DRAW( PLOT62, $
       BUTTON_EVENTS=1, $
@@ -4767,24 +4839,24 @@ if XRegistered('VW2D_BASE') ne 0 then return
   CURSOR62_B1 = WIDGET_BASE( IMAGE62, /COLUMN,/FRAME)
 
 if keyword_set(CA) then begin
-CURSOR62_B2 = WIDGET_BASE( CURSOR62_B1, /ROW)
-putp1pvbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1PV', $
+CURSOR62_B12 = WIDGET_BASE( CURSOR62_B1, /ROW)
+putp1pvbutton = WIDGET_BUTTON(CURSOR62_B12,VALUE='Set New P1PV', $
                 UVALUE='CURSOR62_CAPUT0')
-putp1cpbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1CP', $
+putp1cpbutton = WIDGET_BUTTON(CURSOR62_B12,VALUE='Set New P1CP', $
                 UVALUE='CURSOR62_CAPUT')
 end
 
-  CURSOR62_XL = WIDGET_LABEL( CURSOR62_B1, $
+  CURSOR62_XLB = WIDGET_LABEL( CURSOR62_B1, $
       VALUE='Cursor @ X')
   CURSOR62_X = WIDGET_TEXT( CURSOR62_B1, VALUE='', $
 	/EDITABLE, /NO_NEWLINE, $
       UVALUE='CURSOR62_X', $
 	XSIZE=20, YSIZE=1)
 	
-  CURSOR62_B2 = WIDGET_BASE( CURSOR62_B1, /COLUMN)
-  CURSOR62_YL = WIDGET_LABEL( CURSOR62_B2, $
+;  CURSOR62_B2 = WIDGET_BASE( CURSOR62_B1, /COLUMN)
+  CURSOR62_YLB = WIDGET_LABEL( CURSOR62_B1, $
       VALUE='Cursor @ Y')
-  CURSOR62_Y = WIDGET_TEXT( CURSOR62_B2, VALUE='', $
+  CURSOR62_Y = WIDGET_TEXT( CURSOR62_B1, VALUE='', $
 	/EDITABLE, /NO_NEWLINE, $
       UVALUE='CURSOR62_Y', $
 	XSIZE=20, YSIZE=1)
@@ -4795,15 +4867,31 @@ end
   CURSOR62_Z = WIDGET_LABEL( CURSOR62_B3, VALUE=' ', XSIZE=150, $
       UVALUE='CURSOR62_Z')
 
-  CURSOR62_B4 = WIDGET_BASE( IMAGE62, /COLUMN)
-  CURSOR62_PL = WIDGET_LABEL( CURSOR62_B4, $
-      VALUE='PROBE:')
-  CURSOR62_XZ = WIDGET_BUTTON( CURSOR62_B4, $
-      UVALUE='CURSOR62_XZ', VALUE='XZ')
-  CURSOR62_XZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
-  CURSOR62_YZ = WIDGET_BUTTON( CURSOR62_B4, $
-      UVALUE='CURSOR62_YZ', VALUE='YZ')
-  CURSOR62_YZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
+  CURSOR62_B4 = WIDGET_BASE( IMAGE62, /COLUMN,/frame)
+  CURSOR62_B41 = WIDGET_BASE( CURSOR62_B4, /ROW,/frame)
+  CURSOR62_X1 = CW_FIELD( CURSOR62_B41, VALUE='', title='XL',/float, $
+	/RETURN_EVENTS, UVALUE='CURSOR62_X1', XSIZE=10, YSIZE=1)
+  CURSOR62_X2 = CW_FIELD( CURSOR62_B41, VALUE='', title='XR',/float, $
+	/RETURN_EVENTS, UVALUE='CURSOR62_X2', XSIZE=10, YSIZE=1)
+
+  CURSOR62_B42 = WIDGET_BASE( CURSOR62_B4, /ROW,/frame)
+  CURSOR62_Y1 = CW_FIELD( CURSOR62_B42, VALUE='',title='YL', /float, $
+	/RETURN_EVENTS, UVALUE='CURSOR62_Y1', XSIZE=10, YSIZE=1)
+  CURSOR62_Y2 = CW_FIELD( CURSOR62_B42, VALUE='', title='YR',/float, $
+	/RETURN_EVENTS, UVALUE='CURSOR62_Y2', XSIZE=10, YSIZE=1)
+
+  CURSOR62_B5 = WIDGET_BUTTON( CURSOR62_B4, $
+      VALUE='Set New 2D Scan Ranges',UVALUE='CURSOR62_XYRANGE')
+
+
+;  CURSOR62_PL = WIDGET_LABEL( CURSOR62_B4, $
+;      VALUE='PROBE:')
+;  CURSOR62_XZ = WIDGET_BUTTON( CURSOR62_B4, $
+;      UVALUE='CURSOR62_XZ', VALUE='XZ')
+;  CURSOR62_XZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
+;  CURSOR62_YZ = WIDGET_BUTTON( CURSOR62_B4, $
+;      UVALUE='CURSOR62_YZ', VALUE='YZ')
+;  CURSOR62_YZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
 
 
   BASE151 = WIDGET_BASE(VW2D_BASE, $
@@ -4939,7 +5027,7 @@ end
   WIDGET_CONTROL, DRAW62, GET_VALUE=DRAW62_Id
 
 @vw2d.init
-
+;if keyword_set(CA) then view_option.CA = 1
   WIDGET_CONTROL, xaxis, SET_DROPLIST_SELECT=view_option.pickx
   WIDGET_CONTROL, surface_plot, SET_DROPLIST_SELECT=view_option.surface
   WIDGET_CONTROL, BGROUP184, SET_DROPLIST_SELECT=view_option.user
