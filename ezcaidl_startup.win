@@ -1,0 +1,23 @@
+; this is the script for running scanSee on W95
+
+device,retain=2
+
+print,!path
+
+!QUIET=1
+
+@os.init
+print,'Run ezcaIDL ...'
+.run ezcaIDL
+print,'Run ezcaIDLWidgets ...'
+.run ezcaIDLWidgets
+caInit
+caSetTimeout,0.001
+print,caVersion()
+
+.run readScan.pro
+.run DC.pro    ;.R2.3
+.run vw2d.pro  ;.R2.2
+.run pick3d
+.run pick2d
+DC
