@@ -172,11 +172,35 @@ if strtrim(multi_ids.ytitle,2) ne '' then ytitle = multi_ids.ytitle
 
 END
 
-PRO parse_num,newvalue,ids
+; parse by sep1 first then by sep2
+; default sep1=',' sep2='-'
+;	newvalue = '1,2:5,7'
+;	newvalue = '1,2-5,7'
+PRO parse_num,newvalue,res,sep1=sep1,sep2=sep2
+	d_sep1 = ','
+	d_sep2 = '-'
+	if keyword_set(sep1) then d_sep1 = sep1
+	if keyword_set(sep2) then d_sep2 = sep2
+	str = str_sep(newvalue,d_sep1,/trim)
+	res = fix(str(0))
+	for i=0,n_elements(str)-1 do begin
+	newstr =  strtrim(str(i),2)
+	if strlen(newstr) gt 0 then begin
+	parse_num0,newstr,ids,sep=d_sep2
+	if i eq 0 then begin
+		if n_elements(ids) gt 1 then res = ids
+		end
+	if i gt 0 then  res = [res,ids]
+	end
+	end
+END 
 
-res = strpos(newvalue,':')
+PRO parse_num0,newvalue,ids,sep=sep
+Keysepar = '-'
+if keyword_set(sep) then Keysepar = sep
+res = strpos(newvalue,keysepar)
 if res ne -1 then begin
-	str = str_sep(newvalue,':')
+	str = str_sep(newvalue,keysepar,/trim)
 	no = fix(str(1)) - fix(str(0)) + 1
 	ids = indgen(no) + fix(str(0))
 endif else begin
@@ -405,7 +429,13 @@ COMMON  MULTI_BLOCK, multi_ids
 
   'SCANS_MULTI': begin
 	WIDGET_CONTROL,Event.id, GET_VALUE=newvalue
-	parse_num,newvalue(0),ids
+	sep1 = ','
+	sep2 = '-'
+	r1 = strpos(newvalue(0),sep1)
+	if r1 eq -1  and strpos(newvalue(0), ' ') gt 0 then sep1 = ' '
+	r2 = strpos(newvalue(0),sep2)
+	if r2 eq -1  and strpos(newvalue(0), ':') gt 0 then sep2 = ':'
+	parse_num,newvalue(0),ids,sep1=sep1,sep2=sep2
 	if ids(0) eq 0 then begin 
         	ret= widget_message('Scan # not specified!',/ERROR, DIALOG_PARENT=Event.id)
 		return
@@ -414,7 +444,14 @@ COMMON  MULTI_BLOCK, multi_ids
 	end
   'VIEW_MULTI': begin
 	WIDGET_CONTROL,multi_ids.field, GET_VALUE=newvalue
-	parse_num,newvalue(0),ids
+	sep1 = ','
+	sep2 = '-'
+	r1 = strpos(newvalue(0),sep1)
+	if r1 eq -1  and strpos(newvalue(0), ' ') gt 0 then sep1 = ' '
+	r2 = strpos(newvalue(0),sep2)
+	if r2 eq -1  and strpos(newvalue(0), ':') gt 0 then sep2 = ':'
+	parse_num,newvalue(0),ids,sep1=sep1,sep2=sep2
+;	parse_num,newvalue(0),ids
 	if ids(0) eq 0 then begin
         	ret= widget_message('Scan # not specified!',/ERROR, DIALOG_PARENT=Event.id)
 		return
@@ -521,6 +558,7 @@ PRO view1d_overlay,infile, XDR=XDR, GROUP=Group
 ;       07-25-97  bkc   Rename the catcher_view1d to view1d_overlay.
 ;                       Add the support for XDR data format.
 ;       12-19-97  bkc   Automatic figure out input data format
+;       01-15-98  bkc   Add the support of range of scans eg n1:n2 or n1-n2
 ;-
 COMMON  MULTI_BLOCK, multi_ids
 
