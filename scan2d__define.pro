@@ -8,6 +8,16 @@
 @scan2d_convert.pro
 @scan2d_roi.pro
 
+PRO scan2d::ROIpick,no,picke
+
+	if n_elements(no) eq 0 then no = self.seqno
+	 self->point_lun,no-1
+	 self->read,im=im,x=x,y=y,/view
+	roifile = self.outpath+self.name+'_'
+	multiroi_pick,im,class=roifile
+END
+
+
 PRO fileSeqString,no,suf0
 	suf0 = '0000'
 	suf = strtrim(no,2)
@@ -1478,8 +1488,11 @@ end
           xyouts,xdis,ydis,header_note,/device,color=ncolors-1
 
 	if keyword_set(noplot) then return
+	fileSeqString,no,suf0
+	classname = self.name+'.'+suf0
 	plot2d,im, xarr=self.xarr(0:w-1), yarr=self.yarr(0:h-1), $
 		comment=[header_note1,header_note], $
+		classname = classname, $
 		xtitle=self.x_desc, ytitle=self.y_desc, $
                 title=self.z_desc + 'D'+ strtrim(self.detector,2)
 
@@ -2241,7 +2254,7 @@ reset:
 	self.win = -1
 END
 
-FUNCTION scan2d::Init,file=file
+FUNCTION scan2d::Init,file=file,print=print
 ; populate the index object if file is specified
 device,decompose=0   ; required for 24 bits
 ;loadct,39
@@ -2261,6 +2274,8 @@ device,decompose=0   ; required for 24 bits
 
 	CATCH,error_status
 	if error_status ne 0 then begin
+	if keyword_set(print) then $
+		print,!error_state.name,!error_state.code,!error_state.sys_msg
 	if self.path ne '' and self.home ne self.path then $
 	dir = self.home+!os.file_sep else $
 	dir = getenv('HOME')+!os.file_sep 
