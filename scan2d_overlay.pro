@@ -13,7 +13,7 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ; PURPOSE:
 ;       Using an overlay composite image reveals information about the 
 ;       superposition of the images of selected detectors. It provides 
-;       another way of data interpretation.
+;       another way of data interpretation of catcher generated images.
 ;
 ;       This method constructs a composite image based on user selected
 ;       detectors for a given 2D scanno. The composite image is composed
@@ -380,6 +380,7 @@ PRO SCAN2D_OVERLAY_Event, Event
   'BUTTON7': BEGIN
 	loadct,31   ;pepermint  waves=37
 	XLOADCT
+	if !d.name eq 'WIN' then overlayImage,overlay_state
       END
   'OVERLAY_SAVE_PVTCT': BEGIN
 	tvlct,R,G,B,/get
@@ -391,6 +392,7 @@ PRO SCAN2D_OVERLAY_Event, Event
 	restore,'overlay_pvt.tbl'
 	tvlct,R,G,B
 	end
+	if !d.name eq 'WIN' then overlayImage,overlay_state
       END
   'BUTTON8': BEGIN
 	widget_control,overlay_state.bg_sdr,SET_VALUE=128,bad=bad
@@ -398,6 +400,7 @@ PRO SCAN2D_OVERLAY_Event, Event
 	widget_control,overlay_state.ratio_sdr,SET_VALUE=8
 	scan2d_setOverlayColorTbl,128,8
 	SCAN2D_GETOVERLAYCOLORTBL
+	if !d.name eq 'WIN' then overlayImage,overlay_state
       END
   'BUTTON9': BEGIN
 	arr = TVRD()
@@ -486,11 +489,13 @@ PRO SCAN2D_OVERLAY_Event, Event
 	WIDGET_CONTROL,Event.ID,GET_VALUE=bg
 	overlay_state.tbl_bg = bg
 	scan2d_setOverlayColorTbl,overlay_state.tbl_bg,overlay_state.tbl_ratio
+	if !d.name eq 'WIN' then overlayImage,overlay_state
       END
   'OVERLAYTABLE_RATIO': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=v
 	overlay_state.tbl_ratio = v
 	scan2d_setOverlayColorTbl,overlay_state.tbl_bg,overlay_state.tbl_ratio
+	if !d.name eq 'WIN' then overlayImage,overlay_state
       END
   'OVERLAY_PIXELS': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=pixels
@@ -826,18 +831,22 @@ end
 	end
 
 	if discrete eq 2 then begin
-	factor = make_array(xdim,ydim)
+	t_im = make_array(xdim,ydim)
 	for k=0,14 do begin
 	if pick(k) eq 1 then begin
 	   for j=0,ydim-1 do begin
 	     for i=0,xdim-1 do begin
-		factor(i,j) = factor(i,j)+ image_array(i,j,k) 
+		t_im(i,j) = t_im(i,j)+ image_array(i,j,k) 
 	     end
 	   end
 	end
 	end
-	factor = congrid(factor,xdim*magnifyfactor,xdim*magnifyfactor)
-	tvscl,factor
+	col_range = overlay_state.dcol * overlay_state.selects
+	col_start = overlay_state.vcol(0)
+	factor = col_range * (max(t_im)-t_im)/(max(t_im)-min(t_im)) 
+	factor = col_start - fix(factor)
+	factor = congrid(factor,xdim*magnifyfactor,ydim*magnifyfactor)
+	tv,factor
 	end
 END
 
@@ -1259,7 +1268,7 @@ PRO overlay2DImages,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,sele
 ; 	IMAGE_ARRAY(width,height,nd)  
 ;                -  'nd' the number of images (>15) 
 ;                    Initial 2D image array up to 85 2D images
-;                    Each image contains 'widthxheight' pixels
+;                    Each image contains 'width x height' values
 ; 	DEF(nd)  -  Initial Image presence indicators for image_array 
 ;                    0 not defined, 1 defined, default all defined
 ;
@@ -1466,7 +1475,7 @@ END
 
 
 
-PRO scan2d_overlay_calc,xdrfile_array,image_array
+PRO scan2d_overlay_calc,xdrfile_array,image_array,readonly=readonly,Group=group
 ; read two xdr img & ranges and call overlay plot
 ; INPUT:
 ;  xdrfile_array  - a list of input xdr file name array < 15
@@ -1495,6 +1504,19 @@ for i=0,nfile-1 do begin
 	overlay_data.ranges_def(i) = 1
 	overlay_data.ranges(0:5,i) = ranges1(*)
 	end
+end
+if keyword_set(readonly) then begin
+	nfile = n_elements(xdrfile_array)
+	str = ['   ** INFO About XDR Files **','']
+	for i=0,nfile-1 do begin
+	im = *overlay_data.im(i)
+	sz = size(im)
+	str1 = string('Image Dim: ',strtrim(sz(1),2),' x ',strtrim(sz(2),2),/print)
+	ranges = string('Ranges: ',overlay_data.ranges(*,i),/print)
+	str = [str,'Filename:  '+xdrfile_array(i),str1,ranges,'']
+	end
+	xdisplayfile,text=str,Group=group,title='XDR Files Info'
+	return
 end
 
 	im1 = *overlay_data.im(0)
@@ -1620,7 +1642,8 @@ end
 ;-----------------------------------------------------------------
 pro scan2d_Overlay_onOpen, Event
 
-	scan2d_overlay_selectFiles,xdrfile_array,nfile=nfile
+	widget_control,Event.top,get_uvalue=overlay_path
+	scan2d_overlay_selectFiles,xdrfile_array,nfile=nfile,path=overlay_path.path
 	if xdrfile_array(0) eq '' then return 
 
 	wWidget =  Event.top
@@ -1641,8 +1664,15 @@ pro scan2d_overlay_onHelp, Event
 end
 ;-----------------------------------------------------------------
 pro scan2d_overlay_onXDRFile, Event
-	str = 'Help on XDRFile'
-	r = dialog_message(str,/info)
+	wWidget =  Event.top
+	textWID = Widget_Info(wWidget, FIND_BY_UNAME='W_TEXT_11')
+	widget_control,textWID,get_value=xdrfile_array
+
+	if xdrfile_array(0) eq '' then begin
+		r = dialog_message('You have to load the xdr files in first.',/error)
+		return 
+	end
+	scan2d_overlay_calc,xdrfile_array,image_array,/readonly,Group=Event.top
 end
 ;-----------------------------------------------------------------
 
@@ -1677,7 +1707,7 @@ pro SCAN2D_OVERLAY_BASE_1_event, Event
 
 end
 
-pro SCAN2D_OVERLAY_BASE_1, GROUP_LEADER=wGroup, _EXTRA=_VWBExtra_
+pro SCAN2D_OVERLAY_BASE_1,path=path, GROUP=wGroup, _EXTRA=_VWBExtra_
 
   SCAN2D_OVERLAY_BASE_1 = Widget_Base( GROUP_LEADER=wGroup, UNAME='SCAN2D_OVERLAY_BASE_1'  $
 	,TITLE='IMAGE_OVERLAY' $
@@ -1712,6 +1742,8 @@ pro SCAN2D_OVERLAY_BASE_1, GROUP_LEADER=wGroup, _EXTRA=_VWBExtra_
   W_TEXT_11 = widget_text(SCAN2D_OVERLAY_BASE_1,value=strarr(15), $
 	UNAME='W_TEXT_11',xsize=50,ysize=10,/scroll)
 
+  overlay_path = { path:path}
+  widget_control,SCAN2D_OVERLAY_BASE_1,set_uvalue=overlay_path
 
   Widget_Control, /REALIZE, SCAN2D_OVERLAY_BASE_1
 
@@ -1721,6 +1753,58 @@ end
 ; 
 ; Empty stub procedure used for autoloading.
 ; 
-pro scan2d_overlay, GROUP_LEADER=wGroup, _EXTRA=_VWBExtra_
-  SCAN2D_OVERLAY_BASE_1, GROUP_LEADER=wGroup, _EXTRA=_VWBExtra_
+pro scan2d_overlay,path=path, GROUP=Group, _EXTRA=_VWBExtra_
+;+
+; NAME:
+;	SCAN2D_OVERLAY
+;
+; PURPOSE:
+; 	Using an overlay composite image reveals information about the
+;	superposition of the selected images of XDR 2D image files.
+;
+;	The region of each 2D image may be different sizes.
+;
+;	It allows the user to select multiple files from a list of 2D XDR 
+;	files each contains a 2D image and the corresponding X,Y,Value ranges, 
+;	then convert the selected images into same geometric scale, and  then
+;	costruct the display image as according to overlay, discrete, or 
+;	superpose composite.
+;
+; CATEGORY:
+;	Widgets.
+;
+; CALL SEQUENCE:
+;	SCAN2D_OVERLAY [,PATH=path] [,GROUP=Group] 
+;
+; KEYWORDS:
+;  PATH:         Specify the directory where XDR image files are located
+;  GROUP:        Specify the parent widget, the destroy of parent
+;                widget results the exiting of this program
+;
+; RESTRICTION:
+;	The XDR file must be created by XDR image generation program such as
+;	VIEW2D, VW2D, PLOT2D, IMAGE2D. Each image file consists of image 
+;	data array and corresponding X,Y,Value ranges which is written by 
+;	the XDR_WRITE routine (see xdr_open.pro)
+; 
+;	All the XDR files must be located in the same data directory.
+;
+;	At most 15 image files can be selected at one time. The color table 
+;	spectrum is devided into 16 sub-tables. Each discrete image uses
+;	its sub color table. A user can use the slider bars and color table
+;	to manipulate the resultant image color display.
+;
+;	For WIN system, a user always has to redraw the iamge to reflect 
+;	the new color table used.
+;
+; EXAMPLES:
+;	SCAN2D_OVERLAY,path='/home/beams/CHA/data/xxx/XDR'
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, July 17, 2002
+;	xx-xx-xxxx  bkc comment
+;-
+  cd, current=p
+  if keyword_set(path) then p=path
+  SCAN2D_OVERLAY_BASE_1,path=p, GROUP=Group, _EXTRA=_VWBExtra_
 end
