@@ -11,12 +11,12 @@ source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
 source $PVT_LOC/ezcaidl_setup
 
 if $HOST_ARCH == "solaris-sparc" then 
-	set exe = "-rt=$PVT_LOC/../../idllib/scanSee.exe2.idl60"
+	set exe = "-rt=$PVT_LOC/../../idllib/scanSee.sav"
 	else
-	set exe = "-rt=$PVT_LOC/scanSee.exe2.idl55"
+	set exe = "-rt=$PVT_LOC/scanSee.sav"
 endif
-	if -e scanSee.exe2.idl60 then
-	set exe = "scanSee.exe2.idl60"
+	if -e scanSee.sav then
+	set exe = "-rt=scanSee.sav"
 	endif
 
 echo $exe
