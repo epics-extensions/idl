@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.32 2004/02/17 17:17:09 cha Exp $
+; $Id: DC.pro,v 1.33 2004/03/03 18:21:48 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -4416,10 +4416,10 @@ gData = { $
 	*gD = gData
 
 	scanno = read_scan(filename,Scan,pickDet=pickDet,header=header,lastDet=lastDet)
+	if scanno lt 0 then return
+
 	timestamp=Scan.ts1
 	*gData.scanno = scanno
-
-	if scanno lt 0 then return
 
 	rix2DC, Scan, gData
 	scanSee_free,Scan
@@ -4464,6 +4464,7 @@ if id lt 0 then begin
 	DetMax = [npd-4, 1, 1]  ;scanData.lastDet
 
 	scanno = read_scan(scanData.trashcan,Scan,pickDet=pickDet) ;, lastDet=DetMax)
+	if scanno lt 0 then return
 
 	w_plotspec_array(4) = Scan.ts1
 
@@ -4506,6 +4507,7 @@ print,scanData.trashcan
 	endif else begin
 
 	scanimage_alloc,scanData.trashcan, gD, scanno,pickDet=pickDet,timestamp=timestamp   ;, lastDet=DetMax
+	if n_elements(timestamp) then $
 	w_plotspec_array(4) = timestamp
 
 ;print,'ALLOC gD'
@@ -4598,7 +4600,12 @@ IF seq_no LE 0 THEN BEGIN
 
 ;  bring up the panimage window for 2D
 
+
 	if dim ge 2 and n_elements(da2D) gt 3 then begin
+; reset to whole panimage 
+widget_control,widget_ids.pickimin,set_slider_max=scanData.req_npts-1
+widget_control,widget_ids.pickimin,set_value=0
+scanData.imin=0
 
 	scanData.scanno_2d = scanno
 ;	if dim eq 2 then $
@@ -4767,6 +4774,7 @@ print,scanData.lastDet
 ;	DC_3DscanMessage,scanData.trashcan
 ;	return
 	end
+
 
 END
 
@@ -5298,7 +5306,7 @@ COMMON CATCH1D_COM, widget_ids, scanData
 
 	if !d.name eq 'WIN' and !d.n_colors gt 256 then device,decomposed=0
 	if scanData.image gt 2 then catch1d_win_2D_update2,y_last else $
-	catch1d_win_2D_update   ;1,y_last
+	catch1d_win_2D_update   
 	if !d.name eq 'WIN' and !d.n_colors gt 256 then device,decomposed=1
 END
 
@@ -5372,14 +5380,15 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 		NUM_SEL = n_elements(sel_list)
 	end
 
-	image_subarray = make_array(sz(1),sz(2),NUM_SEL)
+	
+	image_subarray = make_array(sz(1)-scanData.imin,sz(2),NUM_SEL)
 	wd = sz(1)- 1
 	ht = sz(2) - 1
 	if sz(0) eq 3 then $
 	for i=0,NUM_SEL-1 do begin
 		idd = sel_list(i)
 		if idd lt sz(3) then $
-		image_subarray(0:wd,0:ht,i) = da2D(0:wd,0:ht,idd) 
+		image_subarray(*,*,i) = da2D(scanData.imin:wd,0:ht,idd) 
 	end
 END
 
@@ -5457,7 +5466,8 @@ if y_seqno lt 0 then return
 	da2D = *(*gD).da2D
 	sz = size(da2D)
 	if sel ge sz(3) then return  ; case of detector not defined
-	im = da2D(*,0:y_seqno,sel)
+;	im = da2D(*,0:y_seqno,sel)
+	im = da2D(scanData.imin:sz(1)-1,0:y_seqno,sel)
 
 	old_win = widget_ids.plot_area
 
@@ -7029,7 +7039,8 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 	xr = [min(xarr),max(xarr)]
 	if xr(0) eq xr(1) then xarr = indgen(sz(1))
 	if dim eq 3 then pv = pv(1:2) 
-	iy = sz(3)+4   ;89 
+	iy = 89
+	if scanData.svers eq 1 then iy = 74
 	ix = iy+w_plotspec_id.xcord
 	xdescs = labels(ix,dim-2)
 	if labels(ix+iy,dim-2) ne '' then xdescs = xdescs +' ('+labels(ix+iy,dim-2)+')'
@@ -7037,7 +7048,9 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 	ydescs = labels(iy,dim-1)
 	if labels(iy+iy,dim-1) ne '' then ydescs = ydescs +' ('+labels(iy+iy,dim-1)+')'
 
-	IMAGE2D,da2d,xarr,yarr,id_def=det_def,xdescs=xdescs,ydescs=ydescs, $
+	image_array = da2d(scanData.imin:sz(1)-1,*,*)
+	xarr = xarr(scanData.imin:sz(1)-1)
+	IMAGE2D,image_array,xarr,yarr,id_def=det_def,xdescs=xdescs,ydescs=ydescs, $
 		zdescs=zdescs, scanno=scanno,pv=pv,group=Event.top, $
 		VERS=scanData.svers
 	end
@@ -7814,6 +7827,38 @@ end ;     end of if scanData.option = 1
 	scanData.sel_changed = 0
 	end
 	END
+  'PICK_IMIN': BEGIN
+	widget_control,Event.ID,get_value=imin
+	scanData.imin = imin
+	if scanData.y_seqno gt 0 then begin
+	da2D = *(*gD).da2D
+	scanData.sel_changed = 1
+	update_2d_data,data_2d,scanData.req_npts,scanData.y_req_npts,da2D,realtime_id.def
+	scanData.sel_changed = 0
+	end
+	END
+  'PICK_IMINL': BEGIN
+	scanData.imin = scanData.imin - 1
+	if scanData.imin lt 0 then scanData.imin = 0
+	widget_control,widget_ids.pickimin,set_value=scanData.imin
+	if scanData.y_seqno gt 0 then begin
+	da2D = *(*gD).da2D
+	scanData.sel_changed = 1
+	update_2d_data,data_2d,scanData.req_npts,scanData.y_req_npts,da2D,realtime_id.def
+	scanData.sel_changed = 0
+	end
+	END
+  'PICK_IMINR': BEGIN
+	scanData.imin = scanData.imin + 1
+	if scanData.imin ge scanData.req_npts then scanData.imin = scanData.req_npts - 2 
+	widget_control,widget_ids.pickimin,set_value=scanData.imin
+	if scanData.y_seqno gt 0 then begin
+	da2D = *(*gD).da2D
+	scanData.sel_changed = 1
+	update_2d_data,data_2d,scanData.req_npts,scanData.y_req_npts,da2D,realtime_id.def
+	scanData.sel_changed = 0
+	end
+	END
 
   'DC_AUTOSCAN': BEGIN
 	user_scan_init,group=Event.top
@@ -8077,7 +8122,8 @@ scanData.pvfound = res
 	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan,BAD=bad
 	scanData.y_scan = 0
 
-
+; update imax for panimage window
+	widget_control,widget_ids.pickimin,set_slider_max=scanData.req_npts-1
 END
 
 
@@ -8613,6 +8659,12 @@ l123_1 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70',
    Btns912 = ['Small','Large','Det: '+strtrim(indgen(85)+1,2)]
    pick_image = WIDGET_LIST(BASE144_3, VALUE=BTNS912, $
         UVALUE='PICK_IMAGE',YSIZE=3)
+
+  BASE144_4 = WIDGET_BASE(BASE144_3,/ROW, MAP=1) 
+   pick_imin_l = WIDGET_BUTTON(BASE144_4,value='<',UVALUE='PICK_IMINL')
+   pick_imin = WIDGET_SLIDER(BASE144_4,VALUE=0,MAXIMUM=10,TITLE='Imin', $
+	UVALUE='PICK_IMIN',xsize=100)
+   pick_imin_r = WIDGET_BUTTON(BASE144_4,value='>',UVALUE='PICK_IMINR')
 
   pick_PS = WIDGET_DROPLIST(BASE144_2, VALUE=['1','1/2','1/4'], $
         UVALUE='PICK_PS',TITLE='PS ratio')
