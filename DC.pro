@@ -521,7 +521,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.22 2001/11/09 23:10:12 cha Exp $
+; $Id: DC.pro,v 1.23 2002/03/18 20:20:16 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2878,6 +2878,11 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
   'SCAN1D_PVNAME': BEGIN
       WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
+	if strtrim(pv(0),2) eq '' then begin
+		scanData.pv = ''
+		scanData.pvconfig = ''
+		return
+	end
 	len = strpos(pv(0),'.')
 	if len eq -1 then newpv = pv(0) else newpv = strmid(pv(0),0,len)
 	if caSearch(newpv+'.EXSC') eq 0 then begin
@@ -2891,11 +2896,15 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       END
   'SCAN2D_PVNAME': BEGIN
       WIDGET_CONTROL,catcher_setup_ids.y_pv,GET_VALUE=pv
+	if strtrim(pv(0),2) eq '' then begin
+		scanData.y_pv = ''
+		return
+	end
 	len = strpos(pv(0),'.')
 	if len eq -1 then newpv = pv(0) else newpv = strmid(pv(0),0,len)
-if newpv eq '' then scanData.y_pv = newpv
 	if caSearch(newpv+'.EXSC') eq 0 then begin
         WIDGET_CONTROL,catcher_setup_ids.y_pv,SET_VALUE=newpv
+	scanData.y_pv = newpv
 	pventry2_event
 	endif else begin
 		w_warningtext,'Error: invalid SCAN 2D Pvname',40,2
@@ -2905,19 +2914,44 @@ if newpv eq '' then scanData.y_pv = newpv
       WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
       END
   'CATCHER_SETUP_DONE': BEGIN
+      WIDGET_CONTROL,catcher_setup_ids.y_pv,GET_VALUE=pv1
+	if strtrim(pv1(0),2) ne '' then begin
+	len = strpos(pv1(0),'.')
+	if len eq -1 then newpv = pv1(0) else newpv = strmid(pv1(0),0,len)
+	if caSearch(newpv+'.EXSC') eq 0 then begin
+        WIDGET_CONTROL,catcher_setup_ids.y_pv,SET_VALUE=newpv
+	scanData.y_pv = newpv
+	pventry2_event
+	endif else begin
+		w_warningtext,'Error: invalid SCAN 2D Pvname',40,2
+	end
+	endif else scanData.y_pv = ''
+
+      WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
+	if strtrim(pv(0),2) ne '' then begin
+	len = strpos(pv(0),'.')
+	if len eq -1 then newpv = pv(0) else newpv = strmid(pv(0),0,len)
+	if caSearch(newpv+'.EXSC') eq 0 then begin
+      	WIDGET_CONTROL,catcher_setup_ids.pv,SET_VALUE=newpv
+	scanData.pv = newpv
+	scanData.pvconfig = newpv
+	pventry_event
+	endif else begin
+		w_warningtext,'Error: invalid SCAN 1D Pvname',40,2
+	end
+	endif else begin
+		scanData.pv = ''
+		scanData.pvconfig = ''
+	end
+      WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
+
        prefix = str_sep(scanData.pv,':')
 ;        ln = caget(prefix[0]+':saveData_fullPathName',pd)
         ln = cagetArray(prefix[0]+':saveData_fullPathName',pd)
         if ln eq 0 then scanData.path = string(pd(1:99))
+
 	write_config
-      WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
-	if caSearch(pv(0)) eq 0 then begin
-	pventry_event
-	end
-        WIDGET_CONTROL,catcher_setup_ids.y_pv,GET_VALUE=pv1
-	if caSearch(pv1(0)) eq 0 then begin
-	pventry2_event
-	end
+
       END
   ENDCASE
 END
@@ -2998,11 +3032,11 @@ WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY
 
   CATCHER_SETUP_DONE = WIDGET_BUTTON( BASE5, $
       UVALUE='CATCHER_SETUP_DONE', $
-      VALUE='Ok')
+      VALUE='Accept')
 
   CATCHER_SETUP_CANCEL = WIDGET_BUTTON( BASE5, $
       UVALUE='CATCHER_SETUP_CANCEL', $
-      VALUE='Close')
+      VALUE='Cancel')
 
 catcher_setup_ids = { base : catcher_setup_base, $
 	pv : SCAN1D_PVNAME, $
@@ -5394,9 +5428,9 @@ if dim eq 1 and seq_no lt 0 then seq_no = 1
 next_seq_no = seq_no + 1
 
 scanData.pv = pv[0]
-;act_npts = cpt[0]
 ;if dim ge 2 and act_npts eq 0 then act_npts = num_pts[1]
 act_npts = num_pts[0]
+if dim eq 1 then act_npts = cpt[0]
 scanData.act_npts = act_npts 
 
 
@@ -5575,6 +5609,13 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 ;tempname = strcompress(w_plotspec_array(3),/remove_all)+'.rep'
 tempname=outfile
 
+CATCH,error_status
+if error_status ne 0 then begin
+;help,!error_state,/st
+	scanData.outpath = scanData.home+!os.file_sep
+	print,'Try New Outpath:',scanData.outpath
+	return
+end
 openw,unit2,tempname,/get_lun 
 unit1 = 1
 for i=i_start, i_stop do begin
@@ -7044,7 +7085,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
 	filenamepath,scanData.trashcan,old_file,old_path
 
-        FNAME = '*'+strmid(scanData.suffix,0,4)+'*'  ;'*mda*' or '*scan*'
+        FNAME = '*'+strmid(scanData.suffix,0,4)  ;+ '*'   '*mda*' or '*scan*'
 
 
 ; check for bad directory -296
@@ -7108,6 +7149,14 @@ if strlen(P) gt 1 then begin
 	WIDGET_CONTROL,widget_ids.trashcan,SET_VALUE=scanData.trashcan
 
 	catch1d_findLast
+
+; set new out path
+	re = findfile(P+'ASCII',count=ct)
+	if ct eq 0 then begin
+	tpath1 = scanData.home+!os.file_sep
+	scanData.outpath = tpath1
+	end
+
 END
 
 PRO catch1d_findLast
@@ -7562,7 +7611,8 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
 	CATCH,error_status
         if error_status ne 0 then begin     ; eq -296 then begin
 	w_warningtext,!err_string + string(!err)
-        scanData.home = oldpath
+	cd,current=p
+        scanData.home = p
         end
 	write_config
 
@@ -8423,12 +8473,17 @@ print,scanData.home
 print,scanData.path
 end
 
+; set output ASCII path
 outpath = scanData.path
-tpath1 = scanData.home+!os.file_sep
 outpath = outpath+'ASCII'+!os.file_sep
-print,outpath
-
 scanData.outpath = outpath
+re = findfile(outpath,count=ct)
+
+if ct eq 0 then begin
+tpath1 = scanData.home+!os.file_sep
+scanData.outpath = tpath1
+end
+print,'Outpath: ',scanData.outpath
 
 ; override the data file on command line by the setting in 
 ; the configuration file
@@ -8581,6 +8636,10 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;                       Add call calc_newfilename in pventry2_event if 2D scan
 ;                       is already on when scanSee is invoked
 ;                       Add an option of 'NONE' to panImage menu
+;       01-16-2002 bkc  Modify scan setup dialog use Accept and Cancel button
+;                       Use actual number of points instead of requested points
+;                       for 1D scan data array
+;                       Fix ASCII report outpath write permission problem
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8604,7 +8663,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R2.5.1 )', $
+      TITLE='scanSee ( R2.5.1+ )', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -8760,7 +8819,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       UVALUE='BASE144')
 
   BASE144_0 = WIDGET_BASE(BASE144, $
-      ROW=1, X_SCROLL_SIZE=500, $
+      ROW=1, X_SCROLL_SIZE=500, Y_SCROLL_SIZE=100, $
       MAP=1, $
       TITLE='DET Selector', $
       UVALUE='BASE144_0')
@@ -8819,7 +8878,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
 
 ; get start home work directory
 
-  CD,'.',CURRENT=old_path
+  CD,CURRENT=old_path
   scanData.home=old_path
   scanData.sublist = l123
 
