@@ -30,14 +30,6 @@ PRO defroi_congrid,statistic_2dids,arr,xverts,yverts,xs=xs,ys=ys,x0=x0,y0=y0
 	width = statistic_2dids.width ; sz(1)
 	height = statistic_2dids.height ; sz(2)
 
-;	image = congrid(im,xw,yw)
-;	tvscl,image,xl,yl
-
-;	r = defroi(xw,yw,xverts,yverts,x0=xl,y0=yl)  
-;	xv = ceil(xverts/statistic_2dids.factor(0))
-;	yv = ceil(yverts/statistic_2dids.factor(1))
-;	arr = polyfillv(xv,yv,width,height)
-
 	zoom = [xw/sz(1),yw/sz(2)]
 	tvscl,congrid(im,xw,yw),xl,yl
 	r = defroi(xw+1,yw+1,xv,yv,x0=xl,y0=yl)  
@@ -698,7 +690,7 @@ PRO scan2d_ROI_Event, Event
 	if len ge 0 then class = strmid(statistic_2dids.file,0,len+1)
 	im0 = *statistic_2dids.im0
 	WIDGET_CONTROL,Event.top,/DESTROY
-	multiroi_pick,im0,class=class,comment=statistic_2dids.comment, $
+	multiroi_pick,im0,class=class,comment=statistic_2dids.header(1), $
 		header=statistic_2dids.header(0)  ;,Group=Event.top
 	return
 	END
