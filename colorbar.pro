@@ -140,6 +140,7 @@ COMMON COLORBAR, colorbar_data
   ENDCASE
 
    WIDGET_CONTROL,Event.Top,SET_UVALUE=colorbar_data
+    if colorbar_data.caller eq '' then return
 ;   r = execute(colorbar_data.caller)
     call_procedure,colorbar_data.caller
 
