@@ -1,0 +1,54 @@
+#!/bin/csh
+#
+# Setet up idl environment variables for ezcaIDL
+#
+
+set HOST_ARCH = `/usr/local/epics/startup/HostArch`
+setenv HOST_ARCH  $HOST_ARCH
+set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
+set PVT_LIB = $EPICS_EXTENSIONS/lib/$HOST_ARCH
+set EPICSLIB_PATH = $PVT_LIB
+#set EPICSLIB_PATH = $EPICSLIB_PARH:/home/phoebus/JBA/epics/baseShared/lib/solaris
+
+# set EZCA_IDL_SHARE & IDL_STARTUP
+
+        setenv  EZCA_IDL_SHARE $PVT_LIB/libezcaIDL.so
+        setenv  IDL_STARTUP $PVT_LOC/ezcaidl_startup.pro 
+
+# if private version exist override by them
+
+if ${?EPICS_EXT_PVT} == 1 then 
+	 set PVT_LOC = $EPICS_EXT_PVT/bin/$HOST_ARCH
+	 set PVT_LIB = $EPICS_EXT_PVT/lib/$HOST_ARCH
+else if ${?EPICS_EXTENSIONS_PVT} == 1 then 
+	 set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
+	 set PVT_LIB = $EPICS_EXTENSIONS_PVT/lib/$HOST_ARCH
+endif 
+
+if ( ${?EPICS_EXT_PVT} | ${?EPICS_EXTENSIONS_PVT} ) then
+	if  -e $PVT_LIB/libezcaIDL.so  then
+        setenv EZCA_IDL_SHARE $PVT_LIB/libezcaIDL.so
+	setenv LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${PVT_LIB}:$EPICSLIB_PATH
+	endif
+	if  -e $PVT_LOC/ezcaidl_startup.pro  then
+        setenv IDL_STARTUP $PVT_LOC/ezcaidl_startup.pro 
+	endif
+endif
+
+if -e libezcaIDL.so  then
+        setenv  EZCA_IDL_SHARE libezcaIDL.so
+endif
+if -e ezcaidl_startup.pro  then
+        setenv  IDL_STARTUP ezcaidl_startup.pro 
+endif
+
+# release 5.0
+#source /usr/local/rsi/idl_5.2/bin/idl_setup
+setenv IDL_DEVICE X
+
+#setenv IDL_PATH  ${PVT_LOC}:${IDL_PATH}
+echo LD_LIBRARY_PATH $LD_LIBRARY_PATH
+echo EZCA_IDL_SHARE $EZCA_IDL_SHARE
+echo IDL_STARTUP $IDL_STARTUP
+exit
+
