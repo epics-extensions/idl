@@ -180,9 +180,9 @@ scanno=scanno,IP=IP,JP=JP,X=x,Y=y,im=im
 ;     ID_DEF  - ID_DEF[19] or ID_DEF[19,2] returns the indicator for 
 ;               defined positoner/detector of the 1D/2D scan, 
 ;               if value 0 not present, 1 present in scan record
-;     PA1D    - PA1D[NUM_PTS[0],4] returns positional array for scan1 record
+;     PA1D    - PA1D[CPT[0],4] returns positional array for scan1 record
 ;               or scan2 record for 1D/2D scan
-;     DA1D    - PA1D[NUM_PTS[0],15] returns detector array for scan1 record
+;     DA1D    - PA1D[CPT[0],15] returns detector array for scan1 record
 ;               or scan2 record for 1D/2D scan
 ;     PA2D    - PA2D[NUM_PTS[0],NUM_PTS[1],4] returns positional array for 
 ;               2D scan 
@@ -204,7 +204,7 @@ scanno=scanno,IP=IP,JP=JP,X=x,Y=y,im=im
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
-;       xx-xx-xxxx      comment
+;       03-02-2000      PA1D, DA1D returns actual number of points saved
 ;-
 
 	errcode = -1
@@ -219,8 +219,10 @@ scanno=scanno,IP=IP,JP=JP,X=x,Y=y,im=im
 	labels = *(*self.gD).labels
 	id_def = *(*self.gD).id_def
 
-	pa1D = *(*self.gD).pa1D
-	da1D = *(*self.gD).da1D
+	pa1 = *(*self.gD).pa1D
+	da1 = *(*self.gD).da1D
+	pa1D = pa1(0:cpt(0)-1,*)
+	da1D = da1(0:cpt(0)-1,*)
 
 	if dim eq 2 then begin
 	da2D = *(*self.gD).da2D
@@ -931,8 +933,10 @@ title=title,group=group,all=all,_extra=e
 	if dim eq 1 then begin
 	def = *(*self.gD).id_def
 	ndim = n_elements(def)
-	pa = *(*self.gD).pa1d
-	da = *(*self.gD).da1d
+	pa1d = *(*self.gD).pa1d
+	da1d = *(*self.gD).da1d
+	pa = pa1d(0:cpt(0)-1,*)
+	da = da1d(0:cpt(0)-1,*)
 	labels = *(*self.gD).labels
 	end
 	if dim eq 2 then begin
