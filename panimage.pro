@@ -21,22 +21,27 @@ return
 end
 	if keyword_set(TIFF) then begin
 		tvlct,r,g,b,/get
-		tiffname = strtrim(tiff,2)
-	 	if keyword_set(order) then $
-		write_tiff,tiffname,reverse(TVRD(),2),red=r,green=g,blue=b $
-		else write_tiff,tiffname,TVRD(),red=r,green=g,blue=b
+       		if !d.n_colors gt !d.table_size then $
+       		WRITE_TIFF,tiff,reverse(TVRD(/true),3) else $
+	        WRITE_TIFF,tiff,reverse(TVRD(),2),1,red=R,green=G,blue=B
 	end
 
 	if keyword_set(PNG) then begin
 		tvlct,r,g,b,/get
-		pngname = strtrim(png,2)
-		write_png,pngname,TVRD(),r,g,b
+       		if !d.n_colors gt !d.table_size then $
+		write_png,png,TVRD(/true) else $
+		write_png,png,TVRD(),r,g,b
 	end
 
         if keyword_set(PICT) then begin
                 tvlct,r,g,b,/get
-                gifname = strtrim(pict,2)
-                write_pict,gifname,TVRD(),r,g,b
+		if !d.n_colors gt !d.table_size then begin
+		t_arr = TVRD(/true)
+		arr = color_quan(t_arr,1,red,green,blue)
+		tvlct,red,green,blue
+		write_pict,pict,arr,red,green,blue
+		tvlct,r,g,b
+		endif else write_pict,pict,TVRD(),r,g,b
         end
 
         if keyword_set(XDR) then begin
@@ -233,10 +238,10 @@ PRO PANIMAGE_SEL_Event, Event
 		WIDGET_CONTROL,panimageinfo.reverse_id,SENSITIVE=1 $
 	else 	WIDGET_CONTROL,panimageinfo.reverse_id,SENSITIVE=0 
 	case type of
-	0: newname = panimageinfo.path + panimageinfo.class+'tiff'
-	1: newname = panimageinfo.path + panimageinfo.class+'png'
-	2: newname = panimageinfo.path + panimageinfo.class+'pict'
-	3: newname = panimageinfo.path + panimageinfo.class+'xdr'
+	0: newname = panimageinfo.path + panimageinfo.class+'pan.tiff'
+	1: newname = panimageinfo.path + panimageinfo.class+'pan.png'
+	2: newname = panimageinfo.path + panimageinfo.class+'pan.pict'
+	3: newname = panimageinfo.path + panimageinfo.class+'pan.xdr'
 	endcase
 	WIDGET_CONTROL,panimageinfo.tiff_id,SET_VALUE = newname
 	END
@@ -413,7 +418,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 
   pan_tiffname = CW_FIELD(BASE2_12, /RETURN_EVENTS, $
 	TITLE='Filename:', $
-	XSIZE=50, YSIZE=1, VALUE="tiff", $
+	XSIZE=50, YSIZE=1, VALUE="pan.tiff", $
 	UVALUE = "PANIMAGE_TIFFNAME")
   WIDGET_CONTROL,pan_tiffname,SENSITIVE=0
 
