@@ -33,8 +33,10 @@ ON_ERROR,0 ;,1
 	IF rank EQ 2 THEN BEGIN
     *gData.pa1D  = *(*Scan.pa)[1]
     *gData.da1D  = *(*Scan.da)[1]
-    *gData.pa2D  = *(*Scan.pa)[0]
-    *gData.da2D  = *(*Scan.da)[0]
+if ptr_valid(gData.pa2D) eq 0 then *gData.pa2D  = ptr_new(/ALLOCATE_HEAP)
+if ptr_valid((*Scan.pa)[0]) then *gData.pa2D  = *(*Scan.pa)[0] 
+if ptr_valid(gData.da2D) eq 0 then *gData.da2D  = ptr_new(/ALLOCATE_HEAP)
+if ptr_valid((*Scan.da)[0]) then *gData.da2D  = *(*Scan.da)[0] 
 	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
 	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
   ENDIF
@@ -57,6 +59,8 @@ PRO free_scanAlloc,Scan
 
   rank = *Scan.dim
 
+  ptr_free,Scan.timestamp1
+  ptr_free,Scan.timestamp2
   ptr_free,Scan.scanno
   ptr_free,Scan.dim
   ptr_free,Scan.npts
@@ -106,6 +110,7 @@ ON_IOERROR, BAD
   name=''
   time=''
   readu,lun,name,time
+  *Scan.timestamp2 = time
   
   nb_pos=0
   nb_det=0
@@ -237,6 +242,7 @@ ON_IOERROR, BAD
   name=''
   time=''
   readu,lun,name,time
+  *Scan.timestamp1 = time
   (*Scan.pv)[rank-1]=name
   
   nb_pos=0
@@ -469,6 +475,8 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 
   if n_elements(Scan) eq 0 then $
   Scan = { $
+  	timestamp1: ptr_new(/allocate_heap), $ 
+  	timestamp2: ptr_new(/allocate_heap), $ 
   	scanno	: ptr_new(/allocate_heap), $  ;0L, $
   	dim	: ptr_new(/allocate_heap),     $  ;0, $
   	npts	: ptr_new(/allocate_heap),   $  ;[0,0], $
@@ -495,6 +503,8 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
   readu,lun, isRegular
   readu,lun, env_fptr
 
+  *Scan.timestamp1=''
+  *Scan.timestamp2=''
   *Scan.scanno=tmp.scanno
   *Scan.dim= tmp.rank
   *Scan.npts= reverse(npts)
