@@ -71,6 +71,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       config      : 'DC.config', $
       imgfile	  : 'DCV2D.image.xdr', $
       path  	  : '', $
+      outpath     : '', $
       trashcan    : 'Undefined', $
       code        : 'G', $
       format      : '18.8', $
