@@ -401,7 +401,8 @@ slice = state.slice
         v->view3d_panImage,slice,rank,xdr=filename
         end
   '3D PanImage.PanImages...': begin
-        v->view3d_panImage,slice,rank,/sel
+	DC_viewOutputFilename,state,'.pan.','TIFF',filename
+        v->view3d_panImage,slice,rank,tiff=filename,/sel
         end
   ENDCASE
 END
