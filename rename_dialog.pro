@@ -57,6 +57,7 @@ end
 		res = dialog_message(st,/question)
 		if res eq 'No' then return	
 	end
+	if !d.name eq 'WIN' then spawn,[!os.mv, oldname, newname] else $
 	spawn,[!os.mv, oldname, newname],/noshell
 
 	WIDGET_CONTROL,Event.Top,/DESTROY

@@ -142,6 +142,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		res = widget_message(st,/info)
 		return
 	end
+	if !d.name eq 'WIN' then spawn,[OS_SYSTEM.mv, info.oldname, filename(0)] else $
 	spawn,[OS_SYSTEM.mv, info.oldname, filename(0)],/noshell
 	WIDGET_CONTROL,info.base,/DESTROY
 	end
@@ -423,7 +424,9 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
     ENDIF ELSE BEGIN
 
     y=10000
-    if OS_SYSTEM.os_family eq 'unix' then  spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+;    if OS_SYSTEM.os_family eq 'unix' then  $
+;	 spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+	WC,FILENAME,y
 
 	text = strarr(y(0))				;Maximum # of lines
 	i = 0L
