@@ -7,6 +7,62 @@
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
 
+FUNCTION e_color,v
+        val = v(0) + v(1)*256L + v(2)*256L*256L
+        return, val
+END
+
+PRO getTrueColor,v,echo=echo
+        v = lonarr(16)
+        colors=[ $
+                [255,0,0],[255,255,0],[0,255,0],[0,0,255], $
+                [255,80,0],[205,205,50],[100,255,200],[0,80,255], $
+               [255,0,128],[255,255,128],[0,255,128],[0,150,255], $
+                [255,200,128],[180,180,120],[160,205,160],[180,200,255] $
+		]
+        for i=0,15 do begin
+        v(i) = e_color( colors(*,i))
+        end
+	if keyword_set(echo) then begin
+	device,decomposed=1
+        erase
+        for i=0,15 do oplot,indgen(10)*(i+1),color=v(i)
+	end
+	device,decomposed=0
+END
+
+
+PRO getLineColors,colorA
+; long array : colorA
+; pseudo color
+if !d.n_colors le 256 then begin
+; use 32 to 233 colors
+        var = intarr(!d.table_size-64)
+        id = 0
+        for i=1,32 do begin
+        for j=1,6 do begin
+        ij =  j * 32
+        var(id) = ij + i
+        id = id + 1
+        end
+        end
+	var = reverse(var)
+
+	no = n_elements(colorA)
+	colorA = var(0:no-1)
+ 	return	
+end
+; use 16 true color for line plot
+	getTrueColor,var,/echo
+	nc = n_elements(var)
+	no = n_elements(colorA)
+	for i=0,no-1 do begin
+	ii = i mod nc
+	colorA(i) = var(ii)
+	end
+	return
+
+END
 PRO setfont,fname,bold=bold,italic=italic,width=width,space=space
 	if n_elements(width) eq 0 then width = 9
 	if n_elements(space) eq 0 then space = 12 
