@@ -3945,7 +3945,7 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 		ezfitData.height = n_elements(yarray) 
 		ezfitData.dim = 2
 image2=make_array(ezfitData.width,ezfitData.height)
-image2(*,*)=ezfitData.im(0:ezfitData.width*ezfitData.height - 1)
+image2(*,*)=image  ;ezfitData.im(0:ezfitData.width*ezfitData.height - 1)
 END
 
 PRO ezfit_picktype,x,y
