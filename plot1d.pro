@@ -7,6 +7,7 @@
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
 @colorbar.pro
+@saveImage.pro
 @fit_statistic.pro
 @PS_open.pro
 @iplot1d.pro
@@ -21,71 +22,46 @@ PRO plot1d_help
    res = dialog_message(str,title='plot1d_help',/info)
 END
 
+PRO PLOT1D_PDMENU5_Event, Event
+WIDGET_CONTROL,Event.top,GET_UVALUE=state
+
+  CASE Event.Value OF
+  'Print.Printer...': BEGIN
+	PS_printer,Group=Event.top
+    END
+  'Print.Print': BEGIN
+	PS_TVRD,wid=state.winDraw
+    END
+  'Print.Color...': BEGIN
+	xloadct,group=Event.top	
+    END
+  'Print.PS Plot': BEGIN
+	PS_open, 'idl.ps'
+	linestyle = state.linestyle
+	bgrevs = state.bgrevs
+	state.linestyle = 1
+	state.bgrevs = 1
+	plot1d_replot, state
+	PS_close
+	state.linestyle = linestyle 
+	state.bgrevs = bgrevs 
+	PS_print, 'idl.ps'
+    END
+  ENDCASE
+END
+
 PRO PLOT1D_PDMENU3_Event, Event
 WIDGET_CONTROL,Event.top,GET_UVALUE=state
 
   CASE Event.Value OF
   'Export.TIFF': BEGIN
-	tvlct,R,G,B,/get
-	cd,current=p
-	p = p + !os.file_sep +'TIFF'+!os.file_sep
-	found = findfile(p,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' +p
-	file = 'plot1d.tiff'
-	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
-	title='Save plot1d TIFF Image')
-	if fn ne '' then begin
-	old_win = !d.window
-	WSET,state.winDraw
-	if !d.n_colors gt !d.table_size then $
-	WRITE_TIFF,fn,reverse(TVRD(/true),3) else $
-	WRITE_TIFF,fn,reverse(TVRD(),2),1,red=R,green=G,blue=B
-	WSET,old_win
-	end
+	save_tiff,win=state.winDraw,file='plot1d.tiff'
     END
   'Export.PNG': BEGIN
-	tvlct,R,G,B,/get
-	cd,current=p
-	p = p + !os.file_sep +'PNG'+!os.file_sep
-	found = findfile(p,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' +p
-	file = 'plot1d.png'
-	fn = dialog_pickfile(filter='*png',path=p,file=file,/WRITE, $
-	title='Save plot1D PNG Image')
-	if fn ne '' then begin
-	old_win = !d.window
-	WSET,state.winDraw
-	if !d.n_colors gt !d.table_size then $
-	WRITE_PNG,fn,TVRD(/true) else $
-	WRITE_PNG,fn,TVRD(),R,G,B
-	WSET,old_win
-	end
+	save_png,win=state.winDraw,file='plot1d.png'
     END
   'Export.PICT': BEGIN
-       tvlct,R,G,B,/get
-	cd,current=p
-	p = p + !os.file_sep +'PICT' +!os.file_sep
-	found = findfile(p,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' +p
-	file = 'plot1d.pict'
-	fn = dialog_pickfile(filter='*pict',path=p,file=file,/WRITE, $
-		title='Save plot1d PICT Image')
-	if fn ne '' then begin
-	old_win = !d.window
-	if !d.n_colors gt !d.table_size then begin
-		t_arr = TVRD(/true)
-		arr = color_quan(t_arr,1,red,green,blue)
-		tvlct,red,green,blue
-		WSET,state.winDraw
-		WRITE_PICT,fn,arr,Red,Green,Blue
-		WSET,old_win
-		tvlct,R,G,B	
-	endif else begin
-	WSET,state.winDraw
-	WRITE_PICT,fn,TVRD(),R,G,B
-	WSET,old_win
-	end
-	end
+	save_pict,win=state.winDraw,file='plot1d.pict'
     END
   ENDCASE
 END
@@ -265,6 +241,17 @@ PRO plot1d_dialogs_Event, Event
 		report='fwhm.rpt',title=state.title+'_FWHM_DY',Group=Event.top
 	end
       END
+  'plot1d_OVERLAY': BEGIN
+        xa = state.x(*,0)
+        ya = state.y(*,*)
+	sz = size(ya)
+	if sz(0) eq 2 and sz(2) gt 1 then begin
+	def = make_array(sz(2),value=1)
+	dnames = '_'+strtrim(indgen(sz(2))+1,2)
+	calibration_factor,ya,def,xv=xa, dnames=dnames, $
+                title='1D OVERLAY', GROUP=group
+	end
+	END
   'plot1d_FITTING': BEGIN
         xa = state.x(*,0)
         ya = state.y(*,*)
@@ -678,6 +665,9 @@ end
       UVALUE='plot1d_comment', $
       XSIZE=45, $
       YSIZE=2)
+  if state.overlay then $
+  overlay = WIDGET_BUTTON(BASE2_41,VALUE='OVERLAY...', $
+	UVALUE='plot1d_OVERLAY')
 
   npt_slidet0 = WIDGET_SLIDER(BASE2_22,value=1, $
 	title='Start NPT:', xsize=60, $
@@ -744,6 +734,7 @@ end
 
   state.legendWid = BASE2_3
   state.legendStrWid = legend
+  if state.legendon then widget_control,state.legendWid,MAP=1
 
   state.dialogsWid = plot1d_xysize
 
@@ -756,11 +747,13 @@ END
 
 
 PRO plot1d_replot,state
-;COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
-;if n_elements(r_orig) eq 0 then loadct,39
  
 ; if 24 bits use color table need set deomposed=0
-if !d.n_colors gt !d.table_size  then device,decomposed=1 
+if !d.n_colors le !d.table_size then begin
+TVLCT,o_red,o_green,o_blue,/get
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+TVLCT,red,green,blue
+endif else device,decomposed=1
 
 	state.xsize = !d.x_size
 	state.ysize = !d.y_size
@@ -769,7 +762,8 @@ if !d.n_colors gt !d.table_size  then device,decomposed=1
 	thick = state.thick
 	line = state.linestyle
 	colorI = state.colorI
-	if !d.name eq 'PS'  then getLineColors,colorI
+	if !d.n_colors gt !d.table_size then colorI = state.colorV
+;	if !d.name eq 'PS'  then getLineColors,colorI
 
 	y = state.y
 	s = size(y)
@@ -809,8 +803,8 @@ if !d.n_colors gt !d.table_size  then device,decomposed=1
 	nx = n_elements(x)
 
 	if state.userscale eq 0 then begin
-;		state.xrange = [min(x),max(x)]
 		state.xrange = [x(cpt0),x(nx-1)]
+		if state.scatter then state.xrange = [min(x),max(x)]
 		state.yrange = [min(y),max(y)]
 	endif else begin
 		state.xrange = [state.xmin,state.xmax]
@@ -829,6 +823,9 @@ if !d.n_colors gt !d.table_size  then device,decomposed=1
 	if ymgin(0) gt fix(ychar_no) then ymgin = ychar_no
 
 ; one dim array 
+
+catch,error_status
+if error_status ne 0 then return
 
 if !d.name ne 'PS' then WSET,state.winDraw
 !p.multi = [0,1,0,0,0]
@@ -983,7 +980,7 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	real_yl = real_y1 - 0.5*real_dy
 
 	xyouts,real_x1,real_y1,'LEGEND', color=state.tcolor
-	oplot,[real_x1,real_xl],[real_yl,real_yl],thick=thick
+	oplot,[real_x1,real_xl],[real_yl,real_yl],thick=thick,color=state.tcolor
 
 	real_xl = real_x1 + 0.075*(!x.crange(1)-!x.crange(0))
 	real_xr = real_x1 + 0.1*(!x.crange(1)-!x.crange(0))
@@ -996,18 +993,17 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	y=[real_yl,real_yl]
 	ii = i mod 16
 	color = state.colorI(ii)
+	if !d.n_colors gt !d.table_size then color = state.colorV(ii)
 	if state.autocolor eq 0 then color=state.tcolor
 
-	if psym ne 0 then $
-	OPLOT,x,y,linestyle=line mod 6,color=color,thick=thick
 	OPLOT,x,y,linestyle=line mod 6,color=color,psym=in_symbol(i),thick=thick
 
 	xyouts,real_xr,real_yl, state.legend(pick(i)), color=state.tcolor
 	end
 end
 
-if !d.n_colors gt !d.table_size then device,decomposed=0
-
+if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue else $
+device,decomposed=0
 END
 
 PRO plot1d_event,ev 
@@ -1033,6 +1029,7 @@ WIDGET_CONTROL,ev.Id,GET_UVALUE=B_ev
 
 CASE B_ev OF
 'PLOT1D_SAVEMENU': PLOT1D_PDMENU3_Event,ev
+'PLOT1D_PRINTMENU': PLOT1D_PDMENU5_Event,ev
 'PLOT1D_DATA': begin
 	sz = size(state.y)
 	nel = n_elements(state.x)
@@ -1086,24 +1083,6 @@ CASE B_ev OF
 	if state.bgrevs then state.bgrevs = 0 else state.bgrevs = 1
 	plot1d_replot, state
  	end
-'PLOT1D_PRINTER': begin
-	PS_printer,Group=Ev.top
-	end
-'PLOT1D_PSPLOT': begin
-	PS_open, 'idl.ps'
-	linestyle = state.linestyle
-	bgrevs = state.bgrevs
-	state.linestyle = 1
-	state.bgrevs = 1
-	plot1d_replot, state
-	PS_close
-	state.linestyle = linestyle 
-	state.bgrevs = bgrevs 
-	PS_print, 'idl.ps'
-	end
-'PLOT1D_PRINT': begin
-	PS_TVRD,wid=state.winDraw
-	end
 'PLOT1D_OPTIONS': begin
 	plot1d_dialogs, state, Group=ev.top
 	end
@@ -1133,7 +1112,7 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 	legend=legend, xylegend=xylegend, $
 	width=width, height=height, $
 	comment=comment, cleanup=cleanup, $
-	curvfit=curvfit, bgrevs=bgrevs, $
+	curvfit=curvfit, bgrevs=bgrevs, overlay=overlay, $
 	xstyle=xstyle, ystyle=ystyle, $
 	wtitle=wtitle, report=report, data=data, button=button, GROUP=GROUP
 ;+
@@ -1254,6 +1233,8 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;
 ;       BGREVS:  Reverse background color 
 ;
+;       OVERLAY: Speicify whether overlay option desired
+;
 ; OPTIONAL_OUTPUTS:
 ;       ID_TLB: The widget ID of the top level base returned by the PLOT1D. 
 ;
@@ -1330,10 +1311,10 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;                      Check for scattering data 1D plot 
 ;       04-01-04 bkc   Support both PseudoColor and TrueColor devices
 ;                      Add ITOOL... dialog for falling iplot
+;       06-03-04 bkc   Add overlay option to plot1d setup dialog
 ;-
 
-COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
-if n_elements(r_orig) eq 0 then LOADCT,39
+;LOADCT,39
 
 ; check any data provided
 
@@ -1378,8 +1359,10 @@ if keyword_set(factor) then rfactor = factor
         table_size = 256 - n_elements(t_size)+1
 	end
 
-	colorI = lonarr(19)
-	getLineColors,colorI
+	nd = sz(2)
+	if nd lt 19 then nd=19
+	colorI = lonarr(nd)
+	getLineColors,colorI,v=colorV
 
 ; check for input labels
 xsize=350
@@ -1458,6 +1441,7 @@ state = { $
 	linestyle: 0, $
 	charsize: 1, $
 	userscale: 0, $
+	overlay: 0, $
 	scatter: 0, $       ; if 1 scatter plot
 	factor: rfactor, $
 	NPT: sz(1), $   ; requested NPT 
@@ -1466,9 +1450,11 @@ state = { $
 	CPT_WID0:0L, $
 	CPT_WID:0L, $
 	colorI: colorI, $
+	colorV: colorV, $
 	x: xa, $
 	y: ya $
 	}
+if keyword_set(overlay) then state.overlay = overlay
 
 state.xmin = state.xrange(0)
 state.xmax = state.xrange(1)
@@ -1550,9 +1536,6 @@ end
 
 id_tlb_colors = WIDGET_BUTTON(id_tlb_row,VALUE='Rvs Bkg',UVALUE='PLOT1D_REVERSE')
 id_tlb_options = WIDGET_BUTTON(id_tlb_row,VALUE='Options...',UVALUE='PLOT1D_OPTIONS')
-id_tlb_printer = WIDGET_BUTTON(id_tlb_row,VALUE='Printer...',UVALUE='PLOT1D_PRINTER')
-id_tlb_print = WIDGET_BUTTON(id_tlb_row,VALUE='Print',UVALUE='PLOT1D_PRINT')
-id_tlb_psplot = WIDGET_BUTTON(id_tlb_row,VALUE='PS Plot',UVALUE='PLOT1D_PSPLOT')
 
 junk   = { CW_PDMENU_S, flags:0, name:'' }
   MenuDesc256 = [ $
@@ -1564,7 +1547,17 @@ junk   = { CW_PDMENU_S, flags:0, name:'' }
   PLOT1D_PDMENU3 = CW_PDMENU( id_tlb_row, MenuDesc256, /RETURN_FULL_NAME, $
       UVALUE='PLOT1D_SAVEMENU')
 
-id_tlb_iplot = WIDGET_BUTTON(id_tlb_row,VALUE='IPLOT',UVALUE='PLOT1D_IPLOT')
+  MenuDesc258 = [ $
+      { CW_PDMENU_S,       3, 'Print' }, $ ;        0
+        { CW_PDMENU_S,       0, 'Printer...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'PS Plot' }, $ ;        2
+        { CW_PDMENU_S,       0, 'Print' },  $ ;      3
+        { CW_PDMENU_S,       2, 'Color...' } $  ;      3
+  ]
+  PLOT1D_PDMENU5 = CW_PDMENU( id_tlb_row, MenuDesc258, /RETURN_FULL_NAME, $
+      UVALUE='PLOT1D_PRINTMENU')
+
+id_tlb_iplot = WIDGET_BUTTON(id_tlb_row,VALUE='IPLOT...',UVALUE='PLOT1D_IPLOT')
 id_tlb_close = WIDGET_BUTTON(id_tlb_row,VALUE='Close',UVALUE='PLOT1D_CLOSE')
 end
 
