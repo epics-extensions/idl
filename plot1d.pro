@@ -336,7 +336,7 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;-
 
 
-loadct,5
+LOADCT,39
 
 ; check any data provided
 
