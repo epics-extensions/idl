@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-;  DC.init (R3.3)
+;  DC.init (R3.4)
 
 np = 4
 nd = n_elements(detname)  ;85 
@@ -46,7 +46,8 @@ DB_HD = { $
       pv_stat     : FIELD141,     $
       rept_base   : BASE140,      $
       wf_select   : BGROUP145,    $
-	vers  	  : [BGROUP145,BGROUP145_1], $
+;	vers  	  : [BGROUP145,BGROUP145_1], $
+	scantype  : scantype, $
       plot_wid    : DRAW61,       $
       plot_area   : DRAW61_Id,    $
       pickpan     : pick_panimage, $
@@ -74,7 +75,7 @@ w_plotspec_id = { $
 	opened: 0, $
 	realtime: 1, $
 	itime: 1, $
-	dtime: 0.2, $
+	dtime: 1., $   ; 0.2 periodical time interval, $
         xcord: 0, $
 	seqno: 0, $
 	statistic: 0, $
@@ -97,7 +98,8 @@ debug : 0,    $   ;  0 normal runing mode, 1 debug mode
 option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'IOC_DC', $
-      release     : '(DC R3.3)', $
+      release     : '(DC R3.4)', $
+	prefix	: '', $
 	scanH	: 0, $
 	nd	: nd, $
 	npd	: npd, $
@@ -116,7 +118,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       home	  : '', $
       fileno	  : 0, 		  $  current scan file number
       filemax	  : 1, 		  $  max scan file number
-      envfile	  : 'catch1d.env', $
+      tblfile	  : 'catch1d.tbl', $ 
       maxenv 	  : 500, $
       config      : 'DC.config', $
       imgfile	  : 'DCV2D.image.xdr', $
@@ -147,6 +149,8 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       plotspec    : w_plotspec_id, $
       realtime    : 0, 	  	  $   ; realtime scan monitor indicator 
 ; add 2D scan parameters here
+      wtime 	  : .02,  $   ;  allow time for multim-dim  mda save finished 
+      tmpName	: '.tmpName', $ ; temp name used for detname assignment
       scanno_2d	  : 0,            $   ; current 2D scan no 
       image        : 1, $		; default 60x60 image 
       image_width  : 60, $
@@ -156,10 +160,10 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
 	sel_id 	   : 8, $		; 0 - D01-D10, 8 - All 
 	sel_changed: 0, $		; changed sublist
 	last_line  : 0, $		; last 2d image line
-	dstart     : 16, $
+	dstart     : 15, $		; D01 start seq # 
 	sublist    : strarr(11,2), $    ; [l123,l123_1], $    
 	svers	   : 0, $  		; 0-85 det, 1- 70 det
-	new        : 0, $  		; 5.19 or later
+	new        : 0, $  		; 1 for 5.19 or later
       y_pv	: '', $
       y_scan 	: 0, $		; if 1 2D scan is goring on
       y_value   : 0., $		; y value for 2D scan
@@ -172,6 +176,10 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       y_cur_pt  : 0, 	$  ; y index no from IOC
       y_seqno   : 0 	$  ; y dim scan seqno
    }
+
+found = findfile('catch1d.tbl')
+if found(0) eq '' then $
+scanData.tblfile='/usr/local/epics/extensions/idllib/catch1d.tbl' 
 
    scanData.sublist(*,0) = l123(*)
    scanData.sublist(*,1) = l123_1(*)
@@ -214,6 +222,7 @@ realtime_id = { $
         ind     : 0,    $
         no      : 0, $
         mpts    : 0, $
+	fly	: 0, $
 	def     : make_array(scanData.num_det+4,/int), $     ; 1 PV defined, 2 time defined
 	axis 	: 0, $
 	xmin	: 0., $
