@@ -1,1377 +1,3 @@
-@PS_open.pro
-
-
-PRO catch1d_get_pvtcolor,i,color
-COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
-; 24 bits
-	if n_elements(R_ORIG) eq 0 then $
-	catch1d_get_pvtct
-	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
-;	plot,indgen(10),color=color
-END
-
-PRO catch1d_save_pvtct
-	tvlct,red,green,blue,/get
-	save,red,green,blue,file='catch1d.tbl'
-END
-
-PRO catch1d_get_pvtct
-COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
-
-; 8 bit visual
-
-	if  !d.n_colors lt 16777216 then begin
-		tvlct,red,green,blue,/get
-	endif else begin
-
-; 24 bit visual
-	file = 'catch1d.tbl'
-	found = findfile(file)
-	if found(0) eq '' then begin
-		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		found1 = findfile(file)
-		if found1(0) eq '' then $
-		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		end
-	restore,file
-	tvlct,red,green,blue
-	end
-
-; set ORIG color 
-
-	R_ORIG = red
-	G_ORIG = green
-	B_ORIG = blue
-
-	LOADCT,39
-END
-
-
-PRO plot1d_replot,state
-COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
-
-	state.xsize = !d.x_size
-	state.ysize = !d.y_size
-	cl = state.color
-	psym = state.symbol
-	thick = state.thick
-	line = state.linestyle
-	y = state.y
-	s = size(y)
-
-; set xy margin
-
-	xmgin = state.xmargin
-	ymgin = state.ymargin 
-
-; one dim array 
-
-if !d.name ne 'PS' then WSET,state.winDraw
-!p.multi = [0,1,0,0,0]
-erase
-
-if !d.name eq 'PS' then cl = 0
-
-color = cl 
-if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
-if s(0) eq 1 then $
-	PLOT,state.x,state.y, COLOR=color, $
-		xrange=state.xrange, yrange = state.yrange, $
-		ylog=state.ylog, xlog=state.xlog, psym=psym, $
-		thick=thick, xthick=thick, ythick=thick,$
-		xstyle = state.xstyle, ystyle = state.ystyle, $
-		linestyle=line, $
-		xmargin=xmgin, ymargin=ymgin, $
-		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
-
-; two dim array - multiple curves
-
-if s(0) eq 2 and s(2) gt 1 then begin
-in_color = make_array(s(2),/int,value=cl)
-in_line = make_array(s(2),/int)
-in_symbol = make_array(s(2),/int)
-in_color(0)= cl
-in_line(0)= line
-in_symbol(0)=psym
-	PLOT,state.x,state.y,COLOR=color, $
-		xrange=state.xrange, yrange = state.yrange, $
-		ylog=state.ylog, xlog=state.xlog, $
-		thick=thick, xthick=thick, ythick=thick,$
-		linestyle=line, psym=psym, $
-		xmargin=xmgin, ymargin=ymgin, $
-		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
-	
-;	dcl = state.color / 16
-	dcl = !d.table_size-2
-	ncv = 4  ;7
-	colorlevel = dcl / ncv
-	for i= 1 ,s(2) - 1 do begin
-		if state.autocolor eq 1 then begin
-		ii = i / ncv
-		im = i MOD ncv
-		cl = dcl -ii -im*colorlevel
-		in_color(i) = cl
-		color = cl
-		; if 24 bits use cl_val
-        	if !d.n_colors eq 16777216 then begin
-                	catch1d_get_pvtcolor,cl,t_color
-                	color = t_color
-                	end
-
-		end
-		if psym gt 0 then psym = psym+1
-		if psym lt 0 then psym = psym-1
-
-; the symbol 2 is too light, skip it
-if i eq 2 and psym lt 0 then psym=psym-1
-if i eq 2 and psym gt 0 then psym=psym+1
-
-		if line gt 0 then line = line+1
-		in_line(i) = line
-		in_symbol(i) = psym 
-		z = y(0:s(1)-1,i)
-
-		if state.curvfit then begin
-			psym=7      ; if curve fitting is true
-		end
-		OPLOT,state.x,z,COLOR=color,linestyle=line, psym=psym mod 7, $
-			thick=thick 
-		psym = in_symbol(i)
-; print,i,psym,cl,line
-	end
-end
-
-; draw footnote comment
-
-if state.footnote ne 0 then begin
-
-	real_xl = 0.01*state.xsize
-	real_dy = !d.y_ch_size     ; character pixel height
-	real_yl = (state.footnote+1)*real_dy
-	for i=0,state.footnote -1 do begin
-	xyouts,real_xl,(real_yl-i*real_dy), state.comment(i), /DEVICE
-	end
-end
-
-; draw stamp comment
-	
-if state.stamp ne 0 then begin
-	st = systime(0)
-	xyouts,0.01*state.xsize, 1, st, /device
-	xyouts,0.75*state.xsize, 1, $
-		 'User Name:  '+getenv('USER'), /device
-end
-
-; draw legend
-
-if s(0) eq 2 and state.legendon gt 0 then begin
-
-	real_x1 = state.xylegend(0)*(!x.crange(1)-!x.crange(0)) + $
-		!x.crange(0)
-	real_y1 = state.xylegend(1)*(!y.crange(1)-!y.crange(0)) + $
-		!y.crange(0)
-	real_dy = 0.1 * (!y.crange(1)-!y.crange(0))
-
-	real_xl = real_x1 + 0.16*(!x.crange(1)-!x.crange(0))
-	real_yl = real_y1 - 0.5*real_dy
-
-	xyouts,real_x1,real_y1,'LEGEND'
-	oplot,[real_x1,real_xl],[real_yl,real_yl],thick=2
-
-	real_xl = real_x1 + 0.075*(!x.crange(1)-!x.crange(0))
-	real_xr = real_x1 + 0.1*(!x.crange(1)-!x.crange(0))
-
-	for i=0,n_elements(state.legend)-1 do begin
-
-	real_yl = real_y1 - (i*0.5+1)*real_dy
-
-	x=[real_x1,real_xl]
-	y=[real_yl,real_yl]
-	color = in_color(i)
-        ; if 24 bits use cl_val
-	if !d.n_colors eq 16777216 then begin
-	catch1d_get_pvtcolor,in_color(i),t_color
-	color = t_color
-	end
-
-	if psym ne 0 then $
-	oplot,x,y,linestyle=in_line(i),color=color,thick=2
-	oplot,x,y,linestyle=in_line(i),color=color,psym=in_symbol(i),thick=2
-
-	xyouts,real_xr,real_yl, state.legend(i)
-	end
-end
-
-END
-
-PRO plot1d_event,ev 
-
-; resize event
-
-;WIDGET_CONTROL, ev.top, GET_UVALUE = state, /NO_COPY
-WIDGET_CONTROL, ev.top, GET_UVALUE = state
-
-IF (ev.id EQ ev.top) then begin
-; plot1d the draw widget and redraw its plot;
-	WIDGET_CONTROL,state.id_draw, SCR_XSIZE=ev.x, SCR_YSIZE=ev.y
-
-	; if device is X
-	if !d.name ne 'PS' then  WSET,state.winDraw
-
-	plot1d_replot, state
-
-	WIDGET_CONTROL,ev.top,SET_UVALUE=state,/NO_COPY
-	return
-ENDIF
-
-WIDGET_CONTROL,ev.Id,GET_UVALUE=B_ev
-CASE B_ev OF
-'PLOT1D_PRINT': Begin
-	PS_open, 'idl.ps'
-	linestyle = state.linestyle
-	state.autocolor = 0
-	state.linestyle = 1
-	plot1d_replot, state
-	PS_close
-	PS_print, 'idl.ps'
-	state.autocolor = 1
-	state.linestyle = linestyle 
-	end
-'PLOT1D_CLOSE': begin
-	WIDGET_CONTROL,ev.top,BAD=bad,/DESTROY
-	end
-ENDCASE
-END
-
-PRO plot1d, x, y, id_tlb, windraw, $
-	title=title,xtitle=xtitle,ytitle=ytitle,color=color, $
-	symbol=symbol, thick=thick, linestyle=linestyle, $
-        xrange=xrange, yrange=yrange, xlog=xlog, ylog=ylog, $
-	xmargin=xmargin, ymargin=ymargin, stamp=stamp,$
-	legend=legend, xylegend=xylegend, $
-	width=width, height=height, $
-	comment=comment, cleanup=cleanup, $
-	curvfit=curvfit, $
-	xstyle=xstyle, ystyle=ystyle, $
-	wtitle=wtitle, button=button, GROUP=GROUP
-;+
-; NAME:
-;       PLOT1D
-;
-; PURPOSE:
-;       This routine provides a general purpose flexible cartesion plot
-;       package.  It provides simple to use automatic feature of labels,
-;       legend, comment, line style, symbols, and color options on plot.
-;
-;       The window generated by this routine will be resizable by the 
-;       window manager. 
-;
-;       Depress the 'Print' button will generate a postscript copy of the
-;       graph.
-;
-;       Normally it accepts two parameters X and Y. If the first parameter
-;       is not used then the data array is plotted on the ordinate versus 
-;       the point number on the abscissa.  Multiple curves (or variables) 
-;       can be stacked into the second parameter as a two dimensional array, 
-;       the first dimension gives the number of data points in each curve,
-;       the second dimension gives the number of curves to be plotted.
-;  
-;
-; CATEGORY:
-;       Widgets.
-;
-; CALLING SEQUENCE:
-;
-;       PLOT1D, [X,] Y [,ID_TLB]  [,ID_DRAW]
-;
-; INPUTS:
-;       X:      The vector array for X abscissa.
-;
-;       Y:      The Y data array for curve plot. The Y array can contain
-;               more than one curve, the first dimension gives the number
-;               of data to be plotted for the curve, the second dimension
-;               gives the number of curves to be plotted.
-;	
-; KEYWORD PARAMETERS:
-;       TITLE:  Set this keyword to specify the plot title string.
-;
-;       XTITLE: Set this keyword to specify the xtitle string.
-;
-;       YTITLE: Set this keyword to specify the ytitle string.
-;
-;       COLOR:  Set this keyword to specify the color number used
-;               in the plot routine.
-;
-;      CURVFIT: Set this keyword if two curves are plotted, first curve
-;               is the fitted curve, the second curve is data to be fitted. 
-;
-;       SYMBOL: Set this keyword to specify data plotted as symbol, set to -1
-;               data plot as symbol and connected with line.
-;
-;       XLOG:   Set this keyword to specify a logrithmic X axis.
-;
-;       YLOG:   Set this keyword to specify a logrithmic Y axis.
-;
-;       XRANGE: Set this keyword to specify the desired data range for 
-;               the X axis.
-;
-;       YRANGE: Set this keyword to specify the desired data range for 
-;               the Y axis.
-;
-;       XMARGIN: Set this keyword to specify the left and right margin, 
-;                default xmargin=[10,3]
-;
-;       YMARGIN: Set this keyword to specify the bottom and top margin 
-;                default ymargin=[5,3]
-;
-;       THICK:  Set this keyword to specify the line thickness for the
-;               axes and the line plot. 
-;
-;       LINESTYLE:  Set this keyword to turn on different line style used. 
-;
-;       XSTYLE:  Set this keyword to control x axis in IDL plot routine. 
-;
-;       YSTYLE:  Set this keyword to control y axis in IDL plot routine. 
-;
-;       LEGEND:  Set the legend strings corresponding to curves drawn.
-;
-;       XYLEGEND: Set the x,y location of the legend strings, % from the
-;                 lower left corner from the graph window, default 
-;                 xylegend=[0.75, 0.35].
-;
-;       COMMENT:  Set this keyword to write any footnotes on the graph.
-;
-;       STAMP:  Set this keyword to put the time stamp and user ID on the page. 
-;
-;       WTITLE: Set this keyword to specify the window title string,
-;               default to 'Plot1d'.
-;
-;       WIDTH:  The initial window width at the creation time, which 
-;               default to 350 pixel.
-;  
-;       HEIGHT: The initial window height at the creation time, which 
-;               default to 350 pixel.
-;
-;       GROUP:  The widget ID of the group leader of the widget. If this
-;               keyword is specified, the death of the group leader results 
-;               in the death of PLOT1D.
-;
-;       BUTTON: Set this keyword if no print and close buttons are desired
-;               for the PLOT1D widget.
-;
-;       CLEANUP: Set this keyword if the created window can no be closed by the
-;                window manager is desired.
-;
-; OPTIONAL_OUTPUTS:
-;       ID_TLB: The widget ID of the top level base returned by the PLOT1D. 
-;
-;       ID_DRAW: The widget ID of the drawing area used by the PLOT1D. 
-;
-; COMMON BLOCKS:
-;       None.
-;
-; SIDE EFFECTS:
-;       If more than one curves are stored in the Y array, it automatically
-;       uses different color for each curve. If the color keyword is set
-;       by the user, then the specified color will be used for the whole plot. 
-;
-; RESTRICTIONS:
-;       It is assumed that the X position array is the same for multiple
-;       curve plot. 
-;
-; EXAMPLES:
-;       Create a resizable line plot without any title or label 
-;       specification.
-;
-;           x = !pi * indgen(100)/25
-;           PLOT1D, x, sin(x)
-;
-;       Create a resizable line plot with title specifications. 
-;
-;           PLOT1D, x, sin(x), title='title', xtitle='xtitle', ytitle='ytitle'
-;
-;       Plot two curves with different linestyle and legend at default location.
-;
-;           x=indgen(100)
-;           y=make_array(100,2)
-;           y(0,0)=sin(x * !pi / 50)
-;           y(0,1)=cos(x * !pi / 50)
-;           PLOT1D,x,y,legend=['line1','line2'],/linestyle
-;
-;       Same as the above example plus symbol and a specified legend location.
-;
-;           x=indgen(100)
-;           y=make_array(100,2)
-;           y(0,0)=sin(x * !pi / 50)
-;           y(0,1)=cos(x * !pi / 50)
-;           PLOT1D,x,y,/linestyle,symbol=-1, $
-;              legend=['line1','line2'], xylegend=[0.5,0.9]
-;
-;       Plot x,y array plus two lines of comment and a time stamp on the graph.
-;     
-;           PLOT1D,x,y,comment=['Comment line1','Comment line2'],/stamp
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin K. Cha, Mar. 7, 1996.
-;
-;       04-26-96 bkc   Add the window cleanup keyword 
-;       10-28-96 bkc   Add the xstyle and ystyle keywords 
-;       07-01-97 bkc   Comment out LOADCT,39 inherit color from parent process 
-;       08-11-97 bkc   Add the curvfit support, only two curves allowed 
-;       12-22-97 bkc   Add the 24 bit color visual device support 
-;-
-
-;LOADCT,39
-
-; check any data provided
-
-n1 = n_elements(x)
-if n1 lt 2 then begin
-	print,'Error: No data specified.'
-	return
-	end
-xa = x
-
-if n_elements(y) eq 0 then begin
-	ya = xa
-	s = size(ya)
-	n1 = s(1)
-	xa = indgen(n1)
-endif else ya = y
-
-; check for input labels
-xsize=350
-ysize=350
-xl = ''
-yl =''
-ti = ''
-wti='Plot1d'
-cl = !d.table_size - 1
-leg =['']
-footnote = ''
-add_line=0
-if keyword_set(title) then ti = string(title)
-if keyword_set(xtitle) then xl = string(xtitle)
-if keyword_set(ytitle) then yl = string(ytitle)
-if keyword_set(wtitle) then wti = string(wtitle)
-if keyword_set(legend) then leg = string(legend)
-if keyword_set(comment) then footnote = string(comment)
-
-state = { $
-	id_draw:0L, $
-	winDraw:0L,$
-	autocolor: 1, $ 	; automatic use different color for each curve
-	color:cl, $
-	symbol: 0, $
-	curvfit: 0, $		; whether data is from curve fitting
-	xtitle:xl, $
-	ytitle:yl, $
-	title:ti, $
-	xstyle:0,$
-	ystyle:0,$
-	xsize:0,$
-	ysize:0,$
-	xlog: 0, $
-	ylog: 0, $
-	xmargin: [10,3], $
-	ymargin: [5,3], $
-	stamp: 0, $
-	footnote: 0, $
-	comment: footnote, $
-        xrange: [min(xa),max(xa)], $
-        yrange: [min(ya),max(ya)], $
-	legendon: 0, $
-	legend: leg, $
-	xylegend: [.75,0.35], $
-	thick: 2, $
-	linestyle: 0, $
-	x: xa, $
-	y: ya $
-	}
-
-if keyword_set(xstyle) then state.xstyle = xstyle 
-if keyword_set(ystyle) then state.ystyle = ystyle 
-
-if keyword_set(color) then begin
-	cl = long(color)
-	state.color = cl
-	state.autocolor = 0   ; use fixed color
-	end
-if keyword_set(symbol) then begin
-	state.symbol = symbol
-	end
-	psym = state.symbol
-if keyword_set(xlog) then state.xlog=1
-if keyword_set(ylog) then state.ylog=1
-if keyword_set(thick) then state.thick= thick
-if keyword_set(linestyle) then state.linestyle=1 
-if keyword_set(stamp) then state.stamp=1 
-if keyword_set(legend) then state.legendon = 1
-if keyword_set(xylegend) then begin 
-	if n_elements(xylegend) eq 2 then state.xylegend=xylegend
-	end
-if keyword_set(xrange) then begin 
-	if n_elements(xrange) eq 2 then state.xrange=xrange
-	end
-if keyword_set(yrange) then begin 
-	if n_elements(yrange) eq 2 then state.yrange=yrange
-	end
-if keyword_set(xmargin) then begin 
-	if n_elements(xmargin) eq 2 then state.xmargin=xmargin
-	end
-if keyword_set(comment) then begin
-	add_line = n_elements(comment)
-	state.footnote= add_line
-	ymargin=[5+add_line, 3]
-	end
-if keyword_set(ymargin) then begin 
-	if n_elements(ymargin) eq 2 then state.ymargin=ymargin
-	end
-
-if keyword_set(curvfit) then state.curvfit = 1
-
-if keyword_set(width) then xsize=width
-if xsize lt 350 then xsize=350
-if keyword_set(height) then ysize=height
-if ysize lt 350 then ysize=350
-
-; drawing with data 
-
-if keyword_set(CLEANUP) then $
-id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS, TLB_FRAME_ATTR=8) $
-else $
-id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS)
-;WIDGET_CONTROL,id_tlb,default_font='-*-Helvetica-Bold-R-Normal--*-120-*75-*'
-id_draw=WIDGET_DRAW(id_tlb,xsize=xsize,ysize=ysize, RETAIN=2)
-
-if keyword_set(button) eq 0 then begin
-id_tlb_row=WIDGET_BASE(id_tlb,/ROW)
-id_tlb_print = WIDGET_BUTTON(id_tlb_row,VALUE='Print',UVALUE='PLOT1D_PRINT')
-id_tlb_close = WIDGET_BUTTON(id_tlb_row,VALUE='Close',UVALUE='PLOT1D_CLOSE')
-end
-
-g_tlb=WIDGET_INFO(id_tlb,/geometry)
-
-WIDGET_CONTROL,id_tlb, /realize
-WIDGET_CONTROL,id_draw,get_value=windraw
-	state.winDraw = windraw
-	state.id_draw = id_draw
-	state.xsize = g_tlb.scr_xsize
-	state.ysize = g_tlb.scr_ysize
-	if !d.name ne 'PS' then WSET,windraw
-	
-	plot1d_replot, state
-
-WIDGET_CONTROL,id_tlb,set_uvalue=state,/no_copy
-xmanager,'plot1d',id_tlb,  GROUP_LEADER=GROUP, $
-	EVENT_HANDLER="plot1d_event"
-
-END
-;
-; Auto Save File For plot2d.pro
-;
-;  Wed Oct 23 10:43:38 CDT 1996
-;  a=findgen(40)
-;  a=sin(a/5) / exp(a/50)
-;  data = a#a
-;
-PRO plot2d_replot, plot2d_state
-
-if !d.name ne 'PS' then WSET,plot2d_state.win
-!p.multi = [0,1,0,0,0]
-erase
-
-
-s  = size(plot2d_state.data)
-no = s(0)
-if no gt 0 then begin
-dim = make_array(no)
-dim = s(1:no)
-end
-type = s(n_elements(s)-2)
-
-		; byte type treat as string
-
-                if type eq 1 then begin
-                plot,[-1,-1],XStyle=4,YStyle=4
-                yloc = 0.9*!d.y_size
-                        for j=0,dim(1)-1 do begin
-                        yloc = yloc - !d.y_ch_size
-                        if yloc ge 0 then begin
-                        str=plot2d_state.data(0:dim(0)-1,j)
-                        xyouts, 0.2*!d.x_size, yloc, string(str),/DEVICE
-                        end
-                        end
-		return
-		end
-
-CASE plot2d_state.plottype OF
-    0: begin
-	data = plot2d_state.data
-	if !d.name ne 'PS' then $
-	data = CONGRID(plot2d_state.data,!d.x_size,!d.y_size)
-	TVSCL,data
-	plot2d_notes,plot2d_state
-	end
-    1: begin
-	surface,plot2d_state.data, $
-                title=plot2d_state.title, xtitle=plot2d_state.xtitle, $
-		ytitle=plot2d_state.ytitle
-	plot2d_notes,plot2d_state
-	end
-    2: begin
-	contour,plot2d_state.data, NLevels=12, /Follow
-	plot2d_notes,plot2d_state
-	end
-    ELSE: print,'No plot supported for this case'
-ENDCASE
-END
-
-PRO plot2d_notes,plot2d_state
-; draw footnote comment
-
-if plot2d_state.footnote ne 0 then begin
-
-        real_xl = plot2d_state.xloc * !d.x_size
-        real_dy = !d.y_ch_size     ; character pixel height
-	real_yl = plot2d_state.yloc * !d.y_size
-        for i=0,plot2d_state.footnote -1 do begin
-        xyouts,real_xl,(real_yl-i*real_dy), plot2d_state.comment(i), /DEVICE
-	end
-end
-; draw stamp comment
-
-if plot2d_state.stamp ne 0 then begin
-        if strlen(plot2d_state.stamp) lt 2 then st = systime(0) else $
-		st = plot2d_state.stamp
-        xyouts,0.01*!d.x_size, 1, st, /device
-        xyouts,0.75*!d.x_size, 1, $
-                 'User Name:  '+getenv('USER'), /device
-end
-
-END
-
-;
-; inorder to support TV,SURFACE,CONTOUR, the common block is required
-;
-PRO MAIN13_Event, Event
-COMMON PLOT2D_BLOCK,plot2d_state
-;  WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
-
-; if top resize  event plot2d the base widget and redraw its plot;
-IF (Event.id EQ Event.top) THEN BEGIN
-        WIDGET_CONTROL,plot2d_state.id_draw, SCR_XSIZE=Event.x, SCR_YSIZE=Event.y
-
-        ; if device is X
-        if !d.name ne 'PS' then  WSET,plot2d_state.win
-
-        plot2d_replot, plot2d_state
-
-;        WIDGET_CONTROL,Event.top,SET_UVALUE=plot2d_state
-        return
-ENDIF
-
-  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
-
-  CASE Ev OF 
-
-  'DRAW3': BEGIN
-      Print, 'Event for plot2d_area'
-      END
-  'BGROUP2': BEGIN
-      CASE Event.Value OF
-      0: plot2d_state.plottype= 0  	;tv
-      1: plot2d_state.plottype= 1  	;surface
-      2: plot2d_state.plottype= 2  	;contour
-	ELSE: print,'error'
-      ENDCASE
-      plot2d_replot, plot2d_state
-      END
-  'BGROUP6': BEGIN
-      CASE Event.Value OF
-      0: begin
-	Print,'Button Print Pressed'
-print,'plottype',plot2d_state.plottype
-	 set_plot,'PS'
-        !P.FONT=0
-        device,/Courier,/Bold, /color, bits=8
-        plot2d_replot, plot2d_state
-        !P.FONT=-1
-        device,/close
-        spawn,'lpr idl.ps'
-        print,'Print idl.ps'
-        set_plot,'X'
-	end
-      1: begin
-	xloadct, GROUP=Event.top
-	end
-      2: begin
-	Print,'Button Close Pressed'
-	WIDGET_CONTROL,Event.top,BAD=bad,/DESTROY
-	catch,error_status
-	if error_status eq 0 then $
-	WSET,plot2d_state.old_win
-	end
-      ELSE: Message,'Unknown button pressed'
-      ENDCASE
-      END
-  ENDCASE
-END
-
-
-; DO NOT REMOVE THIS COMMENT: END MAIN13
-; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
-
-
-
-PRO plot2d,data,tlb,win, width=width, height=height, $
-	title=title, xtitle=xtitle, ytitle=ytitle, ztitle=ztitle, $
-	rxloc=rxloc, ryloc=ryloc, comment=comment, $
-	stamp=stamp, GROUP=Group
-
-COMMON PLOT2D_BLOCK,plot2d_state
-;+
-; NAME:
-;       PLOT2D
-;
-; PURPOSE:
-;       This routine provides a general purpose flexible generic 2D plot
-;       package.  It provides simple to use automatic feature of simple TV,
-;       CONTOUR, SURFACE plot.
-;
-;       The window generated by this routine will be resizable by the
-;       window manager.
-;
-;       Depress the 'Print' button will generate a postscript copy of the
-;       graph.
-;
-; CATEGORY:
-;       Widgets.
-;
-; CALLING SEQUENCE:
-;
-;       PLOT2D, DATA,  TLB, WIN
-;
-; INPUTS:
-;       DATA:   The 2D array to be plotted.
-;
-; KEYWORD PARAMETERS:
-;       TITLE:  Set this keyword to specify the plot title string.
-;
-;       XTITLE: Set this keyword to specify the xtitle string.
-;
-;       YTITLE: Set this keyword to specify the ytitle string.
-;
-;       ZTITLE: Set this keyword to specify the ztitle string.
-;
-;       COMMENT:  Set this keyword to write any notes on the graph.
-;
-;       RXLOC:  Set notes X ratio to plot device width, default 0.65.
-;
-;       RYLOC:  Set notes Y ratio to plot device height, default 0.85.
-;
-;       STAMP:  Print the time stamp on the graph.
-;
-;       WTITLE: Set this keyword to specify the window title string,
-;               default to 'Plot2d'.
-;
-;       WIDTH:  The initial window width at the creation time, which
-;               default to 400 pixel.
-; 
-;       HEIGHT: The initial window height at the creation time, which
-;               default to 350 pixel.
-;
-;       GROUP:  The widget ID of the group leader of the widget. If this
-;               keyword is specified, the death of the group leader results
-;               in the death of PLOT2D.
-;
-; OPTIONAL_OUTPUTS:
-;       TLB: The widget ID of the top level base returned by the PLOT2D.
-;
-;       WIN: The window ID of the drawing area used by the PLOT2D.
-;
-; COMMON BLOCKS:
-;       COMMON PLOT2D_BLOCK plot2d_state.
-;
-; SIDE EFFECTS:
-;       If more than one curves are stored in the Y array, it automatically
-;       uses different color for each curve. If the color keyword is set
-;       by the user, then the specified color will be used for the whole plot.
-;
-; RESTRICTIONS:
-;       It is assumed that the X position array is the same for multiple
-;       curve plot.
-;
-; EXAMPLES:
-;       Create a resizable line plot without any title or label
-;       specification.
-;
-;	PLOT2D, data
-;
-; MODIFICATION HISTORY:
-;       Written by:     Ben-chin Cha, Oct. 23, 1996.
-;
-;-
-
-
-  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
-
-  junk   = { CW_PDMENU_S, flags:0, name:'' }
-
-xsize=400
-ysize=350
-xl = ''
-yl =''
-zl =''
-ti = ''			; plot title
-wti='Plot2d'		; window title
-cl = !d.n_colors
-footnote = ''
-timestamp=''
-xloc = 0.65
-yloc = 0.85
-
-if keyword_set(width) then xsize=width
-if xsize lt 350 then xsize=350
-if keyword_set(height) then ysize=height
-if ysize lt 350 then ysize=350
-
-if keyword_set(rxloc) then xloc = float(rxloc)
-if keyword_set(ryloc) then yloc = float(ryloc)
-if keyword_set(title) then ti = string(title)
-if keyword_set(xtitle) then xl = string(xtitle)
-if keyword_set(ytitle) then yl = string(ytitle)
-if keyword_set(wtitle) then wti = string(wtitle)
-if keyword_set(comment) then footnote = string(comment)
-if keyword_set(stamp) then timestamp = strtrim(stamp,2)
-
-  plot2d_state = { $
-	data:data, $
-	plottype:1, $     	;surface
-	title:ti, $
-	xtitle:xl, $
-	ytitle:yl, $
-	ztitle:zl, $
-	footnote: 0, $
-	comment:footnote, $
-	xloc:xloc, $
-	yloc:yloc, $
-	stamp: timestamp, $
-	base:0L, $
-	id_draw:0L, $
-	win:0, $
-	old_win: !d.window, $
-	xsize: xsize, $
-	ysize: ysize $
-	}
-
-if keyword_set(comment) then begin
-        add_line = n_elements(comment)
-        plot2d_state.footnote= add_line
-        end
-
-  MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
-      /TLB_SIZE_EVENTS, $	; resizable window
-      /COLUMN, $
-      MAP=1, $
-      TITLE='PLOT2D', $
-      UVALUE='MAIN13')
-
-  BASE1 = WIDGET_BASE(MAIN13, /ROW)
-  Btns111 = [ $
-    'TV', $
-    'SURFACE', $
-    'COUNTOUR' ]
-  BGROUP2 = CW_BGROUP( BASE1, Btns111, $
-      ROW=1, UVALUE= 'BGROUP2') 
-
-  DRAW3 = WIDGET_DRAW( MAIN13, XSIZE=400, YSIZE=300, RETAIN=2)
-
-  BASE2 = WIDGET_BASE(MAIN13, /ROW)
-
-  Btns361 = [ $
-    'Print', $
-    'Colors', $
-    'Close' ]
-  BGROUP6 = CW_BGROUP( BASE2, Btns361, $
-      ROW=1, $
-      UVALUE='BGROUP6')
-
-  g_tlb = WIDGET_INFO(MAIN13,/geometry)
-
-  WIDGET_CONTROL, MAIN13, /REALIZE
-
-  ; Get drawable window index
-
-  WIDGET_CONTROL, DRAW3, GET_VALUE=drawWin
-  ; WSET, drawWin
-
-  ;surface, data
-
-  tlb = MAIN13
-  win = DRAW3
-	
-	plot2d_state.base = tlb 
-	plot2d_state.id_draw = DRAW3
-	plot2d_state.win = drawWin 
-	plot2d_state.xsize = g_tlb.scr_xsize
-	plot2d_state.ysize = g_tlb.scr_ysize
-
-  	plot2d_replot, plot2d_state
-
-  WIDGET_CONTROL, MAIN13, SET_UVALUE=plot2d_state
-
-  XMANAGER, 'MAIN13', MAIN13
-END
-;+
-; NAME:
-;	cw_term
-;
-; PURPOSE:
-;      writtable text window widget
-;
-; CATEGORY:
-;	Compound widgets.
-;
-; CALLING SEQUENCE:
-;	widget_id = CW_TERM(parent)
-;
-; INPUTS:
-;       PARENT - The ID of the parent widget.
-;
-; KEYWORD PARAMETERS:
-;	BG_NAMES:	An array of strings to be associated with
-;			each button and returned in the event structure as VALUE.
-;	BGEVENT_FUNCT:	The name of an user-supplied event function 
-;			for the buttons. This function is called with the return
-;			value structure whenever a button is pressed, and 
-;			follows the conventions for user-written event
-;			functions.
-;	FONT:		The name of the font to be used for the text output 
-;			If this keyword is not specified, the default
-;			font is used.
-;	FRAME:		Specifies the width of the frame to be drawn around
-;			the base.
-;       FILENAME:       Copy contents of file into widget
-;       RESET:          Clear existing widget contents and write new value/file.
-;                       The parent widget is the existing widget id. 
-;	MAP:		If set, the base will be mapped when the widget
-;			is realized (the default).
-;	SCROLL:		If set, the base will include scroll bars to allow
-;			viewing a large text area through a smaller viewport.
-;	SET_VALUE:	The initial value of the text widget. This is equivalent
-;			to the later statement:
-;
-;			WIDGET_CONTROL, widget, set_value=value
-;
-;       TITLE:          New Window title
-;	UVALUE:         The user value for the compound widget
-;
-;	XSIZE:		The width of the text widget
-;	YSIZE:		The height of the text widget
-;
-; OUTPUTS:
-;       The ID of the created widget is returned.
-;
-; COMMON BLOCKS:
-;	None.
-;
-; SIDE EFFECTS:
-;
-; PROCEDURE:
-;	WIDGET_CONTROL, id, SET_VALUE=value can be used to change the
-;		current value displayed by the widget.
-;
-;	WIDGET_CONTROL, id, GET_VALUE=var can be used to obtain the current
-;		value displayed by the widget.
-;
-; MODIFICATION HISTORY:
-;  01  8-9-95  jps  	modified from idl's cw_tmpl.pro
-;-
-
-
-
-PRO cwterm_Save_Event, Event
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-
-  WIDGET_CONTROL,Event.Top,GET_UVALUE=info
-  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
-
-  CASE Ev OF 
-
-  'CWTERM_SAVEFILE': BEGIN
-      END
-  'CWTERM_SAVEACCEPT': BEGIN
-	WIDGET_CONTROL,info.newname, GET_VALUE=filename
-	if strtrim(filename(0),2) ne '' then begin
-	found = findfile(filename(0))
-	if found(0) ne '' then begin
-		WIDGET_CONTROL,info.base,/DESTROY
-		st = [ 'File: '+filename(0),' already existed!', $
-			'ASCII data saved in ',info.oldname]
-		res = widget_message(st,/info)
-		return
-	end
-	spawn,[OS_SYSTEM.cp, info.oldname, filename(0)],/noshell
-	WIDGET_CONTROL,info.base,/DESTROY
-;	res=widget_message('File: "'+filename(0)+'" saved',/info)
-	end
-      END
-  'CWTERM_SAVECANCEL': BEGIN
-	WIDGET_CONTROL,info.base,/DESTROY
-      END
-  ENDCASE
-END
-
-;
-; if filename specifies the default file name used by the cw_term, 
-;     it will be override by the textfield entered by the user
-;
-PRO cwterm_save_dialog, GROUP=Group,oldname=oldname, rename=rename
-
-  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
-
-  junk   = { CW_PDMENU_S, flags:0, name:'' }
-
-
-  cwterm_Save = WIDGET_BASE(GROUP_LEADER=Group, $
-	TITLE='CW_TERM Save File', $
-      ROW=1, $
-      MAP=1, $
-      UVALUE='cwterm_Save')
-
-  BASE2 = WIDGET_BASE(cwterm_Save, $
-      COLUMN=1, TITLE='CW_TERM SaveFile', $
-      MAP=1, $
-      UVALUE='BASE2')
-
-  FieldVal288 = [ $
-    '' ]
-  if n_elements(rename) then FieldVal288 = strtrim(rename,2)
-  FIELD3 = CW_FIELD( BASE2,VALUE=FieldVal288, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='File:', $
-      UVALUE='CWTERM_SAVEFILE', $
-      XSIZE=60)
-
-  BASE4 = WIDGET_BASE(BASE2, $
-      COLUMN=2, $
-      MAP=1, $
-      UVALUE='BASE4')
-
-  CWTERM_SAVE_BUTTON5 = WIDGET_BUTTON( BASE4, $
-      UVALUE='CWTERM_SAVEACCEPT', $
-      VALUE='Accept')
-
-  CWTERM_SAVE_BUTTON6 = WIDGET_BUTTON( BASE4, $
-      UVALUE='CWTERM_SAVECANCEL', $
-      VALUE='Cancel')
-
-  info = {  $
-	base : cwterm_Save, $
-	oldname: oldname, $
-	newname: FIELD3 $
-	}
-
-  WIDGET_CONTROL, cwterm_Save, SET_UVALUE=info
-  WIDGET_CONTROL, cwterm_Save, /REALIZE
-
-  XMANAGER, 'cwterm_Save', cwterm_Save
-END
-
-PRO term_set_value, id, value
-
-	; This routine is used by WIDGET_CONTROL to set the value for
-	; your compound widget.  It accepts one variable.  
-	; You can organize the variable as you would like.  If you have
-	; more than one setting, you may want to use a structure that
-	; the user would need to build and then pass in using 
-	; WIDGET_CONTROL, compoundid, SET_VALUE = structure.
-
-	; Return to caller.
-  ON_ERROR, 2
-
-	; Retrieve the state.
-   stash = WIDGET_INFO(id, /CHILD)
-   WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-
-    IF (N_ELEMENTS(value) NE 0) THEN BEGIN
-	   WIDGET_CONTROL, state.text_id, $
-				SET_VALUE=value, $
-				/APPEND, $
-				BAD_ID=bad_id, $
-				/NO_COPY
-    ENDIF
-   
-   WIDGET_CONTROL, stash, SET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-
-END
-
-
-
-FUNCTION term_get_value, id, value
-
-	; This routine is by WIDGET_CONTROL to get the value from 
-	; your compound widget.  As with the set_value equivalent,
-	; you can only pass one value here so you may need to load
-	; the value by using a structure or array.
-
-	; Return to caller.
-  ON_ERROR, 2
-
-	; Retrieve the structure from the child that contains the sub ids.
-  stash = WIDGET_INFO(id, /CHILD)
-  WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-
-	; Get the value here
-  WIDGET_CONTROL, state.text_id, GET_VALUE=ret, BAD_ID=bad_id
-
-  WIDGET_CONTROL, stash, SET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-  
-        ; Return the value here.
-  RETURN,ret
-END
-
-;-----------------------------------------------------------------------------
-
-FUNCTION term_event, event
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-
-  parent=event.handler
-
-  WIDGET_CONTROL, event.id, GET_UVALUE=Ev
-
-		; Retrieve the structure from the child that contains the sub ids.
-  stash = WIDGET_INFO(parent, /CHILD)
-  WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY,  BAD_ID=bad_id
-  fileName = state.win_file
-
-  CASE Ev OF 
-
-  'MAIN': BEGIN
-      END
-  'BGROUP':BEGIN
-	CASE event.value OF
-	  'Save...': BEGIN
-		if XRegistered('cwterm_Save') eq 0 then $
-		cwterm_save_dialog,GROUP=Event.id, $
-			rename=state.rename,oldname=fileName
-	      END
-	  'Close': BEGIN
-	      WIDGET_CONTROL, parent, DESTROY=1, BAD_ID=bad_id
-	      END
-	  'Clear': BEGIN
-		  WIDGET_CONTROL, state.text_id, SET_VALUE='', BAD_ID=bad_id
-	      END
-	  'Print': BEGIN
-		  ANS = WIDGET_MESSAGE('Are you sure ?',/QUESTION, $
-			/DEFAULT_NO, DIALOG_PARENT=Event.top)
-		  IF ANS EQ 'Yes' THEN BEGIN
-		  WIDGET_CONTROL, state.text_id, GET_VALUE=value, BAD_ID=bad_id
-			; open the scratch file for printing
-		  fileName = state.win_file
-		  OPENW, unit, fileName, /GET_LUN, ERROR=error	;
-	    	  IF error LT 0 THEN BEGIN		;OK?
-		     print, [ !err_string, ' Can not display ' + filename]  ;No
-		  ENDIF ELSE BEGIN	
-		     printf,unit, FORMAT='(A)',value
-	     	     FREE_LUN, unit			;free the file unit.
-		     if OS_SYSTEM.os_family eq 'unix' then begin
-		     spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, '-r', fileName], /noshell
-		     spawn,[OS_SYSTEM.rm, '-f', fileName], /noshell
-		     endif else begin
-		     spawn,[OS_SYSTEM.prt, fileName]
-		     spawn,[OS_SYSTEM.rm, fileName]
-		     end
-		  ENDELSE
-		  END
-	      END
-	   ELSE: 
-	ENDCASE
-      END
-  'TEXT': BEGIN
-      End
-  ENDCASE
-
-  WIDGET_CONTROL, stash, SET_UVALUE=state, /NO_COPY,  BAD_ID=bad_id
-
-  RETURN, { ID:parent, TOP:event.top, HANDLER:0L }
-END
-
-;-----------------------------------------------------------------------------
-
-FUNCTION cw_term, parent, SET_VALUE=value, $
-	COLUMN=column, TITLE=title, $
-	FILENAME=filename, $
-	RENAME = rename, $
-        RESET=reset, $
-	BG_NAMES = bg_names, BGEVENT_FUNCT = bg_efun, $
-	FONT=font, FRAME=frame, $
-	MAP=map, SENSITIVE=sense, $
-	ROW=row, SCROLL=scroll, SPACE=space, UVALUE=uvalue, $
-	XSIZE=xsize, YSIZE=ysize
-
-COMMON SYSTEM_BLOCK,OS_SYSTEM
-
-  IF (N_PARAMS() LT 1) THEN MESSAGE, 'Must specify a parent for cw_term.'
-
-  ON_ERROR, 2					;return to caller
-
-	; Defaults for keywords
-  version = WIDGET_INFO(/version)
-  if (version.toolkit eq 'OLIT') then def_space_pad = 4 else def_space_pad = 3
-  IF NOT (KEYWORD_SET(append))  THEN append = 0
-  IF NOT (KEYWORD_SET(xsize)) THEN xsize = 80
-  IF NOT (KEYWORD_SET(ysize)) THEN ysize = 24
-  IF NOT (KEYWORD_SET(reset)) THEN reset = 0
-
-;  IF (N_ELEMENTS(value) eq 0) 	then value = ''
-  IF (N_ELEMENTS(Title) eq 0) 	 	then Title = ''
-  IF (N_ELEMENTS(column) eq 0) 		then column = 0
-  IF (N_ELEMENTS(frame) eq 0)		then frame = 0
-  IF (N_ELEMENTS(map) eq 0)		then map=1
-  IF (N_ELEMENTS(row) eq 0)		then row = 0
-  IF (N_ELEMENTS(scroll) eq 0)		then scroll = 0
-  IF (N_ELEMENTS(sense) eq 0)		then sense = 1
-  IF (N_ELEMENTS(uvalue) eq 0)		then uvalue = 0
-
-
-
-; File read section copied from XDISPLAYFILE utility
-;	Written By Steve Richards, December 1990
-;	Graceful error recovery, DMS, Feb, 1992.
-;       12 Jan. 1994  - KDB
-;               If file was empty, program would crash. Fixed.
-;       4 Oct. 1994     MLR Fixed bug if /TEXT was present and /TITLE was not.
-;      14 Jul. 1995     BKC Increased the max line to variable size.
-;      16 Jun. 1997     BKC Max line set to 10000, os system check.
-;      18 Dec. 1997     BKC add the save file event.
-
-  IF(KEYWORD_SET(filename)) THEN BEGIN
-
-    IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = filename     
-    OPENR, unit, filename, /GET_LUN, ERROR=i		;open the file and then
-    IF i LT 0 THEN BEGIN		;OK?
-	text = [ !err_string, ' Can not display ' + filename]  ;No
-    ENDIF ELSE BEGIN
-
-    y=10000
-    if OS_SYSTEM.os_family eq 'unix' then  spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
-
-	text = strarr(y(0))				;Maximum # of lines
-	i = 0L
-	c = ''
-	WHILE not eof(unit) do BEGIN
-		READF,unit,c
-		text(i) = c
-		i = i + 1
-		if i ge y(0) then goto,stopread
-	ENDWHILE
-    stopread:
-	value = text(0:(i-1)>0)  ;Added empty file check -KDB
-	FREE_LUN, unit			;free the file unit.
-    ENDELSE
-  ENDIF ELSE BEGIN
-    IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = 'Term'
-  ENDELSE
-
-  winFile = ''
-  if n_elements(filename) then winFile=filename
-  winTitle = title
- 
- IF reset EQ 0 THEN BEGIN
-
-  if n_elements(rename) then $
-	  state = { main_id:0L, group_leader:0L, $
-			rename : rename, $
-		    bgroup_id:0L, text_id:0L, win_file:winFile } else $
-	  state = { main_id:0L, group_leader:0L, $
-		    bgroup_id:0L, text_id:0L, win_file:winFile }
-
-	  MAIN = WIDGET_BASE( $
-			    GROUP_LEADER=parent, $
-			    UVALUE = uvalue, $
-			    TITLE=winTitle, $
-			    MAP=map, $
-			    EVENT_FUNC = "term_event", $
-			    FUNC_GET_VALUE = "term_get_value", $
-			    PRO_SET_VALUE = "term_set_value", $
-			    /COLUMN)
-		
-	  state.main_id = MAIN
-	  state.group_leader = parent
-
-	  ; Create text widget
-	  IF (N_ELEMENTS(font) EQ 0) THEN BEGIN
-	      state.text_id = WIDGET_TEXT( MAIN, $
-	      XSIZE=xsize, $
-	      YSIZE=ysize, $
-	      /NO_COPY, $
-	      SCROLL=scroll)
-	  ENDIF ELSE BEGIN
-	      state.text_id = WIDGET_TEXT( MAIN, $
-	      XSIZE=xsize, $
-	      YSIZE=ysize, $
-	      /NO_COPY, $
-	      SCROLL=scroll, $
-	      FONT=font)
-	  ENDELSE
-
-
-	  IF (N_ELEMENTS(value) NE 0) THEN $
-		WIDGET_CONTROL, state.text_id, SET_VALUE=value
-
-	  ; Standard control buttons
-	  N_BUTTONS = 3
-	  buttons = STRARR(N_BUTTONS+N_ELEMENTS(bg_names))
-	  buttons(0:N_BUTTONS-1) = ['Print','Clear','Close']
-
-	
-	  ; User control buttons
-	  IF N_ELEMENTS(bg_names) NE 0 THEN BEGIN
- 	   buttons(N_BUTTONS:N_BUTTONS+N_ELEMENTS(bg_names)-1) = bg_names(*)
-	  ENDIF
-
-	  ; Create control buttons
-	  state.bgroup_id = CW_BGROUP( MAIN, buttons, $
-				      /ROW, $
-				      /RETURN_NAME, $
-				      EVENT_FUNCT=bg_efun, $
-				      FRAME=frame, $
-				      UVALUE='BGROUP')
-
-	  ; Save out the initial state structure into the first childs UVALUE.
-	  WIDGET_CONTROL, WIDGET_INFO(MAIN, /CHILD), SET_UVALUE=state, /NO_COPY
-
-	  WIDGET_CONTROL, MAIN, /REALIZE 
-
-  ENDIF ELSE BEGIN
-		; Retrieve the structure from the child that contains the sub ids.
-	  IF  WIDGET_INFO(parent, /VALID_ID) THEN BEGIN
-	      stash = WIDGET_INFO(parent, /CHILD)
-	      WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-              state.win_file= winFile
-
-	      IF (N_ELEMENTS(value) eq 0) 	then value = ''	  
-
-	      WIDGET_CONTROL, state.text_id, SET_VALUE=value, BAD_ID=bad_id
-
-	      WIDGET_CONTROL, stash, SET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
-	 ENDIF
-
-         MAIN = parent
-   ENDELSE
-
-	; value is all the user will know about the internal structure
-	; of your widget.
-  RETURN, MAIN
-
-END
-
-
-
 
 
 PRO SDSVGname,names
@@ -1515,8 +141,10 @@ if strlen(lb) gt 0 then strput,st,lb,100
 if strlen(cs) gt 0 then strput,st,cs,120
 if strlen(unit) gt 0 then strput,st,unit,130
 
-if HDF_Query.byte eq 0 then tempdata = string(string(sdata),/print) else  $
-tempdata = string(sdata,/print)
+; dump only first six number from the data array
+
+if HDF_Query.byte eq 0 then tempdata = string(string(sdata(0:5)),/print) else  $
+tempdata = string(sdata(0:5),/print)
 strput,st,strtrim(tempdata(0),2),141
 
 	WIDGET_CONTROL,HDF_Query_id.terminal,BAD_ID=bad,SET_VALUE=strtrim(st,2)
@@ -1592,6 +220,12 @@ end
 
 	WIDGET_CONTROL,HDF_Query_id.terminal,BAD_ID=bad, $
                SET_VALUE='*** End of Dump HDF SD Data!'
+
+WIDGET_CONTROL,HDF_Query_id.terminal,BAD_ID=bad,GET_VALUE=st
+openw,unit,'hdf_data.txt',/get_lun
+printf,unit,st
+free_lun,unit
+close,unit
 
 	HDF_SD_ENDACCESS,sds_id
 
@@ -1681,6 +315,7 @@ if HDF_Query.numSDS lt 1 then begin
 	return
 	end
 
+WIDGET_CONTROL,/HOURGLASS
 title=''
 ;=====
 sds_id = HDF_SD_SELECT(HDF_Query.sd_id,HDF_Query.seqno)
@@ -1771,6 +406,7 @@ type = s(n_elements(s)-2)
 		!p.multi = [0,2,0,0,0]
 		!p.multi(0)=!p.multi(1)
 ;		for i=0,dim(2)-1 do TV, newdata(*,*,i) , i*(wide+10)+50, 50 
+; only show first 12 images from the 3D data array
 		last = dim(2) - 1
 		if last gt 11 then last = 11
 		for i=0,last do begin
@@ -1813,6 +449,9 @@ type = s(n_elements(s)-2)
 	     END
 	  2: BEGIN
 		plot2d,data
+	     END
+	  3: BEGIN
+		view3d_2D,data ; ,/slicer3
 	     END
 		ELSE: HDF_scrolltext,['Sorry, currently there is no separate plot window','supported for this type of data.'],60,3
 	ENDCASE
@@ -1917,20 +556,23 @@ if keyword_set(help) then begin
 	return
 	end
 
+s = size(data)
+no = s(0)
+if no eq 3 then return
+
         if  HDF_Query.text eq 1 then begin
         WIDGET_CONTROL,HDF_Query_id.textdata,BAD_ID=bad
         if HDF_Query_id.textdata eq 0 or bad ne 0 then $
         HDF_Query_id.textdata = CW_TERM(HDF_Query_id.base, $
 		TITLE='HDF SDS Text Window', $
-                 XSIZE=80, YSIZE=20, /SCROLL)
+                 XSIZE=80, YSIZE=20, /SCROLL, $
+		rename=HDF_Query.dir+'hdf_sds.txt',bg_names='Save As...')
 	end
 
 
 st = ''
 filename = 'hdf_data.txt'
 if n_elements(file) ne 0 then filename = file
-s = size(data)
-no = s(0)
 if no gt 0 then begin
     dim = make_array(no)
     dim = s(1:no)
@@ -1978,7 +620,8 @@ printf,fw, '------------------------------'
 	end
 	free_lun,fw
 ;	xdisplayfile,filename
-	id = CW_TERM(HDF_Query_id.textdata,filename=filename,/reset)
+	id = CW_TERM(HDF_Query_id.textdata,filename=filename,/reset, $
+		bg_names='Save As...')
 	return
 	end
 ;
@@ -1992,7 +635,8 @@ if no eq 1 then begin
 	end
 	free_lun,fw
 ;	xdisplayfile,filename
-	id = CW_TERM(HDF_Query_id.textdata,filename=filename,/reset)
+	id = CW_TERM(HDF_Query_id.textdata,filename=filename,/reset, $
+		bg_names='Save As...')
 	return
 end
 
@@ -2011,16 +655,19 @@ if no eq 2 then begin
 	end
 	free_lun,fw
 ;	xdisplayfile,filename
-	id = CW_TERM(HDF_Query_id.textdata,filename=filename,/reset)
+	id = CW_TERM(HDF_Query_id.textdata,filename=filename,/reset, $
+		bg_names='Save As...')
 	return
 end
 
 
 if no eq 3 then begin
+	return
 	f0 = '("J =    ",'+strtrim(dim(1),2)+'I17,/)'
 	f1 = '(I,'+strtrim(dim(1),2)+'g17.7)'
 	ij=dim(0)*dim(1)
 	newdata = make_array(dim(0),dim(1))
+
 	for k=0,dim(2)-1 do begin
 	printf,fw,''
 	printf,fw,'K = ',strtrim(k+1,2)
@@ -2033,6 +680,8 @@ if no eq 3 then begin
 	new = transpose(newdata)
 	d1 = dim(1)
 	d2 = dim(0)
+;  show first 100 columns only
+	if d2 gt 100 then d2 = 100
 	for j=0,d2-1 do begin
 	j1=j*d1
 	j2 = j1+d1-1	
@@ -2042,11 +691,13 @@ if no eq 3 then begin
 	end
 	free_lun,fw
 ;	xdisplayfile,filename
-	id = CW_TERM(HDF_Query_id.textdata,filename=filename,/reset)
+	id = CW_TERM(HDF_Query_id.textdata,filename=filename,/reset, $
+		bg_names='Save As...')
 	return
 end
 
 END
+
 
 PRO HDF_scrolltext_event,event
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
@@ -2969,6 +1620,8 @@ COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
 	WIDGET_CONTROL,HDF_Query_id.vg_term,BAD_ID=bad
 	if HDF_Query_id.vg_term eq 0 or bad ne 0 then $
 	HDF_Query_id.vg_term = CW_TERM(HDF_Query_id.base,TITLE='HDF VG Query', $
+                bg_names='Save As...', $
+		rename=HDF_Query.dir+HDF_Query.classname+'_vgQuery.txt',$
 		XSIZE=80, YSIZE=20, /SCROLL)
 
 str = string(replicate(32b,80))
@@ -3253,7 +1906,8 @@ if n_elements(n2) gt 0 and n_elements(n1) gt 0 then begin
 	WIDGET_CONTROL,HDF_Query_id.vg_dump,BAD_ID=bad
         if HDF_Query_id.vg_dump eq 0 or bad ne 0 then $
         HDF_Query_id.vg_dump = CW_TERM(HDF_Query_id.base, $
-                TITLE='HDF VG Dump', $
+                TITLE='HDF VG Dump', bg_names='Save As...',$
+		rename=HDF_Query.dir+HDF_Query.classname+'_vgDump.txt',$
                  XSIZE=80, YSIZE=20, /SCROLL)
 
 openw,fw,HDF_Query.textfile,/GET_LUN
@@ -5736,6 +4390,10 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
                  XSIZE=80, YSIZE=20, /SCROLL)
         HDF_Query.pause = 0
         DumpHDFData,HDF_Query.file,0
+	WIDGET_CONTROL,HDF_Query_id.terminal,BAD_ID=bad,/DESTROY
+        HDF_Query_id.terminal = CW_TERM(Event.top,TITLE='HDF SDS Header Dump', $
+                 XSIZE=80, YSIZE=20, /SCROLL, filename='hdf_data.txt', $
+		rename=HDF_Query.dir+HDF_Query.classname+'_sdsDump.txt',bg_names='Save As...')
         endif else $
                 HDF_scrolltext,'Warning: no SDS data available!',60,3
       END
@@ -5745,6 +4403,8 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	ReadHDFOneRecord, HDF_Query.file, data, /view
 	if HDF_Query.text gt 0 then datatotext,data
 	  WIDGET_CONTROL,sdsData_id.seqwid,SET_VALUE='0'
+        WIDGET_CONTROL,sdsData_id.slider, SET_VALUE=HDF_Query.seqno
+        WIDGET_CONTROL,sdsData_id.list, SET_LIST_SELECT=HDF_Query.seqno
       END
   'SDS_DATA_NEXT': BEGIN
 	WIDGET_CONTROL,sdsData_id.seqwid,GET_VALUE=seqno
@@ -5755,6 +4415,8 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 		ReadHDFOneRecord,HDF_Query.file, data, /view 
 		if HDF_Query.text gt 0 then datatotext,data
 		WIDGET_CONTROL,sdsData_id.seqwid, SET_VALUE=strtrim(string(recno),2) 
+        WIDGET_CONTROL,sdsData_id.slider, SET_VALUE=HDF_Query.seqno
+        WIDGET_CONTROL,sdsData_id.list, SET_LIST_SELECT=HDF_Query.seqno
 	endif else begin
 		HDF_scrolltext,'Warning: wrap to 1st record !',60,3
 		WIDGET_CONTROL,sdsData_id.seqwid, SET_VALUE= '0'
@@ -5769,6 +4431,8 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
         ReadHDFOneRecord,HDF_Query.file, data, /view 
         if HDF_Query.text gt 0 then datatotext,data
                 WIDGET_CONTROL,sdsData_id.seqwid,SET_VALUE= strtrim(string(recno),2)
+        WIDGET_CONTROL,sdsData_id.slider, SET_VALUE=HDF_Query.seqno
+        WIDGET_CONTROL,sdsData_id.list, SET_LIST_SELECT=HDF_Query.seqno
         endif else begin
                 HDF_scrolltext,'Warning: first record reached!',60,3
                 WIDGET_CONTROL,sdsData_id.seqwid, SET_VALUE= '0'
@@ -5780,11 +4444,15 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
         ReadHDFOneRecord,HDF_Query.file, data, /view 
         if HDF_Query.text gt 0 then datatotext,data
         WIDGET_CONTROL,sdsData_id.seqwid, SET_VALUE=strtrim(string(HDF_Query.seqno),2) 
+        WIDGET_CONTROL,sdsData_id.slider, SET_VALUE=HDF_Query.seqno
+        WIDGET_CONTROL,sdsData_id.list, SET_LIST_SELECT=HDF_Query.seqno
       END
   'SDS_DATA_SEQNO': BEGIN
       WIDGET_CONTROL,sdsData_id.seqwid, GET_VALUE=seqno
         seqno = fix(seqno(0))
         if seqno gt 0 and seqno lt HDF_Query.maxno then begin
+        WIDGET_CONTROL,sdsData_id.slider, SET_VALUE=seqno
+        WIDGET_CONTROL,sdsData_id.list, SET_LIST_SELECT=seqno
       HDF_Query.seqno = fix(seqno)
         ReadHDFOneRecord,HDF_Query.file, data, /view
         if HDF_Query.text gt 0 then datatotext,data
@@ -5794,6 +4462,7 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
         WIDGET_CONTROL,sdsData_id.slider, GET_VALUE=seqno
         WIDGET_CONTROL,sdsData_id.seqwid, SET_VALUE=strtrim(string(seqno),2)
         WIDGET_CONTROL,sdsData_id.slider, SET_VALUE=seqno
+        WIDGET_CONTROL,sdsData_id.list, SET_LIST_SELECT=seqno
         HDF_Query.seqno = seqno
         ReadHDFOneRecord,HDF_Query.file, data, /view
         if HDF_Query.text gt 0 then datatotext,data
@@ -5801,6 +4470,7 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
   'SDS_DATA_NAME': BEGIN
         HDF_Query.seqno = Event.index 
         WIDGET_CONTROL,sdsData_id.seqwid, SET_VALUE= strtrim(Event.index,2)
+        WIDGET_CONTROL,sdsData_id.slider, SET_VALUE=HDF_Query.seqno
         ReadHDFOneRecord,HDF_Query.file, data, /view
         if HDF_Query.text gt 0 then datatotext,data
       END
@@ -5823,6 +4493,7 @@ COMMON SDS_DATA_BLOCK, sdsData_id
 		base : 0L, $
 		sdsindex : 0, $
 		slider : 0L, $
+		list : 0L, $
 		seqwid : 0L $
 	}
 
@@ -5858,6 +4529,7 @@ if no lt 1 then return
   sdsData_id.base = 0L 
   sdsData_id.seqwid = 0L 
   sdsData_id.slider = 0L 
+  sdsData_id.list = 0L 
 
   MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
 	TITLE='HDF QUERY - SDS ', $
@@ -5924,6 +4596,7 @@ end
 
   sdsData_id.base =  MAIN13
   sdsData_id.seqwid  = SDS_DATA_SEQNO 
+  sdsData_id.list =  LIST4
 
   WIDGET_CONTROL, MAIN13, /REALIZE
 
@@ -5950,6 +4623,22 @@ PRO PDMENUSETUP3_Event, Event
 END
 
 
+PRO hdf_checkOutpath,dir
+
+	catch,error_status
+	if error_status ne 0 then begin
+	cd,current=dir
+	dir = dir + !os.file_sep
+	end
+
+	openw,unit,dir+'.tmp',/get_lun
+	free_lun,unit
+	close,unit
+
+	print,'dir=',dir
+END
+
+
 PRO PDMENU3_Event, Event
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
@@ -5973,6 +4662,15 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
 	HDF_Query.file = F
 	HDF_Query.fpath = P
+
+	r = rstrpos(F,!os.file_sep)
+	if r gt 0 then $
+	HDF_Query.classname = strmid(F,r+1,strlen(F)-r)
+
+	dir = p
+	hdf_checkOutpath,dir
+	HDF_Query.dir = dir
+
 	print,'File selected=',F
 	WIDGET_CONTROL,HDF_Query_id.filename, SET_VALUE=HDF_Query.file
 
@@ -5990,7 +4688,7 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
     PRINT, 'Event for File.Quit'
 
 	WIDGET_CONTROL, event.top, /DESTROY
-	WDELETE, 0
+	exit
     END
   ENDCASE
 END
@@ -6019,6 +4717,16 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	file = strtrim(file(0),2)
 
 	if strlen(file) gt 1 then begin
+	r = rstrpos(file,!os.file_sep)
+	if r gt 0 then begin
+	HDF_Query.classname = strmid(file,r+1,strlen(file)-r)
+	HDF_fpath =  strmid(file,0,r+1)
+	end
+
+	dir = HDF_Query.fpath
+	hdf_checkOutpath,dir
+	HDF_Query.dir = dir
+
 		HDFInitData,file=file
 		DumpHDFAN,file,tag=101,dataString=d,/desc
 		if n_elements(d) then $
@@ -6094,6 +4802,28 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	HDF_Query.pause = -1
 	END
 
+  'ANN_HELP': BEGIN
+	st = [ $
+		'Set the HDF Info: Droplist to "Global SDS Attributes"', $
+		'to pops up the HDF QUERY - SDS window', $
+	      'Show Data - option turns on the HDF SDS Text Window', $
+		'','              HDF QUERY - SDS WINDOW', $
+		'DumpSDSHeader -  dumps SDS attributes and first 5 elements from the SDS array',$
+		'First - access the first set of SDS',$
+		'Next  - access the next set of SDS',$
+		'Prev  - access the prev set of SDS',$
+		'Last  - access the last set of SDS',$
+		'SDS # - display the current seqno of SDS',$
+		'Slider - select the desired seqno of SDS',$
+		'SDS List - select SDS by the attribute list',$
+		'Selected SDS data will be displayed in the drawing area', $
+		'', $
+		'For 3D SDS data:',$
+		'- Only the first 12 slices (i.e. 3rd rank) will be plotted in the drawing area', $
+		'- Up to 100 columns of the first rank can be displayed in text window' $
+		]
+	r = dialog_message(st,/info,title='HDF Query Help')
+	END
 ; ANNOTATION dump
 
   'ANN_CLEAR': BEGIN
@@ -6317,6 +5047,8 @@ HDF_Query = { $,
 	byte : 0, $
 	file : '', $
 	fpath : '', $
+	dir: '', $
+	classname: '', $
 	textfile : 'hdf_data.txt', $
 	search : '', $
 	tname: '', $
@@ -6352,6 +5084,7 @@ HDF_Query = { $,
 
 	CD,CURRENT=cur
 	HDF_Query.fpath = cur
+	HDF_Query.dir = cur
 
 if n_elements(filename) gt 0 then begin	
 	found = findfile(filename)
@@ -6433,6 +5166,9 @@ HDF_AN_DROPLIST = WIDGET_DROPLIST(BASE0, VALUE=an_droplist_btns, $
         UVALUE='HDF_AN_DROPLIST', FRAME=2, TITLE='File Annotation / Raster Image / HDF Info:')
 WIDGET_CONTROL, HDF_AN_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.anlevel
 
+  ANN_HELP = WIDGET_BUTTON( BASE0, $
+      UVALUE='ANN_HELP', $
+      VALUE='Help...')
 ; annotation
   ANN_CLEAR = WIDGET_BUTTON( BASE0, $
       UVALUE='ANN_CLEAR', $
@@ -6457,6 +5193,8 @@ WIDGET_CONTROL, HDF_AN_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.anlevel
       NONEXCLUSIVE=1, $
       LABEL_LEFT='Check Options:', $
       UVALUE='BGROUP3')
+;  WIDGET_CONTROL,BGROUP3,SET_VALUE=[0,1]
+;  HDF_Query.view = 1
 
   ByteOString= [ $
     'String', $
