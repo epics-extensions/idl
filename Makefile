@@ -1,10 +1,10 @@
 #
-# $Id: Makefile,v 1.1 1996/02/29 15:22:10 cha Exp $
+# $Id: Makefile,v 1.2 1999/02/09 21:42:28 jba Exp $
 #
 
-EPICS=../../..
+TOP=../..
 
-include $(EPICS)/config/CONFIG_EXTENSIONS
+include $(TOP)/config/CONFIG_EXTENSIONS
 
-include $(EPICS)/config/RULES_ARCHS
+include $(TOP)/config/RULES_ARCHS
 

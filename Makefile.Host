@@ -1,6 +1,6 @@
 
-EPICS = ../../../..
-include $(EPICS)/config/CONFIG_EXTENSIONS
+TOP = ../../..
+include $(TOP)/config/CONFIG_EXTENSIONS
 
 DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt \
 	scanSee.README vw2d_help.txt
@@ -20,5 +20,5 @@ SCRIPTS = ezcaidl_setup setup_ezcaIDL ezcaidl_startup.pro \
 	scanSee DC.init DC.pro vw2d vw2d.init vw2d.pro
 #	readScan.pro dc2ins_2d dc2ins_1d
 
-include $(EPICS)/config/RULES.Unix
+include $(TOP)/config/RULES.Host
 
