@@ -26,7 +26,7 @@ SCRIPTS = ezcaidl_setup setup_ezcaIDL ezcaidl_startup.pro \
 	DC.init DC.pro vw2d.init vw2d.pro view3d_slicer.pro \
 	readScan.pro read_scan.pro \
 	multiroi_pick.pro SB scanSee__define.pro.R2 \
-	scanSee2 DC.init.R2.1 DC.pro.R2.1 vw2d.init.R2.1 vw2d.pro.R2.1 \
+	scanSee scanSee2 DC.init.R2.1 DC.pro.R2.1 vw2d.init.R2.1 vw2d.pro.R2.1 \
 	readScan.pro.R2 read_scan.pro.R2 xdr_open.pro \
  	view3d_2d.pro panimage.pro dc2ins_2d dc2ins_1d
 
