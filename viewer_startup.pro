@@ -16,20 +16,18 @@ private_table = fix(getenv('IDL_NCOLORS'))
 if private_table gt 0 and private_table lt 256 then window,colors = private_table,/pixmap
 if !d.window ne -1 then wdelete
 
-arch = getenv('HOST_ARCH')
+!path= getenv('EPICS_EXTENSIONS')+'/idllib:'+!path
 private = getenv('EPICS_EXTENSIONS_PVT')
-print,'arch ',arch
 print,'private ',private
 
-!path= '/usr/local/epics/extensions/bin/'+arch+':'+!path
 if private ne '' then $
-!path= private + '/bin/'+arch + ':' + !path
+!path= private + '/idllib:' + !path
 
 private = getenv('EPICS_EXT_PVT')
 if private ne '' then $
-!path= private + '/bin/'+arch + '/idl:' + !path
+!path= private + '/idllib:' + !path
 
-print,!path
+; print,!path
 ;
 !QUIET=1
 
