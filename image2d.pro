@@ -1012,7 +1012,7 @@ end
 	  yarr = py
 	end
 	sz = size(image)
-
+	
 	widget_control,widget_ids.x1WID,set_value=xarr(0)
 	widget_control,widget_ids.x2WID,set_value=xarr(sz(1)-1)
 	widget_control,widget_ids.y1WID,set_value=yarr(0)
@@ -1793,8 +1793,14 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	PS_printer,Group=Event.top
     END
   'File.print': BEGIN
-	PS_open,'image2d.ps',/TV
-	image2d_REPLOT,image2d_state
+	wset,image2d_state.widget_ids.plot2d_area
+	arr = TVRD()
+	sz = size(arr)
+	width = 7.7*2.54*sz(1)/700	
+	height = 7.7*2.54*sz(2)/700	
+	PS_open,'image2d.ps',/TV,xsize=width,ysize=height
+;	image2d_REPLOT,image2d_state
+	TV,arr
 	PS_close
 	PS_print,'image2d.ps'
     END
@@ -2063,7 +2069,8 @@ PRO IMAGE2D_BASE_Event, Event
 	  z = image(Ix,Iy)
 	  WIDGET_CONTROL,widget_ids.x_cursor,SET_VALUE=x0
 	  WIDGET_CONTROL,widget_ids.y_cursor,SET_VALUE=y0
-	  WIDGET_CONTROL,widget_ids.z_cursor,SET_VALUE='Z: '+string(z)
+	  WIDGET_CONTROL,widget_ids.z_cursor,SET_VALUE='Z: '+string(z) + $
+		' @ (' + strtrim(Ix,2) +',' + strtrim(Iy,2) + ')'
 	   end
 	  end
 	end
@@ -2109,8 +2116,14 @@ PRO IMAGE2D_BASE_Event, Event
                         image2d_state.y_mag + view_option.y_min
         y_max = ceil(y_max)
 
-        if x_max gt view_option.x_max then x_max = view_option.x_max - 1
-        if y_max gt view_option.y_max then y_max = view_option.y_max - 1
+        if x_max gt view_option.x_max then x_max = view_option.x_max; - 1
+        if y_max gt view_option.y_max then y_max = view_option.y_max; - 1
+	if y_max eq y_min then begin
+		if y_min gt 0 then y_min = y_max-1 else y_max = y_min+1
+	end
+	if x_max eq x_min then begin
+		if x_min gt 0 then x_min = x_max-1 else x_max = x_min+1
+	end
 
 xarr = *image2d_state.xarr
 yarr = *image2d_state.yarr
@@ -2150,16 +2163,16 @@ close,1
       Print, 'Event for Cursor @ Y'
       END
   'IMAGE2D_XL': BEGIN
-      Print, 'Event for XL'
+;      Print, 'Event for XL'
       END
   'IMAGE2D_XR': BEGIN
-      Print, 'Event for XR'
+;      Print, 'Event for XR'
       END
   'IMAGE2D_YL': BEGIN
-      Print, 'Event for YL'
+;      Print, 'Event for YL'
       END
   'IMAGE2D_YR': BEGIN
-      Print, 'Event for YR'
+;      Print, 'Event for YR'
       END
   'IMAGE2D_SETRANGE': BEGIN
         WIDGET_CONTROL, widget_ids.x1WID, GET_VALUE= x1
@@ -2168,9 +2181,51 @@ close,1
         WIDGET_CONTROL, widget_ids.y2WID, GET_VALUE= y2 
 	nm = [image2d_state.x_pv+'.P1SP', image2d_state.x_pv+'.P1EP' , $
  	      image2d_state.y_pv+'.P1SP', image2d_state.y_pv+'.P1EP'] 
+	listing0=''
+	; check scan mode
+	sm = 'caget -t '+image2d_state.x_pv+'.P1AR' +','+ $
+	  	image2d_state.y_pv+'.P1AR'
+	spawn,sm,smode
+	if strtrim(smode(0),2) eq 'RELATIVE' then begin
+	x0 = 0.5*(double(x1)+double(x2))
+	y0 = 0.5*(double(y1)+double(y2))
+	xwidth = 0.5*abs(double(x2)-double(x1))
+	ywidth = 0.5*abs(double(y2)-double(y1))
+	x1=string(-xwidth)
+	x2=string(xwidth)
+	
+	if strtrim(smode(1),2) eq 'RELATIVE' then begin
+	y1=string(-ywidth)
+	y2=string(ywidth)
+	end
+
+	listing0=['RELATIVE SCAN MODE DETECTED','', $
+	  'New Center for RELATIVE SCAN:', '  ('+strtrim(x0,2)+','+strtrim(y0,2)+')', $
+	  '','New Relative Positions:']
+	str =  [ listing0, $
+		 'Xmin: '+nm(0)+'='+string(x1) ,'Xmax: '+nm(1)+'='+string(x2), $
+		 'Ymin: '+nm(2)+'='+string(y1) ,'Ymax: '+nm(3)+'='+string(y2), $
+		'','Set New 2D Scan Center Position (Yes/No)? ','']
+	yn = dialog_message(str,title='Set New Center Position',/question)
+
+	; set new center position
+	if yn eq 'Yes' then begin
+	st='caget -t '+ $
+	  image2d_state.x_pv+'.P1PV'+','+image2d_state.y_pv+'.P1PV' 
+	spawn,st,motors
+	motors = strtrim(motors,2)
+	if n_elements(motors) eq 2 then begin
+	st='caput '+ motors(0)+','+motors(1)+ ' ' +$
+	  strtrim(x0,2)+','+strtrim(y0,2)
+	spawn,st,listing
+	r = dialog_message(listing,/info,title='New 2D Scan Center')
+	end
+	end
+	end
+
 	str =  ['Set New 2D Scan ranges (Yes/No)? ','', $
-		 'XL: '+nm(0)+'='+string(x1) ,'XR: '+nm(1)+'='+string(x2), $
-		 'YL: '+nm(2)+'='+string(y1) ,'YR: '+nm(3)+'='+string(y2) ]
+		 'Xmin: '+nm(0)+'='+string(x1) ,'Xmax: '+nm(1)+'='+string(x2), $
+		 'Ymin: '+nm(2)+'='+string(y1) ,'Ymax: '+nm(3)+'='+string(y2) ]
 	yn = dialog_message(str,title='Set New 2D Scan Ranges',/question)
 
 	if yn eq 'Yes' then begin
@@ -2296,13 +2351,19 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, July 3, 2002.
+;	01-07-2003	Release 1.0
+;			Show Z value with @ (I,J) index
+;			Modify the set new 2D scan ranges to check for relative
+;                       mode to reset the new center position and relative new
+;                       scan range
+;			
 ;-
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  def_title='IMAGE2D'
+  def_title='IMAGE2D R1.0'
   if keyword_set(title) then def_title=title
   IMAGE2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
@@ -2515,7 +2576,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
-      TITLE='XL', $
+      TITLE='Xmin', $
       UVALUE='IMAGE2D_XL', $
       XSIZE=10)
 
@@ -2525,7 +2586,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
-      TITLE='XR', $
+      TITLE='Xmax', $
       UVALUE='IMAGE2D_XR', $
       XSIZE=10)
 
@@ -2543,7 +2604,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
-      TITLE='YL', $
+      TITLE='Ymin', $
       UVALUE='IMAGE2D_YL', $
       XSIZE=10)
 
@@ -2553,7 +2614,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
-      TITLE='YR', $
+      TITLE='Ymax', $
       UVALUE='IMAGE2D_YR', $
       XSIZE=10)
 
@@ -2578,7 +2639,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='Xmin', $
+      TITLE='Imin', $
       UVALUE='IMAGE2D_XMIN', $
       XSIZE=5)
 
@@ -2588,7 +2649,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='Xmax', $
+      TITLE='Imax', $
       UVALUE='IMAGE2D_XMAX', $
       XSIZE=5)
 
@@ -2598,7 +2659,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='Ymin', $
+      TITLE='Jmin', $
       UVALUE='IMAGE2D_YMIN', $
       XSIZE=5)
 
@@ -2608,7 +2669,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='Ymax', $
+      TITLE='Jmax', $
       UVALUE='IMAGE2D_YMAX', $
       XSIZE=5)
 
