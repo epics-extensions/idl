@@ -1,3 +1,145 @@
+                        CATCHER 1.5.4 RELEASE NOTE 
+                        ==========================
+
+The major improvement in this release is in the area of supporting 2D scan
+in data catcher and various 2D TV view features requested by the users. 
+
+The new feature, bug fix, notes and changes are listed below.
+
+<<Background Job>>
+
+The correct way of running the catcher as a background job is that the user 
+has to use the Csh output redirection method. 
+
+In the following example, the standard output from the data catcher will 
+be written in the 'output.lis' file. If the file 'output.list' does exist
+it will be over-written.  If the file 'output.lis' does not exist it will 
+be created.
+
+	catcher >! output.lis & 		(use runtime license)
+
+	catcher -D >! output.lis & 		(use developer license)
+
+On the sun5  Solaris system if the redirection of standard output is not 
+specified on the command line, the background job will be stopped by
+the operating system with the following message, where [n] is the background
+job number.
+
+[n]  + Stopped (tty output) catcher 
+
+However, on Sun4 output redirection is not required, but on Solaris the
+output redirection is required for background batch job.
+
+<<Index File>>
+
+Index file will be updated at the end of each 1D scan in R1.5.4. This avoids 
+the problem of corrupted index file if system reboot happened while the 
+data catcher is running.  If a user can not start the data catcher due to
+the bad index file, simply remove the bad index file and restart the data 
+catcher again, a brand new index file will be created.
+
+<<Aborted 2D Dcan>>
+
+Fixed the problem of incomplete Y positioner array if 2D scan is aborted by 
+the data catcher's Stop button on the scan setup panel. A user has to set 
+the positioner to stay where it was after scanning in Y scan record in order
+to get the right Y positioner values array.
+
+<<2D Image File>>
+
+2D Image file was saved in the default startup directory in R1.5.3. In 
+R1.5.4, 2D image file is saved in the same directory as 1D file resides 
+instead of the startup directory.
+
+<<Summary Report File>>
+
+Summary report file was saved in the default startup directory in R1.5.3. In 
+R1.5.4, if the data directory is writable by the user then summary report is 
+saved in the data directory instead of the startup directory.
+
+<<GoTo ...>>
+
+GoTo ... not work for motor drive field is fixed. It only works for positioner 
+PV name been defined for 1D scan record.
+
+<<File->Printer ...>>
+
+Now data catcher allows the user to override the user's default printer.
+The default postscript file generated is in 8 bit color mode. A user can
+override the color plot by black/white option if desired. This dialog 
+is accessible from the VIEW2D as well as the CATCHER_V1 program. Once it 
+is set it held true until it is reset by the user again.
+
+<<1D Plot Changes>>
+
+The peak is not calculated from the fitted curve any more. It is simply 
+the peak from the data array. The peak is also plotted for the selected
+detector. If the 1D scan is generated from a 2D scan, the plot title and
+the header reflects that y's value and index at the time of scan.
+ 
+
+
+				VIEW2D 
+				======
+
+<<Data Array Scroll Window>>
+
+The X and Y positioner vector arrays are automatically included in the 
+ASCII Data ... scrolled window. The first row gives the Y positioner 
+values, the first columns gives the X positioner values.
+
+<<Color Menu>>
+
+Two additional items "Save Private Color Table" and "Load Private Color 
+Table" are added to the Color menu. The default color table used by the
+VIEW2D is the rainbow + white. The highest value is shown in white color.
+A user can use the color menu to change, save, and load private color 
+as he/she prefers.
+
+<<MAX Value>>
+
+The image peak value is automatically calculated and displayed in the
+MAX value field with the corresponding x,y index number. The maximum
+value is shown as white on TV image plot. 
+
+<<TV Image >>
+
+The drawing area is 400x400 pixels, the TV image is zoomed to 300x300 
+pixel centered in the drawing area. The maximumm image view window for 
+xmin,xmax and ymin,ymax ranges can not exceeds 300. The X, Y scales 
+are also shown with the TV image. The default plot scales are in X,Y 
+vector values. Plot against the X,Y step # is also possible. 
+
+The postscript TV plot is in reverse vedio.
+
+<<TV Mouse Query>>
+TV image mode also provides cursor query features in the drawing area. 
+The right mouse button uses the bounding box routine to zoom to the 
+selected box area. The middle mouse button query the cursor location and
+updates the X, Y and Z values in the image information panel. The left 
+mouse button query the cursor location and pops up XZ, and YZ profile 
+plot windows. Now the profile plots also reflects the cursor value and 
+index number on the plot title.
+
+<<Bounding Box Zoom In>>
+
+In TV plot mode, click the right mouse button initiates the zoom box,
+click the right mouse button again to zoom to the bounding box.
+Hold the left mouse button to drag the bounding box, drag the middle 
+mouse button to resize the bounding box.
+
+<<ZoomOff Button>>
+
+The ZoomOff button allows the user simply to restore the TV image plot 
+to the initial startup condition.
+
+<<Eq.TV.AspRt>>
+
+The Eq.TV.AspRt is similar to the TV image, except the image is plotted
+with equal aspect ratio, and no cursor query is allowed.
+
+
+
                         CATCHER 1.5.3 RELEASE NOTE 
                         ==========================
 
