@@ -190,8 +190,9 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 
 	if OS_SYSTEM.os_family eq 'unix' then begin
 	if OS_SYSTEM.printer eq '' then $
-	spawn,[OS_SYSTEM.prt, '-r', fileName], /noshell else $
-	spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer ,  '-r', fileName], /noshell
+	str = OS_SYSTEM.prt + ' -r '+ fileName else $
+	str = OS_SYSTEM.prt + OS_SYSTEM.printer + ' -r '+ fileName
+	spawn,str
 	endif else $
 	spawn,[OS_SYSTEM.prt, fileName, OS_SYSTEM.printer]
 END
