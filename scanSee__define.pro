@@ -66,25 +66,25 @@ PRO scanSee::Statistic,VX,VY,C_MASS=c_mass,X_PEAK=x_peak,Y_PEAK=y_peak, $
 ;                      [,Row=row] [,DETECTOR=detector]
 ;
 ; ARGUMENTS:
-;    VX:       specifies/returns the independent variable X
-;    VY:       specifies/returns the dependent variable Y
+;    VX      - specifies/returns the independent variable X
+;    VY      - specifies/returns the dependent variable Y
 ;
 ; KEYWORDS:
-;    ROW:      specifies the 1D scan row sequence number valid only if 
+;    ROW     - specifies the 1D scan row sequence number valid only if 
 ;              2D scan file opened 
-;    COLUMN:   specifies the column number valid only if 
+;    COLUMN  - specifies the column number valid only if 
 ;              2D scan file opened 
-;    DETECTOR  specifies the desired detector number , default to 1
-;    C_MASS:   returns the center of mass of the Y curve
-;    X_PEAK:   returns the X coordinate corresponding to peak Y value
-;    Y_PEAK:   returns the peak Y value
-;    Y_HPEAK:  returns the Y value at the FWHM width
-;    X_FWDL:   returns the left end of X coordinate of the FWHM width 
-;    X_FWDR:   returns the right end of X coordinate of the FWHM width 
-;    FWHM:     returns the full width of the half peak  
-;    FIT:      specifies whether fitting is desired before the statistic calculation  
-;    REPORT:   specifies whether rpt.listing button of data is desired  
-;    GROUP:    specifies the parent widget ID if plot desired  
+;    DETECTOR- specifies the desired detector number , default to 1
+;    C_MASS  - returns the center of mass of the Y curve
+;    X_PEAK  - returns the X coordinate corresponding to peak Y value
+;    Y_PEAK  - returns the peak Y value
+;    Y_HPEAK - returns the Y value at the FWHM width
+;    X_FWDL  - returns the left end of X coordinate of the FWHM width 
+;    X_FWDR  - returns the right end of X coordinate of the FWHM width 
+;    FWHM    - returns the full width of the half peak  
+;    FIT     - specifies whether fitting is desired before the statistic calculation  
+;    REPORT  - specifies whether rpt.listing button of data is desired  
+;    GROUP   - specifies the parent widget ID if plot desired  
 ;
 ; EXAMPLE:
 ;   Example 1  will calucultate the FWHM value for the 6th scan line and
@@ -131,6 +131,12 @@ if n_params() eq 0 then begin
 	if keyword_set(column) then vy = im(column-1,*)
 	end
 end
+	if max(vy) eq min(vy) then begin
+		st = ['Not available for Detector '+strtrim(detector,2), $
+			'because of constant data']
+		r=dialog_message(st,/info)
+		return
+	end
 
 	if keyword_set(report) then $
 	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot,list=list,report=report,TITLE=title,GROUP=group else $
@@ -142,7 +148,8 @@ END
 
 PRO scanSee::Read,errcode,view=view,dim=dim,num_pts=num_pts,cpt=cpt,pv=pv, $
 labels=labels,id_def=id_def,pa1d=pa1d,da1d=da1d,pa2d=pa2d,da2d=da2d, $
-scanno=scanno,IP=IP,JP=JP,X=x,Y=y,im=im
+pa3d=pa3d,da3d=da3d,scanno=scanno,IP=IP,JP=JP,X=x,Y=y,Z=z,im=im, $
+class=class,outpath=outpath
 ;+
 ; NAME:
 ;       scanSee::Read
@@ -155,7 +162,9 @@ scanno=scanno,IP=IP,JP=JP,X=x,Y=y,im=im
 ;       Obj->[scanSee::]Read [,Errcode] [,Dim=dim] [, Num_pts=num_pts] 
 ;                    [,Cpt=cpt] [,Pv=pv] [,Labels=Labels] [,Id_def=id_def] 
 ;                    [,Pa1d=pa1d] [,Da1d=da1d] [,Pa2d=pa2d] [,Da2d=da2d] 
+;		     [,Pa3d=pa3d] [,Da3d=da3d]
 ;                    [,View=detno] [,X=x], [,Y=y] [,Im=im]
+;                    [,Class=class] [,Outpath=outpath]
 ;
 ; ARGUMENTS:
 ;     ERRCODE - Specifies the return code of this method.
@@ -177,21 +186,28 @@ scanno=scanno,IP=IP,JP=JP,X=x,Y=y,im=im
 ;                LABELS[23:37,0]  - y_descs 
 ;                LABELS[38:41,0]  - x_engus 
 ;                LABELS[42:56,0]  - y_engus 
-;     ID_DEF  - ID_DEF[19] or ID_DEF[19,2] returns the indicator for 
-;               defined positoner/detector of the 1D/2D scan, 
+;     ID_DEF  - ID_DEF[19,DIM] or  returns the indicator for 
+;               defined positoner/detector of the 1D/2D/3D scan, 
 ;               if value 0 not present, 1 present in scan record
-;     PA1D    - PA1D[CPT[0],4] returns positional array for scan1 record
+;     PA1D    - PA1D[CPT[DIM-1],4] returns positional array for scan1 record
 ;               or scan2 record for 1D/2D scan
-;     DA1D    - PA1D[CPT[0],15] returns detector array for scan1 record
+;     DA1D    - PA1D[CPT[DIM-1],15] returns detector array for scan1 record
 ;               or scan2 record for 1D/2D scan
-;     PA2D    - PA2D[NUM_PTS[0],NUM_PTS[1],4] returns positional array for 
+;     PA2D    - PA2D[NUM_PTS[DIM-2],NUM_PTS[DIM-1],4] returns positional array 
+;		for 2D scan 
+;     DA2D    - DA2D[NUM_PTS[DIM-2],NUM_PTS[DIM-1],15] returns detector array 
 ;               2D scan 
-;     DA2D    - DA2D[NUM_PTS[0],NUM_PTS[1],15] returns detector array for 
-;               2D scan 
+;     PA3D    - PA3D[NUM_PTS[DIM-3],NUM_PTS[DIM-2],NUM_PTS[DIM-1],4] returns 
+;		positional array for 3D scan 
+;     DA3D    - DA3D[NUM_PTS[DIM-3],NUM_PTS[DIM-2],NUM_PTS[DIM-1],4] returns 
+;		detector array for 3D scan 
 ;     VIEW    - specifies the image of the detector # to be plotted 
-;     X       - returns the X vector of Positioner 1
-;     Y       - returns the Y vector of Positioner 1
-;     IM      - returns the image array for the selected detector 
+;     X       - returns the X vector of Positioner 1 of scan1 record
+;     Y       - returns the Y vector of Positioner 1 of scan2 record
+;     Z       - returns the Z vector of Positioner 1 of scan3 record
+;     IM      - returns the image array for the selected detector of 2D scan 
+;     CLASS   - returns the class file name of the file
+;     OUTPATH - returns the write permissive output file path
 ;
 ; EXAMPLE:
 ;    Following example reads the IOC created scan file and returns the
@@ -221,12 +237,26 @@ scanno=scanno,IP=IP,JP=JP,X=x,Y=y,im=im
 
 	pa1 = *(*self.gD).pa1D
 	da1 = *(*self.gD).da1D
-	pa1D = pa1(0:cpt(0)-1,*)
-	da1D = da1(0:cpt(0)-1,*)
+	pa3d = *(*self.gD).pa3D
+	da3d = *(*self.gD).da3D
+	pa2d = *(*self.gD).pa2D
+	da2d = *(*self.gD).da2D
+	pa1d = *(*self.gD).pa1D
+	da1d = *(*self.gD).da1D
+
+	if dim eq 1 then begin
+	w = cpt(0)
+	if cpt(0) eq 0 then w = num_pts(0)
+	pa1D = pa1(0:w-1,*)
+	da1D = da1(0:w-1,*)
+	x = pa1D(0:w-1,0)
+	end
 
 	if dim eq 2 then begin
-	da2D = *(*self.gD).da2D
-	pa2D = *(*self.gD).pa2D
+	h = cpt(DIM-1)
+	if h eq 0 then h = num_pts(DIM-1)
+	pa1D = pa1(0:h-1,*)   
+	da1D = da1(0:h-1,*)  
 	x = pa2D(*,0,0)
 	y = pa1D(*,0)
 
@@ -239,6 +269,176 @@ scanno=scanno,IP=IP,JP=JP,X=x,Y=y,im=im
 	end
 	end
 
+	if dim eq 3 then begin
+	w = cpt(DIM-3)
+	if w eq 0 then w = num_pts(DIM-3)
+	x = pa3D(0:w-1,0,0,0)
+
+	h = cpt(DIM-2)
+	if h eq 0 then h = num_pts(DIM-2)
+	y = pa2D(0:h-1,0,0)
+
+	d = cpt(DIM-1)
+	if d eq 0 then d = num_pts(DIM-1)
+	pa1D = pa1(0:d-1,*) 
+	da1D = da1(0:d-1,*) 
+	z = pa1D(0:d-1,0)
+
+	self.width = num_pts(0)
+	self.height = num_pts(1)
+	end
+
+	class = self.name
+	outpath = self.outpath
+
+;help,pa3d,da3d,pa2d,da2d,pa1d,da1d,x,y,z
+;help,labels,pv,id_def
+
+END
+
+PRO scanSee::view3d_panImage,slice,rank,tiff=tiff,reverse=reverse,gif=gif,pict=pict,group=group
+;+
+; NAME:
+;       scanSee::VIEW3D_PANIMAGE
+;
+; PURPOSE:
+;
+; CATEGORY:
+;    Widgets.
+;
+; CALLING SEQUENCE:
+;      Obj->[scanSee::]VIEW3D_PANIMAGE, Slice [,Rank] [,/TIFF] 
+;                  [,/REVERSE] [,/GIF] [,/PICT] [,GROUP=group]
+;
+; ARGUMENTS:
+;      Slice     - Specifies the slice # in the viewing direction 
+;      RANK      - Specifies the viewing axis direction, 0-X axis, 1-Y axis,
+;                  2-Z axis, default is Z axis
+;
+; KEYWORDS:
+;       GIF      - specifies the output gif filename
+;       TIFF     - specifies the output tiff filename
+;       REVERSE  - indicates the reverse tiff is desired
+;       PICT     - specifies the output pict filename
+;       GROUP    - specifies the parent widget ID
+;
+; RESTRICTION:
+;   The scanSee object must be a 3D scan object.
+;
+; EXAMPLE:
+;   Following example examines the various 2D slice for detector number 1
+;   for a given 3D scan object v2
+;     
+;     v2 = obj_new('scanSee',file='/home/sricat/CHA/data/rix/cha:_0049.scan')
+;     v2->view3d_panimage
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, April 7, 2000.
+;       xx-xx-xxxx      comment
+;
+;-
+
+	if self.dim ne 3 then begin
+		r = dialog_message('Error! The object is not a 3D scan',/error)
+		return
+	end
+
+	if n_elements(rank) eq 0 then rank = 2
+	no  = (*(*self.gD).num_pts)[rank]
+	kindex = 0 
+	if n_elements(slice) ne 0 then kindex = slice
+	if kindex ge no then return
+
+	filename = self.file
+	
+	xyz = *(*self.gD).da3D
+	id_def = self.def
+
+	if rank eq 2 then data = reform(xyz(*,*,kindex,*))
+	if rank eq 1 then data = reform(xyz(*,kindex,*,*))
+	if rank eq 0 then data = reform(xyz(kindex,*,*,*))
+
+	scanno = '.panZ'
+	if rank eq 0 then scanno = '.panX'
+	if rank eq 1 then scanno = '.panY'
+	scanno = scanno + '_'+strtrim(kindex,2)
+	title = '3D Scan #'+strtrim(self.scanno,2)+scanno
+
+	if keyword_set(TIFF) then $
+	tiff = self.outpath+'TIFF'+!os.file_sep+self.class+ $
+		scanno+'.tiff'
+	if keyword_set(REVERSE) then $
+	tiff = self.outpath+'TIFF'+!os.file_sep+self.class+ $
+		scanno+'.rtiff'
+	if keyword_set(GIF) then $
+	gif = self.outpath+'GIF'+!os.file_sep+self.class+ $
+		scanno+'.gif'
+	if keyword_set(PICT) then $
+	pict = self.outpath+'PICT'+!os.file_sep+self.class+ $
+		scanno+'.pict'
+
+	nw = self.win
+	panImage,data,id_def,new_win=nw,tiff=tiff,reverse=reverse,gif=gif,pict=pict,title=title
+	self.win = nw
+
+END
+
+
+PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
+;+
+; NAME:
+;       scanSee::VIEW3D_2D
+;
+; PURPOSE:
+;       This method allows the user flexiblely examine any 2D slice out 
+;       from a defined scanSee 3D scan object. It allows the user view the
+;	2D slice as various 1D/2D plots or ASCII output.
+;
+; CATEGORY:
+;    Widgets.
+;
+; CALLING SEQUENCE:
+;      Obj->[scanSee::]VIEW3D_2D, Det [,GROUP=group] [,TITLE=title] 
+;		[,SLICER3=slicer3]
+;
+; ARGUMENTS:
+;     Det      - Specifies detecotr #, extracts the 3D array asscocited with 
+;                the the detector # 
+;
+; KEYWORDS:
+;   GROUP      - Specifies the parent widget ID
+;   TITLE      - Overrides default VIEW3D_2D window title by this specification
+;   SLICER3    - Specifies whether view the 3D array by the SLICER3 program
+;
+; RESTRICTION:
+;   The scanSee object must be a 3D scan object.
+;
+; EXAMPLE:
+;   Following example examines the various 2D slice for detector number 1
+;   for a given 3D scan object v2
+;     
+;     v2 = obj_new('scanSee',file='/home/sricat/CHA/data/rix/cha:_0049.scan')
+;     v2->view3d_2d,1
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, April 4, 2000.
+;       xx-xx-xxxx      comment
+;
+;-
+
+	if self.dim ne 3 then begin
+		r = dialog_message('Error! The object is not a 3D scan',/error)
+		return
+	end
+
+	detector = 1
+	if n_elements(det) then detector = det 
+	if detector le 0 or detector gt 15 then detector = 1
+	da3d = *(*self.gD).da3D
+	data = da3d(*,*,*,detector-1)
+
+	if keyword_set(title) eq 0 then title='scan3D Object: Detector '+strtrim(detector,2)
+	view3d_2d,data,group=group,title=title,slicer3=slicer3
 END
 
 PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
@@ -356,7 +556,12 @@ update:
 	end
 
 catch,error_status
-if error_status then self.win=-1
+if error_status ne 0 and !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
+	r = dialog_message([!error_state.msg,!error_state.sys_msg,$
+		string(!error_state.code)],/error)
+	return	
+end
+if error_status then self.win = -1 
 if self.win ne -1 then wdelete,self.win
 self.win = -1
 	if self.win lt 0 then begin
@@ -680,6 +885,7 @@ PRO scanSee::Print,debug=debug
 	print,'File Path:     ',self.path
 	print,'File Name:     ',self.name
 	print,'Home Dir:      ',self.home
+	print,'Out Path:      ',self.outpath
 	print,'Scan No:       ',self.scanno
 	print,'Scan Dimension:',self.dim
 	print,'id_def:        ',self.def
@@ -930,13 +1136,17 @@ title=title,group=group,all=all,_extra=e
 	num_pts = *(*self.gD).num_pts
 	seqno = 1
 
+	self.width = cpt(0)
+	if cpt(0) eq 0 then self.width = num_pts(0)
+
 	if dim eq 1 then begin
 	def = *(*self.gD).id_def
 	ndim = n_elements(def)
 	pa1d = *(*self.gD).pa1d
 	da1d = *(*self.gD).da1d
-	pa = pa1d(0:cpt(0)-1,*)
-	da = da1d(0:cpt(0)-1,*)
+
+	pa = pa1d(0:self.width-1,*)
+	da = da1d(0:self.width-1,*)
 	labels = *(*self.gD).labels
 	end
 	if dim eq 2 then begin
@@ -946,18 +1156,18 @@ title=title,group=group,all=all,_extra=e
 		end
 	end
 	id_def = *(*self.gD).id_def
-	ndim = n_elements(id_def)/2
+	ndim = n_elements(id_def)/self.dim
 	def = id_def(0:ndim-1)
 	labels = *(*self.gD).labels(*,0)
 	pa2d = *(*self.gD).pa2D
 	da2d = *(*self.gD).da2d
-	pa = make_array(cpt(0),4,/double)
-	da = make_array(cpt(0),ndim-4)
+	pa = make_array(self.width,4,/double)
+	da = make_array(self.width,ndim-4)
 	pa[*,*] = pa2d(*,seqno-1,*)
 	da[*,*] = da2d(*,seqno-1,*)
 	end
 
-	pts = *(*self.gD).cpt(0)
+	pts = self.width ; *(*self.gD).cpt(0)
 	np = fix(total(def(0:3)))
 	nd = fix(total(def(4:ndim-1)))
 	x_names = make_array(np,/string,value=string(replicate(32b,30)))
@@ -985,7 +1195,7 @@ title=title,group=group,all=all,_extra=e
 		end
 	end
 
-	seqstr = 'Scan # '+strtrim(self.scanno,2)
+	seqstr = 'Scan # '+strtrim(self.scanno,2) + '   Req_x_npt='+strtrim(num_pts(0),2)
 	if dim eq 2 then seqstr = seqstr + ' (Seq # '+strtrim(seqno,2)+')'
 
 	; plot is requested
@@ -1069,7 +1279,7 @@ title=title,group=group,all=all,_extra=e
 
 END
 
-PRO scanSee::Calibration,GROUP=group,_extra=e
+PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 ;+
 ; NAME:
 ;       scanSee::Calibration
@@ -1084,6 +1294,8 @@ PRO scanSee::Calibration,GROUP=group,_extra=e
 ; KEYWORD:
 ;     GROUP  - specifies the parent group widget, the destroy of parent
 ;              group results the destroy of calibration program.
+;     PICK1D - specifies the detector number and calls calibra_pick1d 
+;              directly without calling calibration program
 ;
 ; EXAMPLE:
 ;    Following example brings up the calibration program.
@@ -1128,6 +1340,14 @@ PRO scanSee::Calibration,GROUP=group,_extra=e
 	self->images,image_array,def,/PANIMAGE
 	scanno = self.scanno
 
+	if keyword_set(pick1d) then begin
+		if pick1d lt 16 and def(pick1d-1) eq 0 then return
+		title='SCAN # '+ strtrim(scanno,2)+', D'+strtrim(pick1d,2)
+		im = image_array(*,*,pick1d-1)
+		calibra_pick1d,im,xa=x,ya=y,title=title,GROUP=group
+		return
+	end
+
         calibration_factor,image_array,def,xv=x,yv=y, $
                 classname=self.name,inpath=self.path, $ 
                 title=':  SCAN # '+strtrim(scanno,2),GROUP=group,_extra=e
@@ -1135,6 +1355,7 @@ PRO scanSee::Calibration,GROUP=group,_extra=e
 	end
 
 END
+
 
 PRO scanSee::ROI,no,debug=debug,header=header,commint=comment,_extra=e
 ;+
@@ -1286,6 +1507,7 @@ FUNCTION scanSee::Init,file=file,help=help
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       xx-xx-xxxx      comment
 ;-
+
 	if keyword_set(file) then filename = strtrim(file,2) else begin
 		return,0
 	end
@@ -1319,7 +1541,7 @@ FUNCTION scanSee::Init,file=file,help=help
 	if self.dim eq 2 then self.height = num_pts(1)
 
 	id_def = *(*gD).id_def
-	ndim = n_elements(id_def)/2
+	ndim = n_elements(id_def)/self.dim
 	self.def = id_def(4:ndim-1,0)
 
 	cd,current=home
