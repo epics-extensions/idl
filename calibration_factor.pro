@@ -115,14 +115,14 @@ PRO CALIBRA_createEqu,Event
       ROW=1, /scroll, x_scroll_size=500, y_scroll_size=100, $
       MAP=1, $
       UVALUE='BASE3')
-  info.oper_ids(0) = WIDGET_LIST(BASE3,value=info.factors,YSIZE=4, $
+  info.oper_ids(0) = WIDGET_LIST(BASE3,value=info.factors,YSIZE=6, $
 		UVALUE='CALIBRA_OPER0')
 WIDGET_CONTROL,info.oper_ids(0),SET_LIST_SELECT=0,SET_LIST_TOP=0
 
 	for i=1,info.no do begin
-  info.meth_ids(i) = WIDGET_LIST(BASE3,value=info.methods,YSIZE=4, $
+  info.meth_ids(i) = WIDGET_LIST(BASE3,value=info.methods,YSIZE=6, $
 		/MULTIPLE,UVALUE=info.meth_uvalue(i))
-  info.oper_ids(i) = WIDGET_LIST(BASE3,value=info.values,YSIZE=4, $
+  info.oper_ids(i) = WIDGET_LIST(BASE3,value=info.values,YSIZE=6, $
 		UVALUE=info.oper_uvalue(i))
   info.end_ids = WIDGET_LIST(BASE3,value=[' ',')'],YSIZE=2, $
 		UVALUE='CLOSEPATENTHESIS')
@@ -761,13 +761,13 @@ end
       UVALUE='BASE3')
    info.base3 = base3
 
-  info.oper_ids(0)= WIDGET_LIST(BASE3,value=factors,YSIZE=4, $
+  info.oper_ids(0)= WIDGET_LIST(BASE3,value=factors,YSIZE=6, $
 		UVALUE=info.oper_uvalue(0))
 WIDGET_CONTROL,info.oper_ids(0),SET_LIST_SELECT=0
   for i=1,no do begin
-	info.meth_ids(i) = WIDGET_LIST(BASE3,value=methods,YSIZE=4, $
+	info.meth_ids(i) = WIDGET_LIST(BASE3,value=methods,YSIZE=6, $
 			/MULTIPLE,UVALUE=info.meth_uvalue(i))
-	info.oper_ids(i) = WIDGET_LIST(BASE3,value=values,YSIZE=4, $
+	info.oper_ids(i) = WIDGET_LIST(BASE3,value=values,YSIZE=6, $
 			UVALUE=info.oper_uvalue(i))
 WIDGET_CONTROL,info.meth_ids(i),SET_LIST_SELECT=0
 WIDGET_CONTROL,info.oper_ids(i),SET_LIST_SELECT=0
