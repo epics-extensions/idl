@@ -84,9 +84,15 @@ if n_elements (printer_info) eq 0 then $
 	base: 0L, $
 	ptr_field:0L }
 ; inherit from the parent process
-;if n_elements(r_curr) eq 0 then begin
-;	LOADCT,39  
-;	end
+if n_elements(r_curr) eq 0 then begin
+	tvlct,r,g,b,/get
+	r_orig = r
+	g_orig = g
+	b_orig = b
+	r_curr = r
+	g_curr = g
+	b_curr = b
+end
 END
 
 
@@ -182,18 +188,22 @@ PRO PS_TVRD,file=file,wid=wid,xoffset=xoffset,yoffset=yoffset,scale=scale
 ;       Written by:     Ben-chin K. Cha, 03-23-04.
 ;
 ;-
+COMMON SYSTEM_BLOCK,OS_SYSTEM
+
 	if keyword_set(wid) then WSET,wid
 	if keyword_set(file) eq 0 then  file = 'idl.ps'
 	if keyword_set(yoffset) eq 0 then yoffset=2.54
 	if keyword_set(xoffset) eq 0 then xoffset=2.54
 	if keyword_set(scale) eq 0 then scale=1.1
 
+tvlct,red,green,blue,/get
+
 	if !d.n_colors gt !d.table_size then begin
 	t_arr = TVRD(/true)
-		tvlct,red,green,blue,/get
 		arr = color_quan(t_arr,1,r,g,b)
 		tvlct,r,g,b
 	endif else arr = TVRD()
+
 	sz = size(arr)
 	xs = sz(1)
 	ys = sz(2)
@@ -206,6 +216,8 @@ PRO PS_TVRD,file=file,wid=wid,xoffset=xoffset,yoffset=yoffset,scale=scale
 		scale_factor=scale, $
 		xsize=width,ysize=height
 	TV,arr
+	device,/close
+	set_plot,OS_SYSTEM.device
 	PS_close
 	PS_print,file 
 	if !d.n_colors gt !d.table_size then tvlct,red,green,blue
@@ -608,11 +620,11 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 	endif else begin
 	    if printer_info.color gt 0 then begin
 		device,filename=psfile,/color,bits=8,set_font=font,/Bold, $
-			scale_factor=scale_factor, $
+			scale_factor=scale, $
 			yoffset=7, xsize=17.78, ysize=12.7  
  	    endif else $
 		device,filename=psfile,set_font=font,/Bold, $
-			scale_factor=scale_factor, $
+			scale_factor=scale, $
 			yoffset=7, xsize=17.78, ysize=12.7  
 	end
 
