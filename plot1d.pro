@@ -80,19 +80,18 @@ PRO plot1d_dialogs_Event, Event
 	if Event.Select then begin
 		sel = indgen(n_elements(state.selection))
 		WIDGET_CONTROL,state.main_list,SET_LIST_SELECT=sel
-		str = 'Curve'+strtrim(sel,2)
+		str = state.legend(sel)
 	endif else begin
 		WIDGET_CONTROL,state.main_list,SET_LIST_SELECT=Event.Select
 		state.selection(0) = 1
-		str = 'Curve0'
+		str = state.legend(0)
 	end
-	state.legend = str
 	WIDGET_CONTROL,state.legendStrWid,set_value=str
       END
   'plot1d_even': BEGIN
 		state.selection= 0 
-  		WIDGET_CONTROL,state.plotallWID,SET_VALUE=0
-		state.legend = ''
+                state.list_sel = 0
+		WIDGET_CONTROL,state.plotallWID,SET_VALUE=0
                 for i=0,n_elements(state.selection)-1,2 do begin
 			if i eq 0 then sel = 0 else $
 			sel = [sel,i]
@@ -101,17 +100,16 @@ PRO plot1d_dialogs_Event, Event
 		
                 state.list_sel = sel 
 	for i=0,n_elements(sel)-1 do begin
-		state.legend(i) = 'Curve'+strtrim(sel(i),2)
-		if i eq 0 then str = state.legend(0) else $
-		str = [str,state.legend(i)]
+		if i eq 0 then str = state.legend(sel(0)) else $
+		str = [str,state.legend(sel(i))]
 	end
 	WIDGET_CONTROL,state.legendStrWid,set_value=str
 	WIDGET_CONTROL,state.main_list,set_list_select=sel
       END
   'plot1d_odd': BEGIN
 		state.selection= 0 
+                state.list_sel = 0
   		WIDGET_CONTROL,state.plotallWID,SET_VALUE=0
-		state.legend = ''
                 for i=1,n_elements(state.selection)-1,2 do begin
 			if i eq 1 then sel = 1 else $
 			sel = [sel,i]
@@ -120,9 +118,8 @@ PRO plot1d_dialogs_Event, Event
 		
                 state.list_sel = sel 
 	for i=0,n_elements(sel)-1 do begin
-		state.legend(i) = 'Curve'+strtrim(sel(i),2)
-		if i eq 0 then str = state.legend(0) else $
-		str = [str,state.legend(i)]
+		if i eq 0 then str = state.legend(sel(0)) else $
+		str = [str,state.legend(sel(i))]
 	end
 	WIDGET_CONTROL,state.legendStrWid,set_value=str
 	WIDGET_CONTROL,state.main_list,set_list_select=sel
@@ -130,18 +127,16 @@ PRO plot1d_dialogs_Event, Event
   'plot1d_main_list': BEGIN
 		state.selection= 0 
   		WIDGET_CONTROL,state.plotallWID,SET_VALUE=0
-		state.legend = ''
 		sel = WIDGET_INFO(state.main_list, /list_select)
-                state.list_sel = sel 
                 if sel(0) ne -1 then begin
                 for i=0,n_elements(sel)-1 do begin
-			state.selection(state.curves(sel(i))) = 1
-			state.legend(i) = 'Curve'+strtrim(sel(i),2)
+			state.selection(sel(i)) = 1
                 end
                 end
-	for i=0,n_elements(state.list_sel)-1 do begin
-		if i eq 0 then str = state.legend(0) else $
-		str = [str,state.legend(i)]
+                state.list_sel = sel 
+	for i=0,n_elements(sel)-1 do begin
+		if i eq 0 then str = state.legend(sel(0)) else $
+		str = [str,state.legend(sel(i))]
 	end
 	WIDGET_CONTROL,state.legendStrWid,set_value=str
       END
@@ -159,6 +154,10 @@ PRO plot1d_dialogs_Event, Event
       END
   'plot1d_help': BEGIN
 	plot1d_help
+      END
+  'plot1d_npt': BEGIN
+	WIDGET_CONTROL,Event.Id,GET_VALUE=cpt
+	state.cpt = cpt
       END
   'plot1d_comment': BEGIN
 	WIDGET_CONTROL,Event.Id,GET_VALUE=val
@@ -305,6 +304,10 @@ if XRegistered('plot1d_dialogs') then return
 		UVALUE='plot1d_userscale')
   widget_control,userscale,set_droplist_select=0
 
+  bgrever = WIDGET_DROPLIST(BASE2_1,title='Bg:',value=['Blk','Wht'], $
+		UVALUE='plot1d_bgreverse')
+  widget_control,bgrever,set_droplist_select=state.bgrevs
+
   BASE2_2 = WIDGET_BASE(BASE2, $
       ROW=1, $
       MAP=1, $
@@ -377,9 +380,9 @@ if XRegistered('plot1d_dialogs') then return
 		UVALUE='plot1d_yexpand')
   widget_control,yexpand,set_droplist_select=state.yexpand
 
-  bgrever = WIDGET_DROPLIST(BASE2_2,title='Bg:',value=['Blk','Wht'], $
-		UVALUE='plot1d_bgreverse')
-  widget_control,bgrever,set_droplist_select=state.bgrevs
+  npt_slidet = WIDGET_SLIDER(BASE2_2,value=state.npt, $
+	title='NPT Plotted:', $
+	maximum=state.npt,minimum=3,UVALUE='plot1d_npt')
 
   BASE2_411 = WIDGET_BASE(BASE2, $
       /ROW, $
@@ -437,12 +440,12 @@ if n_elements(state.selection) gt 1 then begin
       /ROW, /FRAME, $
       MAP=1, $
       UVALUE='BASE2_62')
-  lebel2 = widget_label(BASE2_62,value='SelectCurves:')
 
   BASE2_622 = WIDGET_BASE(BASE2_62, $
       /COLUMN,  $
       MAP=1, $
       UVALUE='BASE2_622')
+  lebel2 = widget_label(BASE2_622,value='SelectCurves:')
   BGROUP14 = CW_BGROUP( BASE2_622, ['All'], $
       COLUMN=1, $
       NONEXCLUSIVE=1, $
@@ -623,9 +626,16 @@ if !d.name eq 'WIN' then device,decomposed=1
 	s = size(y) 
 	end
 
+	cpt = state.cpt-1 
+	y = y(0:cpt,*)
+	s = size(y)
+	x = state.x(0:cpt,*)
+
 	if state.userscale eq 0 then begin
-		state.xrange = [min(state.x),max(state.x)]
+		state.xrange = [min(x),max(x)]
 		state.yrange = [min(y),max(y)]
+;		state.xrange = [min(state.x),max(state.x)]
+;		state.yrange = [min(y),max(y)]
 	endif else begin
 		state.xrange = [state.xmin,state.xmax]
 		state.yrange = [state.ymin,state.ymax]
@@ -678,7 +688,7 @@ color = cl
 z = y(*,0)
 
 if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
-	PLOT,state.x,z,/nodata, COLOR=state.tcolor, background=state.bgcolor, $
+	PLOT,x,z,/nodata, COLOR=state.tcolor, background=state.bgcolor, $
 		xrange=state.xrange, yrange = yrange, $
 		ylog=state.ylog, xlog=state.xlog, psym=psym, $
 		xgridstyle=state.grid, $
@@ -689,7 +699,7 @@ if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
 
 if s(0) eq 1 then $
-	OPLOT,state.x,z, COLOR=color, thick=thick, psym=psym, linestyle=line 
+	OPLOT,x,z, COLOR=color, thick=thick, psym=psym, linestyle=line 
 
 ; two dim array - multiple curves
 
@@ -700,9 +710,11 @@ in_symbol = make_array(s(2),/int)
 in_color(0)= cl
 in_line(0)= line
 in_symbol(0)=psym
-x = state.x
-if state.scatter then x = state.x(*,0)
-	OPLOT,x,z,COLOR=color, thick=thick, linestyle=line, psym=psym 
+;x = state.x
+;if state.scatter then x = state.x(*,0)
+xt = x
+if state.scatter then xt = x(*,0)
+	OPLOT,xt,z,COLOR=color, thick=thick, linestyle=line, psym=psym 
 	
 ;	dcl = state.color / 16
 	dcl = !d.table_size-2
@@ -733,12 +745,12 @@ if i eq 2 and psym gt 0 then psym=psym+1
 		in_line(i) = line
 		in_symbol(i) = psym 
 		z = y(0:s(1)-1,i)
-		if state.scatter then x = state.x(*,i)
+		if state.scatter then xt = x(*,i)
 
 		if state.curvfit then begin
 			psym=7      ; if curve fitting is true
 		end
-		OPLOT,x,z,COLOR=color,linestyle=line, psym=psym mod 7, $
+		OPLOT,xt,z,COLOR=color,linestyle=line, psym=psym mod 7, $
 			thick=thick 
 		psym = in_symbol(i)
 ; print,i,psym,cl,line
@@ -760,10 +772,16 @@ end
 ; draw stamp comment
 	
 if state.stamp ne 0 then begin
+	if state.timestamp eq '' then begin
 	st = systime(0)
 	xyouts,0.01*state.xsize, 1, st, /device, color=state.tcolor
 	xyouts,0.75*state.xsize, 1, $
 		 'User Name:  '+getenv('USER'), /device, color=state.tcolor
+	endif else begin
+	xyouts,0.01*state.xsize, 1, state.timestamp, /device, color=state.tcolor
+	xyouts,0.75*state.xsize, 1, $
+		 'User Name:  '+getenv('USER'), /device, color=state.tcolor
+	end
 end
 
 ; draw legend
@@ -801,7 +819,7 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	oplot,x,y,linestyle=in_line(i),color=color,thick=2
 	oplot,x,y,linestyle=in_line(i),color=color,psym=in_symbol(i),thick=2
 
-	xyouts,real_xr,real_yl, state.legend(i), color=state.tcolor
+	xyouts,real_xr,real_yl, state.legend(pick(i)), color=state.tcolor
 	end
 end
 
@@ -832,17 +850,28 @@ WIDGET_CONTROL,ev.Id,GET_UVALUE=B_ev
 CASE B_ev OF
 'PLOT1D_DATA': begin
 	sz = size(state.y)
-	nel = sz(1)
+;	nel = sz(1)
+	nel = state.cpt
 	f1 = '('+ strtrim(nel+1,2)+'G17.7)'
 	openw,1,'plot1d.txt'
 	if sz(0) eq 1 then $
 	for i=0,nel-1 do printf,1,state.x(i),state.y(i)
+
 	if sz(0) eq 2 then $
 	for i=0,nel-1 do begin
 	y = reform(state.y(i,*))
-	printf,1,format=f1,state.x(i),y
+;	print,format=f1,state.x(i),y
+
+	str =  ''
+	str = string(state.x(i))
+	for j=1,n_elements(y) do begin
+	str = str + ' ' + string(y(j-1))
 	end
+	printf,1,str
+	end
+
 	close,1
+
 	xdisplayfile,'plot1d.txt',title='Listing of plot1d.txt',Group=Ev.top
 	cd,current=cpath
 	if xregistered('plot1d') then $
@@ -851,6 +880,10 @@ CASE B_ev OF
 'PLOT1D_REPORT': begin
 	widget_control,ev.Id,GET_VALUE=st
 	xdisplayfile,state.report,title='Listing of '+ state.report
+ 	end
+'PLOT1D_REVERSE': begin
+	if state.bgrevs then state.bgrevs = 0 else state.bgrevs = 1
+	plot1d_replot, state
  	end
 'PLOT1D_PRINTER': begin
 	PS_printer,Group=Ev.top
@@ -1083,6 +1116,8 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;       03-09-01 bkc   Default white backgrund color
 ;                      Print button dum the screen plot by using TVRD
 ;                      PS Plot button generates PS plot output 
+;       02-18-02 bkc   Add option of NPT slider to specify the last of the 
+;                      data points to be plotted for each curve
 ;-
 
 ;LOADCT,39
@@ -1114,7 +1149,8 @@ if sz(0) eq 1 then begin
 end
 if sz(0) eq 2 then begin
 	leg = make_array(sz(2),/string) 
-	curves = strtrim(indgen(sz(2)),2)
+	curves = 'Curve '+strtrim(indgen(sz(2)),2)
+if keyword_set(legend) then curves = legend(0:sz(2)-1)
 	selection = make_array(sz(2),/int,value=1)
 	list_sel = indgen(sz(2))
 	rfactor = make_array(sz(2),value=1.)
@@ -1135,8 +1171,12 @@ if keyword_set(title) then ti = string(title)
 if keyword_set(xtitle) then xl = string(xtitle)
 if keyword_set(ytitle) then yl = string(ytitle)
 if keyword_set(wtitle) then wti = string(wtitle)
-if keyword_set(legend) then leg = string(legend)
+if keyword_set(legend) then leg = string(legend) else leg = curves
 if keyword_set(comment) then footnote = string(comment)
+timestamp = ''
+if keyword_set(stamp) then begin
+	if strlen(stamp) gt 1 then timestamp=stamp
+end
 
 state = { $
 	base:0L, $
@@ -1154,7 +1194,7 @@ state = { $
 	bgrevs : 1, $          ; reverse background 
 	tcolor : 0, $
 	bgcolor : !d.table_size-1, $
-	color:cl-1, $
+	color:cl-2, $ 
 	symbol: 0, $
 	curvfit: 0, $		; whether data is from curve fitting
 	wtitle:wti, $
@@ -1172,6 +1212,7 @@ state = { $
 	ymargin: [5,3], $
 	zoom: 1.0, $
 	stamp: 0, $
+	timestamp: timestamp, $
 	yexpand: 1, $
 	footnote: 0, $
 	comment: strarr(10), $  ; footnote, $
@@ -1193,6 +1234,8 @@ state = { $
 	userscale: 0, $
 	scatter: 0, $       ; if 1 scatter plot
 	factor: rfactor, $
+	NPT: sz(1), $   ; requested NPT 
+	CPT: sz(1), $   ; plotted CPT
 	x: xa, $
 	y: ya $
 	}
@@ -1275,6 +1318,7 @@ if keyword_set(report) then begin
  id_tlb_report = WIDGET_BUTTON(id_tlb_row,VALUE=report+'...',UVALUE='PLOT1D_REPORT')
 end
 
+id_tlb_colors = WIDGET_BUTTON(id_tlb_row,VALUE='Rvs Bkg',UVALUE='PLOT1D_REVERSE')
 id_tlb_options = WIDGET_BUTTON(id_tlb_row,VALUE='Options...',UVALUE='PLOT1D_OPTIONS')
 id_tlb_printer = WIDGET_BUTTON(id_tlb_row,VALUE='Printer...',UVALUE='PLOT1D_PRINTER')
 id_tlb_print = WIDGET_BUTTON(id_tlb_row,VALUE='Print',UVALUE='PLOT1D_PRINT')
