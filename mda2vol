@@ -1,0 +1,19 @@
+#!/bin/csh -f
+source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
+
+set runfile=""
+if "$1" != "" then
+	set runfile = "file='$1'"
+endif
+echo "@os.init" >! go_viewer
+echo ".run panimage" >>! go_viewer
+echo ".run scanSee__define" >>! go_viewer
+echo ".run xdr_open" >>! go_viewer
+# echo ".run volume_animator" >>! go_viewer
+# echo ".run volviewer_eventcb" >>! go_viewer
+# echo ".run volviewer" >>! go_viewer
+echo ".run mda2vol" >>! go_viewer
+echo "mda2vol" >>! go_viewer
+idl go_viewer
+rm go_viewer
+
