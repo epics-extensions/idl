@@ -298,6 +298,13 @@ PRO VIEWDRV3D_Event, Event
 	view3d_2Dredisplay,state,Event
 	state.display = odisplay
 	END
+  'VIEW3D_PANIMAGE': BEGIN
+	H = *state.data
+	sz = size(H)
+	if sz(0) eq 3 then begin
+	panimage,H
+	end
+	END
   'VIEW3D_IMAGE_ANIMATE': BEGIN
 	H = *state.data
 	sz = size(H)
@@ -475,6 +482,9 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
       EXCLUSIVE=1, $
       LABEL_TOP='Display By', $
       UVALUE='VIEW3D_DISPLAY')
+
+;  BUTTON13 = WIDGET_BUTTON( BASE3, UVALUE='VIEW3D_PANIMAGE', $
+;      VALUE=' PanImage... ')
 
 
   BASE8 = WIDGET_BASE(BASE2, $
