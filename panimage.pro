@@ -516,7 +516,7 @@ new_win = !D.window
 		tiffname = strtrim(tiff,2)
 catch,error_status
 if error_status ne 0 then begin
-help,!error_state,/st
+r = dialog_message([!error_state.MSG,'You need to make sure the path directory existing first.'],/error)
 wset,old_win
 return
 end
