@@ -418,7 +418,7 @@ PRO SS_VIEWSPEC_Event, Event
   CASE Ev OF 
 
   'VIEWSPEC_FILE_OPEN': BEGIN
-     F = dialog_pickfile(filter='*.scan*',GET_PATH=p,GROUP=Event.Top,/MUST_EXIST,$
+     F = dialog_pickfile(filter='*.mda*',GET_PATH=p,GROUP=Event.Top,/MUST_EXIST,$
                 PATH=state.path,TITLE='Select scanSee File',/READ)
         if F eq '' then return
         state.path = p
