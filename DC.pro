@@ -517,7 +517,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.19 2001/07/02 20:17:14 cha Exp $
+; $Id: DC.pro,v 1.20 2001/08/22 17:53:43 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -749,7 +749,9 @@ COMMON GOTO_BLOCK,goto_n,goto_pv,goto_val
 	if id ne 0 then w_warningtext,'Error: in Goto setting !',40,3 
 END
 
-PRO xycoord_setmotor,val
+PRO xycoord_setmotor,val,scanpv=scanpv
+; if scanpv set then the current scan record PV names setting is used otherwise
+; the read in positioner PV name is used 
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
@@ -770,28 +772,32 @@ COMMON GOTO_BLOCK,goto_n,goto_pv,goto_val
 	if x_axis eq 1 then f1 = val / num_pts
 
 	goto_val = make_array(1,4,/double)
-	goto_pv = make_array(4,/string)
+	goto_pv = w_plotspec_id.goto_pv  ;make_array(4,/string)
+
+	if keyword_set(SCANPV) then begin
+        piname=scanData.pv+['.P1PV','.P2PV','.P3PV','.P4PV']
+	ln = cagetArray(piname, goto_pv, /string)
+	if ln lt 0 then return 
+	end
+
 	k=0
-        piname=['.P1PV','.P2PV','.P3PV','.P4PV']
 	for i=0,3 do begin
-		s1 = ''
-		ln = cagetArray(scanData.pv+piname(i), s1, /string)
-		if ln eq 0 then begin
+		s1 = goto_pv(i)
 		if strtrim(s1,2) ne '' then begin
 		xmax = MAX(scanData.pa(0:num_pts,i))
 		xmin = MIN(scanData.pa(0:num_pts,i))
 		goto_val(0,i) = xmin + f1 * (xmax - xmin)	
-		goto_pv(i) = s1
 		k=k+1
 		end
-		end
 	end
+
 	if k lt 1 then return      ; none defined
 	goto_n = k
 	st = 'Set New Positions:'
 	for i=0,goto_n-1 do begin
 	st = [st,goto_pv(i)+ ' --> ' + string(goto_val(0,i))]	
 	end
+
 	w_warningtext,st,45,5,'Set Positioner Locations',title='GoTo ...',quest='GoTo'
 	return
 	
@@ -5040,6 +5046,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	max_pidi = n_elements(id_def(*,0))  
 	pv1_desc = labels(max_pidi,0)
 	if pv1_desc eq '' then pv1_desc = labels(view_option.pickx,0)
+	if strtrim(pv1_desc,2) eq '' then pv1_desc = 'P'+strtrim(view_option.pickx+1,2)
 	pv2_desc = labels(max_pidi,1)
 	if pv2_desc eq '' then pv2_desc = labels(view_option.pickx,1)
 	pvs0 = [pv(0:1),filename,pv1_desc,pv2_desc]
@@ -5104,6 +5111,7 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 	max_pidi = n_elements(id_def(*,0))
 	pv1_desc = labels(max_pidi+view_option.pickx,0)
 	if pv1_desc eq '' then pv1_desc = labels(view_option.pickx,0)
+	if strtrim(pv1_desc,2) eq '' then pv1_desc = 'P'+strtrim(view_option.pickx+1,2)
 	pv2_desc = labels(max_pidi+view_option.pickx,1)
 	if pv2_desc eq '' then pv2_desc = labels(view_option.pickx,1)
 	filename = catch2d_file.name
@@ -5439,6 +5447,11 @@ w_viewscan_id.seqno = seq_no
 
 
    ;populate read data into global arrays
+
+        for i=0,3 do begin
+        if strtrim(x_names(i),2) ne '' then $
+        w_plotspec_id.goto_pv(i) = strmid(x_names(i),0,strpos(x_names(i),'.'))
+        end
 
 	if scanData.debug eq 1 then $
 	print,'Scan # ',seq_no, ' accessed.'
@@ -6990,7 +7003,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
 	filenamepath,scanData.trashcan,old_file,old_path
 
-        FNAME = '*'+scanData.suffix+'*'  ;'*mda*' or '*scan*'
+        FNAME = '*'+strmid(scanData.suffix,0,4)+'*'  ;'*mda*' or '*scan*'
 
 
 ; check for bad directory -296
@@ -7724,8 +7737,9 @@ end
       IF (scanFlag EQ 1) THEN BEGIN
 	;  find new filename based on prefix and scan #
 	if scanData.y_scan eq 0 and valchange(0) then begin
-	scanData.scanno=1
-	calc_newfilename,/get
+
+	calc_newfilename,/get,err=ferr
+	while ( ferr lt 0)  do calc_newfilename,/get,err=ferr
 	end
 
 	ln = caMonitor(scanData.pv+'.NPTS',ret,/check)
@@ -8169,7 +8183,9 @@ scanData.pvfound = res
 	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan,BAD=bad
 	scanData.y_scan = 0
 
+
 END
+
 
 
 PRO calc_newfilename,st,get=get,err=err
@@ -8179,8 +8195,9 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	prefix = str_sep(scanData.pv,':')
 
 	if n_elements(st) eq 0 or keyword_set(get) then begin
-	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_message']
-	callno = 0
+	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_message', $
+		':saveData_fileSystem',':saveData_subDir']
+	callno = scanData.fileno 
 	ln = cagetArray(nm,pd,/string)
 	if ln ne 0 then return
 	err = ln
@@ -8189,31 +8206,63 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	if scanData.filemax lt no then scanData.filemax = no 
 	st = strtrim(no,2)
 
-	tn = str_sep(pd(1),": ")             ; works only if ': ' is strue
+		; check for path change
+		
+		path = pd(2)+!os.file_sep+pd(3)+!os.file_sep
+		ps = strpos(path,scanData.path)
+		if ps lt 0 then begin
+		lp = strpos(path,'home')
+		if lp gt 0 then begin
+			npath=strmid(path,lp-1,strlen(path)-lp+1)
+			scanData.path = npath
+			end
+		end
+
+	tn = str_sep(pd(1),": ")             ; works only if ': ' is true
 	if n_elements(tn) gt 1 then begin
 	  filename = tn(1) 
+
+	  	; calculate new suffix
+
+		l = strpos(tn(1),'.',/reverse_search)
+		suffix = strmid(tn(1),l,strlen(tn(1))-l)
+		if suffix ne scanData.suffix then scanData.suffix = suffix
+
+	  	; check file number 
+		l1 = strpos(tn(1),'_')
+		l2 = strpos(tn(1),'.')
+		seq = fix(strmid(tn(1),l1+1,l2-l1-1))
+
+;print,no,seq,callno,tn(1),w_plotspec_array(3)
+	if no ne callno or abs(seq-callno) ge 2 or ps lt 0 then begin
+	if ps lt 0 then wait,0.001
+	err=-1
+	return
+	end
+
+	  if filename eq w_plotspec_array(3) then begin
+		err=-1
+		return
+	  end
+
 	endif else begin
 	print,"***saveData_message busy*** scan #",no
-
-	if scanData.fileno lt 10000 then begin
-	str='0000'
-	len = strlen(st)
-	len0 = strlen(str)
-	sss = str
-	strput,sss,st,len0-len
-	endif else sss = st
-
-	filename = prefix[0]+'_'+sss+scanData.suffix   ;'.scan'
-	if scanData.suffix eq '.scan' then $ 
-	filename = prefix[0]+':_'+sss+scanData.suffix  
+	wait,0.001 ; time delay appropriate for getting the new filename 
+	err=-1
+	return
 	end
+
 
 	end
 
 	scanData.trashcan = scanData.path + filename
 	w_plotspec_array(3) = filename
 	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
+	scanData.scanno = scanData.fileno - 1
+
 END
+
+
 
 
 PRO setPiDiMonitor,ret,add=add,clear=clear,check=check
@@ -8485,6 +8534,7 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;       05-16-2001 bkc  Accept both '.scan' or '.mda' suffix for scan file
 ;       06-28-2001 bkc  R2.5
 ;                       Fix xtitle in 1D plot
+;       08-01-2001 bkc  Modify PV goto to use readin positioner data
 ;                       
 ;-
 ;
