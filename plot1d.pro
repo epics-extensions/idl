@@ -17,11 +17,16 @@ PRO plot1d_replot,state
 
 ; one dim array 
 
+WSET,state.winDraw
+!p.multi = [0,1,0,0,0]
+erase
+
 if s(0) eq 1 then $
 	PLOT,state.x,state.y,COLOR=cl, $
 		xrange=state.xrange, yrange = state.yrange, $
 		ylog=state.ylog, xlog=state.xlog, psym=psym, $
 		thick=thick, xthick=thick, ythick=thick,$
+		xstyle = state.xstyle, ystyle = state.ystyle, $
 		linestyle=line, $
 		xmargin=xmgin, ymargin=ymgin, $
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
@@ -29,9 +34,9 @@ if s(0) eq 1 then $
 ; two dim array - multiple curves
 
 if s(0) eq 2 and s(2) gt 1 then begin
-in_color = make_array(s(1),/int)
-in_line = make_array(s(1),/int)
-in_symbol = make_array(s(1),/int)
+in_color = make_array(s(2),/int)
+in_line = make_array(s(2),/int)
+in_symbol = make_array(s(2),/int)
 in_color(0)= cl
 in_line(0)= line
 in_symbol(0)=psym
@@ -167,6 +172,7 @@ PRO plot1d, x, y, id_tlb, windraw, $
 	legend=legend, xylegend=xylegend, $
 	width=width, height=height, $
 	comment=comment, cleanup=cleanup, $
+	xstyle=xstyle, ystyle=ystyle, $
 	wtitle=wtitle, button=button, GROUP=GROUP
 ;+
 ; NAME:
@@ -240,6 +246,10 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;
 ;       LINESTYLE:  Set this keyword to turn on different line style used. 
 ;
+;       XSTYLE:  Set this keyword to control x axis in IDL plot routine. 
+;
+;       YSTYLE:  Set this keyword to control y axis in IDL plot routine. 
+;
 ;       LEGEND:  Set the legend strings corresponding to curves drawn.
 ;
 ;       XYLEGEND: Set the x,y location of the legend strings, % from the
@@ -254,10 +264,10 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;               default to 'Plot1d'.
 ;
 ;       WIDTH:  The initial window width at the creation time, which 
-;               default to 250 pixel.
+;               default to 350 pixel.
 ;  
 ;       HEIGHT: The initial window height at the creation time, which 
-;               default to 250 pixel.
+;               default to 350 pixel.
 ;
 ;       GROUP:  The widget ID of the group leader of the widget. If this
 ;               keyword is specified, the death of the group leader results 
@@ -322,6 +332,7 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;       Written by:     Ben-chin Cha, Mar. 7, 1996.
 ;
 ;       04-26-96    Add the window cleanup keyword 
+;       10-28-96    Add the xstyle and ystyle keywords 
 ;-
 
 
@@ -344,8 +355,8 @@ if n_elements(y) eq 0 then begin
 endif else ya = y
 
 ; check for input labels
-xsize=250
-ysize=250
+xsize=350
+ysize=350
 xl = ''
 yl =''
 ti = ''
@@ -370,6 +381,8 @@ state = { $
 	xtitle:xl, $
 	ytitle:yl, $
 	title:ti, $
+	xstyle:0,$
+	ystyle:0,$
 	xsize:0,$
 	ysize:0,$
 	xlog: 0, $
@@ -390,6 +403,8 @@ state = { $
 	y: ya $
 	}
 
+if keyword_set(xstyle) then state.xstyle = xstyle 
+if keyword_set(ystyle) then state.ystyle = ystyle 
 
 if keyword_set(color) then begin
 	cl = long(color)
@@ -428,9 +443,9 @@ if keyword_set(ymargin) then begin
 	end
 
 if keyword_set(width) then xsize=width
-if xsize lt 250 then xsize=250
+if xsize lt 350 then xsize=350
 if keyword_set(height) then ysize=height
-if ysize lt 250 then ysize=250
+if ysize lt 350 then ysize=350
 
 ; drawing with data 
 
@@ -448,7 +463,6 @@ id_tlb_close = WIDGET_BUTTON(id_tlb_row,VALUE='Close',UVALUE='PLOT1D_CLOSE')
 end
 
 g_tlb=WIDGET_INFO(id_tlb,/geometry)
-
 
 WIDGET_CONTROL,id_tlb, /realize
 WIDGET_CONTROL,id_draw,get_value=windraw
