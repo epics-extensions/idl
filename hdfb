@@ -9,7 +9,8 @@
 #*************************************************************************
 source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 
-echo ".run hdfb" >! go_hdfb
+echo "loadct,39" >! go_hdfb
+echo "@os.init" >>! go_hdfb
 echo "hdfb" >>! go_hdfb
 idl go_hdfb
 rm go_hdfb
