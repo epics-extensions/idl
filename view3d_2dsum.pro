@@ -48,6 +48,23 @@ PRO view3d_2dsum_result,state
 	Print,'Button PICK1D Pressed'
 	calibra_pick1d,image,group=state.base,title=state.class+file  ;xa=xa,ya=ya
 	end
+      4: begin
+	tvscl,congrid(image,100,100)
+	wset,state.drawWid2
+	erase
+	v1 = min(image)
+	v2 = max(image)
+	fact = 100/v2
+	y = image(*,state.j_pick)*fact
+	n = n_elements(y)
+	x = 100. / (n-1) * indgen(n)
+	plots,x,y,/device
+
+	x = image(state.i_pick,*)*fact
+	n = n_elements(x)
+	y = 100. / (n-1) * indgen(n)
+	plots,x,y,/device 
+	end
       ELSE: Message,'Unknown button pressed'
       ENDCASE
 END
@@ -151,6 +168,12 @@ PRO view3d_2dsum_plot,state
 	  oplot,[state.k2_pick,state.k2_pick],yr,thick=3,color=100
 	  if wid ge 0 then wset,wid
 	end
+
+;  sum tv image
+	state.dpy_type = 4
+  	wset,state.drawWid1
+	view3d_2dsum_result,state	
+  	wset,state.drawWid
 END
 
 
@@ -235,6 +258,14 @@ PRO VIEW3D_2DSUM_Event, Event
 	view3d_2dsum_plot,state
 	end
       END
+  'VIEW3D_SUM_DRAW1': BEGIN
+	print,'pick x,y pointi in state.drawWid1'
+	state.i_pick = event.x*state.imax/100
+	state.j_pick = event.y*state.jmax/100
+	widget_control,state.i_slider,set_value=state.i_pick
+	widget_control,state.j_slider,set_value=state.j_pick
+	view3d_2dsum_plot,state
+      END
   ENDCASE
 
   WIDGET_CONTROL, Event.top, SET_UVALUE=state
@@ -271,9 +302,13 @@ PRO view3d_2dsum_init,data,rank,view3d_2dsumState
 	view3d_2dsumState = {$
 		class: '', $
 		base : 0L, $
+		i_slider : 0L, $
+		j_slider : 0L, $
 		k1_slider : 0L, $
 		k2_slider : 0L, $
 		drawWid : 0L, $
+		drawWid1 : 0L, $
+		drawWid2 : 0L, $
 		PS : 0, $       ; post script ind
 		rank : rank, $
 		imax : imax, $
@@ -387,6 +422,7 @@ if n_elements(rank) eq 0 then rank=0
       TITLE='I', /vertical, ysize=80, $ 
       UVALUE='VIEW3D_SUM_I', $
       VALUE=view3d_2dsumState.i_pick)
+  view3d_2dsumState.i_slider = SLIDER4
 
   SLIDER5 = WIDGET_SLIDER( BASE3, $
       MAXIMUM=view3d_2dsumState.jmax-1, $
@@ -394,6 +430,7 @@ if n_elements(rank) eq 0 then rank=0
       TITLE='J', /vertical, ysize=80, $
       UVALUE='VIEW3D_SUM_J', $
       VALUE=view3d_2dsumState.j_pick)
+  view3d_2dsumState.j_slider = SLIDER5
 
 
   BASE5 = WIDGET_BASE(BASE2, $
@@ -431,6 +468,19 @@ if n_elements(rank) eq 0 then rank=0
       UVALUE='VIEW3D_SUM_K2', $
       VALUE=view3d_2dsumState.kmax-1)
   view3d_2dsumState.k2_slider = SLIDER7
+
+  BASE52 = WIDGET_BASE(BASE2, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE52')
+  DRAW520 = WIDGET_DRAW( BASE52, $
+      RETAIN=1, /BUTTON_EVENTS, $
+      UVALUE='VIEW3D_SUM_DRAW1', $
+      XSIZE=100, YSIZE=100)
+  DRAW522 = WIDGET_DRAW( BASE52, $
+      RETAIN=1, $ ; /BUTTON_EVENTS, $
+      UVALUE='VIEW3D_SUM_DRAW2', $
+      XSIZE=100, YSIZE=100)
 
   BASE6 = WIDGET_BASE(BASE2, $
       COLUMN=1, $
@@ -470,8 +520,14 @@ if n_elements(rank) eq 0 then rank=0
   ; Get drawable window index
 
   COMMON DRAW20_Comm, DRAW20_Id
+  COMMON DRAW520_Comm, DRAW520_Id
+  COMMON DRAW522_Comm, DRAW522_Id
   WIDGET_CONTROL, DRAW20, GET_VALUE=DRAW20_Id
+  WIDGET_CONTROL, DRAW520, GET_VALUE=DRAW520_Id
+  WIDGET_CONTROL, DRAW522, GET_VALUE=DRAW522_Id
   view3d_2dsumState.drawWid = DRAW20_Id
+  view3d_2dsumState.drawWid1 = DRAW520_Id
+  view3d_2dsumState.drawWid2 = DRAW522_Id
   view3d_2dsum_plot,view3d_2dsumState
 
   WIDGET_CONTROL, VIEW3D_2DSUM_BASE, SET_UVALUE=view3d_2dsumState
