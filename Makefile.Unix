@@ -9,9 +9,7 @@ SCRIPTS = setup_ezcaIDL ezcaidl_startup.pro \
 	catcher.exe2 catcher.exe2.idl5 \
 	viewer dcviewer.pro viewer_startup.pro \
 	view1d.pro view1d.init view1d_overlay.pro \
-	view2d.pro view2d.init makeIDLRef.pro \
-	hdf_browser.pro hdfb hdf_startup.pro  plot2d.pro \
-	dc2hdf catcher2hdf.pro 
+	view2d.pro view2d.init makeIDLRef.pro 
 
 include $(EPICS)/config/RULES.Unix
 
