@@ -21,7 +21,7 @@ if ${?LD_LIBRARY_PATH} == 0 then
         setenv LD_LIBRARY_PATH
 endif
 if ${?EPICS_BASE} == 0 then
-        setenv EPICS_BASE /usr/local/epics/baseR3.14.3
+        setenv EPICS_BASE /usr/local/epics/baseR3.14.5
 endif
 if ${?EPICS_BASE} == 1 then
         setenv LD_LIBRARY_PATH $EPICS_BASE/lib/$HOST_ARCH":"$LD_LIBRARY_PATH
