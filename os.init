@@ -38,3 +38,4 @@ defsysv,'!os',os_system
 
 !QUIET = 1
 
+loadct,39
