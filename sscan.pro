@@ -64,21 +64,21 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 ;
 ;+
 ; NAME:
-;       FUNCTION READ_SCAN,Filename,Scan,Dump=Dump,LastDet=LastDet,PickDet=PickDet,Header=Header
+;       READ_SCAN
 ;
 ; PURPOSE:
-;       This function read any 1D/2D/3D scan file and returns a scan pointer 
-;       which consists of few heap pointers to point to the data extracted
-;       from the XDR  scan file.
+;       This function reads any 1D/2D/3D scan file and returns a scan pointer 
+;       paramenter which consists of few heap pointers to point to the data 
+;	extracted from the MDA scan file.
 ; 
-;       If succeed it returns the scan number, otherwise it returns -1.
+;       If succeeds, it returns the scan number, otherwise it returns -1.
 ;
 ; CATEGORY:
 ;       Function.
 ;
 ; CALLING SEQUENCE:
 ;
-;       READ_SCAN(Filename,Scan, ...)
+;       scanno = READ_SCAN(Filename,Scan, ...)
 ;
 ; INPUTS:
 ;       Filename:    Input XDR scan filename
@@ -120,11 +120,10 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 ;
 ; EXAMPLES:
 ;         filename = '/home/beams/CHA/data/xxx/cha:_0001.scan'
-;         scanno = read_scan(filename,SCAN,SSD)
+;         scanno = read_scan(filename,Scan)
 ;          
 ; MODIFICATION HISTORY:
-;       Written by:     Originally written by Eric Boucher 
-;                       Modify and extended by Ben-chin K. Cha, Mar. 7, 2001.
+;       Written by:     Ben-chin K. Cha, July 27, 2004.
 ;
 ;-
 
@@ -1233,21 +1232,61 @@ if keyword_set(echo) then print,sub_scan_ptr
 END
 
 PRO sscan_read,SSD,file=file,path=path,echo=echo,pick3d=pick3d,header=header,data=data,error=error
+;+
+; NAME:
+;	SSCAN_READ
+;
+; PURPOSE:
+;	This routine returns the SSD data structure of an input MDA file.  
+;	If no file specified on the command line a MDA file selection dialog 
+;	pops up.
+;
+; CATEGORY:
+;	Widget.
+;	
+; CALLING SEQUENCE:
+;	SSCAN_READ, SSD [,FILE=file, ...]
+;
+; INPUTS:
+; 	None.
+;
+; KEYWORD PARAMETERS:
+;	FILE:	specify the known MDA input file
+;		If file is given no file selection dialog pop up 
+;	PATH:	specify the MDA directory for the file selection dialog
+;		If not specified, current working directory assumed
+;	ECHO:   if specified the appropriate plot window pops up
+;	PICK3D: specify the 3D data seq # , default is 0
+; 	HEADER: if specified only the complete set of scan headers are read
+;	DATA:	extract data array from the file
+;	ERROR:  read error indicator, 0 - success, -1 - fail
+;
+; RESTRICTION:
+;	The MDA file must be XDR file created automatically by the sscan
+;	record.
+;
+; OUTPUTS:
+;	SSD:	returns the data structure extracted from a MDA file
+;
+; MODIFICATION HISTORY:
+;	Written by: 	Ben-chin K. Cha, July 27,2004
+;-
 ; mda file reader with dialog_pickfile
 ; if echo=0 read only
 ;    echo=1 plot window pops up
 
 	error=-1
-;	loadct,39
 
-;	CD, current=p
 	if n_elements(SSD) then p = SSD.path
 	if keyword_set(path) then p = path
 
 	if keyword_set(file) eq 0 then begin
 	file = dialog_pickfile(get_path=path,filter='*.mda',/must_exist, $
 		path=p,/read,title='Pick MDA file')
-	if file(0) eq '' then return
+	if file(0) eq '' then begin
+		error=-1
+		return
+	end
 	p = path
 	end
 ;print,file
@@ -1286,7 +1325,8 @@ WIDGET_CONTROL,/HOURGLASS
 	if SSD.rank eq 2 then begin
 		da2d = *SSD.da(0)
 		if SSD.nb_det(1) then da1D = *SSD.da(1)
-		panimage,da2D,numd=10,title='SSCAN: 2D scan #'+strtrim(SSD.scanno,2)
+		id_def = SSD.id_def(4:4+SSD.detMax(0)-1,0)
+		panimage,da2D,id_def,numd=10,title='SSCAN: 2D scan #'+strtrim(SSD.scanno,2)
 	end
 
 	if SSD.rank eq 3 then begin 
@@ -1294,8 +1334,10 @@ WIDGET_CONTROL,/HOURGLASS
 		da2D = *SSD.da(1)
 		da1D = *SSD.da(2)
 		title='SSCAN: 3D Scan #'+strtrim(SSD.scanno,2)
-		if SSD.nb_det(1) gt 0 then panimage,da2D,numd=10,title=title else $
-		begin
+		if SSD.nb_det(1) gt 0 then begin
+			id_def = SSD.id_def(4:4+SSD.detMax(1)-1,1)
+			 panimage,da2D,id_def,numd=10,title=title 
+		endif else begin
 		; only 3D data detected, extract second slice from da3D
 		sz = size(da3D)
 		if sz(0) eq 4 then begin
@@ -1358,27 +1400,12 @@ END
 PRO PDMENU2_Event, Event
 
   widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
-  if size(scanSee_data,/type) ne 8 then begin
-  widget_control,Event.top,/destroy,bad=bad
-  sscan_readConfig,fn
-print,fn
-  spawn,['sscan',fn],/noshell
-	return
-  end
   if n_elements(*scanSee_data.SSD) then SSD = *scanSee_data.SSD
 
   CASE Event.Value OF 
 
 
   'File.Open...': BEGIN
-	if size(SSD,/type) ne 8 then begin
-        widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
-  	widget_control,Event.top,/destroy,bad=bad
-  	sscan_readConfig,fn
-print,fn
-	spawn,['sscan',fn],/noshell
-	return
-	end
 	sscan_read,SSD,/echo,error=error
 	if error eq 0 then begin
 	 scanSee_writeConfig,SSD
@@ -1390,8 +1417,8 @@ print,SSD.path
 	if SSD.rank eq 3 then WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 $
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
   	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
-        widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 	end
+        widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 	return
     END
   'File.Exit': BEGIN
@@ -1584,10 +1611,41 @@ END
 
 
 PRO sscan,file=file,GROUP=Group
+;+
+; NAME:
+;	SSCAN
+;
+; PURPOSE:
+;	This program allows the user to view any 1D/2D/3D scan MDA file
+;	generated by the sscan record. It let the user easily to access any 
+;	1D/2D/3D data and display the data graphically. It provide various
+;	graphic output features and provide simple 1D/2D analysis tools.
+;
+; CATEGORY:
+;	Widgets.
+;
+; CALLING SEQUENCE:
+;	SSCAN [,FILE=file, GROUP=group]
+;
+; INPUTS:
+;	None.
+;
+; KEYWORD PARAMETERS:
+;	FILE:	specify the input MDA file name
+;	GROUP:  specify the parent widget ID
+;	
+; OUTPUTS:
+;	None.
+;
+; SIDE EFFECTS:
+;	The appropriate subprograms image2d, view3d_2d, scan2d_roi,...
+;	will be popped up for extracted data arrays.
+;
+; MODIFICATION HISTORY:
+;        Written by:     Ben-chin K. Cha, July 27, 2004.
+;-
 
 if XRegistered('SSCAN_MAIN13') then return
-;loadct,39
-;@os.init
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
