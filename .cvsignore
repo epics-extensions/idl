@@ -1,0 +1,6 @@
+.DEPENDS
+O.*
+n.*
+o.*
+*.bk
+core
