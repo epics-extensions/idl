@@ -778,11 +778,11 @@ if !d.n_colors gt !d.table_size  then device,decomposed=1
 	cpt = state.cpt-1 
 	y = y(cpt0:cpt,*)
 	s = size(y)
-	x = x(cpt0:cpt,*)   
+	nx = n_elements(x)
 
 	if state.userscale eq 0 then begin
 ;		state.xrange = [min(x),max(x)]
-		state.xrange = [x(cpt0),x(cpt)]
+		state.xrange = [x(cpt0),x(nx-1)]
 		state.yrange = [min(y),max(y)]
 	endif else begin
 		state.xrange = [state.xmin,state.xmax]
@@ -984,8 +984,7 @@ CASE B_ev OF
 'PLOT1D_SAVEMENU': PLOT1D_PDMENU3_Event,ev
 'PLOT1D_DATA': begin
 	sz = size(state.y)
-;	nel = sz(1)
-	nel = state.cpt
+	nel = n_elements(state.x)
 	f1 = '('+ strtrim(nel+1,2)+'G17.7)'
 
 	openw,1,'plot1d.txt'
