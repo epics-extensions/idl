@@ -1,6 +1,11 @@
-#!/usr/bin/csh
+#!/bin/csh
 
 source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
+
+source /usr/local/rsi/idl_6.0/bin/idl_setup
+if ( $1 == "readascii") then
+source /usr/local/rsi/idl_6.1/bin/idl_setup
+endif
 
 set ARCH=$EPICS_HOST_ARCH
 if $ARCH == "" then
@@ -11,7 +16,15 @@ if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set LOC=$EPICS_EXTENSIONS_PVT
 endif
 
-if ($1 == "scanSee" || $1 == "catcher" || $1 == "sscan" || $1 == "mca") then
+if ($1 == "mca") then
+   source $LOC/bin/$ARCH/ezcaidl_setup
+   setenv XRF_PEAK_LIBRARY $LOC/idllib/xrf_peak_library.txt
+   echo run $LOC/bin/$ARCH/$1.sav
+   idl -32 -vm=$LOC/bin/$ARCH/$1.sav
+   exit
+endif
+
+if ($1 == "scanSee" || $1 == "catcher" || $1 == "sscan") then
    source $LOC/bin/$ARCH/ezcaidl_setup
    echo run $LOC/bin/$ARCH/$1.sav
    idl -32 -vm=$LOC/bin/$ARCH/$1.sav
