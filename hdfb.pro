@@ -143,8 +143,16 @@ if strlen(unit) gt 0 then strput,st,unit,130
 
 ; dump only first six number from the data array
 
-if HDF_Query.byte eq 0 then tempdata = string(string(sdata(0:5)),/print) else  $
-tempdata = string(sdata(0:5),/print)
+catch,error_status
+if error_status ne 0 then begin
+	help,!error_state,/st
+	help,sdata
+	print,sdata
+	return
+end
+if n_elements(sdata) ge 6 then temps=sdata(0:5) else temps=sdata
+if HDF_Query.byte eq 0 then tempdata = string(string(temps),/print) else  $
+	tempdata = string(temps,/print)
 strput,st,strtrim(tempdata(0),2),141
 
 	WIDGET_CONTROL,HDF_Query_id.terminal,BAD_ID=bad,SET_VALUE=strtrim(st,2)
