@@ -307,6 +307,8 @@ PRO ReadHDFOneRecord, filename, data, view=view
 
 COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
 
+WSET,HDF_Query_id.draw1
+erase
 	IF N_ELEMENTS(filename) EQ 0 THEN begin
  	print,'USAGE: ReadHDFOneRecord, filename, data [,/view]'
 	print,'       Read next set of SDS data from the current positon'
@@ -464,7 +466,7 @@ type = s(n_elements(s)-2)
 		end
 	     END
 	  2: BEGIN
-		plot2d,data,itools=1
+		plot2d,data,itools=1,wtitle=HDF_Query.file
 	     END
 	  3: BEGIN
 		view3d_2D,data ; ,/slicer3
@@ -553,7 +555,7 @@ for j=0,dx-1 do begin
         end
 END
 
-PRO DataToText,data,title,unit,file,help=help
+PRO datatotext,data,title,unit,file,help=help
 COMMON HDF_QUERY_BLOCK, HDF_Query,HDF_QUERY_id
 
 if n_elements(data) eq 0 then return
@@ -656,10 +658,10 @@ if no eq 1 then begin
 	return
 end
 
-
 if no eq 2 then begin
-	f0 = '("J =    ",'+strtrim(dim(1),2)+'I17,/)'
+	f0 = '("J=     ",'+strtrim(dim(1),2)+'I17,/)'
 	f1 = '(I,'+strtrim(dim(1),2)+'(g17.7))'
+
 	printf,fw,format=f0,indgen(dim(1))
 	newdata = transpose(data)
 	d1 = dim(1)
@@ -943,7 +945,7 @@ if fileid eq -1  then begin
 
         dataString=[dataString,'==================================================']
         numdesc = hdf_number(fileid,tag=101)
-help,numfpals,numfid,numdesc
+; help,numfpals,numfid,numdesc
         if numdesc gt 0 then begin
         dataString=[dataString,'',' # of file descriptor =  '+string(numdesc)]
 	dataString=[dataString,'','FILE_DESCRIPTOR # '+string(1)]
@@ -1601,7 +1603,7 @@ while tmp ne -1 do begin
  id=tmp
 endwhile
 HDF_Query.numVG = num
-print,'numVG=', HDF_Query.numVG
+
 
 id=-1
 tmp=(num=0)
@@ -1614,7 +1616,7 @@ while tmp ne -1 do begin
  id=tmp
 endwhile
 HDF_Query.numVD = num
-print,'numVD=', HDF_Query.numVD
+
 
 return
 
@@ -1845,7 +1847,7 @@ CASE no OF
 	if HDF_Query.view eq 1 then begin
 		old_win = !d.window			;plot area
 		!p.multi = [0,1,0,0,0]
-		plot2d,data,itools=1
+		plot2d,data,itools=1,wtitle=HDF_Query.file
 		WSET,old_win
 		!p.multi = [0,2,0,0,0]
 	end
@@ -2429,7 +2431,6 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
         if HDF_Query.view gt 0 then $
         GetHDFVData, HDF_Query.file, seqno ,data,/view $
         else GetHDFVData, HDF_Query.file, seqno ,data
-      Print, 'Event for VD Slider:',seqno
       END
 
   'HDF_VD_EXIT': BEGIN
@@ -2474,7 +2475,7 @@ if no lt 1 then return
   vdataData_id.slider = 0L 
 
   MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
-        TITLE='HDF QUERY - VD ', $
+        TITLE='QUERY - VD ', $
       COL=1, $
       MAP=1, $
       UVALUE='vdataData_id')
@@ -2633,7 +2634,6 @@ COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
   CASE Ev OF 
 
   'PARENT_VGROUP': BEGIN
-      Print, 'Event for vgroup_parent'
 	VG,Event.index,tags,refs,ent_name,ent_type
 	c_name = ent_name
 	c_ref = refs
@@ -2643,7 +2643,6 @@ COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
 	WIDGET_CONTROL,vgtree_id.grandchild,SET_VALUE=''
       END
   'CHILD_VGROUP': BEGIN
-      Print, 'Event for vgroup_child'
 	WIDGET_CONTROL,vgtree_id.grandchild,SET_VALUE=''
 	vgtree_id.child_idx = Event.index
 	vgtree_id.child_ref = c_ref(Event.index)
@@ -2671,7 +2670,6 @@ COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
 	endif
       END
   'GRANDCHILD_VGROUP': BEGIN
-      Print, 'Event for vgroup_grandchild'
 	vgtree_id.grandchild_idx = Event.index
 	vgtree_id.grandchild_ref = g_ref(Event.index)
 	vgtree_id.grandchild_type = g_type(Event.index)
@@ -2696,7 +2694,6 @@ COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
 	endif
       END
   'BUTTON16': BEGIN
-      Print, 'Event for Close'
 	WIDGET_CONTROL,Event.Top,/DESTROY
       END
   ENDCASE
@@ -2830,7 +2827,6 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	ENDCASE
       END
   'HDF_QUERY_VG_DUMP': BEGIN
-      Print, 'Event for VG Dump'
 	if HDF_Query.glevel eq 0 then DumpHDFVG,HDF_Query.file
 	if HDF_Query.glevel eq 1 then DumpHDFVG,HDF_Query.file,/entry
 	if HDF_Query.glevel eq 2 then DumpHDFVG,HDF_Query.file,/entry,/data
@@ -2899,7 +2895,6 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 		 SET_VALUE=strtrim(string(seqno),2)
       HDF_Query.vg_seqno = seqno
         GetHDFVG, seqno, /data, /entry 
-      Print, 'Event for VG Slider:',seqno
       END
 
   'HDF_VG_LIST': BEGIN
@@ -2950,7 +2945,7 @@ if no lt 1 then return
   HDF_Query.vg_seqno = 0
 
   MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
-	TITLE='HDF QUERY - VG ', $
+	TITLE='QUERY - VG ', $
       ROW=1, $
       MAP=1, $
       UVALUE='vgroupData_id')
@@ -4398,7 +4393,6 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
   CASE Ev OF 
 
   'SDS_DATA_DUMP': BEGIN
-      Print, 'Event for DumpSDSHeader'
         if HDF_Query.numSDS gt 0 then begin
         WIDGET_CONTROL,HDF_Query_id.terminal,BAD_ID=bad
         if HDF_Query_id.terminal eq 0 or bad ne 0 then $
@@ -4548,7 +4542,7 @@ if no lt 1 then return
   sdsData_id.list = 0L 
 
   MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
-	TITLE='HDF QUERY - SDS ', $
+	TITLE='QUERY - SDS ', $
       ROW=1, $
       MAP=1, $
       UVALUE='sdsData_id')
@@ -4636,6 +4630,20 @@ PRO PDMENUSETUP3_Event, Event
   'Setup.Color...': BEGIN
     XLOADCT
     END
+  'Setup.Save PVTCT': BEGIN
+	TVLCT,red,green,blue,/GET
+        save,red,green,blue,file='pvtcolors.dat'
+    END
+  'Setup.Load PVTCT': BEGIN
+	found = findfile('pvtcolors.dat')
+        if found(0) eq '' then begin
+        str = 'Error: Private color table never been saved before'
+        r = dialog_message(str,/error)
+        endif else begin
+        restore,'pvtcolors.dat'
+        TVLCT,red,green,blue
+        end
+    END
   ENDCASE
 END
 
@@ -4652,7 +4660,7 @@ PRO hdf_checkOutpath,dir
 	free_lun,unit
 	close,unit
 
-	print,'dir=',dir
+;	print,'dir=',dir
 END
 
 PRO invoke_HDFSDSDATA,event
@@ -4663,39 +4671,33 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
             HDFSDSDATA, HDF_Query.file, HDF_Query.maxno,GROUP=Event.top
 END
 
-PRO PDMENU4_Event, Event
+PRO HDFSDSDATA_checkfile,F,Event
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
-
-  CASE Event.Value OF 
-
-
-  'File.Open': BEGIN
-    PRINT, 'Event for File.Open'
-	F = PICKFILE(/READ,FILE='4.hdf',PATH=HDF_Query.fpath,GET_PATH=P,FILTER='*.hdf')
-	if strlen(F) lt 1 then begin
-		print,'Error: file not selected by you!'
-		
-		end
 
 	found = HDF_ISHDF(F)
 	
 	if found eq 0 then begin
-		print,'Error: '+F+ ' is not a HDF file!'
+		r = dialog_message(/error,'Error: '+F+ ' is not a HDF file!')
 		return
 		end
 
 	HDF_Query.file = F
-	HDF_Query.fpath = P
 
 	r = rstrpos(F,!os.file_sep)
-	if r gt 0 then $
-	HDF_Query.classname = strmid(F,r+1,strlen(F)-r)
+	if r gt 0 then begin
+	   HDF_Query.classname = strmid(F,r+1,strlen(F)-r) 
+	   P = strmid(F,0,r+1)
+	endif else begin
+	   HDF_Query.classname = F
+	   P = ''
+	end
 
+	HDF_Query.fpath = P
 	dir = p
 	hdf_checkOutpath,dir
 	HDF_Query.dir = dir
 
-	print,'File selected=',F
+;	print,'File selected=',F
 	WIDGET_CONTROL,HDF_Query_id.filename, SET_VALUE=HDF_Query.file
 
 	HDFInitData,file=F
@@ -4705,13 +4707,63 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=''
 	WSET,HDF_Query_id.draw1
 	erase
-
 	invoke_HDFSDSDATA,Event
+
+	; write config
+	openw,1,'hdfb.config'
+	printf,1,HDF_Query.file
+	close,1
+END
+
+PRO HDFSDSDATA_config,file
+	file=''
+	openr,1,'hdfb.config'
+	readf,1,file
+	close,1
+END
+
+PRO HDFSDSDATA_checkfileSeq,Event,first=first,last=last,next=next,prev=prev
+COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
+	if HDF_Query.fpath eq '' then return 
+	r = file_search(HDF_Query.fpath+'*',/mark)
+	num = n_elements(r)
+	HDF_Query.filenos[1] = num-1 
+	if HDF_Query.filenos[0] lt num then HDF_Query.filenos[0] = num 
+	for i=0,num-1 do begin
+		if r(i) eq HDF_Query.file then goto,seq
+	end
+seq:
+	if keyword_set(next) then begin
+		if i lt (num-1) then i = i+1 else i=0
+	end
+	if keyword_set(prev) then begin
+		 if i gt 0 then i = i-1 else i=num-1
+	end
+	if keyword_set(first) then i = 0
+	if keyword_set(last) then i = num-1
+	HDF_Query.filenos[1] = i
+	HDF_Query.file = r(i)
+	HDFSDSDATA_checkfile,r(i),Event
+END
+
+PRO PDMENU4_Event, Event
+COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
+
+  CASE Event.Value OF 
+
+
+  'File.Open...': BEGIN
+	F = DIALOG_PICKFILE(/READ,FILE='4.hdf',PATH=HDF_Query.fpath,GET_PATH=P,FILTER=['*.hdf','*.Nx','*.nx','*.nexus'])
+	if strlen(F) lt 1 then begin
+		print,'Error: no file selected by you!'
+		
+		end
+
+	HDFSDSDATA_checkfile,F,Event
 
     END
 
   'File.Quit': BEGIN
-    PRINT, 'Event for File.Quit'
 
 	WIDGET_CONTROL, event.top, /DESTROY
 	exit
@@ -4732,36 +4784,35 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
       END
 
   ; Event for PDMENU4
-  'PDMENU4': PDMENU4_Event, Event
-
+  'PDMENU4': BEGIN
+	PDMENU4_Event, Event
+	END
   ; Event for PDMENUSETUP3
-  'PDMENUSETUP3': PDMENUSETUP3_Event, Event
+  'PDMENUSETUP3': BEGIN
+	 PDMENUSETUP3_Event, Event
+	END
 
+  'HDF_FIRST_FILE': BEGIN
+	HDFSDSDATA_checkfileSeq,Event,/first
+	END
+  'HDF_LAST_FILE': BEGIN
+	HDFSDSDATA_checkfileSeq,Event,/last
+	END
+  'HDF_NEXT_FILE': BEGIN
+	HDFSDSDATA_checkfileSeq,Event,/next
+	END
+  'HDF_PREV_FILE': BEGIN
+	HDFSDSDATA_checkfileSeq,Event,/prev
+	END
   'HDF_FILENAME': BEGIN
-      Print, 'Event for HDF filename Data:'
 	WIDGET_CONTROL,HDF_Query_id.filename, GET_VALUE=file 
 	file = strtrim(file(0),2)
 
 	if strlen(file) gt 1 then begin
-	r = rstrpos(file,!os.file_sep)
-	if r gt 0 then begin
-	HDF_Query.classname = strmid(file,r+1,strlen(file)-r)
-	HDF_fpath =  strmid(file,0,r+1)
-	end
+	found = findfile(file,count=ct)
+	if ct eq 0 then return
 
-	dir = HDF_Query.fpath
-	hdf_checkOutpath,dir
-	HDF_Query.dir = dir
-
-		HDFInitData,file=file
-		DumpHDFAN,file,tag=101,dataString=d,/desc
-		if n_elements(d) then $
-		WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=d else $
-		WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=''
-		erase
-
-	invoke_HDFSDSDATA,Event
-
+	HDFSDSDATA_checkfile,file,Event
 	end
       END
 
@@ -4803,8 +4854,11 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	end
 	END
       1: BEGIN
-	Print,'Button Plot Window Turned ', Sel
 	HDF_Query.view = Sel
+	if sel then begin
+	  ReadHDFOneRecord,HDF_Query.file, data, /view
+	  if HDF_Query.text gt 0 then datatotext,data
+	end
 	END
       ELSE: Message,'Unknown button pressed'
       ENDCASE
@@ -4836,22 +4890,27 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 		'File Menu    - select HDF/NEXUS file or quit IDL', $
 		'Setup Menu   - set the color tables to be used by IDL', $
 		'HDF Filename - display HDF/NEXUS files picked', $
+		'','File Selection: |>, ->, <-, <|', $
+		'  |>    -  Bitmap button for First file',$
+		'  ->    -  Bitmap button for Next file',$
+		'  <-    -  Bitmap button for Prev file',$
+		'  <|    -  Bitmap button for Last file',$
 		'', $
 		'HDF Info Droplist - select & display HDF info in text area and pops up query dialog', $
 		'     Types of popup query dialog: ', $
-		'        HDF QUERY - SDS', $
-		'        HDF QUERY - VD', $
-		'        HDF QUERY - VG', $
+		'        QUERY - SDS', $
+		'        QUERY - VD', $
+		'        QUERY - VG', $
 		'Help...   - display this help message', $
 		'Clear     - clear the scroll text info area', $
-		'Text Area - display summary of HDF info for selected HDF Info mode ', $
+		'Text Area - display summary of HDF info for selected HDF Info droplist ', $
 		'','Check Options:', $
-	      '  Show Data   - toggle option of popup the HDF SDS Text Window', $
-	      '  Plot Window - toggle option of popup the HDF SDS 1D/2D/3D plot Window', $
+	      '  Txt Window  - turn on/off popup window for HDF SDS Text ', $
+	      '  Plot Window - turn on/off popup window for HDF SDS 1D/2D/3D plot ', $
 		'','Byte Array as:', $
-	      '  String / Byte - display data as String / Byte', $
+	      '  String / Byte - display byte array data as String / Byte', $
 		'','Drawing Area - display raw data as 1D/2D/3D graph', $
-		'',	'HDF QUERY - SDS Dialog:',$
+		'',	'QUERY - SDS Dialog:',$
 		'  DumpSDSHeader -  dumps SDS attributes and first 5 elements from the SDS array',$
 		'  First - access the first set of SDS',$
 		'  Next  - access the next set of SDS',$
@@ -5025,7 +5084,6 @@ xdisplayfile,title='Help on HDFB',text=st,group=Event.top
         if HDF_Query.view gt 0 then $
         GetHDFVData, HDF_Query.file, seqno ,data,/view $
         else GetHDFVData, HDF_Query.file, seqno ,data
-      Print, 'Event for VD Slider:',seqno
       END
 
   ENDCASE
@@ -5062,7 +5120,7 @@ if keyword_set(file) then begin
 
 
         HDF_DFSD_GETINFO, file, NSDS=NumSDS
-	print,'NumSDS=',NumSDS
+
         HDF_Query.numSDS = NumSDS
 	HDF_Query.maxno = NumSDS
 	HDF_Query.seqno = 0 
@@ -5093,6 +5151,7 @@ HDF_Query = { $,
 	view : 0, $
 	text : 0, $
 	byte : 0, $
+	filenos : [0,0], $   [# offile,current_seq]
 	file : '', $
 	fpath : '', $
 	dir: '', $
@@ -5116,6 +5175,7 @@ HDF_Query = { $,
   HDF_Query_id = { $
 	base     : 0L, $
 	filename : 0L, $
+	filebase : 0L, $
 	draw1	: 0L, $
 	draw_xsize : 0L, $
 	draw_ysize : 0L, $
@@ -5135,6 +5195,20 @@ HDF_Query = { $,
 	HDF_Query.fpath = cur
 	HDF_Query.dir = cur
 
+	found = findfile('hdfb.config')
+	if found(0) ne '' then begin
+	 HDFSDSDATA_config,filename
+	r = rstrpos(filename,!os.file_sep)
+	if r gt 0 then begin
+	   HDF_Query.classname = strmid(filename,r+1,strlen(filename)-r) 
+	   P = strmid(filename,0,r+1)
+	endif else begin
+	   HDF_Query.classname = filename
+	   P = ''
+	end
+	HDF_Query.fpath = P
+	end
+	
 if n_elements(filename) gt 0 then begin	
 	found = findfile(filename)
 	if found(0) ne '' then begin
@@ -5175,7 +5249,7 @@ end
 
   MenuDesc167 = [ $
       { CW_PDMENU_S,       3, 'File' }, $ ;        0
-        { CW_PDMENU_S,       0, 'Open' }, $ ;        1
+        { CW_PDMENU_S,       0, 'Open...' }, $ ;        1
         { CW_PDMENU_S,       2, 'Quit' } $  ;      2
 
   ]
@@ -5185,6 +5259,8 @@ end
 
   MenuDescsetup167 = [ $
       { CW_PDMENU_S,       3, 'Setup' }, $ ;        0
+        { CW_PDMENU_S,       0, 'Save PVTCT' }, $ ;        1
+        { CW_PDMENU_S,       0, 'Load PVTCT' }, $ ;        1
         { CW_PDMENU_S,       0, 'Color...' }, $ ;        1
         { CW_PDMENU_S,       2, '' } $  ;      2
   ]
@@ -5196,6 +5272,23 @@ end
   HDF_FILENAME = WIDGET_TEXT( BASE0_1,VALUE=HDF_Query.file, $
       YSIZE=1, XSIZE=60, /EDITABLE, $
       UVALUE='HDF_FILENAME')
+
+@vw2d.bm
+
+  BASE_file = WIDGET_BASE(MAIN13_HDF, ROW=1, MAP=1, $
+      UVALUE='BASE_FILE')
+  hdf_lb1 = WIDGET_LABEL(BASE_file,VALUE='File Selection:')
+  BMPBTN14 = WIDGET_BUTTON( BASE_file,VALUE=BMP767, $
+      UVALUE='HDF_FIRST_FILE')
+
+  BMPBTN11 = WIDGET_BUTTON( BASE_file,VALUE=BMP686, $
+      UVALUE='HDF_PREV_FILE')
+
+  BMPBTN12 = WIDGET_BUTTON( BASE_file,VALUE=BMP688, $
+      UVALUE='HDF_NEXT_FILE')
+
+  BMPBTN15 = WIDGET_BUTTON( BASE_file,VALUE=BMP809, $
+      UVALUE='HDF_LAST_FILE')
 
   BASE0 = WIDGET_BASE(MAIN13_HDF, $
       ROW=1, $
@@ -5235,7 +5328,7 @@ WIDGET_CONTROL, HDF_AN_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.anlevel
       UVALUE='BASE1')
 
   Btns266 = [ $
-    'Show Data ', $
+    'Txt Window ', $
     'Plot Window']
   BGROUP3 = CW_BGROUP( BASE1, Btns266, $
       ROW=1, $
@@ -5273,6 +5366,7 @@ WIDGET_CONTROL, HDF_AN_DROPLIST, SET_DROPLIST_SELECT=HDF_Query.anlevel
 
 	HDF_Query_id.base = MAIN13_HDF
  	HDF_Query_id.filename = HDF_FILENAME
+ 	HDF_Query_id.filebase = BASE_FILE
  	HDF_Query_id.draw_xsize  = draw_xsize
  	HDF_Query_id.draw_ysize  = draw_ysize
  	HDF_Query_id.term = ANN_TEXT
