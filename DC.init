@@ -62,7 +62,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
 	suffix	  : '.mda',           $ for .scan or  .mda 
       dataversion : '', 	  $  new field in R1.5.5.0
       pv          : '',           $
-      pvconfig    : '',           $
+      pvconfig    : ['',''],           $
       pvfound     : -1, 	  $  indicator for pv found or not found
       num_pos	  : 4, 		  $  max no of pos allowed   
       num_det     : 85, 	  $  max no of detectors allowed 
@@ -84,6 +84,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       readin_npts    : 0,          $
 	wf_sel	   : make_array(89,/int), $
 	detname	   : detname, $
+	p_def	  : [0,0,0,0], $      ; positioner def id
       	px         : FLTARR(4000), $
       	dx         : make_array(4000,/double), $
 	pa : Make_array(4000,4,/double), $
@@ -104,7 +105,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       image_width  : 60, $
       image_height : 60, $
 	sel_list   : intarr(85), $	; panimage sublist
-	sel_id 	   : 8, $		; panimage all di 
+	sel_id 	   : 8, $		; 0 - D1-D10, 8 - All 
 	sel_changed: 0, $		; changed sublist
 	last_line  : 0, $		; last 2d image line
 	sublist    : ['D01-D10','D11-20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D1-DF','ALL','NONE'], $    
