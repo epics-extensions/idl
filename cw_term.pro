@@ -230,7 +230,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
       END
   'BGROUP':BEGIN
 	CASE event.value OF
-	  'Save...': BEGIN
+	  'Save As...': BEGIN
 		if XRegistered('cwterm_Save') eq 0 then $
 		cwterm_save_dialog,GROUP=Event.id, $
 			rename=state.rename,oldname=fileName
