@@ -29,28 +29,59 @@ END
 
 
 PRO DC_view_init, filename , DC_view_ids, print=print
-
 WIDGET_CONTROL,/HOURGLASS
+
 	ret = obj_valid(DC_view_ids.v)
-	if ret then obj_destroy,DC_view_ids.v
-;	if ret eq 0 then begin
-	v = obj_new('scanSee',file=filename)
-	DC_view_ids.v = v
-;	endif else v = DC_view_ids.v
-	
+;	if ret then obj_destroy,DC_view_ids.v
+	if ret eq 0 then begin
+
+	r = read_scan(filename,scan,/header)
+	dim = *scan.dim
 
 	DC_view_ids.toobig = 0
+	if dim eq 3 then begin
+	cpt = *scan.cpt
+	if cpt(0) ge 1000 or cpt(1) ge 500 or cpt(2) ge 500 then begin
+		DC_view_ids.toobig = 1
+	if DC_view_ids.detno   le 0 then $	
+		DC_view_ids.detno = 16
+	WIDGET_CONTROL,DC_view_ids.list2DWID,SET_LIST_SELECT=DC_view_ids.detno-1
+		end
+	end
+
+	free_scanAlloc,scan
+
+	if dim eq 3 then begin
+	  if DC_view_ids.bypass3d then $
+	  v = obj_new('scanSee',file=filename,pickDet=-1) else $
+	  if DC_view_ids.toobig then $
+	  v = obj_new('scanSee',file=filename,pickDet=DC_view_ids.detno) $
+	  else  v = obj_new('scanSee',file=filename)
+	endif else begin
+	v = obj_new('scanSee',file=filename)
+	end
+
+	DC_view_ids.v = v
+	endif else v = DC_view_ids.v
+	
+
 	v->read,dim=dim,num_pts=num_pts,cpt=cpt,pv=pv,labels=labels,$
 		scanno=scanno,id_def=id_def, $
 		pa1d=pa1d,da1d=da1d,pa2d=pa2d,da2d=da2d,pa3d=pa3d,da3d=da3d, $
 		x=x,y=y,z=z,class=class,outpath=outpath
+if n_elements(dim) eq 0 then begin
+	st = ['Read failed on:',filename,'','You have to use "File..." button to pick another file']
+	r=dialog_message(/error,st)
+	return
+end
 
+	DC_view_ids.toobig = 0
 	if dim eq 3 then begin
-	if cpt(0) ge 500 or cpt(1) ge 500 or cpt(2) ge 500 then begin
+	if cpt(0) ge 1000 or cpt(1) ge 500 or cpt(2) ge 500 then begin
 		DC_view_ids.toobig = 1
+	if DC_view_ids.detno   le 0 then $	
 		DC_view_ids.detno = 16
 	WIDGET_CONTROL,DC_view_ids.list2DWID,SET_LIST_SELECT=DC_view_ids.detno-1
-
 		end
 	end
 
@@ -133,15 +164,14 @@ WIDGET_CONTROL,/HOURGLASS
 	if dim eq 3 then WIDGET_CONTROL,DC_view_ids.base3dWID,SENSITIVE=1 else $
 		WIDGET_CONTROL,DC_view_ids.base3dWID,SENSITIVE=0
 
-	if DC_view_ids.toobig eq 1 then $
-		WIDGET_CONTROL,DC_view_ids.base3dWID2,SENSITIVE=0 else $
-		WIDGET_CONTROL,DC_view_ids.base3dWID2,SENSITIVE=1 
+;	if DC_view_ids.toobig eq 1 then $
+;		WIDGET_CONTROL,DC_view_ids.base3dWID2,SENSITIVE=0 else $
+;		WIDGET_CONTROL,DC_view_ids.base3dWID2,SENSITIVE=1 
 
 	WIDGET_CONTROL,DC_view_ids.filetypeWID,set_value=type
 	WIDGET_CONTROL,DC_view_ids.filenoWID,set_value=DC_view_ids.fileno
 	
 	if dim eq 3 then begin 
-;		v->view3d_2d,DC_view_ids.detno,group=DC_view_ids.base
 	sz = size(da2D)
 	def = id_def(4:4+sz(3)-1,1)  ;make_array(sz(3),/int,value=1)
 	new_win = DC_view_ids.wid2d
@@ -195,7 +225,7 @@ PRO scansee_pickouter1d,state,Event,rank=rank
 	if keyword_set(rank) then rk=rank
 
 	v = state.v
-	v->read,dim=dim,cpt=cpt, $
+	v->read,dim=dim,cpt=cpt,num_pts=num_pts, $
                 da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
                 pv=pv,x=xa,y=ya,im=im,labels=labels,id_def=id_def
 
@@ -214,7 +244,7 @@ PRO scansee_pickouter1d,state,Event,rank=rank
 	dname = state.detname(nd)
 	da = make_array(cpt(rk),n_elements(nd))
 	for i=0,n_elements(nd)-1 do begin
-	da(*,i) = da1d(*,nd(i))
+	da(*,i) = da1d(0:cpt(rk)-1,nd(i))
 	end
 	ipos = state.paxis
 	if ipos ge 4 then x = indgen(cpt(rk)) else $
@@ -479,53 +509,103 @@ END
 PRO scanSee_PDMENU3D_PanImage_Event,state,Event
 
 v = state.v
-rank = state.rank 
 slice = state.slice
+rank = state.rank 
+v->read,dim=dim,x=x,y=y,z=z,pv=pv,labels=labels,scanno=scanno, $
+	pa1d=pa1d,pa2d=pa2d,pa3d=pa3d, id_def=id_def, $
+	da1d=da1d,da2d=da2d,da3d=da3d
+sz = size(da3d)
 
-  CASE Event.Value OF
-  '3D PanImage.Calibration...': begin
-	v->read,dim=dim,x=x,y=y,z=z, $
-		pa1d=pa1d,pa2d=pa2d,pa3d=pa3d, $
-		da1d=da1d,da2d=da2d,da3d=da3d
-        v->view3d_panImage,slice,rank,image_array
 	title = ' Axis:3D_2D PanImage Slice # '+strtrim(slice,2)
+	st = 'Z_'
+	if rank eq 0 then st = 'X_'
+	if rank eq 1 then st = 'Y_'
 	if rank eq 0 then begin 
 		title='X'+title
 		xv = y
 		yv = z
+	xdescs = pv[1]
+	ydescs = pv[2]
+	zdescs = 'S#'+ strtrim(indgen(sz(1))+1,2) 
 		end
 	if rank eq 1 then  begin
 		title='Y'+title
 		xv = x
 		yv = z
+	xdescs = pv[0]
+	ydescs = pv[2]
+	zdescs = 'S#'+ strtrim(indgen(sz(2))+1,2) 
 		end
 	if rank eq 2 then begin
 		title='Z'+title
 		xv = x
 		yv = y
+	xdescs = pv[0]
+	ydescs = pv[1]
+	zdescs = 'S#'+ strtrim(indgen(sz(3))+1,2) 
 		end
+
+if sz(0) eq 4 then begin
+  CASE Event.Value OF
+  '3D PanImage.Calibration...': begin
+        v->view3d_panImage,slice,rank,image_array
         calibration_factor,image_array,state.def,xv=xv,yv=yv, $
                 classname=state.class,inpath=state.path, $
                 title=title,GROUP=Event.top
-
+	return
 	end
   '3D PanImage.PanImages+TIFF': begin
 	DC_viewOutputFilename,state,'.pan.','TIFF',filename
-        v->view3d_panImage,slice,rank,tiff=filename,/reverse
+        v->view3d_panImage,slice,rank,image_array,tiff=filename,/reverse
         end
   '3D PanImage.PanImages+PICT': begin
 	DC_viewOutputFilename,state,'.pan.','PICT',filename
-        v->view3d_panImage,slice,rank,pict=filename
+        v->view3d_panImage,slice,rank,image_array,pict=filename
         end
   '3D PanImage.PanImages+XDR': begin
 	DC_viewOutputFilename,state,'.pan.','XDR',filename
-        v->view3d_panImage,slice,rank,xdr=filename
+        v->view3d_panImage,slice,rank,image_array,xdr=filename
         end
-  '3D PanImage.PanImages...': begin
+  '3D PanImage.Image2d...': begin
 	DC_viewOutputFilename,state,'.pan.','TIFF',filename
-        v->view3d_panImage,slice,rank,tiff=filename,/sel
+        v->view3d_panImage,slice,rank,image_array,tiff=filename ;,/sel
         end
   ENDCASE
+	s = size(image_array)
+	print,id_def
+        scansee_getLabels,labels,id_def,rank=0,label_state,def=def
+        zdescs = label_state.d_desc(0:s(3)-1) 
+	dname = '3D Array Slice : '+st+strtrim(slice,2) + ' (Scan #'+strtrim(scanno,2)+')'
+  endif else begin
+	; big 3D array case use image2d 
+	dname = '3D Array : '+ state.detname(state.detno-1) + ' (Scan #'+strtrim(scanno,2)+')  ' + st+'slices'
+	xr = [min(xv),max(xv)]
+	if xr(1) eq xr(0) then xv = indgen(n_elements(xv))
+	if rank eq 0 then begin
+		image_array = make_array(sz(2),sz(3),sz(1))
+		for i=0,sz(1)-1 do begin
+		data = reform(da3d(i,*,*),sz(2),sz(3))
+		image_array(*,*,i) = data(*,*)
+		end
+	end
+	if rank eq 1 then begin
+		image_array = make_array(sz(1),sz(3),sz(2))
+		for i=0,sz(2)-1 do begin
+		data = reform(da3d(*,i,*),sz(1),sz(3))
+		image_array(*,*,i) = data(*,*)
+		end
+	end
+	if rank eq 2 then begin
+		image_array = make_array(sz(1),sz(2),sz(3))
+		for i=0,sz(3)-1 do begin
+		data = reform(da3d(*,*,i),sz(1),sz(2))
+		image_array(*,*,i) = data(*,*)
+		end
+	end
+
+  end
+	image2d,image_array,xv,yv,title=dname,scanno=scanno,xdescs=xdescs,ydescs=ydescs,zdescs=zdescs,/seqnm
+
 END
 
 
@@ -544,11 +624,12 @@ PRO SS_VIEWSPEC_Event, Event
         if F eq '' then return
         state.path = p
         state.filename = F
+	if state.bypass3d then $
+	nv = obj_new('scanSee',file=F,pickDet=-1) else $
 	nv = obj_new('scanSee',file=F)
 	if obj_valid(nv) eq 0 then return
 	if obj_valid(v) then v->delete
 	state.v = nv 
-;help,obj_valid()
 	
         WIDGET_CONTROL,state.filenameWID,SET_VALUE=F
 	DC_view_init,F,state
@@ -593,13 +674,16 @@ PRO SS_VIEWSPEC_Event, Event
 	'3D PanImage - panImage for 3D scan with option of save as TIFF/GIFF/PICT', $
 	'X/Y/Z GBTN  - pick the 3D panImage view axis of the 2D slice plane', $
 	'Index #     - pick the 3D panImage slice # of the picked axis', $
-	'','                      VALID ON 1D/2D/3D SCAN DATA',$
-	'Detector # List - selects the detector number, defaults to 1', $
+	'','                      VALID ON 2D/3D SCAN DATA',$
+	'Detector # List - selects the detector number, defaults to 16', $
+	'Bypass 3D Array - Yes/NO, default to Yes, no 3D data array returned', $
+	'                  No, large 3D data array will be returned for the ', $
+	'                  selected detector #', $
 	'','                      WORKED ON 2D SCAN DATA ONLY',$
 	'PLOT2D...       - access various plot2d features of 2D image', $
 	'ASCII2D...      - saves and displays the ASCII report of 2D image', $
 	'PanImage...     - panImage with option of save TIFF/XDR/PICT file', $
-	'Vw2D Images...  - access with Vw2d image processing program', $
+	'Images 2D...    - access with image2D processing program', $
 	'2D_1D Data...   - access the outer most 1D scan data', $
 ;	'Overlay Plot... - overlays plot of multiple 1D scan lines ',$ 
 ;	'Help 1D Line #...- hints on selecting multiple lines of a detector', $
@@ -615,14 +699,24 @@ PRO SS_VIEWSPEC_Event, Event
     DC_view_writeConfig,state
     DC_view_cleanup,state
       WIDGET_CONTROL,event.top,/DESTROY
-	return
+	exit 
       END
 
   'VIEWSPEC_FILE_SEQNO': BEGIN
       WIDGET_CONTROL,event.ID,GET_VALUE=n
 	seqno = n
 	state.fileno = seqno
-	v->next,seqno,filename,error=er
+
+        if state.dim eq 3 then begin
+          if state.bypass3d then $
+	  v->next,seqno,filename,error=er,pickDet=-1 else $
+          if state.toobig then $
+          v->next,seqno,filename,error=er,pickDet=state.detno $
+          else  v->next,seqno,filename,error=er
+        endif else begin
+          v->next,seqno,filename,error=er
+        end
+
 	if er eq 0 then begin
 	state.v = v
 	DC_view_init,filename,state
@@ -633,7 +727,17 @@ PRO SS_VIEWSPEC_Event, Event
 	WIDGET_CONTROL,event.id,GET_VALUE=seqno
 	state.fileno = seqno
 	WIDGET_CONTROL,state.filenoWID,SET_VALUE=seqno
-	v->next,seqno,filename,error=er
+
+        if state.dim eq 3 then begin
+          if state.bypass3d then $
+	  v->next,seqno,filename,error=er,pickDet=-1 else $
+          if state.toobig then $
+          v->next,seqno,filename,error=er,pickDet=state.detno $
+          else  v->next,seqno,filename,error=er
+        endif else begin
+          v->next,seqno,filename,error=er
+        end
+
 	state.v = v
 	if er eq 0 then begin
 	DC_view_init,filename,state
@@ -643,7 +747,17 @@ PRO SS_VIEWSPEC_Event, Event
   'VIEWSPEC_FIRST_FILE': BEGIN
 	seqno = 0
 	state.fileno = seqno
-	v->first,seqno,filename
+
+        if state.dim eq 3 then begin
+          if state.bypass3d then $
+	  v->first,seqno,filename,pickDet=-1 else $
+          if state.toobig then $
+          v->first,seqno,filename,pickDet=state.detno $
+          else  v->first,seqno,filename
+        endif else begin
+          v->first,seqno,filename
+        end
+
 	state.v = v
 	DC_view_init,filename,state
 	WIDGET_CONTROL,state.filenoWID,SET_VALUE=seqno
@@ -653,7 +767,17 @@ PRO SS_VIEWSPEC_Event, Event
 	seqno = state.fileno+1
 	state.fileno = seqno
 	WIDGET_CONTROL,state.filenoWID,SET_VALUE=seqno
-	v->next,seqno,filename,error=er
+
+        if state.dim eq 3 then begin
+          if state.bypass3d then $
+	  v->next,seqno,filename,error=er,pickDet=-1 else $
+          if state.toobig then $
+          v->next,seqno,filename,error=er,pickDet=state.detno $
+          else  v->next,seqno,filename,error=er
+        endif else begin
+          v->next,seqno,filename,error=er
+        end
+
 	state.v = v
 	if er eq 0 then begin
 	DC_view_init,filename,state
@@ -664,7 +788,17 @@ PRO SS_VIEWSPEC_Event, Event
 	seqno = state.fileno-1
 	state.fileno = seqno
 	WIDGET_CONTROL,state.filenoWID,SET_VALUE=seqno
-	v->prev,seqno,filename,error=er
+
+        if state.dim eq 3 then begin
+          if state.bypass3d then $
+	  v->prev,seqno,filename,error=er,pickDet=-1 else $
+          if state.toobig then $
+          v->prev,seqno,filename,error=er,pickDet=state.detno $
+          else  v->prev,seqno,filename,error=er
+        endif else begin
+          v->prev,seqno,filename,error=er
+        end
+
 	state.v = v
 	if er eq 0 then begin
 	DC_view_init,filename,state
@@ -672,7 +806,17 @@ PRO SS_VIEWSPEC_Event, Event
 	end
       END
   'VIEWSPEC_LAST_FILE': BEGIN
-	v->last,seqno,filename
+
+        if state.dim eq 3 then begin
+          if state.bypass3d then $
+	  v->last,seqno,filename,pickDet=-1 else $
+          if state.toobig then $
+          v->last,seqno,filename,pickDet=state.detno $
+          else  v->last,seqno,filename
+        endif else begin
+          v->last,seqno,filename
+        end
+
   	state.lastno = seqno
 	state.v = v
 	state.fileno = seqno
@@ -703,6 +847,26 @@ PRO SS_VIEWSPEC_Event, Event
 	if state.dim eq 1 then $
 	v->plot1d,state.lineno,group=Event.top,xsel=Event.Index  ;.xaxis
 	state.paxis = Event.Index
+      END
+  'VIEWSPEC_BYPASS3D': BEGIN
+	state.bypass3d = Event.Index
+	if state.bypass3d eq 1 then begin
+	widget_control,state.list2DWID,sensitive=0 
+	widget_control,state.base3dWID2,sensitive=0 
+	endif else begin
+	widget_control,state.list2DWID,sensitive=1 
+	widget_control,state.base3dWID2,sensitive=1
+	end
+	if state.filename ne '' and state.bypass3d eq 0 then  begin
+	F = state.filename
+	v = state.v
+	nv = obj_new('scanSee',file=F)
+	if obj_valid(nv) then begin
+	if obj_valid(v) then v->delete
+	state.v = nv 
+	DC_view_init,F,state
+	end
+	end
       END
   'VIEWSPEC_STATISTIC': BEGIN
 	title = '1D Line # '+strtrim(state.lineno,2) + $
@@ -743,13 +907,13 @@ PRO SS_VIEWSPEC_Event, Event
 	v->ascii1d,state.lineno,format=state.format,group=Event.top
       END
   'VIEWSPEC_VIEW3D_VW2D': BEGIN
-	v->read,view=state.detno,dim=dim,cpt=cpt, $
+	v->read,view=state.detno,dim=dim,cpt=cpt,num_pts=num_pts, $
 		da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
 		da3d=da3d,pa3d=pa3d,pv=pv, outpath=outpath,$
 		x=xa,y=ya,im=im,labels=labels,id_def=id_def
 
 	x = pa2d(*,0) 
-	y = pa1d(*,0)
+	y = pa1d(0:cpt(2)-1,0)
 	sz = size(da2d)
 
         scansee_getLabels,labels,id_def,rank=2,label_state,def=def
@@ -759,9 +923,13 @@ PRO SS_VIEWSPEC_Event, Event
         zdescs = label_state.d_desc(0:sz(3)-1) 
 
 	def = id_def(4:4+sz(3)-1,1)
+	if total(def) gt 0. then begin
 	image2d,da2d,x,y,GROUP=Event.top,title=state.filename,pv=pv(1:2), $
-		outpath=outpath,id_def=def, $
-		xdescs=xdescs,ydescs=ydescs,zdescs=zdescs
+		outpath=outpath,id_def=def,scanno=state.fileno, $
+		xdescs=xdescs,ydescs=ydescs,zdescs=zdescs 
+	endif else begin
+		r = dialog_message(/error,'No image found!!',title='image2d_message')
+	end
      END
   'VIEWSPEC_VIEW3D_2D': BEGIN
 	v->view3d_2d,state.detno,group=Event.top
@@ -830,20 +998,26 @@ PRO SS_VIEWSPEC_Event, Event
 		return
 	end
         state.detno = res + 1
-        WIDGET_CONTROL,event.top,SET_UVALUE=state
 
+	filename = state.filename
+
+        if state.dim eq 3 then begin
+	  seqno = state.fileno
+          if state.bypass3d then $
+	  v->next,seqno,filename,error=er,pickDet=-1 else $
+          if state.toobig then $
+          v->next,seqno,filename,error=er,pickDet=state.detno $
+          else  v->next,seqno,filename,error=er
+        endif else begin
+          v->next,seqno,filename,error=er
+        end
+
+	state.v = v
+	if er eq 0 then DC_view_init,filename,state
 	if state.dim eq 2 then $
 	v->view2d,state.detno,group=Event.top
-
-	if state.dim eq 3 then begin
-	if state.toobig then $
-		WIDGET_CONTROL,state.base3dWID2,SENSITIVE=0
-	WIDGET_CONTROL,/HOURGLASS
-	  if state.toobig eq 0 then $
-		v->view3d_2d,state.detno,group=Event.top else $
-	  	scanSee_pick3d,state.filename,pickDet=state.detno
-	end
-	return
+	if state.dim eq 3 then $
+	v->view3d_2d,state.detno,group=Event.top 
       END
   'VIEWSPEC_3DIMAXIS': BEGIN
 	state.rank = Event.Value
@@ -879,7 +1053,7 @@ PRO SS_VIEWSPEC_Event, Event
 	v->ROI,state.detno,GROUP=Event.top
       END
   'PDMENU2D_PANIMAGE_SCANSEE': scanSee_PDMENU2D_PanImage_Event,state,Event
-  'PDMENU3D_PANIMAGE_SCANSEE': scanSee_PDMENU3D_PanImage_Event,state,Event
+  'PDMENU3D_PANIMAGE_SCANSEE': scanSee_PDMENU3D_PanImage_Event,state,Event 
   'PDMENU_ASCII1D': PDMENU_ASCII1D_Event,state,Event
   'PDMENU2D_INFO_SCANSEE': scanSee_PDMENU2D_Info_Event,state,Event
   ENDCASE
@@ -903,6 +1077,10 @@ PRO scanSee, GROUP=Group, fileno=fileno, format=format, filename=filename
 ;                     Add Info Record, Color table menus
 ;                     Add Plot/pick 1D data in 3D_2D and 2D_1D menu
 ;   07-15-2002   bkc  Add call Image2d... buttons for 2D and 3D file 
+;   08-26-2002   bkc  Add bypass 3D droplist option
+;		      Modify scanSee__defile, and read_scan.pro.R2 to bypass 
+;		      the returning of the 3D data array
+;                     Fix the plot/pick 1D... problem due to cpt < numb_pts
 ;-
 
 if XRegistered('SS_VIEWSPEC') then return
@@ -938,6 +1116,7 @@ loadct,39
 	slice: 0, $     ; axial slice #
 	rank: 2, $      ; z axis
 	paxis: 0, $     ; positioner axis picked
+	bypass3d: 1, $  ; bypass returning 3D array
 	filename : '/home/sricat/CHA/data/rix/cha:_0001.scan', $
 	format : 'G18.8', $
 	fileno : 0, $
@@ -949,6 +1128,7 @@ loadct,39
 	endno : 1, $          ; end 1D line #
 	def : make_array(85+4,3,/int), $
 	detno : 16, $
+	pickDet : -1, $
 	maxno : 1, $
 	home : '', $
 	path : '', $
@@ -1183,20 +1363,20 @@ filetype = WIDGET_LABEL( BASE4, $
       UVALUE='VIEWSPEC_VIEW3D_VW2D', $
       VALUE=BMP749,/BITMAP)
 
-  BUTTON25 = WIDGET_BUTTON( BASE28_6, $
-      UVALUE='VIEWSPEC_VIEW3D_2D', $
-      VALUE='3D_Slicer...')
-
   BASE28_61 = WIDGET_BASE(BASE28_6, /FRAME, $
       COLUMN=1, UVALUE='BASE28_61')
 
+  BUTTON25 = WIDGET_BUTTON( BASE28_61, $
+      UVALUE='VIEWSPEC_VIEW3D_2D', $
+      VALUE='3D_Slicer...')
+
   Menu3DPANImage = [ $
       { CW_PDMENU_S,       1, '3D PanImage' }, $ ;        0
-        { CW_PDMENU_S,       0, 'Calibration...' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages+PICT' }, $ ;        1
-        { CW_PDMENU_S,       2, 'PanImages+XDR' } $ ;        1
+        { CW_PDMENU_S,       0, 'Image2d...' }, $ ;        1
+;        { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
+;        { CW_PDMENU_S,       0, 'PanImages+PICT' }, $ ;        1
+;        { CW_PDMENU_S,       0, 'PanImages+XDR' }, $ ;        1
+        { CW_PDMENU_S,       2, 'Calibration...' } $ ;        1
         ]
   PDMENU3D_panimage = CW_PDMENU( BASE28_61, Menu3DPANImage, /RETURN_FULL_NAME, $
       UVALUE='PDMENU3D_PANIMAGE_SCANSEE')
@@ -1229,6 +1409,11 @@ filetype = WIDGET_LABEL( BASE4, $
       YSIZE=8)
   DC_view_ids.list2DWID = LIST12
   widget_control,LIST12,SET_LIST_SELECT=DC_view_ids.detno-1
+
+  BUTTON29 = WIDGET_DROPLIST( BASE28_2, $
+      UVALUE='VIEWSPEC_BYPASS3D', $
+      VALUE=['NO','YES'],TITLE='Bypass 3D')
+  WIDGET_CONTROL,BUTTON29,SET_DROPLIST_SELECT= DC_view_ids.bypass3d 
 
   BASE28_0 = WIDGET_BASE(BASE28, $
       ROW=1, FRAME=1, $
@@ -1323,6 +1508,10 @@ end
   if obj_valid(DC_view_ids.v) eq 0 then $
   WIDGET_CONTROL, DC_view_ids.basefileWID,SENSITIVE=0 else $
   WIDGET_CONTROL,DC_view_ids.filenameWID,SET_VALUE=filename
+  if DC_view_ids.bypass3d then begin
+	WIDGET_CONTROL,DC_view_ids.list2DWID,SENSITIVE=0
+	WIDGET_CONTROL,DC_view_ids.base3dWID2,SENSITIVE=0
+  end
 
   WIDGET_CONTROL,SS_VIEWSPEC,SET_UVALUE=DC_view_ids
 
