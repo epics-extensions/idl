@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.31 2004/01/29 22:50:39 cha Exp $
+; $Id: DC.pro,v 1.32 2004/02/17 17:17:09 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -6987,7 +6987,7 @@ COMMON CATCH1D_2D_COM, data_2d, gD
   'ViewData.3D_ARRAY...': BEGIN
 	if scanData.bypass3d eq 0 then begin
 	da3D = *(*gD).da3D
-	scanSee_read_pick3d,da3D	
+	sscan_read_pick3d,da3D	
 	end
 	END
   'ViewData.SSCAN(1D/2D/3D)...': BEGIN
