@@ -1310,6 +1310,7 @@ PRO plot2d_asciiReport,plot2d_state,Event
 	rename_dialog,cpath,'plot2d.txt','',Group=Event.top
 END
 
+
 ;
 ;
 PRO Plot2dMAIN13_Event, Event
@@ -1371,7 +1372,16 @@ ENDIF
       0: begin
 	WSET,plot2d_state.win
 	arr = TVRD()
-	PS_open,'idl.ps',/TV
+	sz = size(arr)
+	xs = sz(1)
+	ys = sz(2)
+	width = float(xs)/40
+	height = float(ys)/40
+;	PS_open,'idl.ps',/TV
+	set_plot,'PS'
+	device,filename='idl.ps',/color,bits=8, $
+		/Courier,/Bold, scale_factor=1.1, $
+		xsize=width,ysize=height
 	TV,arr
 	PS_close
 	PS_print, 'idl.ps'
@@ -1540,6 +1550,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;                       PS use the TVRD exactly as shown on screen
 ;       05-29-2001      Add ascii format control on data output
 ;                       Allow the Color bar width, height ajustment
+;       09-21-2001      Post script plot same as window size
 ;-
 COMMON COLORBAR, colorbar_data
 
