@@ -39,24 +39,35 @@ PRO PANIMAGE_SEL_accept,ret,title,panimageinfo
 ;  construct a image_subarray according to the selected ret vector
 ;
 ;  ret - contains the Di index number, ordered in D01,...,D70,D1,D2,...,DF
-;  title - specifies the panwindow title text
+;  title - specifies5 the panwindow title text
 ;  panimageinfo - structure defined in panimage_sel
 ;
+	sz = size(panimageinfo.image_array)
+
 	num = n_elements(ret)
+	if num gt sz(3) then num = sz(3)
 	image_subarray =make_array(panimageinfo.width,panimageinfo.height,num)
 
 	for i=0,num-1 do begin
+		if ret(i) lt sz(3) then $
 		image_subarray(*,*,i) = panimageinfo.image_array(*,*,ret(i))
 	end
 	new_win = panimageinfo.new_win
 
 detname = panimageinfo.detname
-id_def = [panimageinfo.id_def(15:84), panimageinfo.id_def(0:14)]
 
-if num lt 85 then begin
+if num eq 85 then id_def = [panimageinfo.id_def(15:84), panimageinfo.id_def(0:14)]
+	if num ge sz(3) and num lt 85 then begin   ; all but lt 85
+		image_subarray = panimageinfo.image_array
+		id_def = panimageinfo.id_def
+		detname = panimageinfo.detname(70:84)
+		if num gt 15 then detname=[detname,panimageinfo.detname(0:num-16)]		
+	end
+if num lt sz(3) then begin
 	ret_conv = ret - 15
 	for i=0,num-1 do begin
 	if ret(i) lt 15 then ret_conv = ret + 70
+	id_def = panimageinfo.id_def(i)	
 	end
 	detname = panimageinfo.detname(ret_conv)
 	id_def = panimageinfo.id_def(ret)
@@ -120,10 +131,23 @@ PRO PANIMAGE_SEL_Event, Event
       END
   'PANIMAGE_ALL': BEGIN
 	ret = indgen(85) 
-	title = panimageinfo.title + ' : All 85 detectors'
+	title = panimageinfo.title + ' : All read detectors'
 	ret_conv = [ret(0:69)+15,ret(70:84)-70]
 	PANIMAGE_SEL_accept,ret_conv,title,panimageinfo
 	panimageinfo.sel_list = ret_conv 
+      END
+  'PANIMAGE_PSPRINT': BEGIN
+		old_win = !d.window
+		if panimageinfo.new_win gt 0 then begin
+		wset,panimageinfo.new_win
+		arr = TVRD()
+    		PS_open,'idl.ps',/TV
+		TV,arr
+		PS_close
+		PS_print,'idl.ps'
+		wset,old_win
+		end
+		return
       END
   'PANIMAGE_ACCEPT': BEGIN
 	WIDGET_CONTROL,panimageinfo.tiff_id,GET_VALUE=name
@@ -176,7 +200,7 @@ END
 
 
 
-PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,panimageinfo
+PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,panimageinfo,tiff=tiff
 ;+
 ; NAME: 
 ;   panImage_Sel
@@ -197,6 +221,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 ;
 ; KEYWORDS:
 ;     TITLE:     Specifies the title of the panImage window
+;     TIFF:      Specifies the output tiff file name 
 ;
 ;-
 
@@ -247,8 +272,10 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
       YSIZE=5)
   pan_accept = WIDGET_BUTTON( BASE2_20,VALUE='Accept', $
       UVALUE = "PANIMAGE_ACCEPT")
-  pan_all = WIDGET_BUTTON( BASE2_20,VALUE=' All 85 ', $
+  pan_all = WIDGET_BUTTON( BASE2_20,VALUE=" All ", $
       UVALUE = "PANIMAGE_ALL")
+  pan_print = WIDGET_BUTTON( BASE2_20,VALUE="Print", $
+      UVALUE = "PANIMAGE_PSPRINT")
   pan_cancel = WIDGET_BUTTON( BASE2_20,VALUE=' Close', $
       UVALUE = "PANIMAGE_CANCEL")
 
@@ -282,6 +309,7 @@ PRO panImage_sel, GROUP=Group,image_array,det_def,title=title,new_win=new_win,pa
 	XSIZE=50, YSIZE=1, VALUE="", $
 	UVALUE = "PANIMAGE_TIFFNAME")
   WIDGET_CONTROL,pan_tiffname,SENSITIVE=0
+  if keyword_set(tiff) then WIDGET_CONTROL,pan_tiffname,SET_VALUE=tiff
 
   WIDGET_CONTROL, PANIMAGE_SEL, /REALIZE
 
@@ -431,7 +459,7 @@ new_win = !D.window
 	if id_def(sel) gt 0 then begin
 	v_max = max(image_array(*,*,sel),min=v_min)
 	if v_max eq v_min then begin
-		temp = !d.table_size * image_array(*,*,sel) 
+		temp = (!d.n_colors-1) * image_array(*,*,sel) 
 		TV,congrid(temp,width,height),sel
 	endif else begin
 		temp = congrid(image_array(*,*,sel), width, height)
