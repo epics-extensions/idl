@@ -104,7 +104,7 @@ PRO PANIMAGE_ascii,file,ret,panimageinfo
 	for i=0,num do begin
 		printf,1,""
 		printf,1,""
-		printf,1,"DETECTOR #",strtrim(ret(i)+1,2),'  (',panimageinfo.detname(i),')'
+		printf,1,"DETECTOR #",strtrim(ret(i)+1,2),'  (',panimageinfo.detname(ret(i)),')'
 		im = panimageinfo.image_array(*,*,ret(i))
 		for j=0,panimageinfo.width-1 do begin
 		printf,1,format=fmt,j,im(j,*)
@@ -218,12 +218,13 @@ PRO PANIMAGE_SEL_Event, Event
       END
   'PANIMAGE_ASCII': BEGIN
 	ret_conv = panimageinfo.sel_list
-	if total(ret_conv) gt 0 then $
+	if total(ret_conv) gt 0 then begin 
 	file = DIALOG_PICKFILE(/write,title="PanImage save as ASCII file...", $
 		FILE="panimage_data.txt", $
 		DIALOG_PARENT=Event.top,FILTER="*txt*")
 	if file ne '' then $
 	PANIMAGE_ascii,file,ret_conv,panimageinfo
+	end
       END
   'PANIMAGE_OUTPUT': BEGIN
 	type = WIDGET_INFO(Event.ID,/DROPLIST_SELECT)
