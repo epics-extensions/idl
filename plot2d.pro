@@ -16,6 +16,13 @@
 ;
 @PS_open.pro
 @colorbar.pro
+@idlitparameterset__define.pro
+@idlitdatacontainer__define.pro
+@idlitvisroi__define.pro
+@idlittoolimage__define.pro
+@idlittoolsurface__define.pro
+@idlittoolcontour__define.pro
+
 
 PRO plot2d_tablesize,ncolors
         tvlct,r,g,b,/get
@@ -879,23 +886,6 @@ COMMON COLORBAR,colorbar_data
 	WSET,plot2d_state.old_win
 	end
       END
-  'PLOT2D_PNG': BEGIN
-       tvlct,R,G,B,/get
-	cd,current=p
-	p = p + !os.file_sep +'PNG'+!os.file_sep
-	found = findfile(p,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' ' +p
-	file = plot2d_state.class+'.png'
-	fn = dialog_pickfile(filter='*png',path=p,file=file,/WRITE, $
-		title='Save PNG Image')
-	if fn ne '' then begin
-	WSET,plot2d_state.win
-	if !d.n_colors gt !d.table_size then $
-        WRITE_PNG,fn,TVRD(/true) else $
-        WRITE_PNG,fn,TVRD(),R,G,B
-	WSET,plot2d_state.old_win
-	end
-      END
   'PLOT2D_PICT': BEGIN
        tvlct,R,G,B,/get
 	cd,current=p
@@ -1194,8 +1184,10 @@ if top gt 0.4*!d.y_size then top = !d.y_size *.4
 	width=!d.x_size-left-right
 	height=!d.y_size-top-bottom
 
-        xrange=[plot2d_state.xarr(0), plot2d_state.xarr(dim(0)-1)]
-        yrange=[plot2d_state.yarr(0), plot2d_state.yarr(dim(1)-1)]
+	nx = n_elements(plot2d_state.xarr)
+	ny = n_elements(plot2d_state.yarr)
+        xrange=[plot2d_state.xarr(0), plot2d_state.xarr(nx-1)]
+        yrange=[plot2d_state.yarr(0), plot2d_state.yarr(ny-1)]
 ;	xrange = [min(plot2d_state.xarr),max(plot2d_state.xarr)]
 ;	yrange = [min(plot2d_state.yarr),max(plot2d_state.yarr)]
 	
@@ -1370,6 +1362,7 @@ if !d.name eq 'PS' then colorbar_data.width = colorbar_data.width*30
 	plot2d_notes,plot2d_state
 	end
     2: begin
+	if plot2d_state.max gt plot2d_state.min then begin
 	levels = make_array(plot2d_state.nlevels,value=1,/int)
 	contour,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
 		title=plot2d_state.title,xtitle=plot2d_state.xtitle, $
@@ -1386,6 +1379,7 @@ if !d.name eq 'PS' then colorbar_data.width = colorbar_data.width*30
 		color=plot2d_state.tcolor, $
 		levels=plot2d_state.levels(0:plot2d_state.nlevels-1), $
 		NLevels=plot2d_state.nlevels, /Follow
+	end
 	plot2d_notes,plot2d_state
 	end
     ELSE: print,'No plot supported for this case'
@@ -1662,7 +1656,7 @@ if event.PRESS eq 4 then begin
 end
       END
   'ITOOL_MENU': BEGIN
-	PDMENU3_Event, Event
+	PLOT2DPDMENU3_Event, Event
       END
   'BGROUP2': BEGIN
 ;      plot2d_state = plot2d_stateInit
@@ -1736,7 +1730,7 @@ end
 END
 
 
-PRO PDMENU3_Event, Event
+PRO PLOT2DPDMENU3_Event, Event
 
 WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
 
@@ -1745,14 +1739,9 @@ WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
 
   CASE Event.Value OF
 
-
   'ITOOLS.iImage': BEGIN
-    PRINT, 'Event for ITOOLS.iImage'
 	iImage,plot2d_state.data, rgb_table=rgb, $
-		plot2d_state.xarr,plot2d_state.yarr, $
-;		xrange=plot2d_state.range(0:1), $
-;		yrange=plot2d_state.range(2:3), $
-		title=plot2d_state.title,GROUP=Event.top
+		title=plot2d_state.title,GROUP=Event.top 
     END
   'ITOOLS.iSurface': BEGIN
 	iSurface,plot2d_state.data, rgb_table=rgb, $
