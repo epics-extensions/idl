@@ -417,6 +417,7 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 ;
 ;-
 
+
   debug = 0
   IF keyword_set(dump) THEN debug = dump
   ON_ERROR,0 ;,1
@@ -467,13 +468,14 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 ; IF 3D rank exceed 500 set default pickDet=16 
   IF tmp.rank EQ 3  THEN BEGIN
   	IF n_elements(pickDet) EQ 0 THEN BEGIN 
-    	IF npts(0) GE 500 OR npts(1) GE 500 OR npts(2) GE 500 THEN pickDet = 16
+    	IF npts(0) GT 2000 OR npts(1) GE 500 OR npts(2) GE 500 THEN pickDet = 16
 	  ENDIF
   dd =1L *npts(0)*npts(1)*npts(2)
-	if dd gt 5202000L then begin
-	msg = ['Sorry! 3D scan array dimension too big', string(npts), $
+	if dd gt 500000000L then begin
+	msg = ['Warning! 3D scan array dimension kind of big', string(npts), $
 		'Only one detector returned : ',string(pickDet)]
-	r = dialog_message(msg,/error)
+	print,msg
+;	r = dialog_message(msg,/error)
 ;	goto,BAD
 	end
   ENDIF
