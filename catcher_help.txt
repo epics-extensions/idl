@@ -244,6 +244,20 @@ and '2D ...'.
 2D ...			Runs the IDL  VIEW2D program.  It allows the user
 			to browse through previously captured 2D scan data.
 
+1D Overlay...	        Runs the VIEW1D_OVERLAY program. It allows the user
+                        to view the 1D overlay plot of selected detector of
+                        interested 1D scans.
+
+
+			    IMAGE@1D / IMAGE@2D 
+
+The droplist Image@1D / Image@2D let user control how the 2D images will
+be saved. The default mode Image@1D implies that 2D images for each 
+detector will be saved at the end of each 1D scan. The Image@2D implies that
+images will be saved only at the end of 2D scan. To avoid the loose of 2D
+data for very fast 2D scan user should use the Image@2D. For slow 2D scan
+a user can use Image@1D which qurantees that 2D images are always updated 
+at the end of each 1D scan.
 
 
 			     STATUS FIELD 
