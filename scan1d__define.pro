@@ -3,6 +3,87 @@
 ;
 
 @u_read.pro
+@fit_statistic.pro
+
+PRO scan1d::statistic,VX,VY,C_MASS=c_mass,X_PEAK=x_peak,Y_PEAK=y_peak, $
+		Y_HPEAK=y_hpeak, X_HWDL=x_hwdl,X_HWDR=x_hwdr, FWHM=fwhm, $
+		NO=NO,DETECTOR=detector,FIT=FIT,LIST=LIST
+;+
+; NAME:
+;       scan1d::Statistic
+;
+; PURPOSE:
+;       This method allows the user to calculate peak,fwhm width
+;
+; CALLING SEQUENCE:
+;       Obj->[scan1d::]STATISTIC [,X,Y] ,C_MASS=c_mass,X_PEAK=x_peak, $
+;                      Y_PEAK=y_peak,Y_HPEAK=y_hpeak, $
+;                      X_HWDL=x_hwdl,X_HWDR=x_hwdr,FWHM=fwhm, $
+;                      [,NO=no] [,DETECTOR=detector]
+;
+; ARGUMENTS:
+;    VX:        specifies/returns the independent variable X
+;    VY:        specifies/returns the dependent variable Y
+;
+; KEYWORDS:
+;    NO:       specifies the input 1D scan sequence number, if specified
+;              the new data read in and a new VX and VY will be returned.
+;    DETECTOR  specifies the desired detector number , default to 1
+;    C_MASS:   returns the center of mass of the Y curve
+;    X_PEAK:   returns the X coordinate corresponding to peak Y value
+;    Y_PEAK:   returns the peak Y value
+;    Y_HPEAK:  returns the Y value at the FWHM width
+;    X_FWDL:   returns the left end of X coordinate of the FWHM width 
+;    X_FWDR:   returns the right end of X coordinate of the FWHM width 
+;    FWHM:     returns the full width of the half peak  
+;
+; EXAMPLE:
+;   Example 1  will calucultate the FWHM value for the 6th scan and
+;    2nd detector. The calculated value for center of mass, peak x, peak y,
+;    half peak y value, half peak x values, and width are all returned.
+;    
+;    The object v1 need to be defined only if it is not yet defined.
+;
+;         v1 = obj_new('scan1d',file='junk2')
+;         v1->statistic,VX,VY,c_mass=cx,x_peak=xp,y_peak=yp, $
+;                   y_hpeak=yhp,x_hwdl=xl,x_hwdr=xr,fwhm=fwhm,NO=6,DET=2
+;
+;   Example 2  will calucultate the FWHM value for the know vectors VY versus
+;    VX. The calculated value for center of mass, peak x, peak y,
+;    half peak y value, half peak x values, and width are all returned.
+;
+;         v1->statistic,VX,VY,c_mass=cx,x_peak=xp,y_peak=yp, $
+;                   y_hpeak=yhp,x_hwdl=xl,x_hwdr=xr,fwhm=fwhm
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, Sept. 27, 1999.
+;       xx-xx-xxxx      comment
+;-
+
+if n_params() eq 0 then begin
+	res = dialog_message('Usage: obj->statistic,Vx,Vy,C_MASS=c_mass,X_PEAK=xpeak,Y_HPEAK=yhpeak,FWHM=fwhm',/info)
+	return
+	end
+if n_params() eq 1 then begin
+	VY = VX
+	VX = indgen(n_elements(VY))
+	end
+if keyword_set(NO) then begin
+	self->read,no,pa=pa,da=da,seqno=seqno
+	det=0
+	if keyword_set(detector) then det=detector-1	
+	VX = pa(*,0)
+	VY = da(*,det)
+end
+
+	if keyword_set(list) then $
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot,/LIST else $
+	statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot
+
+	x_hwdl = xl
+	x_hwdr = xr
+END
+
 
 PRO parse_num0,instring,ids,sep=sep
 Keysepar = '-'
