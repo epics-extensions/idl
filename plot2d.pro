@@ -198,8 +198,6 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
   'plot2d_setThreshold': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=val
 	plot2d_state.threshValue=val(0)
-	plot2d_state.thresh=val(0)
-	if plot2d_state.type ne 2 then $
 	plot2d_state.thresh = fix((val(0)-plot2d_state.min) /(plot2d_state.max-plot2d_state.min)*(!d.table_size-1))
 	WIDGET_CONTROL,plot2d_state.threshID,SET_VALUE=plot2d_state.thresh
 	plot2d_replot,plot2d_state
@@ -207,8 +205,6 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
   'SLIDER7': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=thresh
 	plot2d_state.thresh = thresh(0)
-	plot2d_state.threshValue = thresh(0)
-	if plot2d_state.type ne 2 then $
 	plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)* thresh(0)/(!d.table_size-1) 
 	WIDGET_CONTROL,plot2d_state.threshVID,SET_VALUE=plot2d_state.threshValue
 	plot2d_replot,plot2d_state
@@ -292,7 +288,7 @@ END
 
 
 PRO plot2d_tvprocess, GROUP=Group
-COMMON PLOT2D_BLOCK,plot2d_state
+COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 
 if plot2d_state.max eq plot2d_state.min then begin
 	res = dialog_message('Sorry, not available for constant image',/INFO)
@@ -353,18 +349,18 @@ if XRegistered('plot2d_tvprocess') then return
       UVALUE='BASE94')
 
   SLIDER5 = CW_FSLIDER( BASE94, $
-      MAXIMUM=plot2d_state.pixel_max, $
-      MINIMUM=plot2d_state.pixel_min, $
+      MAXIMUM=plot2d_state.max, $
+      MINIMUM=plot2d_state.min, $
       TITLE='Scaling Pixels < ',$ 
       UVALUE='SLIDER5', $
-      VALUE=plot2d_state.pixel_max)
+      VALUE=plot2d_state.max)
 
   SLIDER3 = CW_FSLIDER( BASE94, $
-      MAXIMUM=plot2d_state.pixel_max, $
-      MINIMUM=plot2d_state.pixel_min, $
+      MAXIMUM=plot2d_state.max, $
+      MINIMUM=plot2d_state.min, $
       TITLE='Scaling Pixels > ', $
       UVALUE='SLIDER3', $
-      VALUE=plot2d_state.pixel_min)
+      VALUE=plot2d_state.min)
 
   BASE77 = WIDGET_BASE(BASE75, $
       COLUMN=1, $
@@ -429,13 +425,16 @@ if XRegistered('plot2d_tvprocess') then return
 
  SLIDER7 = WIDGET_SLIDER( BASE76, $
       MAXIMUM=!d.table_size-1, $
-      MINIMUM=0, /SCROLL, /SUPPRESS_VALUE, $
+      MINIMUM=0, $
+	/SCROLL, /SUPPRESS_VALUE, $
 ;      TITLE='Threshold Value', $
       UVALUE='SLIDER7', $
       VALUE=plot2d_state.thresh)
   plot2d_state.tvprocess = plot2d_tvprocess
   plot2d_state.threshID = SLIDER7
   plot2d_state.threshVID = threshVID
+
+  plot2d_stateInit = plot2d_state
 
   WIDGET_CONTROL, plot2d_tvprocess, /REALIZE
 
@@ -883,15 +882,8 @@ if top gt 0.4*!d.y_size then top = !d.y_size *.4
 	data = plot2d_state.data
 	if !d.name ne 'PS' then data = CONGRID(plot2d_state.data,width,height)
 
-;newdata = make_array(width,height,/byte)
-if plot2d_state.type eq 2 then begin
-	newdata = data 
-endif else begin
 	newdata = (data - plot2d_state.min)/(plot2d_state.max - plot2d_state.min)*!d.table_size
 newdata = fix(newdata)
-end
-;thresh = (plot2d_state.thresh-plot2d_state.min)/(plot2d_state.max - plot2d_state.min)*!d.table_size
-;thresh = fix(thresh)
 
 if plot2d_state.tvoption gt 0 then begin
 case plot2d_state.tvoption of
@@ -1226,6 +1218,7 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;       03-05-1999      Add Plot Options support to let user set the plot
 ;                       margins, title, labels, color table, various
 ;                       plot style, etc.
+;       09-17-1999      Add TV image options
 ;
 ;-
 
@@ -1241,7 +1234,7 @@ xl = ''
 yl =''
 zl =''
 ti = ''			; plot title
-wti='PLOT2D (R1.0)'		; window title
+wti='PLOT2D (R1.0a)'		; window title
 cl = !d.table_size
 timestamp=''
 xloc = 0.01
@@ -1320,21 +1313,14 @@ if keyword_set(yarr) then yarray = yarr
 	thresh: 140, $          ; threshold index value
 	threshValue: 140., $      ; threshold value
 	pixel_min:0., $
-	pixel_max:255., $
-	type: sz(n_elements(sz)-2), $
+	pixel_max: !d.table_size - 1., $
 	npts:7, $		; smooth by 7x7 points
 	xsize: xsize, $
 	ysize: ysize $
 	}
 
-; check for byte array or non byte
-
-if plot2d_state.type ne 2 then begin
-plot2d_state.pixel_min = plot2d_state.min
-plot2d_state.pixel_max = plot2d_state.max
+plot2d_state.thresh =  !d.table_size/2
 plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)*plot2d_state.thresh/(!d.table_size-1) 
-print,'threshValue',plot2d_state.threshValue
-end
 
 	if n_elements(footnote) gt 0 then plot2d_state.comment = footnote
 
