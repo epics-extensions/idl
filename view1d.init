@@ -37,7 +37,7 @@ debug : 0,    $   ;  0 normal runing mode, 1 debug mode
 option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 nosave: 1, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'CATCHER_V1', $
-      release     : '(R2.2)',     $  data catcher release
+      release     : '(R2.2.1)',     $  data catcher release
       dataversion : '', 	  $  new field in R1.5.5.0
       pv          : '',           $
       pvconfig    : '',           $
