@@ -698,7 +698,7 @@ print,'plottype',plot2d_state.plottype
         plot2d_replot, plot2d_state
         !P.FONT=1
         device,/close
-;        spawn,'lpr idl.ps'
+        spawn,'lpr idl.ps'
         print,'Print idl.ps'
         set_plot,'X'
 	end
@@ -707,7 +707,10 @@ print,'plottype',plot2d_state.plottype
 	end
       2: begin
 	Print,'Button Close Pressed'
-	WIDGET_CONTROL,Event.top,/DESTROY
+	WIDGET_CONTROL,Event.top,BAD=bad,/DESTROY
+	catch,error_status
+	if error_status eq 0 then $
+	WSET,plot2d_state.old_win
 	end
       ELSE: Message,'Unknown button pressed'
       ENDCASE
@@ -856,7 +859,8 @@ if keyword_set(stamp) then timestamp = strtrim(stamp,2)
 	stamp: timestamp, $
 	base:0L, $
 	id_draw:0L, $
-	win:0L, $
+	win:0, $
+	old_win: !d.window, $
 	xsize: xsize, $
 	ysize: ysize $
 	}
@@ -881,7 +885,7 @@ if keyword_set(comment) then begin
   BGROUP2 = CW_BGROUP( BASE1, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
 
-  DRAW3 = WIDGET_DRAW( MAIN13, XSIZE=400, YSIZE=300)
+  DRAW3 = WIDGET_DRAW( MAIN13, XSIZE=400, YSIZE=300, RETAIN=2)
 
   BASE2 = WIDGET_BASE(MAIN13, /ROW)
 
@@ -1731,7 +1735,6 @@ type = s(n_elements(s)-2)
 ;if keyword_set(view) then begin
 	if HDF_Query.view eq 1 then begin 
 	old_win = !d.window
-;print,HDF_Query_id.draw1, old_win
 	CASE no OF 
 	  0: BEGIN
 		plot1d,[-1,-1],XStyle=4,YStyle=4,title=title+n,xtitle=u
