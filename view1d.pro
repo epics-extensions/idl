@@ -138,6 +138,7 @@ ERRCODE=0
                 ret=WIDGET_MESSAGE(!err_string + string(!err))
                 if n_elements(unit) then u_close,unit
 		ERRCODE=-99
+;		exit
                 return 
         end
 
@@ -624,7 +625,8 @@ if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
 
         id=0
         u_openr,unit,filename
-        u_openw,unit2,filename+'.xdr',/XDR
+;        u_openw,unit2,filename+'.xdr',/XDR
+	openw,/XDR,unit2,filename+'.xdr',/GET_LUN  
 
         WHILE NOT  EOF(unit) DO BEGIN
         id = id + 1
@@ -648,6 +650,88 @@ help1:
 	print,''
 	print,'This program converts the pure binary data objects into XDR binary format.'
 	print,'The file "filename.xdr" created will be IDL platform independent.'
+	print,''
+END
+
+PRO u_xdr2bi,filename,help=help,VT=VT
+;+
+; NAME:
+;       U_XDR2BI
+;
+; PURPOSE:
+;       This IDL routine converts platform-independent XDR data into
+;       native binary data. 
+;
+;       The output filename uses the input filename suffixed with '.2bi'.
+;
+; CALLING SEQUENCE:
+;
+;       U_XDR2BI, 'filename' [,/VT] [,/Help]
+;
+; INPUTS:
+;       filename:   The data file should contain XDR binary data objects.
+;
+; OUTPUTS:
+;       filename.2bi:   Output file. 
+;                   It contains the converted native binary data objects.
+;
+; KEYWORD PARAMETERS:
+;       VT:     If a dumb terminal without X window server is used, 
+;               this option must be set, e.g. a telnet session.
+;       HELP:   If this keyword is set, a simple on line help is given.
+;
+; RESTRICTIONS:
+;       The XDR input file should be created by the u_write command.
+;
+; EXAMPLE:
+;
+;        U_XDR2BI,'catch1d.trashcan.xdr'
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 08-10-98.
+;
+;       xx-xx-xx      iii  comment     
+;-
+;
+
+if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
+
+	found = findfile(filename)
+	if found(0) eq '' then begin
+		print,'Error: '+filename+' not found!'
+		return
+		end
+	if keyword_set(VT) then $
+	OK_WRITE = u_writePermitted(filename+'.2bi',/VT) else $
+	OK_WRITE = u_writePermitted(filename+'.2bi')
+	if OK_WRITE lt 0 then return
+
+        id=0
+        u_openr,unit,filename,/XDR
+        u_openw,unit2,filename+'.2bi'
+
+        WHILE NOT  EOF(unit) DO BEGIN
+        id = id + 1
+        u_read,unit,x
+	u_write,unit2,x
+        END
+        maxno = id
+        u_close,unit
+        u_close,unit2
+	if keyword_set(VT) then $
+	print,string(maxno)+' sets of binary objects saved in "'+ filename+'.2bi"' else $
+        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
+		filename+'.2bi"')
+
+	return
+
+help1:
+
+	print,''
+	print,'Usage: U_XDR2BI,"filename"'
+	print,''
+	print,'This program converts the xdr data objects into native binary format.'
+	print,'A new file "filename.2bi" will be created.'
 	print,''
 END
 ;
@@ -1170,7 +1254,7 @@ if XRegistered('PS_printer') then return
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.9 1998/08/10 18:56:05 cha Exp $
+; $Id: view1d.pro,v 1.10 1998/11/25 18:50:27 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1338,7 +1422,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.9 1998/08/10 18:56:05 cha Exp $
+; $Id: view1d.pro,v 1.10 1998/11/25 18:50:27 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2905,7 +2989,8 @@ if XRegistered('view1d_plotspec') ne 0 then return
      if ix lt 4 then begin
 	len = strlen(strtrim(x_descs(ix),2))
         if len gt 1 then strput,xlabel,x_descs(ix) else $
-        	strput,xlabel,'P'+strtrim(ix+1,2)
+        	strput,xlabel,x_names(ix)
+;        	strput,xlabel,'P'+strtrim(ix+1,2)
 	if len lt 1 then len = 2
 	l2 = strlen(x_engus(ix))
         if l2 gt 1 then begin
@@ -5356,8 +5441,8 @@ x = make_array(6,/string,value=string(replicate(32b,60)))
 y = make_array(8,/float)
 
 	u_read,unit,x
-	u_read,unit,oy
-	u_read,unit,n
+	u_read,unit,oy,errcode
+	if errcode lt 0 then goto,TRYPLOT
 y=oy
 no = n_elements(oy)
 if n_elements(y) gt 1 then begin
@@ -5374,6 +5459,8 @@ if n_elements(y) gt 1 then begin
 view1d_plotspec_id.seqno = fix(y(0))
 view1d_viewscan_id.seqno = fix(y(0))
 
+	u_read,unit,n,errcode
+	if errcode lt 0 then goto,TRYPLOT
 
 env_field.exist = 0 
 if n(0) gt 0 then begin 
@@ -5399,6 +5486,7 @@ end
 ; the internal file name may be not consistant with the external file name
 ; due to the user copy the trashcan to a new file without use file->copy
 ;
+TRYPLOT:
 temp_name = view1d_plotspec_array(3)
 s1 = n_elements(x)
 for i=0,s1-1  do view1d_plotspec_array(i)=x(i) 
@@ -6125,6 +6213,9 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;       02-17-98  bkc   If the user entered an existing ASCII file it will be
 ;                       backuped for user
 ;       05-14-98  bkc   Upgrade to R1.4
+;       11-24-98  bkc   Upgrade to R1.5
+;                       Accommondate the read problem introdued by too many
+;                       characters entered in comment fields
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -6147,7 +6238,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='VIEW1D (R1.4)', $          ;   VIEW1D release
+      TITLE='VIEW1D (R1.5)', $          ;   VIEW1D release
       UVALUE='VIEW1D_1')
 
   BASE68 = WIDGET_BASE(VIEW1D_1, $
