@@ -684,9 +684,10 @@ if n_elements (printer_info) eq 0 then $
 	reverse: 0, $
 	base: 0L, $
 	ptr_field:0L }
-if n_elements(r_curr) eq 0 then begin
-	LOADCT,39
-	end
+; inherit from the parent process
+;if n_elements(r_curr) eq 0 then begin
+;	LOADCT,39  
+;	end
 END
 
 PRO PS_open,psfile,TV=TV
@@ -1108,7 +1109,7 @@ COMMON PRINTER_BLOCK,printer_info
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.4 1998/02/17 23:17:50 cha Exp $
+; $Id: view1d.pro,v 1.5 1998/02/24 17:04:13 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1277,7 +1278,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.4 1998/02/17 23:17:50 cha Exp $
+; $Id: view1d.pro,v 1.5 1998/02/24 17:04:13 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1529,7 +1530,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		WIDGET_CONTROL,info.base,/DESTROY
 		st = [ 'File: '+filename(0),' already existed!', $
 			'ASCII data saved in ',info.oldname]
-		res = dialog_message(st,/info)
+		res = widget_message(st,/info)
 		return
 	end
 	spawn,[OS_SYSTEM.cp, info.oldname, filename(0)],/noshell
@@ -1893,9 +1894,11 @@ END
 
 
 PRO catch1d_get_pvtcolor,i,color
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 ; 24 bits
-	catch1d_get_pvtct,red,green,blue
-	color = red(i) + green(i)*256L + blue(i)*256L ^2
+	if n_elements(R_ORIG) eq 0 then $
+	catch1d_get_pvtct
+	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
 ;	plot,indgen(10),color=color
 END
 
@@ -1904,7 +1907,8 @@ PRO catch1d_save_pvtct
 	save,red,green,blue,file='catch1d.tbl'
 END
 
-PRO catch1d_get_pvtct,red,green,blue
+PRO catch1d_get_pvtct
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	file = 'catch1d.tbl'
 	found = findfile(file)
 	if found(0) eq '' then begin
@@ -1915,6 +1919,11 @@ PRO catch1d_get_pvtct,red,green,blue
 	end
 	restore,file
 	tvlct,red,green,blue
+	R_ORIG = red
+	G_ORIG = green
+	B_ORIG = blue
+
+	LOADCT,39
 END
 
 ;
@@ -5589,7 +5598,7 @@ PRO plotoption_setcolor
 COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array , view1d_plotspec_id, view1d_plotspec_limits, view1d_plotspec_saved
 
   if view1d_plotspec_id.color eq 1 then begin
-        LOADCT, 39
+;       LOADCT, 39
         dcl = !d.table_size - 2 
 	ncv = 4
         colorlevel = dcl / ncv 
