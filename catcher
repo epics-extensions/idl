@@ -29,12 +29,12 @@ if -e catch1d.config then
 endif
 
 if $HOST_ARCH == "solaris-sparc" then
-	set exe = "-rt=$PVT_LOC/../../idllib/catcher.exe2.idl53"
+	set exe = "-rt=$PVT_LOC/../../idllib/catcher.exe2.idl55"
 	else
-	set exe = "-rt=$PVT_LOC/catcher.exe2.idl53"
+	set exe = "-rt=$PVT_LOC/catcher.exe2.idl55"
 endif
-	if -e catcher.exe2.idl53 then
-	set exe = "-rt=catcher.exe2.idl53"
+	if -e catcher.exe2.idl55 then
+	set exe = "-rt=catcher.exe2.idl55"
 	endif
 
 while ( "$1" !=  "" )
