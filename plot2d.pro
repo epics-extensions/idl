@@ -485,14 +485,14 @@ if XRegistered('plot2d_tvprocess') then return
       MAXIMUM=plot2d_state.max, $
       MINIMUM=plot2d_state.min, /EDIT, $
       TITLE='Max Scaling Pixels < ',$ 
-      UVALUE='SLIDER5', $
+      UVALUE='SLIDER5', /scroll, $
       VALUE=plot2d_state.max)
 
   SLIDER3 = CW_FSLIDER( BASE94, $
       MAXIMUM=plot2d_state.max, $
       MINIMUM=plot2d_state.min, /EDIT, $
       TITLE='Min Scaling Pixels > ', $
-      UVALUE='SLIDER3', $
+      UVALUE='SLIDER3',/scroll,  $
       VALUE=plot2d_state.min)
 
   BASE77 = WIDGET_BASE(BASE75, $
@@ -560,7 +560,6 @@ if XRegistered('plot2d_tvprocess') then return
       MAXIMUM=plot2d_state.table_size-1, $
       MINIMUM=0, $
 	/SCROLL, /SUPPRESS_VALUE, $
-;      TITLE='Threshold Value', $
       UVALUE='SLIDER7', $
       VALUE=plot2d_state.thresh)
   plot2d_state.tvprocess = plot2d_tvprocess
@@ -1840,7 +1839,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;       WIN: The window ID of the drawing area used by the PLOT2D.
 ;
 ; COMMON BLOCKS:
-;       None.
+;       COLORBAR.
 ;
 ; SIDE EFFECTS:
 ;       The max and min value will be shown as the default comment.
