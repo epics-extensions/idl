@@ -9,8 +9,7 @@
 @PS_open.pro
 @colorbar.pro
 
-PRO plot2d_setupMargins,parent
-COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
+PRO plot2d_setupMargins,plot2d_state,parent
 
   BASE27_0 = WIDGET_BASE(parent, $
       COLUMN=1, FRAME=1, $
@@ -107,8 +106,7 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 END
 
 
-PRO plot2d_setupLabels,parent
-COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
+PRO plot2d_setupLabels,plot2d_state,parent
 
 
   BASE41 = WIDGET_BASE(parent, $
@@ -191,7 +189,8 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 END
 
 PRO plot2d_tvprocess_Event, Event
-COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
+  WIDGET_CONTROL,Event.top,get_uvalue=plot2d_state
+  WIDGET_CONTROL,plot2d_state.base,get_uvalue=plot2d_stateInit
 
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
@@ -274,22 +273,31 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 	plot2d_state = plot2d_stateInit
 	plot2d_replot,plot2d_state
 	END
+  'BUTTON_REALV': BEGIN
+	plot2d_state.versus = 0 
+	plot2d_replot,plot2d_state
+	END
+  'BUTTON_STEP': BEGIN
+	plot2d_state.versus = 1
+	plot2d_replot,plot2d_state
+	END
   'BUTTON140': BEGIN
 	WIDGET_CONTROL,Event.top,/DESTROY
 	plot2d_state.tvoption = 0
 	plot2d_state.tvprocess = 0L
+	return
       END
   ENDCASE
+
+
+  WIDGET_CONTROL,Event.top,set_uvalue=plot2d_state
+
 END
 
 
-; DO NOT REMOVE THIS COMMENT: END plot2d_tvprocess
-; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
 
 
-
-PRO plot2d_tvprocess, GROUP=Group
-COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
+PRO plot2d_tvprocess,plot2d_state, GROUP=Group
 
 if plot2d_state.max eq plot2d_state.min then begin
 	res = dialog_message('Sorry, not available for constant image',/INFO)
@@ -337,6 +345,19 @@ if XRegistered('plot2d_tvprocess') then return
   BUTTON140 = WIDGET_BUTTON( BASE108, $
       UVALUE='BUTTON140', $
       VALUE=' Done ')
+
+  BASE88 = WIDGET_BASE(BASE75, $
+      ROW=1, $
+      FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE88')
+  label1 = WIDGET_LABEL(BASE88,VALUE='Axes:')
+  BUTTON_STEP = WIDGET_BUTTON( BASE88, $
+      UVALUE='BUTTON_STEP', $
+      VALUE='vs Step #')
+  BUTTON_REALV = WIDGET_BUTTON( BASE88, $
+      UVALUE='BUTTON_REALV', $
+      VALUE='vs Value')
 
   BASE90 = WIDGET_BASE(BASE75, $
       ROW=1, $
@@ -435,17 +456,33 @@ if XRegistered('plot2d_tvprocess') then return
   plot2d_state.threshID = SLIDER7
   plot2d_state.threshVID = threshVID
 
-  plot2d_stateInit = plot2d_state
+;  plot2d_stateInit = plot2d_state
 
   WIDGET_CONTROL, plot2d_tvprocess, /REALIZE
+  WIDGET_CONTROL,plot2d_tvprocess,SET_UVALUE=plot2d_state
 
   XMANAGER, 'plot2d_tvprocess', plot2d_tvprocess, /NO_BLOCK
 END
 
+PRO plot2d_ContourLevels,plot2d_state,nlevels
+; 12 number of curves allowed
+
+	plot2d_state.nlevels = nlevels
+	dlevels=(plot2d_state.max-plot2d_state.min)/(nlevels - 1)
+	plot2d_state.levels = 0.
+	levels = make_array(nlevels,/float)
+	for i=0,nlevels-1 do begin
+	levels(i) = plot2d_state.min + dlevels * i
+	end
+	plot2d_state.levels = levels
+END
+
+
 PRO plot2d_setupContourLevels_Event, Event
-COMMON PLOT2d_BLOCK,plot2d_state
 
   WIDGET_CONTROL,Event.top,GET_UVALUE=info
+  WIDGET_CONTROL,info.parent,GET_UVALUE=plot2d_state
+  c_levels = plot2d_state.levels
 
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
@@ -453,19 +490,29 @@ COMMON PLOT2d_BLOCK,plot2d_state
 
   'TEXT16': BEGIN
       END
+  'NLEVELS_CONTOUR': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=nlevels
+	if nlevels gt n_elements(c_levels) or nlevels lt 2 then begin
+		WIDGET_CONTROL,Event.id,SET_VALUE=plot2d_state.nlevels
+		return
+	end
+	plot2d_ContourLevels,plot2d_state,nlevels
+	WIDGET_CONTROL,info.textID,SET_VALUE=strtrim(plot2d_state.levels(0:plot2d_state.nlevels-1),2)
+      END
   'BUTTON18': BEGIN
+	print,'Level0 = ',info.levels
 	WIDGET_CONTROL,info.textID,get_value=st
 	nlevels = n_elements(st)
-	if nlevels gt 12 then begin
+	if nlevels gt n_elements(c_levels) then begin
 		res = dialog_message('Error: only 12 entry allowed!',/Error)
 		return
 	end
 	is=0
-	info.levels=make_array(12,/string)
+	info.levels=make_array(12,/string,value='')
 	for i=0,n_elements(st)-1 do begin
 		if strtrim(st(i),2) ne '' then begin 
 		info.levels(is)=st(i)
-;	print,'Level',is, ' = ',st(i)
+	print,'Level',is, ' = ',st(i)
 		if i eq 0 then levels = float(st(i)) else $
 		levels= [levels,float(st(i))]
 		is = is+1
@@ -477,18 +524,24 @@ COMMON PLOT2d_BLOCK,plot2d_state
       END
   'BUTTON19': BEGIN
 	WIDGET_CONTROL,Event.top, /DESTROY
+  	WIDGET_CONTROL,info.parent,SET_UVALUE=plot2d_state
+	return
       END
   ENDCASE
+
+	plot2d_replot,plot2d_state
+
+  WIDGET_CONTROL,Event.top,SET_UVALUE=info
+  WIDGET_CONTROL,info.parent,SET_UVALUE=plot2d_state
+	
 END
 
 
-; DO NOT REMOVE THIS COMMENT: END plot2d_setupContourLevels
-; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
 
 
+PRO plot2d_setupContourLevels, plot2d_state, GROUP=Group
 
-PRO plot2d_setupContourLevels, GROUP=Group, c_levels
-
+   c_levels = plot2d_state.levels
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -509,10 +562,14 @@ PRO plot2d_setupContourLevels, GROUP=Group, c_levels
       UVALUE='LABEL15', $
       VALUE='Contour Levels')
 
-	nlevels = 12
-	levels = make_array(nlevels,/string)
-	if n_elements(c_levels) gt 0 then begin
-	for i=0,n_elements(c_levels)-1 do begin
+  nlevels = CW_FIELD( BASE14,VALUE=plot2d_state.nlevels, $
+      /RETURN_EVENTS, /INTEGER, TITLE='# Levels:', $
+      UVALUE='NLEVELS_CONTOUR', XSIZE=2)
+ 
+	nlevels = n_elements(c_levels) 
+	levels = make_array(nlevels,/string,value='')
+	if plot2d_state.nlevels gt 0 then begin
+	for i=0,plot2d_state.nlevels-1 do begin
 		levels(i) = strtrim(c_levels(i),2)
 		end
 	end
@@ -536,6 +593,7 @@ PRO plot2d_setupContourLevels, GROUP=Group, c_levels
       VALUE='Done')
 
   info = { $
+	parent: plot2d_state.base, $
 	base:plot2d_setupContourLevels, $
 	textID:TEXT16, $
 	nlevels: nlevels, $
@@ -551,10 +609,11 @@ END
 
 
 PRO plot2d_setupMain13_Event, Event
-COMMON PLOT2d_BLOCK,plot2d_state
 
   WIDGET_CONTROL,Event.top,GET_UVALUE=setup_info
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  WIDGET_CONTROL,setup_info.parent,GET_UVALUE=plot2d_state
 
   CASE Ev OF 
 
@@ -572,7 +631,7 @@ COMMON PLOT2d_BLOCK,plot2d_state
       ENDCASE
       END
   'plot2d_setupLevels': BEGIN
-	plot2d_setupContourLevels, plot2d_state.levels, GROUP=Event.Top 
+	plot2d_setupContourLevels, plot2d_state, GROUP=Event.Top 
       END
   'plot2d_setupCharsize': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
@@ -667,37 +726,59 @@ COMMON PLOT2d_BLOCK,plot2d_state
   'BUTTON50': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY
       END
+  'PLOT2D_RTIFF': BEGIN
+       tvlct,R,G,B,/get
+        WRITE_TIFF,'plot2d.rtiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
+	cd,current=p
+	pa = p+!os.file_sep+'TIFF'+!os.file_sep
+	found = findfile(pa,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' + pa
+	rename_dialog,pa,'plot2d.rtiff',GROUP=Event.Top
+      END
   'PLOT2D_TIFF': BEGIN
        tvlct,R,G,B,/get
         WRITE_TIFF,'plot2d.tiff',TVRD(),red=R,green=G,blue=B
 	cd,current=p
-	rename_dialog,p,'plot2d.tiff',GROUP=Event.Top
+	pa = p+!os.file_sep+'TIFF'+!os.file_sep
+	found = findfile(pa,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' + pa
+	rename_dialog,pa,'plot2d.tiff',GROUP=Event.Top
+      END
+  'PLOT2D_PICT': BEGIN
+       tvlct,R,G,B,/get
+        WRITE_PICT,'plot2d.pict',TVRD(),R,G,B
+	cd,current=p
+	pa = p+!os.file_sep+'TIFF'+!os.file_sep
+	found = findfile(pa,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' + pa
+	rename_dialog,pa,'plot2d.pict',GROUP=Event.Top
       END
   'PLOT2D_GIF': BEGIN
       tvlct,R,G,B,/get
         WRITE_GIF,'plot2d.gif',TVRD(),R,G,B
         WRITE_GIF,'plot2d.gif',/close
 	cd,current=p
-	rename_dialog,p,'plot2d.gif',GROUP=Event.Top
+	pa = p+!os.file_sep+'GIF'+!os.file_sep
+	found = findfile(pa,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' + pa
+	rename_dialog,pa,'plot2d.gif',GROUP=Event.Top
       END
   'BUTTON51': BEGIN
-	plot2d_setupLabels,Event.Top
+	plot2d_setupLabels,plot2d_state,Event.Top
       END
   'BUTTON52': BEGIN
-	plot2d_setupMargins,Event.Top
+	plot2d_setupMargins,plot2d_state,Event.Top
       END
   ENDCASE
 	plot2d_replot, plot2d_state
+
+  	WIDGET_CONTROL,setup_info.parent,SET_UVALUE=plot2d_state
 END
 
 
-; DO NOT REMOVE THIS COMMENT: END plot2d_setupMain13
-; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
 
 
-
-PRO plot2d_setup, GROUP=Group
-COMMON PLOT2d_BLOCK,plot2d_state
+PRO plot2d_setup,plot2d_state, GROUP=Group
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -825,9 +906,15 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
   BUTTON51 = WIDGET_BUTTON( BASE47, $
       UVALUE='BUTTON51', $
       VALUE='SetPlotLabels')
+  PLOT2D_RTIFF = WIDGET_BUTTON( BASE47, $
+      UVALUE='PLOT2D_RTIFF', $
+      VALUE='Save RTIFF...')
   PLOT2D_TIFF = WIDGET_BUTTON( BASE47, $
       UVALUE='PLOT2D_TIFF', $
       VALUE='Save TIFF...')
+  PLOT2D_PICT = WIDGET_BUTTON( BASE47, $
+      UVALUE='PLOT2D_PICT', $
+      VALUE='Save PICT...')
   PLOT2D_GIF = WIDGET_BUTTON( BASE47, $
       UVALUE='PLOT2D_GIF', $
       VALUE='Save GIF...')
@@ -836,6 +923,7 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       VALUE='   Close   ')
 
   setup_info = { $
+	parent:plot2d_state.base, $
 	Ax: plot2d_setupAx, $
 	Az: plot2d_setupAz, $
 	Axslider: plot2d_setupSLIDER3, $
@@ -887,9 +975,16 @@ CASE plot2d_state.plottype OF
     0: begin
 
         ncolors = !d.table_size
-        xrange=[plot2d_state.xarr(0), plot2d_state.xarr(dim(0)-1)]
-        yrange=[plot2d_state.yarr(0), plot2d_state.yarr(dim(1)-1)]
+;        xrange=[plot2d_state.xarr(0), plot2d_state.xarr(dim(0)-1)]
+;        yrange=[plot2d_state.yarr(0), plot2d_state.yarr(dim(1)-1)]
+	xrange = [min(plot2d_state.xarr),max(plot2d_state.xarr)]
+	yrange = [min(plot2d_state.yarr),max(plot2d_state.yarr)]
  
+	if plot2d_state.versus eq 1 then begin
+        xrange=[0, dim(0)]
+        yrange=[0, dim(1)]
+	end
+
 	left=!d.x_size * 0.2 * plot2d_state.zoom
 	right=!d.x_size * 0.1 * plot2d_state.zoom
 	bottom=!d.y_size *0.1 * plot2d_state.zoom
@@ -942,11 +1037,16 @@ case plot2d_state.tvoption of
 endcase
 endif else TVSCL,data,left,bottom,xsize=width,ysize=height
 
+        xstyle = 1
+        ystyle = 1
+        if yrange(0) eq yrange(1) then ystyle = 4
+        if xrange(0) eq xrange(1) then xstyle = 4
+
         plot,xrange=xrange,yrange=yrange,/nodata,[-1,-1],/noerase, $
                 pos=[float(left)/!d.x_size, float(bottom)/!d.y_size, $
                  (!d.x_size-float(right))/!d.x_size, $
 		 (!d.y_size-float(top))/!d.y_size], $
-                xstyle=1, ystyle=1, xtitle=plot2d_state.xtitle, $
+                xstyle=xstyle, ystyle=ystyle, xtitle=plot2d_state.xtitle, $
 		ytitle=plot2d_state.ytitle, $
                 title=plot2d_state.title
 
@@ -987,6 +1087,7 @@ endif else TVSCL,data,left,bottom,xsize=width,ysize=height
 		xlog=plot2d_state.xlog,ylog=plot2d_state.ylog, $
 		zlog=plot2d_state.zlog, $
 		charsize=plot2d_state.charsize, $
+		zcharsize=plot2d_state.charsize, $
 		lego=plot2d_state.lego, $
 		ax = plot2d_state.ax, az=plot2d_state.az, $
 		shades=shades, $
@@ -1007,13 +1108,16 @@ endif else TVSCL,data,left,bottom,xsize=width,ysize=height
 	plot2d_notes,plot2d_state
 	end
     2: begin
+	levels = make_array(plot2d_state.nlevels,value=1,/int)
 	contour,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
 		title=plot2d_state.title,xtitle=plot2d_state.xtitle, $
 		ytitle=plot2d_state.ytitle, $
 		xmargin=xmargin, ymargin=ymargin, $
 		max_value= maxvl, min_value=minvl, $
-		charsize=1, c_charsize=1, $
-		c_colors=plot2d_state.colorI,$
+		charsize=plot2d_state.charsize, $
+		c_colors=reverse(plot2d_state.colorI),$
+		c_charsize=plot2d_state.c_charsize, $
+		c_labels=levels, $
 		levels=plot2d_state.levels(0:plot2d_state.nlevels-1), $
 		NLevels=plot2d_state.nlevels, /Follow
 	plot2d_notes,plot2d_state
@@ -1050,8 +1154,7 @@ END
 ; inorder to support TV,SURFACE,CONTOUR, the common block is required
 ;
 PRO Plot2dMAIN13_Event, Event
-COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
-;  WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
+WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
 
 ; if top resize  event plot2d the base widget and redraw its plot;
 IF (Event.id EQ Event.top) THEN BEGIN
@@ -1062,7 +1165,7 @@ IF (Event.id EQ Event.top) THEN BEGIN
 
         plot2d_replot, plot2d_state
 
-;        WIDGET_CONTROL,Event.top,SET_UVALUE=plot2d_state
+        WIDGET_CONTROL,Event.top,SET_UVALUE=plot2d_state
         return
 ENDIF
 
@@ -1107,10 +1210,10 @@ ENDIF
 	xloadct, GROUP=Event.top
 	end
       3: begin
-	plot2d_setup, GROUP=Event.top
+	plot2d_setup,plot2d_state, GROUP=Event.top
 	end
       4: begin
-	plot2d_tvprocess, GROUP=Event.top
+	plot2d_tvprocess, plot2d_state, GROUP=Event.top
 	end
       5: begin
 	WIDGET_CONTROL,Event.top,BAD=bad,/DESTROY
@@ -1118,16 +1221,16 @@ ENDIF
 	if error_status eq 0 then $
 	WSET,plot2d_state.old_win
 	plot2d_state.win = plot2d_state.old_win
+	return
 	end
       ELSE: Message,'Unknown button pressed'
       ENDCASE
       END
   ENDCASE
+
+        WIDGET_CONTROL,Event.top,SET_UVALUE=plot2d_state
 END
 
-
-; DO NOT REMOVE THIS COMMENT: END Plot2dMAIN13
-; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
 
 
 
@@ -1138,7 +1241,6 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 	rxloc=rxloc, ryloc=ryloc, comment=comment, $
 	stamp=stamp, wTitle=wTitle, GROUP=Group
 
-COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;+
 ; NAME:
 ;       PLOT2D
@@ -1219,13 +1321,13 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;       WIN: The window ID of the drawing area used by the PLOT2D.
 ;
 ; COMMON BLOCKS:
-;       COMMON PLOT2D_BLOCK plot2d_state.
+;       None.
 ;
 ; SIDE EFFECTS:
 ;       The max and min value will be shown as the default comment.
 ;
 ; RESTRICTIONS:
-;       Fon contour plot only 12 levels are allowed.
+;       For contour plot only 12 levels are allowed.
 ;
 ; EXAMPLES:
 ;    Example 1 - Create a resizable 2D plot without any title or label
@@ -1248,7 +1350,10 @@ COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;                       plot style, etc.
 ;       03-17-1999      Add TV image options
 ;       05-14-1999      Add colorbar, save TIFF and GIF options
-;
+;       11-23-1999      Save images in TIFF/GIF destination directory
+;                       Add option of N contour levels field 
+;                       Remove the common block definition
+;       01-24-2000      Add TV step # or axis options
 ;-
 
 if XRegistered('Plot2dMAIN13') then WIDGET_CONTROL,plot2d_state.base,/DESTROY
@@ -1263,7 +1368,7 @@ xl = ''
 yl =''
 zl =''
 ti = ''			; plot title
-wti='PLOT2D (R1.0a)'		; window title
+wti='PLOT2D (R1.0b)'		; window title
 cl = !d.table_size
 timestamp=''
 xloc = 0.01
@@ -1301,6 +1406,7 @@ if keyword_set(yarr) then yarray = yarr
 	y:1, $
 	xarr:xarray, $
 	yarr:yarray, $
+	versus: 0, $  ; real-value or 1 for step #
 	plottype:0, $     	; 0 - TV 1-surface
 	charsize:1, $
 	c_charsize:1, $
@@ -1328,7 +1434,7 @@ if keyword_set(yarr) then yarray = yarr
 	stamp: 0, $
 	timestamp: timestamp, $
 	nlevels: 12, $
-	levels: make_array(12), $
+	levels: make_array(12,/float), $
 	colorI: indgen(12), $
 	base:0L, $
 	id_draw:0L, $
@@ -1363,18 +1469,13 @@ plot2d_state.pixel_max = plot2d_state.max
 
 ; 12 number of curves allowed
 	nlevels = plot2d_state.nlevels
-	dlevels=(maxvl-minvl)/nlevels
-	levels = make_array(nlevels)
-	for i=0,nlevels-1 do begin
-	levels(i) = minvl + dlevels * i
-	end
-	plot2d_state.levels = levels
+	plot2d_ContourLevels,plot2d_state,nlevels
 
 ; set colors of line
         dcl = !d.table_size - 2
-        ncv = 12  ; 4
+        ncv = 12; 4
         colorlevel = dcl / ncv
-        for i=0,11 do begin
+        for i=0,ncv-1 do begin
         ii = i / ncv
         im = i mod ncv
         plot2d_state.colorI(i) = dcl - ii - im * colorlevel
@@ -1448,7 +1549,7 @@ if keyword_set(comment) then begin
 	plot2d_state.xsize = g_tlb.scr_xsize
 	plot2d_state.ysize = g_tlb.scr_ysize
 
-	plot2d_stateInit = plot2d_state
+;	plot2d_stateInit = plot2d_state
   	plot2d_replot, plot2d_state
 
   WIDGET_CONTROL, Plot2dMAIN13, SET_UVALUE=plot2d_state
