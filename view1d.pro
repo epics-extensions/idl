@@ -6,10 +6,30 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: view1d.pro,v 1.23 2004/01/30 00:13:30 cha Exp $
-
+; $Id: view1d.pro,v 1.24 2004/04/14 17:43:18 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
+
+PRO WC,filename,nline,ncol
+; simulate unix command WC to read an ASCII file
+; nline - return the total # of lines in file
+; ncol  - returns the totol # of data elements in a line
+        openr,1,filename
+        line=''
+        nline=0
+        while NOT EOF(1) do begin
+        on_ioerror,close1
+        readf,1,line
+        nline=nline+1
+        if nline eq 1 then begin
+                y = strsplit(line,' ',/extract)
+                ncol = n_elements(y)
+        end
+        end
+close1:
+        close,1
+END
+
 PRO XDispFile_evt, event
 
 
@@ -196,7 +216,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.23 2004/01/30 00:13:30 cha Exp $
+; $Id: view1d.pro,v 1.24 2004/04/14 17:43:18 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2017,7 +2037,7 @@ COMMON font_block, text_font, graf_font, ps_font
 COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 COMMON w_statistic_block,w_statistic_ids
 
-if !d.name eq 'WIN' then device,decomposed=1
+if !d.n_colors gt !d.table_size then device,decomposed=1
 
    WIDGET_CONTROL, view1d_widget_ids.wf_select, GET_VALUE = wf_sel
    x_axis = view1d_plotspec_id.x_axis_u
@@ -2141,6 +2161,11 @@ ENDELSE
 	end
 
    ;Now draw the axis and plot the selected waveforms
+if !d.n_colors le !d.table_size then begin
+TVLCT,o_red,o_green,o_blue,/get
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+TVLCT,red,green,blue
+end
 
 if !d.name eq !os.device then WSET, view1d_widget_ids.plot_area
 ;   ERASE
@@ -2328,7 +2353,8 @@ footer_note= 'comment: ' + strtrim(view1d_plotspec_array(5))
 	ydis = 0.1*!d.y_ch_size
 	xyouts,xdis,ydis,footer_note,/device
 
-
+if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue
+if !d.n_colors gt !d.table_size then device,decomposed=0
 END
 
 
@@ -2474,11 +2500,6 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
 	color = view1d_plotspec_id.colorI(id)
-        ; 24 bit visual case
-        if !d.n_colors eq 16777216 then begin
-                catch1d_get_pvtcolor,color,t_color
-                color = t_color
-                end
 	if !d.name eq 'PS' then color = 0
 
 ;if V1D_scanData.debug eq 1 then $
@@ -3444,7 +3465,7 @@ END
 @PS_open.pro
 @cw_term.pro
 @fit_statistic.pro
-
+@iplot1d.pro
 
 PRO read_desc_engu,labels
 COMMON LABEL_BLOCK,x_names,y_names,x_descs,y_descs,x_engus,y_engus
@@ -4086,11 +4107,24 @@ PRO view1d_base_close,wid
 END
 
 PRO view1d_PDMENU128_EVENT,Event
+COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
+COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array, view1d_plotspec_id, view1d_plotspec_limits, view1d_plotspec_saved
+
 CASE Event.Value OF
 'Setup.Color ...': begin
 	XLOADCT,GROUP=Event.top
 	end
-
+'Setup.IPLOT1D ...': begin
+	if V1D_scanData.scanno eq 0 then return
+	pa = V1D_scanData.pa(0:V1D_scanData.act_npts-1,view1d_plotspec_id.xcord)
+	da = V1D_scanData.da(0:V1D_scanData.act_npts-1,0:V1D_scanData.num_det-1)
+	WIDGET_CONTROL, view1d_widget_ids.wf_select, GET_VALUE = wf_sel
+	detname = 'D'+strtrim(indgen(19)+1,2)
+	detname(15:18)= ['P1','P2','P3','P4']
+	iplot1d_drv,pa,da,detname=detname, $
+		sel=wf_sel(0:V1D_scanData.num_det-1), $
+		title=V1D_scanData.trashcan,group=Event.top
+	end
 ENDCASE
 END
 
@@ -4184,6 +4218,7 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 		point_lun,view1d_viewscan_id.unit,view1d_viewscan_id.fptr(0)
 		view1d_scan_read,view1d_viewscan_id.unit, 1, 2
 		WIDGET_CONTROL,view1d_widget_ids.seqno,SET_VALUE='1'
+		WIDGET_CONTROL,view1d_widget_ids.slider,SET_VALUE=1
 		view1d_update_summary_setup,Event
 	end
   'VIEWSPEC_NEXT': begin
@@ -4195,6 +4230,7 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 		view1d_scan_read,view1d_viewscan_id.unit, i1, i2 
 		seqno = strtrim(string(i1),2)
 		WIDGET_CONTROL,view1d_widget_ids.seqno,SET_VALUE=seqno
+		WIDGET_CONTROL,view1d_widget_ids.slider,SET_VALUE=seqno
 		view1d_update_summary_setup,Event
 	end
   'VIEWSPEC_PREV': begin
@@ -4206,6 +4242,7 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 		view1d_scan_read,view1d_viewscan_id.unit, i1, i2
 		seqno = strtrim(string(i1),2)
 		WIDGET_CONTROL,view1d_widget_ids.seqno,SET_VALUE=seqno
+		WIDGET_CONTROL,view1d_widget_ids.slider,SET_VALUE=seqno
 		view1d_update_summary_setup,Event
 	end
   'VIEWSPEC_LAST': begin
@@ -4219,6 +4256,7 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 		point_lun,view1d_viewscan_id.unit,view1d_viewscan_id.fptr(i1)
 		view1d_scan_read,view1d_viewscan_id.unit, i2, i2+1
 		WIDGET_CONTROL,view1d_widget_ids.seqno,SET_VALUE=strtrim(i2,2)
+		WIDGET_CONTROL,view1d_widget_ids.slider,SET_VALUE=i2
 		view1d_update_summary_setup,Event
 	end
   'PICK_XAXIS': BEGIN
@@ -4414,7 +4452,8 @@ endif else $
 
   MenuSetup = [ $
       { CW_PDMENU_S,       3, 'Setup' }, $ ;        0
-        { CW_PDMENU_S,       0, 'Color ...' }  $ ;        1
+        { CW_PDMENU_S,       0, 'Color ...' },  $ ;        1
+        { CW_PDMENU_S,       2, 'IPLOT1D ...' }  $ ;        1
   ]
   view1d_PDMENU128 = CW_PDMENU( BASE68, MenuSetup, /RETURN_FULL_NAME, $
       UVALUE='view1d_PDMENU128')
