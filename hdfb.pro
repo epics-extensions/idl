@@ -11,6 +11,11 @@
 @PS_open.pro
 @panimage.pro
 @wc.pro
+@iplot1d.pro
+;@idlitparameterset__define.pro
+;@idlitdatacontainer__define.pro
+;@idlitvisroi__define.pro
+
 
 PRO SDS_CONST_Event, Event
 COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
@@ -25,16 +30,35 @@ COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
 	WIDGET_CONTROL,sds_const_state.sel1ID,GET_VALUE=st
 	if strlen(strtrim(st,2)) gt 0 then begin
         parse_num,st,res
-	SDS_multi1d,seq=res,data=data,dname=dname ;,/echo
-	x = *HDF_Query.xarr
-	plot1d,x,data,legend=dname,Group=Event.top
+	if res(0) lt HDF_Query.numSDS and res(0) ge 0 then begin
+	SDS_multi1d,seq=res,data=data,dname=dname,error=error ;,/echo
+	if error eq 0 then begin
+	  sz = size(data)
+	  if HDF_Query.naxis gt 1 then x = *HDF_Query.yarr else $
+	  x = *HDF_Query.xarr
+	  if sz(1) ne n_elements(x) then x = *HDF_Query.yarr
+	  if sz(1) eq n_elements(x) then $
+	  plot1d,x,data,legend=dname,Group=Event.top else $
+	  plot1d,data,legend=dname,Group=Event.top,xtitle='Index #'
+	end
+	endif else begin
+	st = ['Error: Invalid SDS # entered!', '', $
+		 'Valid SDS # : [0-'+strtrim(HDF_Query.NUMSDS-1,2)+']']
+	r = dialog_message(/error,st)
+	end
 	end
       END
   'SDS_CONST_2DARRAY': BEGIN
 	WIDGET_CONTROL,sds_const_state.sel2ID,GET_VALUE=st
 	if strlen(st) gt 0 then begin
         parse_num,st,res
+	if res(0) lt HDF_Query.numSDS and res(0) ge 0 then begin 
 	SDS_multi2d,seq=res,data=data,dname=dname,/echo
+	endif else begin
+	st = ['Error: Invalid SDS # entered!', '', $
+		 'Valid SDS # : [0-'+strtrim(HDF_Query.NUMSDS-1,2)+']']
+	r = dialog_message(/error,st)
+	end
 	end
       END
   'SDS_CONST_2DARRAY2': BEGIN
@@ -43,10 +67,21 @@ COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
         parse_num,st,res
 	SDS_multi2d,seq=res,data=data,dname=dname 
 	sz = size(data)
-	if sz(0) eq 3 then $
+	if sz(0) eq 3 then begin 
 	xarr = *HDF_Query.xarr
 	yarr = *HDF_Query.yarr
-	image2d,data,xarr,yarr,zdescs=dname,/seqnm,Group=Event.top 
+	if n_elements(xarr) eq sz(1) then begin
+ 	  if n_elements(yarr) ne sz(2) then $ 
+	  image2d,data,xdescs='Index #',ydescs='Index #',zdescs=dname,/seqnm,Group=Event.top else $
+	  image2d,data,xarr,yarr,zdescs=dname,/seqnm,Group=Event.top 
+	endif else begin
+	  if n_elements(yarr) eq sz(1) then begin
+	    if n_elements(xarr) eq sz(2) then $
+	    image2d,data,yarr,xarr,zdescs=dname,/seqnm,Group=Event.top else $
+	    image2d,data,xdescs='Index #',ydescs='Index #',zdescs=dname,/seqnm,Group=Event.top 
+	  endif else image2d,data,xdescs='Index #',ydescs='Index #',zdescs=dname,/seqnm,Group=Event.top 
+	end
+	end
 	end
       END
   'SDS_CONST_DONE': BEGIN
@@ -118,7 +153,7 @@ PRO SDS_construct, GROUP=Group
   XMANAGER, 'SDS_CONST', SDS_CONST
 END
 
-PRO SDS_multi1d,seq1,seq2,seq=seq,data=data,dname=dname,echo=echo
+PRO SDS_multi1d,seq1,seq2,seq=seq,data=data,dname=dname,error=error,echo=echo
 ;+
 ; SDS_MULTI1D,[seq1,seq2 / seq=seq] ,data=data,dname=dname[,echo=echo]
 ;
@@ -140,12 +175,14 @@ PRO SDS_multi1d,seq1,seq2,seq=seq,data=data,dname=dname,echo=echo
 ;-
 COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
 
-if keyword_set(seq) eq 0 then begin
+error=0
+if keyword_set(seq) eq 0 and n_elements(seq2) then begin
 	nd = seq2-seq1+1
 	seq = indgen(nd)+seq1
 endif else begin
 	nd = n_elements(seq)
 end
+
 	dname = strarr(nd)
 	for i=0,nd-1 do begin
 	SDS,v,seqno=seq(i)
@@ -154,22 +191,30 @@ end
 	if i eq 0 then begin
 		L = 0
 		data = make_array(sz(1),nd)
+		nl = sz(1)
 		data(*,L) = v(*)
+		dname(L) = HDF_Query.tname
 	endif else begin
 		if n_elements(data) eq 0 then begin
 		 r = dialog_message('Not 1D data selected',/error)
+		 error=-1
 		 return
 		end
+		if sz(1) eq nl then begin
 		L = L+1	
 		data(*,L) = v(*)
+		dname(L) = HDF_Query.tname
+		end
 	end
-	dname(L) = HDF_Query.tname
 	end
 	end
 	if n_elements(data) eq 0 then begin
-	  r = dialog_message('Not 2D data selected',/error)
+	  r = dialog_message('Not 1D data selected',/error)
+	  error=-1
 	  return
 	end
+	data = data(*,0:L)
+	dname = dname(0:L)
 	if keyword_set(echo) then plot1d,data,legend=dname
 END
 
@@ -211,22 +256,28 @@ end
 	if i eq 0 then begin
 		L = 0
 		data = make_array(sz(1),sz(2),nd)
+		nl = n_elements(v)
 		data(*,*,L) = v(*,*)
+		dname(L) = HDF_Query.tname
 	endif else begin
 		if n_elements(data) eq 0 then begin
 		 r = dialog_message('Not 2D data selected',/error)
 		 return
 		end
+		if n_elements(v) eq nl then begin
 		L = L+1	
 		data(*,*,L) = v(*,*)
+		dname(L) = HDF_Query.tname
+		end
 	end
-	dname(L) = HDF_Query.tname
 	end
 	end
 	if n_elements(data) eq 0 then begin
 	  r = dialog_message('Not 2D data selected',/error)
 	  return
 	end
+	data = data(*,*,0:L)
+	dname = dname(0:L)
 	if keyword_set(echo) then begin
 		det_def = make_array(nd,value=1)
 		panimage,data,det_def,numd=10,detnm=dname
@@ -775,12 +826,15 @@ type = s(n_elements(s)-2)
 	  1: BEGIN
 		if type ne 1 and n_elements(data) gt 1 then begin
 		if HDF_Query.real and HDF_Query.naxis gt 0 then begin
-		xv = indgen(sz(1))
-		if sz(1) eq n_elements(*HDF_Query.xarr) then xv = *HDF_Query.xarr
-		if sz(1) eq n_elements(*HDF_Query.yarr) then xv = *HDF_Query.yarr
-		plot1d,xv,data,title=str,wtitle=HDF_Query.file
-		endif else $
+		if HDF_Query.naxis gt 1 then xv = *HDF_Query.yarr else $
+		xv =  *HDF_Query.xarr
+		if sz(1) ne n_elements(xv) then xv = *HDF_Query.yarr
+		if n_elements(xv) eq sz(1) then $
+		plot1d,xv,data,title=str,wtitle=HDF_Query.file else $
 		plot1d,data,title=str,wtitle=HDF_Query.file,xtitle='Index #'
+		endif else begin
+		plot1d,data,title=str,wtitle=HDF_Query.file,xtitle='Index #'
+		end
 		endif else begin
 		plot1d,[-1,-1],XStyle=4,YStyle=4,title=title,xtitle=u
 		xyouts, 0.2*!d.x_size, 0.25*!d.y_size, string(data),/DEVICE
@@ -788,13 +842,20 @@ type = s(n_elements(s)-2)
 	     END
 	  2: BEGIN
 	if HDF_Query.real and HDF_Query.naxis gt 0 then begin
-	xv = indgen(sz(1))
-	yv = indgen(sz(2))
- 	if sz(0) ge 1 and sz(1) eq n_elements(*HDF_Query.xarr) then $
+	nx = n_elements(*HDF_Query.xarr)
+	ny = n_elements(*HDF_Query.yarr)
+	if sz(1) eq nx and sz(2) eq ny then begin
 		xv = *HDF_Query.xarr
-	if sz(0) ge 2 and sz(2) eq n_elements(*HDF_Query.yarr) then $
 		yv = *HDF_Query.yarr
-		plot2d,data,xarr=xv,yarr=yv,itools=1,title=str,wtitle=HDF_Query.file
+	end
+	if sz(1) eq ny and sz(2) eq nx then begin
+		yv = *HDF_Query.xarr
+		xv = *HDF_Query.yarr
+	end
+	if n_elements(xv) gt 0 then $ 
+		plot2d,data,xarr=xv,yarr=yv,itools=1,title=str,wtitle=HDF_Query.file else $
+		plot2d,data,itools=1,title=str,wtitle=HDF_Query.file, $
+			xtitle="Index #",ytitle="Index #"
 	endif else $
 		plot2d,data,itools=1,title=str,wtitle=HDF_Query.file, $
 			xtitle="Index #",ytitle="Index #"
