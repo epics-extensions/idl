@@ -471,8 +471,10 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 	  ENDIF
   dd =1L *npts(0)*npts(1)*npts(2)
 	if dd gt 5202000L then begin
-		r = dialog_message(['Sorry! 3D scan array too big for IDL ',string(npts)],/error)
-		goto,BAD
+	msg = ['Sorry! 3D scan array dimension too big', string(npts), $
+		'Only one detector returned : ',string(pickDet)]
+	r = dialog_message(msg,/error)
+;	goto,BAD
 	end
   ENDIF
 
@@ -498,9 +500,11 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 ;      *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims]) ELSE $
       *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims,DetMax[i]])
     IF debug THEN BEGIN
-      print,'dims: ',dims
+      print,'dims: ',dims, '  pickDet=',pickDet
       help,*(*Scan.pa)[i]
       help,*(*Scan.da)[i]
+      print,min(*(*Scan.pa)[i]),max(*(*Scan.pa)[i])
+      print,min(*(*Scan.da)[i]),max(*(*Scan.da)[i])
     ENDIF
   ENDFOR
 
