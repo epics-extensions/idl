@@ -569,7 +569,7 @@ WIDGET_CONTROL,id_draw,get_value=windraw
 	plot1d_replot, state
 
 WIDGET_CONTROL,id_tlb,set_uvalue=state,/no_copy
-xmanager,'plot1d',id_tlb,  GROUP_LEADER=GROUP, $
+xmanager,'plot1d',id_tlb,  GROUP_LEADER=GROUP,/NO_BLOCK, $
 	EVENT_HANDLER="plot1d_event"
 
 END
