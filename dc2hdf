@@ -1,0 +1,6 @@
+#!/bin/csh -f
+setenv IDL_STARTUP /usr/local/epics/extensions/bin/$HOST_ARCH/viewer_startup.pro
+echo ".run catcher2hdf" >! go_DChdf
+echo "catcher2hdf" >>! go_DChdf
+idl go_DChdf
+rm go_DChdf
