@@ -51,43 +51,8 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
+FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
-PRO rix2BenChin, Scan
-ON_ERROR,1
-  if(*Scan.dim EQ 1) then begin
-    BenChin= { $
-	scanno	: Scan.scanno, $
-	dim	: Scan.dim, $
-	num_pts : Scan.npts, $
-	cpt	: Scan.cpt, $
-	id_def	: Scan.id_def, $
-	pv	: Scan.pv, $
-	labels	: Scan.labels, $
-	pa1D	: (*Scan.pa)[0], $
-	da1D	: (*Scan.da)[0], $
-	pa2D	: ptr_new(/ALLOCATE_HEAP), $
-	da2D	: ptr_new(/ALLOCATE_HEAP) $
-	}
-  endif else begin
-    BenChin= { $
-	scanno	: Scan.scanno, $
-	dim	: Scan.dim, $
-	num_pts : Scan.npts, $
-	cpt	: Scan.cpt, $
-	id_def	: Scan.id_def, $
-	pv	: Scan.pv, $
-	labels	: Scan.labels, $
-	pa1D	: (*Scan.pa)[1], $
-	da1D	: (*Scan.da)[1], $
-	pa2D	: (*Scan.pa)[0], $
-	da2D	: (*Scan.da)[0] $
-	}
-  endelse
-
-  ptr_free,Scan.pa
-  ptr_free,Scan.da
-  Scan=BenChin
-END
 
 PRO rix2DC,Scan,gData
 ON_ERROR,1
@@ -427,7 +392,7 @@ DONE:
   return, res
 END
 
-; $Id: vw2d.pro,v 1.3 1999/03/15 23:23:50 cha Exp $
+; $Id: vw2d.pro,v 1.4 1999/07/07 19:20:36 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1080,7 +1045,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.3 1999/03/15 23:23:50 cha Exp $
+; $Id: vw2d.pro,v 1.4 1999/07/07 19:20:36 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2466,43 +2431,8 @@ gData = { $
 ;	scanimage_print,gD
 
 END
+FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
-PRO rix2BenChin, Scan
-ON_ERROR,1
-  if(*Scan.dim EQ 1) then begin
-    BenChin= { $
-	scanno	: Scan.scanno, $
-	dim	: Scan.dim, $
-	num_pts : Scan.npts, $
-	cpt	: Scan.cpt, $
-	id_def	: Scan.id_def, $
-	pv	: Scan.pv, $
-	labels	: Scan.labels, $
-	pa1D	: (*Scan.pa)[0], $
-	da1D	: (*Scan.da)[0], $
-	pa2D	: ptr_new(/ALLOCATE_HEAP), $
-	da2D	: ptr_new(/ALLOCATE_HEAP) $
-	}
-  endif else begin
-    BenChin= { $
-	scanno	: Scan.scanno, $
-	dim	: Scan.dim, $
-	num_pts : Scan.npts, $
-	cpt	: Scan.cpt, $
-	id_def	: Scan.id_def, $
-	pv	: Scan.pv, $
-	labels	: Scan.labels, $
-	pa1D	: (*Scan.pa)[1], $
-	da1D	: (*Scan.da)[1], $
-	pa2D	: (*Scan.pa)[0], $
-	da2D	: (*Scan.da)[0] $
-	}
-  endelse
-
-  ptr_free,Scan.pa
-  ptr_free,Scan.da
-  Scan=BenChin
-END
 
 PRO rix2DC,Scan,gData
 ON_ERROR,1
@@ -3103,7 +3033,7 @@ print,'Total Number of Images     : ', catch2d_file.maxno
 
 view_option.fullcolor = 0 ; initialize to auto scaled image
 
-	catch2d_file.seqno = maxno - 1
+	catch2d_file.seqno = 0 ; maxno - 1
 	if catch2d_file.scanno_2d_last gt 0 then viewscanimage_current
 
 
@@ -3337,9 +3267,340 @@ if XRegistered('view2d_normalize') then return
 
   XMANAGER, 'view2d_normalize', view2d_normalize, /NO_BLOCK
 END
+
+PRO scan2dROIRpt,scanno,Ref=Ref,roifile=roifile,rptfile=rptfile,header=header,comment=comment,append=append
+COMMON CATCH2D_FILE_BLOCK,catch2d_file
+COMMON CATCH2d_IMAGE, widget_ids, view_option, image, image_ref
+COMMON CATCH1D_2D_COM,data_2d, gD
+COMMON STATISTIC_2DBLOCK, statistic_2dids
+
+seq = catch2d_file.scanno_current
+last = catch2d_file.scanno_2d_last
+
+if catch2d_file.maxno le 0 then begin
+	res=WIDGET_MESSAGE('Error: no image file loaded in')
+	return
+end
+if seq lt 1 or seq ne catch2d_file.scanno_2d_last then begin
+	res=WIDGET_MESSAGE('Error: outside range seq entered')
+	return
+end
+
+	seqno = catch2d_file.image_no(seq-1)
+
+	da2D = *(*gD).da2D
+	id_def = *(*gD).id_def
+
+	def = make_array(15,value=0)
+
+	xdim = catch2d_file.width 
+	ydim = catch2d_file.y_req_npts
+	image_array  = make_array(xdim,ydim,15,/float)
+
+	scanno_2d = seq
+
+	for i=0,14 do begin
+		if id_def(i+4) gt 0 then begin
+		def(i) = 1
+		t_image = da2D(*,*,i)
+		image_array(*,*,i) = t_image
+		end
+	end
+
+; pops up roi images
+
+update:
+	nodet = 15
+	header_ass = ''
+	comment_ass = ''
+	if keyword_set(header) then header_ass=header
+	if keyword_set(comment) then comment_ass=comment
+
+	pick = 1
+
+	if keyword_set(ref) then pick=ref	
+	if pick gt 0 and pick le nodet then im_ref = image_array(*,*,pick-1) else begin
+		res = dialog_message('Invalid reference detector # picked',/error)
+		return
+		end
+
+	xarr = catch2d_file.xarr(0:xdim-1)
+	yarr = catch2d_file.yarr(0:ydim-1)
+
+	reportname =view_option.rptfile;   'tmproi.rpt'
+	if keyword_set(rptfile) then reportname=rptfile
+
+	if view_option.roifile eq '' then begin
+	f = dialog_pickfile(path=statistic_2dids.roipath,filter='*roi.xdr*',title='Pick ROI definition File',/READ)
+	if f eq '' then return
+	found = findfile(f)
+	if found(0) eq '' then begin
+		res = dialog_message(['Filename:',f, 'not found!'],/info)
+		return
+	end
+	view_option.roifile = f
+	end
+	; read roi
+
+	xrange=[0,xdim-1]
+	yrange=[0,ydim-1]
+	filename=view_option.roifile ; 'tmproi.xdr'
+	if keyword_set(roifile) then filename=roifile
+	if statistic_2dids.back eq 2 then filename=filename+'.poly'
+	found = findfile(filename)
+	if found(0) eq '' then begin
+		res = dialog_message(['ROI filename',filename, 'not found.', $
+			'','The whole range is assumed'],/info)
+	endif else begin
+
+	if statistic_2dids.back eq 0 then begin
+	u_openr,unit,filename,/XDR
+	u_read,unit,x
+	u_close,unit
+	xrange=fix([x(0)/x(4),x(1)/x(4)])
+	yrange=fix([x(2)/x(5),x(3)/x(5)])
+	endif else statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr
+	end
+
+	if xrange(1) ge xdim then xrange(1) = xdim -1
+	if yrange(1) ge ydim then yrange(1) = ydim -1
+
+	if statistic_2dids.refresh eq 1 then begin
+		xrange= statistic_2dids.xrange
+		yrange= statistic_2dids.yrange
+	end
+
+	if keyword_set(append) then $
+        openw,1,reportname,ERROR=err,/append else $
+        openw,1,reportname,ERROR=err
+        IF (err NE 0) then begin
+		PRINTF, -2, !ERR_STRING
+		close,1
+		return
+	end
+	printf,1,'===================================================='
+	printf,1,'Generated at: ',systime(0)
+        printf,1,'Header: ',header_ass
+        printf,1,'Comment: ',comment_ass
+	if statistic_2dids.refresh eq 0 then $
+	printf,1,'ROIfile: ',filename else $
+	printf,1,'ROIfile: [Temporary ROI specified]'
+;	printf,1,'Rptfile: ',view_option.rptfile
+	printf,1,''
+
+	for i=0,nodet-1 do begin
+	if def(i) then begin
+	;
+        printf,1,'Detector #: ', i+1
+		im = image_array(*,*,i)
+		if keyword_set(ref) then im = image_array(*,*,i)/im_ref	
+		if statistic_2dids.back eq 2 then begin
+			nelem = n_elements(arr)
+			temp = make_array(nelem)
+			for ij=0,nelem-1 do begin
+			j = arr(ij) / xdim
+			k = arr(ij) MOD xdim
+			temp(ij) = im(k,j)
+			end
+		endif else begin
+		nelem = (xrange(1)-xrange(0)+1)*(yrange(1)-yrange(0)+1)
+		temp = im[xrange(0):xrange(1),yrange(0):yrange(1)]
+		end
+		result = moment(temp,mdev=mdev,sdev=sdev)
+		temp_max = max(temp)
+		temp_min = min(temp)
+		total = total(temp)
+		ave = result[0]
+
+	; write  report
+	if statistic_2dids.back eq 2 then begin
+		printf,1,'ROI defined by polygon'
+		printf,1,'Xverts index:',xv
+		printf,1,'Yverts index:',yv
+	endif else begin
+        printf,1,'ROI in index: [',strtrim(xrange(0),2),':', $
+                strtrim(xrange(1),2),', ', $
+                strtrim(yrange(0),2),':', $
+                strtrim(yrange(1),2),'] '
+        printf,1,'ROI in values: [',strtrim(catch2d_file.xarr(xrange(0)),2),':', $
+                strtrim(catch2d_file.xarr(xrange(1)),2),', ', $
+                strtrim(catch2d_file.yarr(yrange(0)),2),':', $
+                strtrim(catch2d_file.yarr(yrange(1)),2),'] '
+	end
+
+        printf,1,'ave = ',ave
+        printf,1,'dev = ',sdev
+        printf,1,'min = ',temp_min
+        printf,1,'max = ',temp_max
+        printf,1,'total = ',total
+        printf,1,'nelem = ',nelem
+        printf,1,''
+	end
+	end
+        close,1
+
+	xdisplayfile,reportname
+END
+
+
+
+PRO PDMENU2D_ROI_event, Event
+COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
+COMMON CATCH2D_FILE_BLOCK,catch2d_file
+COMMON STATISTIC_2DBLOCK, statistic_2dids
+
+if n_elements(image) eq 0  then begin
+	w_warningtext,['No image data found','','You have to load the 2D data first']
+	return
+end
+
+	header=[ catch2d_file.path+catch2d_file.name, $ 
+	   'Image Seq # '+strtrim(catch2d_file.seqno+1,2)+ ',  2D Scan # '+ $
+		strtrim(catch2d_file.scanno_current,2) + ',  Detector # '+ $
+		strtrim(catch2d_file.detector,2) ]
+	comment=''
+	if view_option.fullcolor eq 2 then $
+	comment='Normalized against detecor '+strtrim(view_option.pick_ref,2)
+
+	if XRegistered('scan2d_ROI')  then  $
+		WIDGET_CONTROL,statistic_2dids.base,/DESTROY,BAD=bad
+	mode=0
+	if n_elements(statistic_2dids) then begin
+	  mode = statistic_2dids.back
+	  if view_option.roifile ne statistic_2dids.file then $
+	  view_option.roifile = statistic_2dids.file
+	  if view_option.rptfile ne statistic_2dids.rpt then $
+	  view_option.rptfile = statistic_2dids.rpt
+	end
+
+	x = catch2d_file.xarr(0:catch2d_file.width-1)
+	y = catch2d_file.yarr(0:catch2d_file.height-1)
+	im=image(0:catch2d_file.width-1, 0:catch2d_file.height-1)	
+
+	if view_option.rptfile eq '' then $
+		view_option.rptfile = catch2d_file.home+!os.file_sep+'ROI'+!os.file_sep+$
+			catch2d_file.name+'_roi.rpt'
+	if view_option.roifile eq '' then $
+		view_option.roifile = catch2d_file.home+!os.file_sep+'ROI'+!os.file_sep+$
+			catch2d_file.name+'_roi.xdr'
+
+	scan2d_roi,im,x,y,GROUP=Event.Top,header=header,comment=comment, $
+		mode=mode,rptfile=view_option.rptfile, $
+		roifile=view_option.roifile
+
+	if statistic_2dids.back eq 1 then begin
+		st=[ $
+		'2D-ROI report for all detectors is not available yet for this mode.', $
+		'You have to use the AppendRpt...  button in', $
+		'the "2D Statistic ROI" window to add current report', $
+		'for each detector for          ROI Mode: FilterROI ' $
+		]
+		res=dialog_message(st,/info)
+		return
+	end 
+
+  CASE Event.Value OF
+
+  '2D-ROI.ROIs...': BEGIN
+	x = catch2d_file.xarr(0:catch2d_file.width-1)
+	y = catch2d_file.yarr(0:catch2d_file.height-1)
+	im=image(0:catch2d_file.width-1, 0:catch2d_file.height-1)	
+	scan2d_roi,im,x,y,GROUP=Event.Top,header=header,comment=comment,mode=mode ;,/report
+        END
+  '2D-ROI.ReplaceRpt...': BEGIN
+	F = view_option.rptfile
+;	f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='Replace ROI Rpt File',/READ)
+	if f eq '' then return
+	found = findfile(f)
+	if found(0) eq '' then begin
+		res = dialog_message(['Filename:',f, 'not found will be created!'],/info)
+	endif else begin
+	st = ['Are you sure you want to overwrite this file ?', $
+		'If you enter Yes, then all the old text contents', $
+		'in this file will be lost.', $
+		'','Replacing ',F , ' ???']
+	res = dialog_message(st,/question)
+	if res eq 'No' then return
+	end
+
+;	view_option.rptfile = f
+	if statistic_2dids.comment ne '' then comment=statistic_2dids.comment
+	if view_option.fullcolor eq 2 then $
+	scan2dROIRpt,catch2d_file.scanno_current, $
+		header=header, comment=statistic_2dids.comment, $
+		Ref=view_option.pick_ref else $
+	scan2dROIRpt,catch2d_file.scanno_current, $
+		header=header, comment=statistic_2dids.comment
+	
+        END
+  '2D-ROI.AppendRpt...': BEGIN
+	F = view_option.rptfile
+;	f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='Append ROI Rpt File',/READ)
+	if f eq '' then return
+	found = findfile(f)
+	if found(0) eq '' then begin
+		res = dialog_message(['Filename:',f, 'not found will be created!'],/info)
+	end
+
+	st = ['New 2D-ROI statistic report will be calculated.', $
+		'If you enter Yes, then the new results will be appended.', $
+		'','Appending ',F , ' ???']
+	res = dialog_message(st,/question)
+	if res eq 'No' then return
+
+;	view_option.rptfile = f
+	if view_option.fullcolor eq 2 then $
+	scan2dROIRpt,catch2d_file.scanno_current, $
+		header=header, comment=statistic_2dids.comment, $
+		Ref=view_option.pick_ref,/append else $
+	scan2dROIRpt,catch2d_file.scanno_current,/append , $
+		header=header, comment=statistic_2dids.comment
+
+        END
+  '2D-ROI.ViewRpt...': BEGIN
+	f = dialog_pickfile(path=statistic_2dids.rptpath,filter='*rpt*',title='View ROI Rpt File',/READ)
+	if f eq '' then return
+	found = findfile(f)
+	if found(0) eq '' then begin
+		res = dialog_message(['Filename:',f, 'not found!'],/info)
+		return
+	end
+;	view_option.rptfile = f
+	xdisplayfile,f
+        END
+  '2D-ROI.RenameRpt...': BEGIN
+	old = view_option.rptfile
+	rename_dialog,catch2d_file.home+!os.file_sep+'ROI',old,'',GROUP=Event.top
+        END
+  '2D-ROI.Help...': BEGIN
+	st = [ $
+		'For file management simplicity the 2D ROI statistic report ', $
+		'should end with roi.rpt and the region of interest file ',$
+		'should end with roi.xdr ', $
+		'',$
+		'The report button in "2D Statistic ROI" window is only', $
+		'for the specific image displayed. For the selected ROI file,', $
+		'the report generated by 2D-ROI menu in View2d is for all ',$
+		'detectors defined in a given 2D scan.', $
+		'',$
+		'           Options of 2D-ROI Menu', $
+		'2D-ROI.ViewRpt...    - Select and view any 2D statistic report', $
+		'2D-ROI.AppendRpt...  - Append 2D statistic reports for all detectors', $
+		'                       for a given 2D scan ROI',$
+		'2D-ROI.ReplaceRpt... - Replace 2D statistic reports for all detectors', $
+		'                       for a given 2D scan ROI',$
+		'2D-ROI.RenameRpt...  - Rename a given file to a new name'$
+		]
+	xdisplayfile,text=st,title='View2d Help on 2D-ROI'
+	END
+  ENDCASE
+
+END
 ;
 ; vw2d.pro
 ;
+@PS_open.pro
+@u_read.pro
 
 PRO REPLOT
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -3688,6 +3949,8 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 		end
 
+		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=100 else $
+		colorbar,[v_min,v_max], y=10
 
                 ; save pixmap
                 if !d.name ne OS_SYSTEM.device then return
@@ -3815,6 +4078,8 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			xtitle=xtitle, ytitle=ytitle, $
 			xstyle = 1, ystyle=1
 		end
+		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=100 else $
+		colorbar,[v_min,v_max], y=10
 
 	   end
 	ELSE: print,'Unknow case entered'
@@ -3848,6 +4113,10 @@ jfile.nxin=ncol
 jfile.nyin=nrow
 retall
 END
+
+
+
+
 
 PRO PDMENU189_Event, Event
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -3888,6 +4157,37 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
         yarr = catch2d_file.yarr(0:nrow-1)
         imarr = image
         save,filename='dc2aim.sav',/XDR,ncol,nrow,xarr,yarr,imarr
+    END
+
+  'File.Save as GIF': BEGIN
+        tvlct,R,G,B,/get
+        WRITE_GIF,'vw2d.gif',TVRD(),R,G,B
+        WRITE_GIF,'vw2d.gif',/close
+	suf0 = 'im00'
+        st = strtrim(catch2d_file.seqno+1,2)
+	strput,suf0,st,4-strlen(st)
+        outname=catch2d_file.name+'.'+suf0+'.gif'
+        rename_dialog,catch2d_file.home,'vw2d.gif',outname,GROUP=Event.Top
+    END
+
+  'File.Save as R-TIFF': BEGIN
+        tvlct,R,G,B,/get
+        WRITE_TIFF,'vw2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
+	suf0 = 'im00'
+        st = strtrim(catch2d_file.seqno+1,2)
+	strput,suf0,st,4-strlen(st)
+        outname=catch2d_file.name+'.'+suf0+'.tiff'
+        rename_dialog,catch2d_file.home,'vw2d.tiff',outname,GROUP=Event.Top
+    END
+
+  'File.Save as TIFF': BEGIN
+        tvlct,R,G,B,/get
+        WRITE_TIFF,'vw2d.tiff',TVRD(),red=R,green=G,blue=B
+	suf0 = 'im00'
+        st = strtrim(catch2d_file.seqno+1,2)
+	strput,suf0,st,4-strlen(st)
+        outname=catch2d_file.name+'.'+suf0+'.tiff'
+        rename_dialog,catch2d_file.home,'vw2d.tiff',outname,GROUP=Event.Top
     END
 
   'File.Printer ...': BEGIN
@@ -3982,6 +4282,9 @@ PRO PDMENU189_help_Event, Event
   ENDCASE
 END
 
+
+
+
 PRO PDMENU2D_FITTING_event, Event
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
@@ -4039,6 +4342,7 @@ COMMON w_warningtext_block,w_warningtext_ids
   'PDMENU188': PDMENU188_Event, Event
 
   'PDMENU189_help': PDMENU189_help_Event, Event
+  'PDMENU2D_ROI': PDMENU2D_ROI_Event, Event
   'PDMENU2D_FITTING': PDMENU2D_FITTING_Event, Event
 
   'SURFACE_PLOT': BEGIN
@@ -4314,6 +4618,9 @@ PRO VW2D, GROUP=Group, file=file
 ;                      Fix the problem in plotting the last detector 
 ;       03-04-99 bkc   R1.2b
 ;                      Replace xsurface by plot2d...
+;       04-09-99 bkc   Add color bar
+;       06-09-99 bkc   R1.2c
+;                      Add 2D ROI statistic menu
 ;-
 ;
 @os.init
@@ -4324,7 +4631,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VW2D (R1.2b)'
+  version = 'VW2D (R1.2c)'
 
   VW2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -4350,6 +4657,9 @@ if XRegistered('VW2D_BASE') ne 0 then return
         { CW_PDMENU_S,       0, 'Open ...' }, $ ;        1
 ;        { CW_PDMENU_S,       0, 'Save as ...' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
+        { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        2
+        { CW_PDMENU_S,       0, 'Save as R-TIFF' }, $ ;        2
+        { CW_PDMENU_S,       0, 'Save as GIF' }, $ ;        2
         { CW_PDMENU_S,       0, 'Printer ...' }, $ ;        2
         { CW_PDMENU_S,       0, 'Print' }, $ ;        2
         { CW_PDMENU_S,       0, 'PS_close' }, $ ;        2
@@ -4602,12 +4912,24 @@ if XRegistered('VW2D_BASE') ne 0 then return
   BASE129_1 = WIDGET_BASE(BASE129, $
       COL=1, MAP=1)
 
-  image_pan = WIDGET_BUTTOn(BASE129_1, VALUE='PanImages', $
+  image_pan = WIDGET_BUTTOn(BASE129_1, VALUE='PanImages...', $
         UVALUE='IMAGE_PAN')
 
 ;  LABEL131 = WIDGET_LABEL( BASE129_1, $
 ;      UVALUE='LABEL131', $
 ;      VALUE='Images Strip')
+
+  MenuROI = [ $
+      { CW_PDMENU_S,       3, '2D-ROI' }, $ ;        0
+        { CW_PDMENU_S,       0, 'Help...' }, $ ;        1
+;        { CW_PDMENU_S,       0, 'ROIs...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'ViewRpt...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'AppendRpt...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'ReplaceRpt...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'RenameRpt...' } $ ;        1
+        ]
+  PDMENU2D_fitting = CW_PDMENU( BASE129_1, MenuROI, /RETURN_FULL_NAME, $
+      UVALUE='PDMENU2D_ROI')
 
   MenuFitting = [ $
       { CW_PDMENU_S,       3, 'Fitting' }, $ ;        0
@@ -4662,7 +4984,7 @@ catch2d_file.version = version
 	end
   end
 
-  XMANAGER, 'VW2D_BASE', VW2D_BASE,/NO_BLOCK
+  XMANAGER, 'VW2D_BASE', VW2D_BASE  ; ,/NO_BLOCK
 
 END
 
