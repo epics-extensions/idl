@@ -18,8 +18,9 @@ print,!path
 @os.init
 
 ;  assign color
-window,colors=32
-wdelete
+private_table = fix(getenv('IDL_NCOLORS'))
+if private_table gt 0 and private_table lt 256 then window,colors = private_table
+if !d.window ne -1 then wdelete
 
 device,retain=2
 
