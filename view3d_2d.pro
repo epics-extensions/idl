@@ -1,5 +1,5 @@
 
-PRO view3d_2Dslice,da3D,rank,kindex,SLICER3=SLICER3,title=title,group=group,data=data
+PRO view3d_2Dslice,da3D,rank,kindex,xv,yv,zv,SLICER3=SLICER3,title=title,group=group,data=data
 ;+
 ; NAME:
 ;       VIEW3D_2DSLICE 
@@ -41,11 +41,23 @@ PRO view3d_2Dslice,da3D,rank,kindex,SLICER3=SLICER3,title=title,group=group,data
 
 ;	shade_surf,da3d(*,*,kindex)
 
-	if rank eq 2 then data = da3D(*,*,kindex) 
-	if rank eq 1 then data = reform(da3D(*,kindex,*)) 
-	if rank eq 0 then data = reform(da3D(kindex,*,*))
+	if rank eq 2 then begin
+		data = da3D(*,*,kindex) 
+		xa = xv
+		ya = yv
+	end
+	if rank eq 1 then begin
+		data = reform(da3D(*,kindex,*)) 
+		xa = xv
+		ya = zv
+	end
+	if rank eq 0 then begin
+		data = reform(da3D(kindex,*,*))
+		xa = yv
+		ya = zv
+	end
 
-	plot2d,data,title=title,group=group
+	plot2d,data,xarr=xa,yarr=ya,title=title,group=group
 	
 	if keyword_set(slicer3) then begin
 	slicer = ptr_new(/allocate_heap)
@@ -57,7 +69,7 @@ PRO view3d_2Dslice,da3D,rank,kindex,SLICER3=SLICER3,title=title,group=group,data
 END
 
 PRO view3d_2Dpick1D,da3D,rank,k,xa=xa,ya=ya,group=group
-
+;
 	xyz = da3D
 	sz = size(da3D)
 	if sz(0) ne 3 then begin
@@ -91,32 +103,18 @@ PRO view3d_2Dpick1D,da3D,rank,k,xa=xa,ya=ya,group=group
 	END
 	ENDCASE
 
+	if max(xa) eq min(xa) then xa = indgen(n_elements(xa))
+	if max(ya) eq min(ya) then ya = indgen(n_elements(ya))
 	calibra_pick1d,za,xa=xa,ya=ya,title=title,Group=group
 
 END
 
-PRO view3d_2Dascii,da3D,rank,kindex,title=title,format=format,group=group,outfile=outfile
+PRO view3d_2Dascii,data,rank,kindex,px=px,py=py,title=title,format=format,group=group,outfile=outfile
 
 	if n_elements(rank) eq 0 then rank = 2
 	if rank gt 2 then rank = 2
 	if n_elements(kindex) eq 0 then kindex = 0
 	if kindex lt 0 then kindex = 0
-
-	sz = size(da3D)
-	if sz(0) ne 3 then begin
-		r = dialog_message('Wrong type of data entered.',/error)
-		return
-	end
-	catch,error_status
-	if error_status ne 0 then begin
-		r = dialog_message([!error_state.name+string(!error_state.code),$
-			!error_state.msg,'Kindex out of range'+string(kindex)],/error)
-		return
-	end
-
-	if rank eq 2 then data = reform(da3D(*,*,kindex))
-	if rank eq 1 then data = reform(da3D(*,kindex,*))
-	if rank eq 0 then data = reform(da3D(kindex,*,*))
 
 	t_format = 'G18.8'
 	if keyword_set(format) then t_format = format
@@ -142,16 +140,26 @@ PRO view3d_2Dascii,da3D,rank,kindex,title=title,format=format,group=group,outfil
 	printf,fw,st
 	printf,fw,';   data('+strtrim(dim(0),2)+','+strtrim(dim(1),2)+')'
 	printf,fw,'; -------------------------------'
+		f2 = '(";         Yvalues       "'
+		f0 = '(";      \ Y              #",'+strtrim(dim(1),2)+fwidth+',/,";     X \               #",/,";         Xvalues")'
 
-		f0 = '(";    \ Y",'+strtrim(dim(1),2)+fwidth+',/,";   X \",/)'
+		if rank eq 0 then begin
+		f2 = '(";         Zvalues       "'
+		f0 = '(";      \ Z              #",'+strtrim(dim(1),2)+fwidth+',/,";     Y \               #",/,";         Yvalues")'
+		end
+		if rank eq 1 then begin
+		f2 = '(";         Zvalues       "'
+$
+		f0 = '(";      \ Z              #",'+strtrim(dim(1),2)+fwidth+',/,";     X \               #",/,";         Xvalues")'
 
-		if rank eq 0 then $
-		f0 = '(";    \ Z",'+strtrim(dim(1),2)+fwidth+',/,";   Y \",/)'
-		if rank eq 1 then $
-		f0 = '(";    \ Z",'+strtrim(dim(1),2)+fwidth+',/,";   X \",/)'
-
+		end
+		f2 = f2+strtrim(dim(1),2)+'('+t_format+'))' 
 		f1 = '(I,'+strtrim(dim(1),2)+'('+t_format+'))' 
+		if n_elements(px) gt 0 then  $
+		f1='('+t_format+',I,'+strtrim(dim(1),2)+'('+t_format+'))'
 
+
+	if n_elements(py) gt 0 then  printf,fw,format=f2,py
 	printf,fw,format=f0,indgen(dim(1))
 	newdata = transpose(data)
 
@@ -177,22 +185,52 @@ PRO view3d_2Dredisplay,state,Event
 	kindex = state.kindex
 	slicer3 = state.slicer3
 	title = state.title
+	xv = *(state.x)
+	yv = *(state.y)
+	zv = *(state.z)
 
-	CASE state.display OF 
-	0: begin
 		suf0 = 'Z_Slice'
 		if rank eq 0 then suf0 = 'X_Slice'
 		if rank eq 1 then suf0 = 'Y_Slice'
 		title = title +' (' + suf0+'.slc'+strtrim(kindex,2) +')'
 
-		view3d_2Dslice,data,rank,kindex,title=title, $
-			slicer3=slicer3,group=Event.Top
+	   sz = size(data)
+		if rank eq 0 and kindex lt sz(1) then begin
+			im = data(kindex,*,*)
+			x = yv
+			y = zv
+		end
+		if rank eq 1 and kindex lt sz(2) then begin
+			im = data(*,kindex,*)
+			x = xv
+			y = zv
+		end
+		if rank eq 2 and kindex lt sz(3) then begin
+			im = data(*,*,kindex)
+			x = xv
+			y = yv
+		end
+		im = reform(im)
+
+	CASE state.display OF 
+	0: begin
+		plot2d,im,xarr=x,yarr=y,title=title,group=state.base
 	   end
 	1: begin
-		view3d_2Dascii,data,rank,kindex,group=Event.top
+		view3d_2Dascii,im,rank,kindex,px=x,py=y,title=title,group=Event.top
 	   end
 	2: begin
-		view3d_2Dpick1d,data,rank,kindex,group=Event.top
+	xdr_open,unit,'scan2d_roi.im',/write
+	xdr_write,unit,x
+	xdr_write,unit,y
+	xdr_write,unit,im
+	xdr_close,unit
+		scan2d_roi,im,x,y,group=Event.top,header=title,comment=title
+	   end
+	3: begin
+		if max(x) eq min(x) then x = indgen(n_elements(x))
+		if max(y) eq min(y) then y = indgen(n_elements(y))
+		calibra_pick1d,im,xa=x,ya=y,title=title,group=state.base
 	   end
 	ENDCASE
 
@@ -227,6 +265,11 @@ PRO VIEWDRV3D_Event, Event
   'VIEW3D_ACCEPT': BEGIN
 	view3d_2Dredisplay,state,Event
       END
+  'VIEW3D_2DSUM': BEGIN
+	data = *state.data
+	rank = state.rank
+	view3d_2dSum,data,rank,class=state.title,group=state.base
+      END
   'VIEW3D_CLOSE': BEGIN
       WIDGET_CONTROL,Event.Top,/DESTROY
 	if ptr_valid(state.data) then ptr_free,state.data
@@ -238,7 +281,10 @@ PRO VIEWDRV3D_Event, Event
 
 END
 
-PRO view3d_2D, data, GROUP=Group,title=title,slicer3=slicer3
+
+
+
+PRO view3d_2D, data, rank, xv,yv,zv, GROUP=Group,title=title,slicer3=slicer3
 ;+
 ; NAME:
 ;       VIEW3D_2D 
@@ -256,6 +302,10 @@ PRO view3d_2D, data, GROUP=Group,title=title,slicer3=slicer3
 ;
 ; ARGUMENTS:
 ;    Data:    Input 3D array to be examined
+;    Rank:    Specifies the rank of axis picked, 0 - x, 1 -y , 2 -z
+;    XV:      Specifies the input vector of x coordinates
+;    YV:      Specifies the input vector of y coordinates
+;    ZV:      Specifies the input vector of z coordinates
 ;
 ; KEYWORDS:
 ;  GROUP:     Specifies the widget ID of the parent group
@@ -272,6 +322,13 @@ PRO view3d_2D, data, GROUP=Group,title=title,slicer3=slicer3
 ; EXAMPLE:
 ;
 ;    VIEW3D_2D, data
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, Dec 16, 1999.
+;       02-01-2001  bkc Add the xv,yv,zv parameters.
+;                       If xv,yv,zv are given it will try to display data
+;                       against the input coordinates. If invalid coordinates
+;                       are entered, it will try to display data against index #.
 ;-
 
 
@@ -284,6 +341,7 @@ PRO view3d_2D, data, GROUP=Group,title=title,slicer3=slicer3
 	r = dialog_message('3D type of data required',/error)
 	return
   end
+  if n_elements(rank) eq 0 then rank = 0
 
   ListVal919 = strtrim(indgen(max(sz(1:3))),2)
 
@@ -311,6 +369,7 @@ PRO view3d_2D, data, GROUP=Group,title=title,slicer3=slicer3
   Btns234 = [ $
     'PLOT2D', $
     'ASCII2D', $
+    'ROI2D', $
     'PICK1D' ]
   BGROUP13 = CW_BGROUP( BASE3, Btns234, $
       COLUMN=1, /FRAME, /NO_RELEASE, $
@@ -347,7 +406,7 @@ PRO view3d_2D, data, GROUP=Group,title=title,slicer3=slicer3
   LIST17 = WIDGET_LIST( BASE14,VALUE=ListVal919, $
       UVALUE='VIEW3D_INDEX', $
       YSIZE=5)
-  WIDGET_CONTROL,LIST17,SET_VALUE=listVal919(0:sz(3)-1)
+  WIDGET_CONTROL,LIST17,SET_VALUE=listVal919(0:sz(rank+1)-1)
 
   BASE20 = WIDGET_BASE(BASE1, $
       ROW=1, $
@@ -359,24 +418,38 @@ PRO view3d_2D, data, GROUP=Group,title=title,slicer3=slicer3
       VALUE='Accept')
 
   BUTTON22 = WIDGET_BUTTON( BASE20, $
+      UVALUE='VIEW3D_2DSUM', $
+      VALUE='View3d_2d Sum Slices...')
+
+  BUTTON23 = WIDGET_BUTTON( BASE20, $
       UVALUE='VIEW3D_CLOSE', $
       VALUE='Close')
+
+  if n_elements(xv) eq 0 then xv = indgen(sz(1))
+  if n_elements(yv) eq 0 then yv = indgen(sz(2))
+  if n_elements(zv) eq 0 then zv = indgen(sz(3))
 
   view3drv_state = { $
 	base:VIEWDRV3D, $
 	display:0, $
-	rank: 2, $
+	rank: rank, $
 	dim: sz(1:3), $
 	title: title, $
 	list: ListVal919, $
 	listWid: list17, $
 	kindex : 0 ,$
 	slicer3 : 0,$
+	x: ptr_new(/allocate_heap), $
+	y: ptr_new(/allocate_heap), $
+	z: ptr_new(/allocate_heap), $
 	data: ptr_new(/allocate_heap) $
 	}
   if keyword_set(slicer3) then view3drv_state.slicer3 = 1
 		
   *view3drv_state.data = data
+  *view3drv_state.x = xv
+  *view3drv_state.y = yv
+  *view3drv_state.z = zv
 
   WIDGET_CONTROL, VIEWDRV3D, /REALIZE
 
