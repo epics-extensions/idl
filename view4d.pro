@@ -84,7 +84,6 @@ print,'Read Det=',idet+1,'   Time used=',systime(1)-t1
 		*SSD.da[1] = da2D
 		scanSee_fillImage,SSD,da2D  ;,/echo
 	end
-widget_control,/clear_events
 	*SSD.da[0] = da4d
 	*SSD.da[1] = da3d
 	*SSD.da[2] = da2d
