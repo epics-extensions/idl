@@ -5,32 +5,33 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;	scan2d::Overlay
 ;
 ; PURPOSE:
-;       Using overlay composite image reveals information about the 
-;       superposition of the image of selected detectors. It provides 
+;       Using an overlay composite image reveals information about the 
+;       superposition of the images of selected detectors. It provides 
 ;       another way of data interpretation.
 ;
 ;       This method constructs a composite image based on user selected
 ;       detectors for a given 2D scanno. The composite image is composed
 ;       of the basic composite element area. Each composite element area 
-;       consists of ColxRow of squares. In each composite area a single
-;       vaule from each selected image (or detector) is filled in. 
-;       Each colored square in the element area represents a value from the 
-;       selected detector. 
+;       consists of ColxRow of small squares. Each colored filled small 
+;       square area represents a data point from the selected image (or 
+;       detector). So each composite area is composed of one data point
+;       from each selected detectors and they are arranged in row order. 
 ;
-;       For each detector the values is filled into composite image area 
-;       by columns then by rows.
+;       The resultant composite image with width of ColxWidth squares,
+;       and height of RowxHeight squares. (each Detector dimension is 
+;       Width x Height)
 ;
 ;       In the basic element area all selected detectors are filled in row
 ;       order until the area is full then it re-starts from the first row 
 ;       again, i.e. if more detectors than the available squares are 
-;       selected then the overlay of colored squares may be resulted.
+;       available then the overlay of colored squares may be resulted.
 ;
 ;       Default 2x2 squares are used for basic element area which can hold 
 ;       4 detects without overlapping. Each square has width of 2 pixels.
 ;
 ;       Each detector has a fixed color associated with it, it is linearly
 ;       devided into 16 levels. The detector value is linearly interpreted 
-;       by these colors (see restriction).
+;       by 16 levels (see restriction).
 ;
 ; CATEGORY:
 ;       Widgets.
@@ -54,7 +55,7 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;  The image array size may varies from the scan to scan. In order to 
 ;  make sure this method works properly, the scan2d::View method has to be 
 ;  called first to establish the proper image array size for the desired 
-;  2D scanno. Then the parameter scanno is not required.
+;  2D scanno. 
 ;  
 ;  16 colors are used and they are shaded with gray
 ;
