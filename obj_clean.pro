@@ -8,7 +8,7 @@ PRO obj_clean,var,cType,all=all,id=id,find=find,class=class
 ;        in the IDL memory.
 ;
 ; CALLING SEQUENCE:
-;       OBJ_CLEAN[,Var[,cType]][,/FIND][,ID=id][,/ALL]
+;       OBJ_CLEAN[,Var[,cType]][,/FIND][,Class=class][,ID=id][,/ALL]
 ;
 ; INPUTS:
 ;  Var   - if specified, the object name found will be destroyed
@@ -17,7 +17,7 @@ PRO obj_clean,var,cType,all=all,id=id,find=find,class=class
 ;
 ;KEYWORD PARAMETERS:
 ;  /FIND  - if specified, find all the objects in the heap
-;  /CLASS - a string to specify the classType, if specified with /FIND, 
+;  CLASS  - to specify the classType string, if specified with /FIND, 
 ;           find all the objects matched the classType;
 ;           if specified alone, all the matched objects will be destroyed.
 ;  /ALL   - if specified, all the objects in the heap will be destroyed
@@ -81,7 +81,7 @@ PRO obj_clean,var,cType,all=all,id=id,find=find,class=class
 			end
 		endif else begin
 			print,''
-			print,'Usage: obj_clean[,Var[,cType]][,/FIND][,ID=id][,/ALL]'
+			print,'Usage: obj_clean[,Var[,cType]][,Class="..."][,/FIND][,ID=id][,/ALL]'
 			print,''
 			print,'        This routine allows the user flexibly clean up the objects heap '
 			print,'        in the IDL memory.'
@@ -95,6 +95,7 @@ PRO obj_clean,var,cType,all=all,id=id,find=find,class=class
 			print,'  /FIND - if specified, find all the objects in the heap'
 			print,'  /ALL  - if specified, all the objects in the heap will be destroyed'
 			print,"  ID=#  - if specified, the #'th objects in the heap will be destroyed"
+			print,'  Class - specifies class type string to be destroyed' 
 		return
 		end
 	   end
