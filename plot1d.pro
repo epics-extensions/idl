@@ -2,9 +2,11 @@
 
 
 PRO catch1d_get_pvtcolor,i,color
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 ; 24 bits
-	catch1d_get_pvtct,red,green,blue
-	color = red(i) + green(i)*256L + blue(i)*256L ^2
+	if n_elements(R_ORIG) eq 0 then $
+	catch1d_get_pvtct
+	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
 ;	plot,indgen(10),color=color
 END
 
@@ -13,7 +15,16 @@ PRO catch1d_save_pvtct
 	save,red,green,blue,file='catch1d.tbl'
 END
 
-PRO catch1d_get_pvtct,red,green,blue
+PRO catch1d_get_pvtct
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+
+; 8 bit visual
+
+	if  !d.n_colors lt 16777216 then begin
+		tvlct,red,green,blue,/get
+	endif else begin
+
+; 24 bit visual
 	file = 'catch1d.tbl'
 	found = findfile(file)
 	if found(0) eq '' then begin
@@ -21,10 +32,20 @@ PRO catch1d_get_pvtct,red,green,blue
 		found1 = findfile(file)
 		if found1(0) eq '' then $
 		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-	end
+		end
 	restore,file
 	tvlct,red,green,blue
+	end
+
+; set ORIG color 
+
+	R_ORIG = red
+	G_ORIG = green
+	B_ORIG = blue
+
+	LOADCT,39
 END
+
 
 PRO plot1d_replot,state
 COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
@@ -82,7 +103,7 @@ in_symbol(0)=psym
 	
 ;	dcl = state.color / 16
 	dcl = !d.table_size-2
-	ncv = 7
+	ncv = 4  ;7
 	colorlevel = dcl / ncv
 	for i= 1 ,s(2) - 1 do begin
 		if state.autocolor eq 1 then begin
