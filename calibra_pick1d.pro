@@ -1,3 +1,4 @@
+@u_read.pro
 
 PRO check_window,info_win
 info_win0 = info_win(0)
@@ -153,12 +154,12 @@ PRO calibra_pick1D, val, xa=xa, ya=ya,title=title, GROUP=Group
 
 	row_labels = make_array(sz(1),/string)
   	for i=0,height -1 do begin
-  	row_labels(i) = 'X' + strtrim(i,2)
+  	row_labels(i) = 'Row' + strtrim(i,2)
 	end
 	if sz(0) eq 2 then begin
 	column_labels = make_array(sz(2),/string)
   	for i=0,width -1 do begin
-  	column_labels(i) = 'Y' + strtrim(i,2)
+  	column_labels(i) = 'Col' + strtrim(i,2)
 	end
 	end
 
