@@ -1,9 +1,10 @@
 @PS_open.pro
 
-PRO defroi_congrid,im,arr,xverts,yverts,xs=xs,ys=ys,x0=x0,y0=y0
+PRO defroi_congrid,statistic_2dids,arr,xverts,yverts,xs=xs,ys=ys,x0=x0,y0=y0
 ; define a polygon region
 ;
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+
+	im = *statistic_2dids.im0
 
 	wset,statistic_2dids.wid
 
@@ -17,7 +18,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	if keyword_set(xs) then xw = xs
 	if keyword_set(ys) then yw = ys
 
-	sz = size(im)
+	sz = size(*statistic_2dids.im0)
 	width = statistic_2dids.width ; sz(1)
 	height = statistic_2dids.height ; sz(2)
 
@@ -49,17 +50,16 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	statistic_2dids.roi_elist = 0
 	statistic_2dids.roi_elist = arr
 
-;	statistic_2dWritePolyROI,xverts,yverts,r_index
-	statistic_2dWritePolyROI,xv,yv,arr
+;	statistic_2dWritePolyROI,statistic_2dids,xverts,yverts,r_index
+	statistic_2dWritePolyROI,statistic_2dids,xv,yv,arr
 END
 
-PRO statistic_2dPlot
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO statistic_2dPlot, statistic_2dids
 
 	wset,statistic_2dids.wid
 	erase
 
-	im = statistic_2dids.im0
+	im = *statistic_2dids.im0
 
 ;  if lower level threshhold value is given
 
@@ -105,21 +105,22 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 		xrange=xrange,yrange=yrange, xstyle=1,ystyle=1
 	xyouts,!d.x_ch_size,!d.y_size -!d.y_ch_size,statistic_2dids.header(1),/device
 
-	if statistic_2dids.back eq 0 then scan2d_ROI_LMB 
+	if statistic_2dids.back eq 0 then scan2d_ROI_LMB ,statistic_2dids
 	if statistic_2dids.back eq 1 then $
-	statistic_2dRange,im,statistic_2dids.backave,statistic_2dids.backave2
+	statistic_2dRange,statistic_2dids,im,statistic_2dids.backave,statistic_2dids.backave2
 	if statistic_2dids.back eq 2 then $
-	statistic_2dPickedPolygon,im
+	statistic_2dPickedPolygon,statistic_2dids,im
 
 	statistic_2dids.cross = 0
 END
 
-PRO statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr,r_index
-COMMON STATISTIC_2DBLOCK, statistic_2dids
-	u_openr,unit,statistic_2dids.picked,/XDR
-	 u_read,unit,xv
-	 u_read,unit,yv
-	u_close,unit	
+PRO statistic_2dReadPolyROI,statistic_2dids,xverts,yverts,xv,yv,arr,r_index
+
+	xdr_open,unit,statistic_2dids.picked
+	xdr_read,unit,xv
+	xdr_read,unit,yv
+	xdr_close,unit
+
 	statistic_2dids.roi_elist = 0
 
 	xverts = fix(xv / statistic_2dids.factor(0)+.5)
@@ -130,24 +131,22 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 
 END
 
-PRO statistic_2dWritePolyROI,xverts,yverts,r_index
-COMMON STATISTIC_2DBLOCK, statistic_2dids
-	u_openw,unit,statistic_2dids.picked,/XDR
-	 u_write,unit,xverts
-	 u_write,unit,yverts
-;	 u_write,unit,r_index
-	u_close,unit	
+PRO statistic_2dWritePolyROI,statistic_2dids,xverts,yverts,r_index
+
+	xdr_open,unit,statistic_2dids.picked,/write
+	xdr_write,unit,xverts
+	xdr_write,unit,yverts
+	xdr_close,unit
 END
 
-PRO statistic_2dPickedPolygon,im
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO statistic_2dPickedPolygon,statistic_2dids,im
 ;
 	found = findfile(statistic_2dids.picked)
 	if found(0) eq '' then return
 	
 ;  xverts,yverts in data index
 ;  xv,yv in  pixels
-	statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr,r_index
+	statistic_2dReadPolyROI,statistic_2dids,xverts,yverts,xv,yv,arr,r_index
 
 device,get_graphics_function=oldGraphFunc
 device,set_graphics_function=6
@@ -176,7 +175,7 @@ device,set_graphics_function=oldGraphFunc
 	endcase
 
 	statistic_2dids.roi_nelem = nelem
-	for ij=0,nelem-1 do begin
+	for ij=0L,nelem-1 do begin
 		j = temp_ind(ij) / width 
 		i = temp_ind(ij) MOD width
 		temp(ij) = im(i,j)
@@ -194,7 +193,7 @@ device,set_graphics_function=oldGraphFunc
 	max_j = jmax / width
 	
 
-	scan2d_ROI_field,result(0),sdev,temp_min,temp_max,min_i,min_j,max_i,max_j
+	scan2d_ROI_field,statistic_2dids,result(0),sdev,temp_min,temp_max,min_i,min_j,max_i,max_j
 
 	statistic_2dids.roi_total = total(temp)
 	statistic_2dids.roi_nelem = n_elements(temp)
@@ -214,12 +213,11 @@ device,set_graphics_function=oldGraphFunc
 
 END
 
-PRO statistic_2dRange,im,lower_b,upper_b
+PRO statistic_2dRange,statistic_2dids,im,lower_b,upper_b
 ; 
 ; extract the elements fall in between the selected range
 ;    statistic_2dids.backave <    < statistic_2dids.backave2
 ;
-COMMON STATISTIC_2DBLOCK, statistic_2dids
 
 	sz = size(im)
 	width = sz(1)
@@ -229,16 +227,16 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	yrange = [0,height-1]
 
 	bine = (im ge lower_b) and (im le upper_b)
-	nelem = fix(total(bine))
+	nelem = long(total(bine))
 	if nelem gt 1 then begin
 		temp = make_array(nelem)
-		temp_ind = make_array(nelem,/int)
-	ij = 0
+		temp_ind = make_array(nelem,/long)
+	ij = 0L
 	for j=0,height-1 do begin
 	for i=0,width-1 do begin
 	if im(i,j) ge lower_b and im(i,j) le upper_b then begin
 		temp(ij) = im(i,j)
-		temp_ind(ij) = i+ j*width
+		temp_ind(ij) = i+ 1L*j*width
 		ij=ij+1
 		end
 	end
@@ -267,7 +265,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	max_j = jmax / width
 	
 
-	scan2d_ROI_field,result(0),sdev,temp_min,temp_max,min_i,min_j,max_i,max_j
+	scan2d_ROI_field,statistic_2dids,result(0),sdev,temp_min,temp_max,min_i,min_j,max_i,max_j
 
 	statistic_2dids.roi_total = total(temp)
 	statistic_2dids.roi_nelem = n_elements(temp)
@@ -287,8 +285,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 
 END
 
-PRO boxregion,Event
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO boxregion,statistic_2dids,Event
 
 ;	device,get_graphics_function=gmode
 ;	if gmode eq 6 then begin
@@ -349,8 +346,7 @@ WIDGET_CONTROL,statistic_2dids.message,SET_VALUE="**Press MMB to Query Pixel Val
 END
 
 
-PRO scan2d_ROI_MMB
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO scan2d_ROI_MMB,statistic_2dids
 
 	wset,statistic_2dids.wid
 	cursor,px2,py2,0,/device
@@ -384,7 +380,8 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	endif else begin
 	st = 'CURSOR: Ix='+strtrim(x2,2)+', Jy='+strtrim((y2),2)+','
 	end
-	stv= '     Pixel Value ='+strtrim(statistic_2dids.im0(x2,y2),2)
+	im0 = *statistic_2dids.im0
+	stv= '     Pixel Value ='+strtrim(im0(x2,y2),2)
 	WIDGET_CONTROL,statistic_2dids.cursor,SET_VALUE=st
 	WIDGET_CONTROL,statistic_2dids.cursorv,SET_VALUE=stv
 	if statistic_2dids.debug then print,'cursor:i,j=',px2,py2,x2,y2
@@ -393,8 +390,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 
 END
 
-PRO scan2d_ROI_LMB
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO scan2d_ROI_LMB,statistic_2dids
 
 	xbox = [statistic_2dids.x1,statistic_2dids.x2,statistic_2dids.x2]
 	ybox = [statistic_2dids.y1,statistic_2dids.y1,statistic_2dids.y2]
@@ -423,19 +419,24 @@ statistic_2dids.yrange[1] = fix(statistic_2dids.y2/statistic_2dids.factor[1]) ;+
 	print,'yrange',statistic_2dids.yrange
 	end
 
-	temp2 = statistic_2dids.im0(statistic_2dids.xrange(0):statistic_2dids.xrange(1),$
+	im0 = *statistic_2dids.im0
+	temp2 = im0(statistic_2dids.xrange(0):statistic_2dids.xrange(1),$
 		statistic_2dids.yrange(0):statistic_2dids.yrange(1))
 	if n_elements(temp2) lt 2 then begin
 	res = dialog_message('ROI is too small! Try again.',/Error)
 	return
 	end
 
-	for j=statistic_2dids.yrange(0),statistic_2dids.yrange(1) do begin
-	for i=statistic_2dids.xrange(0),statistic_2dids.xrange(1) do begin
-		ij = j*statistic_2dids.width + i
-		if n_elements(elist) eq 0 then elist = ij else $
-		elist = [elist, ij]
-	end
+	dj = statistic_2dids.yrange(1) - statistic_2dids.yrange(0) + 1
+	di = statistic_2dids.xrange(1) - statistic_2dids.xrange(0) + 1
+
+	for j=0L,dj-1 do begin
+		ij = (j+statistic_2dids.yrange(0)) * statistic_2dids.width $
+			+ statistic_2dids.xrange(0)
+		ll = indgen(di) + ij
+		if n_elements(elist) eq 0 then elist = ll else $
+			elist = [elist,ll]
+	i = di+statistic_2dids.xrange(0)
 	end
 	statistic_2dids.roi_nelem = n_elements(elist)
 	statistic_2dids.roi_elist = 0
@@ -464,7 +465,7 @@ statistic_2dids.yrange[1] = fix(statistic_2dids.y2/statistic_2dids.factor[1]) ;+
 	statistic_2dids.roi_ave = result(0)
 	statistic_2dids.roi_dev = sdev
 
-	scan2d_ROI_field,result(0),sdev,temp_min,temp_max,min_i,min_j,max_i,max_j
+	scan2d_ROI_field,statistic_2dids,result(0),sdev,temp_min,temp_max,min_i,min_j,max_i,max_j
 
 	; ROI
   	st='ROI: IM['+strtrim(statistic_2dids.xrange(0),2)+':'+ $
@@ -476,8 +477,7 @@ statistic_2dids.yrange[1] = fix(statistic_2dids.y2/statistic_2dids.factor[1]) ;+
 	WIDGET_CONTROL,statistic_2dids.roiid,SET_VALUE=st
 END
 
-PRO scan2d_ROI_field,ave,dev,tmin,tmax,min_i,min_j,max_i,max_j
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO scan2d_ROI_field,statistic_2dids,ave,dev,tmin,tmax,min_i,min_j,max_i,max_j
 
 	WIDGET_CONTROL,statistic_2dids.aveid,SET_VALUE=ave
 	WIDGET_CONTROL,statistic_2dids.devid,SET_VALUE=dev
@@ -498,8 +498,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 
 END
 
-PRO PDMENU13_Event, Event
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO PDMENU13_Event,statistic_2dids, Event
 
   CASE Event.Value OF
 
@@ -534,15 +533,14 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	statistic_2dids.file = f
 	statistic_2dids.roipath = p
 	statistic_2dids.picked = f+'.poly'
-	scan2d_ROI_readroi
+	scan2d_ROI_readroi,statistic_2dids
 	end
     END
   ENDCASE
 END
 
 
-PRO PDMENU3_Event, Event
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO PDMENU3_Event,statistic_2dids, Event
 
   CASE Event.Value OF
 
@@ -574,46 +572,45 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
   ENDCASE
 END
 
-PRO scan2d_ROI_default
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO scan2d_ROI_default, statistic_2dids
 
 	statistic_2dids.x1=0
 	statistic_2dids.y1=0
 	statistic_2dids.x2=300
 	statistic_2dids.y2=300
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
 
 	statistic_2dids.refresh = 1
 END
 
 PRO scan2d_ROI_Event, Event
-COMMON STATISTIC_2DBLOCK, statistic_2dids
 
+  WIDGET_CONTROL,Event.Top,GET_UVALUE=statistic_2dids
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
   CASE Ev OF 
 
   'STATISTIC_2DDRAW': BEGIN
 	if (Event.PRESS eq 2) then begin
-	scan2d_ROI_MMB
-	return
+	scan2d_ROI_MMB,statistic_2dids
+	goto,set_return
 	end
 
 	if (Event.press eq 4) then begin
-	scan2d_ROI_MMB
-	statistic_2dPlot
+	scan2d_ROI_MMB,statistic_2dids
+	statistic_2dPlot,statistic_2dids
 	end
 
       if (Event.PRESS eq 1) then begin
-	boxregion,Event
-	scan2d_ROI_LMB
+	boxregion,statistic_2dids,Event
+	scan2d_ROI_LMB,statistic_2dids
 	statistic_2dids.refresh = 1
-	return
+	goto,set_return
 	end
 
       END
   'STATISTIC_2DCLEAN': BEGIN
-	scan2d_ROI_default
+	scan2d_ROI_default, statistic_2dids
       END
   'STATISTIC_2DFILE2': BEGIN
 	WIDGET_CONTROL,statistic_2dids.rptid,GET_VALUE=f
@@ -625,21 +622,21 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	if res gt 0 then f = strmid(f(0),0,res)
 	statistic_2dids.file = f
 	statistic_2dids.picked = f+'.poly'
-	scan2d_ROI_readroi
+	scan2d_ROI_readroi,statistic_2dids
 	END
   'STATISTIC_2DBACKFLD': BEGIN
 	WIDGET_CONTROL,statistic_2dids.backid,GET_VALUE=ave
 	statistic_2dids.backave = ave
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
 	END
   'STATISTIC_2DHIGHFLD': BEGIN
 	WIDGET_CONTROL,statistic_2dids.highid,GET_VALUE=ave
 	if ave lt statistic_2dids.backave then begin
 		res = dialog_message('High value must be greater than Low value.',/error)
-		return
+		goto,set_return
 	end
 	statistic_2dids.backave2 = ave
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
 	END
   'STATISTIC_2DCOMMENT': BEGIN
 	WIDGET_CONTROL,statistic_2dids.commentid,GET_VALUE=f
@@ -648,8 +645,9 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
   'STATISTIC_2DMULTIROI': BEGIN
 	len = strpos(statistic_2dids.picked,"_roi",/reverse_search)
 	if len ge 0 then class = strmid(statistic_2dids.file,0,len+1)
-	multiroi_pick,statistic_2dids.im0,class=class ;,Group=Event.top
+	im0 = *statistic_2dids.im0
 	WIDGET_CONTROL,Event.top,/DESTROY
+	multiroi_pick,im0,class=class,comment=statistic_2dids.comment  ;,Group=Event.top
 	return
 	END
   'STATISTIC_2DBACKMODE': BEGIN
@@ -669,7 +667,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 		WIDGET_CONTROL,statistic_2dids.backbase,SENSITIVE=1 else $
 		WIDGET_CONTROL,statistic_2dids.backbase,SENSITIVE=0
 
-		statistic_2dPlot
+		statistic_2dPlot,statistic_2dids
 		st0='**Press MMB to Query Pixel Values**'
 		if statistic_2dids.back eq 0 then $ 
 		st =[st0,  $
@@ -694,10 +692,10 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 		res = dialog_message('Low value must be less than High value.',/error)
 		WIDGET_CONTROL,statistic_2dids.backid,SET_VALUE=statistic_2dids.backave
 		WIDGET_CONTROL,Event.id,SET_VALUE=statistic_2dids.backave
-		return
+		goto,set_return
 	end
         statistic_2dids.backave=v
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
       END
   'STATISTIC_2DHIGHSLDR': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=v
@@ -709,7 +707,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 		return
 	end
         statistic_2dids.backave2=v
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
       END
   'STATISTIC_2DVERSUS': BEGIN
 	statistic_2dids.versus = Event.Index
@@ -721,7 +719,8 @@ WIDGET_CONTROL,statistic_2dids.maxyid,SET_VALUE=statistic_2dids.max_j
 	x2 = statistic_2dids.cursor_i
 	y2 = statistic_2dids.cursor_j
 	st = 'CURSOR: Ix='+strtrim(x2,2)+', Jy='+ strtrim(y2,2)+','
-	stv= '     Pixel Value ='+strtrim(statistic_2dids.im0(x2,y2),2)
+	im0 = *statistic_2dids.im0
+	stv= '     Pixel Value ='+strtrim(im0(x2,y2),2)
 	WIDGET_CONTROL,statistic_2dids.cursor,SET_VALUE=st
 	WIDGET_CONTROL,statistic_2dids.cursorv,SET_VALUE=stv
 endif else begin
@@ -733,25 +732,26 @@ WIDGET_CONTROL,statistic_2dids.maxyid,SET_VALUE=statistic_2dids.y(statistic_2did
 	y2 = statistic_2dids.cursor_j
 	st = 'CURSOR: X='+strtrim(statistic_2dids.x(x2),2)+', Y='+ $
 	   	strtrim(statistic_2dids.y(y2),2)+','
-	stv= '     Pixel Value ='+strtrim(statistic_2dids.im0(x2,y2),2)
+	stv= '     Pixel Value ='+strtrim(im0(x2,y2),2)
 	WIDGET_CONTROL,statistic_2dids.cursor,SET_VALUE=st
 	WIDGET_CONTROL,statistic_2dids.cursorv,SET_VALUE=stv
 end
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
 
       END
   'STATISTIC_2DDONE': BEGIN
 ;	  device,set_graphics_function=3
 	  WIDGET_CONTROL,Event.Top,/DESTROY
+	  return
       END
   'STATISTIC_2DCOLOR': BEGIN
 	XLOADCT,GROUP=Event.Top
       END
   'STATISTIC_2DREADROI': BEGIN
-	if statistic_2dids.back eq 0 then scan2d_ROI_readroi 
+	if statistic_2dids.back eq 0 then scan2d_ROI_readroi ,statistic_2dids
       END
   'STATISTIC_2DREADPOLYROI': BEGIN
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
       END
   'STATISTIC_2DDEFROI': BEGIN
 	text=['You are in the defining PolyROI mode:', $
@@ -759,9 +759,9 @@ end
 		'Middle button to erase previous point', $
 		'Right button to close polygon region']
 	WIDGET_CONTROL,statistic_2dids.message,SET_VALUE=text
-		defroi_congrid,statistic_2dids.im0,arr,xverts,yverts
-scan2d_ROI_default
-	statistic_2dPlot
+		defroi_congrid,statistic_2dids,arr,xverts,yverts
+scan2d_ROI_default, statistic_2dids
+	statistic_2dPlot,statistic_2dids
 	WIDGET_CONTROL,statistic_2dids.message,SET_VALUE='**Press MMB to Query Pixel Values**'
 	END
   'STATISTIC_2DSAVEROI': BEGIN
@@ -774,9 +774,9 @@ scan2d_ROI_default
 	end
 	x = [statistic_2dids.x1,statistic_2dids.x2,statistic_2dids.y1, $
 		statistic_2dids.y2,statistic_2dids.factor]
-	u_openw,unit,statistic_2dids.file,/XDR
-	u_write,unit,x
-	u_close,unit
+	xdr_open,unit,statistic_2dids.file,/write
+	xdr_write,unit,x
+	xdr_close,unit
       END
   'STATISTIC_2DREPORTVIEW': BEGIN
 	f = dialog_pickfile( path=statistic_2dids.rptpath,filter='*rpt*', $
@@ -798,11 +798,11 @@ scan2d_ROI_default
         rename_dialog,rpath,fn,'',GROUP=Event.top
 	END
   'STATISTIC_2DREPLACE': BEGIN
-	scan2d_ROI_writeReport,/new
+	scan2d_ROI_writeReport,statistic_2dids,/new
 	xdisplayfile,statistic_2dids.rpt,GROUP=Event.Top
 	END
   'STATISTIC_2DREPORT': BEGIN
-	scan2d_ROI_writeReport
+	scan2d_ROI_writeReport,statistic_2dids
 	xdisplayfile,statistic_2dids.rpt,GROUP=Event.Top
 ;	res = cw_term(statistic_2dids.base,filename=statistic_2dids.rpt,/scroll)
 	END
@@ -885,13 +885,15 @@ scan2d_ROI_default
   	xdisplayfile,'',title='Help... 2D ROI',text=st, GROUP=Event.Top
       END
   ; Event for PDMENU3
-  'PDMENU3': PDMENU3_Event, Event
-  'PDMENU13': PDMENU13_Event, Event
+  'PDMENU3': PDMENU3_Event,statistic_2dids, Event
+  'PDMENU13': PDMENU13_Event,statistic_2dids, Event
   ENDCASE
+
+  set_return:
+  WIDGET_CONTROL,Event.Top,SET_UVALUE=statistic_2dids
 END
 
-PRO scan2d_ROI_writeReport,new=new,debug=debug
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO scan2d_ROI_writeReport,statistic_2dids,new=new,debug=debug
 
 	if keyword_set(new) then openw,1,statistic_2dids.rpt,ERROR=err else $
 	openw,1,statistic_2dids.rpt,ERROR=err,/append
@@ -916,7 +918,7 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
 	if statistic_2dids.back eq 2 then begin
 		printf,1,'ROI: Polygon region defined in ',statistic_2dids.picked
 
-		statistic_2dReadPolyROI,xverts,yverts,xv,yv,arr,r_index
+		statistic_2dReadPolyROI,statistic_2dids,xverts,yverts,xv,yv,arr,r_index
 
 if keyword_set(debug) then begin
 print,xverts
@@ -945,23 +947,17 @@ end
 		strtrim(statistic_2dids.y(yrange(0)),2),':', $
 		strtrim(statistic_2dids.y(yrange(1)),2),'] ' 
 
+		di = xrange(1)-xrange(0) + 1
+		xlist = indgen(di)+xrange(0)
 		for j=yrange(0),yrange(1) do begin
-		for i=xrange(0),xrange(1) do begin
-		ij = j*statistic_2dids.width+i
+		ij = j*statistic_2dids.width+xlist
 		if n_elements(arr) eq 0 then arr = ij else arr= [arr,ij]
-		end
 		end
 	end
 	printf,1,''
 	if statistic_2dids.back eq 1 then begin 
-	for j=0,statistic_2dids.height-1 do begin
-	for i=0,statistic_2dids.width-1 do begin
-	if statistic_2dids.im0(i,j) ge statistic_2dids.backave and statistic_2dids.im0(i,j) le statistic_2dids.backave2 then begin
-		ij = j*statistic_2dids.width+i 
-		if n_elements(arr) eq 0 then arr = ij else arr = [arr,ij]
-		end
-	   end
-	   end
+	im0 = *statistic_2dids.im0
+	arr = where(im0 ge statistic_2dids.backave and im0 le statistic_2dids.backave2)
 	printf,1,'Filter Low and High Values: ['+strtrim(statistic_2dids.backave,2)+','+ $
 		strtrim(statistic_2dids.backave2,2)+']'
 	end
@@ -976,48 +972,49 @@ end
 	printf,1,'       N         I            J    IM(I,J)    IM(I,J)-ave   ROI'
 	printf,1,'         ---------------------------------------------------'
 
-	for ij=0,statistic_2dids.roi_nelem-1 do begin
-		i = arr(ij) MOD statistic_2dids.width
-		j = arr(ij) / statistic_2dids.width
-		if statistic_2dids.back eq 0 then $
-		  printf,1,ij,i,j,statistic_2dids.im0(i,j), $
-		   statistic_2dids.im0(i,j)-statistic_2dids.roi_ave,"   RECT"
-		if statistic_2dids.back eq 1 then $
-		  printf,1,ij,i,j,statistic_2dids.im0(i,j), $
-		   statistic_2dids.im0(i,j)-statistic_2dids.roi_ave,"   FILTER"
-		if statistic_2dids.back eq 2 then $
-		  printf,1,ij,i,j,statistic_2dids.im0(i,j), $
-		   statistic_2dids.im0(i,j)-statistic_2dids.roi_ave,"   POLY"
+	im0 = *statistic_2dids.im0
+	ty = "    RECT"
+	if statistic_2dids.back eq 1 then ty = "    FILTER"
+	if statistic_2dids.back eq 2 then ty = "    POLY"
+
+	str = strarr(statistic_2dids.roi_nelem)
+	for ij=0L,statistic_2dids.roi_nelem-1 do begin
+	   i = arr(ij) MOD statistic_2dids.width
+	   j = arr(ij) / statistic_2dids.width
+ 	   str(ij) = string(ij,i,j,im0(i,j),im0(i,j)-statistic_2dids.roi_ave)
 	end
+
+	printf,1,str+ty
 	close,1
 
 END
 
-PRO scan2d_ROI_readroi
-COMMON STATISTIC_2DBLOCK, statistic_2dids
+PRO scan2d_ROI_readroi,statistic_2dids
 
 	found = findfile(statistic_2dids.file)
 	if found(0) ne '' then begin
-	u_openr,unit,statistic_2dids.file,/XDR
-	u_read,unit,x
-	u_close,unit
+
+	xdr_open,unit,statistic_2dids.file
+	xdr_read,unit,x
+	xdr_close,unit
+
 	statistic_2dids.x1=x(0)
 	statistic_2dids.x2=x(1)
 	statistic_2dids.y1=x(2)
 	statistic_2dids.y2=x(3)
 
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
 	x = [statistic_2dids.x1,statistic_2dids.x2,statistic_2dids.y1, $
 		statistic_2dids.y2,statistic_2dids.factor]
-	u_openw,unit,statistic_2dids.file,/XDR
-	u_write,unit,x
-	u_close,unit
+	xdr_open,unit,statistic_2dids.file,/write
+	xdr_write,unit,x
+	xdr_close,unit
 	end
 
 	statistic_2dids.refresh = 0
 END
 
-PRO scan2d_ROI,im,x,y,debug=debug,header=header,roifile=roifile,rptfile=rptfile,mode=mode,comment=comment, GROUP=Group
+PRO scan2d_ROI,im,x,y,debug=debug,header=header,roifile=roifile,rptfile=rptfile,mode=mode,comment=comment, GROUP=Group,roi_data=statistic_2dids
 ;
 ;+
 ; NAME:
@@ -1054,9 +1051,6 @@ PRO scan2d_ROI,im,x,y,debug=debug,header=header,roifile=roifile,rptfile=rptfile,
 ;       MODE:       Starts the scan2d_roi with desired ROI mode, default is
 ;                   RectROI mode.
 ;
-; COMMON BLOCKS:
-;       COMMON STATISTIC_2DBLOCK, statistic_2dids	
-;
 ; SIDE EFFECTS:
 ;       A directory ROI will be created at the current directory. All the
 ;       ROI related files will be saved under this directory. 
@@ -1080,16 +1074,21 @@ PRO scan2d_ROI,im,x,y,debug=debug,header=header,roifile=roifile,rptfile=rptfile,
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, June 23, 1999.
-;       xx-xx-xxxx   comment
+;       01-24-2001  bkc R1.1
+;                       Handle large image array, improve the efficiency
 ;-
 
-COMMON STATISTIC_2DBLOCK, statistic_2dids
 ;
 ; optional ROI[x1,x2,y1,y2] specify initial ROI of pixels
 ;
-  if n_params() lt 3 then return
-  if XRegistered('scan2d_ROI') then $
-	WIDGET_CONTROL,statistic_2dids.base,/DESTROY,bad_id=bad
+  if n_params() lt 3 then begin
+	sz = size(im)
+	if sz(0) ne 2 then return
+	x = indgen(sz(1))
+	y = indgen(sz(2))
+  end
+
+  if XRegistered('scan2d_ROI') then return 
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -1100,7 +1099,8 @@ COMMON STATISTIC_2DBLOCK, statistic_2dids
   width = n_elements(x)
   height= n_elements(y)
 
-  im = im(0:width-1,0:height-1)
+  im = temporary( im(0:width-1,0:height-1) )
+
   im_max = max(im,jmax)
   im_min = min(im,jmin)
 
@@ -1119,6 +1119,7 @@ ysize = 300
 	spawn,'mkdir '+p
   end
 
+;  if n_elements(statistic_2dids) eq 0 then $
   statistic_2dids = { $
 	header: ['',''],$
 	roipath: p, $
@@ -1165,7 +1166,7 @@ ysize = 300
 	backslid: 0L, $
 	highid: 0L, $
 	highslid: 0L, $
-	im0: im,$ 
+	im0: ptr_new(/allocate_heap), $  ;im,$ 
 	x: x, $
 	y: y, $
 	im: congrid(im,xsize,ysize), $   ;400,400), $
@@ -1194,7 +1195,7 @@ ysize = 300
 	min_i: jmin MOD width, $
 	min_j: jmin / width, $
 	roi_nelem: width*height, $
-	roi_elist: make_array(width*height,/byte), $
+	roi_elist: make_array(width*height,/long), $    ;/byte), $
 	roi_min: im_min, $
 	roi_max: im_max, $
 	roi_total: total(im), $
@@ -1205,17 +1206,20 @@ ysize = 300
 	dev : sdev $
 	}
 
+  *statistic_2dids.im0 = im
+
   if keyword_set(roifile) then begin
 	statistic_2dids.file = roifile
 	statistic_2dids.picked = roifile+'.poly'
   end
   if keyword_set(rptfile) then statistic_2dids.rpt = rptfile
   if keyword_set(header) then statistic_2dids.header = header
+  if keyword_set(comment) then statistic_2dids.comment = comment
 
   if keyword_set(debug) then statistic_2dids.debug=1
 
   scan2d_ROI = WIDGET_BASE(GROUP_LEADER=Group, $
-      TITLE='2D Statistic ROI (R1.0)', $
+      TITLE='2D Statistic ROI (R1.1)', $
       COLUMN=1, $
       MAP=1, $
       UVALUE='scan2d_ROI')
@@ -1521,7 +1525,7 @@ statistic_filename2 = WIDGET_TEXT(BASE4_file2,VALUE=statistic_2dids.rpt, $
   COMMON DRAW3_Comm, DRAW3_Id
   WIDGET_CONTROL, DRAW3, GET_VALUE=DRAW3_Id
 
-	statistic_2dPlot
+	statistic_2dPlot,statistic_2dids
 	statistic_2dids.pixmap = tvrd(statistic_2dids.margin_l,statistic_2dids.margin_b,statistic_2dids.xsize,statistic_2dids.ysize)
 
   if keyword_set(mode) then statistic_2dids.back = mode
@@ -1535,7 +1539,8 @@ statistic_filename2 = WIDGET_TEXT(BASE4_file2,VALUE=statistic_2dids.rpt, $
 
  	statistic_2dids.wid = !d.window
 
-  	scan2d_ROI_readroi
+  	scan2d_ROI_readroi,statistic_2dids
 
+  WIDGET_CONTROL, scan2d_ROI, SET_UVALUE=statistic_2dids
   XMANAGER, 'scan2d_ROI', scan2d_ROI
 END
