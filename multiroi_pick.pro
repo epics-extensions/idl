@@ -112,7 +112,7 @@ end
 
 	dx = ixr-ixl+1
 	ct = 0
-	for ij=0,n_elements(picke)-1 do begin
+	for ij=0L,n_elements(picke)-1 do begin
 	if picke(ij) gt 0 then begin
 		i = ixl + ij MOD dx
 		j = iyl + ij / dx
@@ -251,10 +251,15 @@ xtr = strtrim(region_no,2)
 	orient = 45
 	if keyword_set(reverse) then orient = -45
 	device,set_graphics_function=6
-	for ij=0L,nelem-1 do begin
-		if picke(ij) eq region_no then begin
-		i = ij mod sz(1)
-		j = ij / sz(1)
+
+
+el_list = where(picke eq region_no)
+if n_elements(el_list) gt 1 then begin
+sel_list = im(el_list)
+
+	for ij=0L,n_elements(el_list) -1 do begin
+		i = el_list(ij) mod sz(1)
+		j = el_list(ij) / sz(1)
 		xv = xl + multiplier(0)*[i,i+1,i+1,i,i]
 		yv = yl + multiplier(1)*[j,j,j+1,j+1,j]
 		polyfill,xv,yv,line_fill=1,orientation=orient,/device
@@ -263,18 +268,9 @@ xtr = strtrim(region_no,2)
 		xyouts,xv(0),yv(0),xtr,/device,charsize=csize
 
 if keyword_set(print) then print,ij,i,j,im(i,j),region_no
-		if n_elements(sel_list) eq 0 then begin
-			sel_list = im(i,j) 
-			el_list = ij
-		end else begin
-			sel_list = [sel_list, im(i,j)]
-			el_list = [el_list,ij]
-		end
-		end
 	end
 	device,set_graphics_function=3
 
-	if n_elements(sel_list) gt 1 then begin
 		sel_total = total(sel_list)
 		sel_no = n_elements(sel_list)
 		res = moment(sel_list,sdev=dev,mdev=mdev)
@@ -286,7 +282,7 @@ if keyword_set(print) then print,ij,i,j,im(i,j),region_no
 		min_j = el_list(jmin) / sz(1)
 		max_i = el_list(jmax) MOD sz(1)
 		max_j = el_list(jmax) / sz(1)
-	end
+end
 
 	if n_elements(sel_no) then $
 	region_data = { nelem: sel_no, $
@@ -331,39 +327,39 @@ filename = 'roi.pick'
 if keyword_set(file) then filename = file
 
 nelem = sz(1)*sz(2)
-picke = make_array(nelem,/byte)
+picke = make_array(nelem,/long)
 
 	found = findfile(filename,count=ct)
 	if ct gt 0 then begin
-	u_openr,unit,filename,/XDR
-	u_read,unit,picke
-	u_close,unit
+	xdr_open,unit,filename
+	xdr_read,unit,picke
+	xdr_close,unit
 	end
 	; redefine the region of interest
 	if nelem lt n_elements(picke) then begin
 		addlist = 1 
-		picke = make_array(nelem,/byte)
+		picke = make_array(nelem,/long)
 	end
 
 	if nelem gt n_elements(picke) then begin
 		addlist = 1
-		picke = make_array(nelem,/byte)
+		picke = make_array(nelem,/long)
 	end
 
 	if keyword_set(addlist) then begin
 		defroi_addlist,picke,addlist
-		u_openw,unit,filename,/XDR
-		u_write,unit,picke
-		u_close,unit
+		xdr_open,unit,filename,/write
+		xdr_write,unit,picke
+		xdr_close,unit
 		end
 
 	if keyword_set(minuslist) then begin
 		if minuslist(0) lt 0 then $
 		defroi_minuslist,picke,region=-minuslist(0) else $
 		defroi_minuslist,picke,minuslist
-		u_openw,unit,filename,/XDR
-		u_write,unit,picke
-		u_close,unit
+		xdr_open,unit,filename,/write
+		xdr_write,unit,picke
+		xdr_close,unit
 		end
 
 found = findfile(filename,count=ct)
@@ -403,7 +399,7 @@ PRO defroi_pick,im,picke,width=width,height=height,xpos=xpos,ypos=ypos,listall=l
 ;    PRINT  - if specified, print the array result
 ;    READONLY - only read the region data no modification allowed
 ;    CHARSIZE - charsize mark the picked pixel
-;    REGION - specified the region number to be examined, default 0
+;    REGION - specified the region number to be examined, default 1
 ;    EL_LIST - returns the selected element list for the specified region
 ;    AVE     - returns the average value for the specified region
 ;    DEV     - returns the standard deviation value for the specified region
@@ -436,19 +432,18 @@ vmax = max(im)
 vmin = min(im)
 
 nelem = sz(1)*sz(2)
-picke = make_array(nelem,/byte)
+picke = make_array(nelem,/long)
 
 found = findfile(filename,count=ct)
 if ct gt 0 then begin
 	if keyword_set(modify) then begin
-		u_openr,unit,filename,/XDR
-		u_read,unit,picke
-		u_close,unit
-
+		xdr_open,unit,filename
+		xdr_read,unit,picke
+		xdr_close,unit
 
 	; marked the readin  picked elements
 
-	for ij=0,nelem-1 do begin
+	for ij=0L,nelem-1 do begin
 		if picke(ij) eq region_no then begin
 		i = ij mod sz(1)
 		j = ij / sz(1)
@@ -520,9 +515,9 @@ device,set_graphics_function=3
 	if !mouse.button eq 4 then begin
 		device,set_graphics_function=3
 		if keyword_set(modify) or keyword_set(new) then begin
-		u_openw,unit,filename,/XDR
-		u_write,unit,picke
-		u_close,unit
+		xdr_open,unit,filename,/write
+		xdr_write,unit,picke
+		xdr_close,unit
 		end
 ;	defroi_listall,im,charsize=csize
 	return
@@ -575,6 +570,7 @@ PRO multiroi_pickregion,defroi_pickinfo,region
 	defroi_listregion,im,picke,region_data,region=region
 	str = [ '===========================', $
 		'Report generated at: ' + systime(0), $
+		defroi_pickinfo.comment, $
 		'===========================', $
                 'REGION OF INTEREST : '+strtrim(region,2)]
 	if n_elements(region_data) eq 0 then $
@@ -596,13 +592,18 @@ PRO multiroi_pickregion,defroi_pickinfo,region
                 'N           I           J  IM(I,J)-Offset' $
         ]
 
+		st = strarr(region_data.nelem)
+
 		sz = size(im)
-		for ij=0,region_data.nelem-1 do begin
+		for ij=0L,region_data.nelem-1 do begin
 		i = region_data.el_list(ij) MOD sz(1)	
 		j = region_data.el_list(ij) / sz(1)	
-		str = [str, strtrim(ij,2)+string(i)+string(j)+string(im(i,j))]
+		st(ij) = strtrim(ij,2)+string(i)+string(j)+string(im(i,j))
 		end
+
+		str = [str,st]
 	end
+
 	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=str,/append
         end
 END
@@ -649,6 +650,7 @@ PRO multiroi_pick_Event, Event
 	WIDGET_CONTROL,defroi_pickinfo.text,SET_VALUE=''
 	multiroi_picklistall,defroi_pickinfo
 	im = defroi_pickinfo.im0
+WIDGET_CONTROL,/HOURGLASS
 	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
 	defroi_pickinfo.picke = picke
       END
@@ -679,7 +681,7 @@ PRO multiroi_pick_Event, Event
 	defroi_pickinfo.picke = picke
 	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
 		color=defroi_pickinfo.bg,/device
-      END
+	END
   'DEFROIPICK_ADD': BEGIN
 	picke = defroi_pickinfo.picke
 	region = max(picke) + 1
@@ -700,7 +702,7 @@ PRO multiroi_pick_Event, Event
 	defroi_pickinfo.picke = picke
 	defroi_listall,im,picke,charsize=defroi_pickinfo.csize
 	polyfill,[0,xsize,xsize,0],[ysize-30,ysize-30,ysize,ysize], $
-		color=defroi_info.bg,/device
+		color=defroi_pickinfo.bg,/device
       END
   'DEFROIPICK_QUERY': BEGIN
 	if defroi_pickinfo.help then $
@@ -773,13 +775,13 @@ PRO multiroi_pick_Event, Event
 		color=defroi_pickinfo.bg,/device
 	xyouts,1,ysize-19,'***Zoom Del: LMB pick element, RMB stop***',/device
 	if defroi_pickinfo.help then begin
-	str =['Zoom Del:  resize zoom box, toggle selection, delete from ROI', $
-		'Zoom Box Region: ',$
+	str =['Zoom Del Mode:  resize zoom box, delete pixels', $
+		'Zoom Box Control: ',$
 		'    Drag LMB - Reposition box',$
 		'    Drag RMB - Resize box', $
 		'    Click RMB - Accept box region', $ 
 		'Select Pixels:', $
-		'    LMB - Toggle the selection', $
+		'    LMB - Pickup the pixels to be deleted', $
 		'    RMB - Done with selection ']
 	WIDGET_CONTROL,defroi_pickinfo.msg,SET_VALUE=str
 	end
@@ -801,13 +803,13 @@ PRO multiroi_pick_Event, Event
 		color=defroi_pickinfo.bg,/device
 	xyouts,1,ysize-19,'***Zoom Add '+strtrim(region,2)+': LMB pick element, RMB stop***',/device
 	if defroi_pickinfo.help then begin
-	str =['Zoom Add:  resize box, pick pixel', $
-		'Zoom Box Region: ',$
+	str =['Zoom Add Mode:  resize box, pick pixel', $
+		'Zoom Box Control: ',$
 		'    Drag LMB - Reposition box',$
 		'    Drag RMB - Resize box', $
 		'    Click RMB - Accept box region', $ 
 		'Select Pixels:', $
-		'    LMB - Toggle the selection', $
+		'    LMB - Pickup the pixel', $
 		'    RMB - Done with selection']
 	WIDGET_CONTROL,defroi_pickinfo.msg,SET_VALUE=str
 	end
@@ -840,15 +842,15 @@ PRO multiroi_pick_Event, Event
 		if r eq 'No' then return  
 	end
 	WIDGET_CONTROL,defroi_pickinfo.text,GET_VALUE=str
-	openw,unit,filename,/get_lun
-	for i=0,n_elements(str)-1 do printf,unit,str(i)
-	close,unit
+	openw,1,filename
+	for i=0,n_elements(str)-1 do printf,1,str(i)
+	close,1
       END
   'DEFROIPICK_TEXTPRINT': BEGIN
 	WIDGET_CONTROL,defroi_pickinfo.text,GET_VALUE=str 
-	openw,unit,'rois.rpt',/get_lun
-	for i=0,n_elements(str)-1 do printf,unit,str(i)
-	close,unit
+	openw,1,'rois.rpt'
+	for i=0,n_elements(str)-1 do printf,1,str(i)
+	close,1
 	PS_print,'rois.rpt'
       END
   'DEFROIPICK_TEXTCLEAR': BEGIN
@@ -883,7 +885,7 @@ END
 
 
 
-PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg
+PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg,comment=comment
 ;+
 ; NAME: 
 ;    MULTIROI_PICK
@@ -914,12 +916,16 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg
 ;            If this keyword is specified, it tells the MULTIROI_PICK where
 ;            to store the statistic output file.
 ;
+;   COMMENT: Specifies the comment about the image data
+;
 ;    BG:     Specifies the background color, default is black
 ;
 ; MODIFICATION HISTORY:
 ;      Written by:     Ben-chin Cha, Aug 4, 2000.
-;      xx-xx-xxxx  bkc Comment    
-;
+;      01-24-2001  bkc R1.1
+;                      Replace the xdr read/write by the new method from the
+;                      xdr_open.pro    
+;		       Improve the efficiency for handling very large image data
 ;-
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
@@ -930,7 +936,7 @@ PRO multiroi_pick,im, GROUP=Group,CLASS=Class,bg=bg
 graph_region,xl,yl,wd,ht,xsize,ysize
 
   multiroi_pickBase = WIDGET_BASE(GROUP_LEADER=Group, $
-	title='MULTIROI_PICK R1.0 ', $
+	title='MULTIROI_PICK R1.1 ', $
       ROW=1, $
       MAP=1, $
       UVALUE='multiroi_pickBase')
@@ -1100,6 +1106,7 @@ graph_region,xl,yl,wd,ht,xsize,ysize
 defroi_pickinfo = { $
 	path : 'ROI'+ !os.file_sep, $
 	class : 'ROI'+ !os.file_sep, $
+	comment: '', $
 	help : 1, $
 	base : multiroi_pickBase, $
 	text : TEXT6, $
@@ -1123,10 +1130,12 @@ defroi_pickinfo = { $
 	slider : slider, $
 	region_id : 1, $
 	region_max : 1, $
-	picke: make_array(n_elements(im),/byte), $
+	picke: make_array(n_elements(im),/long), $
 	im0 : im $
 	}
 
+
+	if keyword_set(comment) then defroi_pickinfo.comment = comment
 	if keyword_set(bg) then defroi_pickinfo.bg = bg
 	if keyword_set(class) then begin
 		 defroi_pickinfo.class = class
