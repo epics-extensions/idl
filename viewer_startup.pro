@@ -26,4 +26,4 @@ print,!path
 !QUIET=1
 
 @os.init
-device,bypass_translation=1 ;0         ;  required for 24 bit device
+device,bypass_translation=0         ;  required for 24 bit device
