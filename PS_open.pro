@@ -147,6 +147,69 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 	end
 END
 
+PRO PS_TVRD,file=file,wid=wid,xoffset=xoffset,yoffset=yoffset,scale=scale
+;+
+; NAME:
+;       PS_TVRD
+;
+; PURPOSE:
+;       This routine dumps the WID contents to PS file it works for
+;	both 8bits or 24 bits devices 
+;
+; CALLING SEQUENCE:
+;       PS_TVRD,wid=wid,file=file
+;
+; KEYWORDS:
+;       file    - Specifies the PS output filename for TVRD, if not specified, 
+;                 the default 'idl.ps' is assumed.
+;       wid     - Specifies the drawing window id to be dumped, if not specified,
+;                 the current drawing window assumed.
+;       xoffset - specifies x offset center meter, default 2.54
+;       yoffset - specifies y offset center meter, default 2.54
+;       scale   - specifies PS scale factor, default 1.1
+;
+; OUTPUTS:
+;       A copy of the specified wid is saved on the user specified PS file 
+;	and a copy of PS file is sent to the user selected  printer.
+;
+; EXAMPLE:
+;       Dump the current window content to the post script file idl.ps
+;
+;        PS_TVRD
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-04.
+;
+;-
+	if keyword_set(wid) then WSET,wid
+	if keyword_set(file) eq 0 then  file = 'idl.ps'
+	if keyword_set(yoffset) eq 0 then yoffset=2.54
+	if keyword_set(xoffset) eq 0 then xoffset=2.54
+	if keyword_set(scale) eq 0 then scale=1.1
+
+	if !d.n_colors gt !d.table_size then begin
+	t_arr = TVRD(/true)
+		tvlct,red,green,blue,/get
+		arr = color_quan(t_arr,1,r,g,b)
+		tvlct,r,g,b
+	endif else arr = TVRD()
+	sz = size(arr)
+	xs = sz(1)
+	ys = sz(2)
+
+	width = float(xs)/40
+	height = float(ys)/40
+	set_plot,'PS'
+	device,filename=file,/color,bits=8, $
+		xoffset=xoffset, yoffset=yoffset, $
+		/Courier,/Bold, scale_factor=scale, $
+		xsize=width,ysize=height
+	TV,arr
+	PS_close
+	PS_print,file 
+	if !d.n_colors gt !d.table_size then tvlct,red,green,blue
+END
+
 PRO PS_enscript,fileName
 ;+
 ; NAME:
