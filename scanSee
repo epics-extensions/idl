@@ -33,13 +33,13 @@ endif
 set xdr = "DC"
 
 echo ".run readScan.pro" >! go_viewer
-echo ".run DC.pro" >>! go_viewer
-echo ".run vw2d.pro" >>! go_viewer
 echo ".run panimage.pro" >>! go_viewer
+echo ".run vw2d.pro" >>! go_viewer
+echo ".run DC.pro" >>! go_viewer
 echo "$xdr" >>! go_viewer
 if `isainfo -b` == 64 then
-	source /usr/local/rsi/idl_5.4/bin/idl_setup
-	idl -32  go_viewer
+	source /usr/local/rsi/idl_5.5/bin/idl_setup
+	idl -32 go_viewer
 else
 	source /usr/local/rsi/idl_5.3/bin/idl_setup
 	idl go_viewer
