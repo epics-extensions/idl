@@ -11,12 +11,6 @@
 # Setet up idl environment variables for ezcaIDL
 #
 
-set HOST_ARCH = `/usr/local/epics/startup/HostArch`
-if ${?EPICS_HOST_ARCH} == 1 then 
-        set HOST_ARCH = $EPICS_HOST_ARCH
-endif
-setenv HOST_ARCH  $HOST_ARCH
-
 if ${?LD_LIBRARY_PATH} == 0 then
         setenv LD_LIBRARY_PATH
 endif
@@ -24,46 +18,35 @@ if ${?EPICS_BASE} == 0 then
         setenv EPICS_BASE /usr/local/epics/baseR3.14.5
 endif
 if ${?EPICS_BASE} == 1 then
-        setenv LD_LIBRARY_PATH $EPICS_BASE/lib/$HOST_ARCH":"$LD_LIBRARY_PATH
+        setenv LD_LIBRARY_PATH $EPICS_BASE/lib/$EPICS_HOST_ARCH":"$LD_LIBRARY_PATH
 endif
 
-set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
-set PVT_LIB = $EPICS_EXTENSIONS/lib/$HOST_ARCH
-setenv LD_LIBRARY_PATH $PVT_LIB":"$LD_LIBRARY_PATH
+set PVT_LOC = $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH
+set PVT_LIB = $EPICS_EXTENSIONS/lib/$EPICS_HOST_ARCH
 
 # if private version exist override by them
 
 if ${?EPICS_EXT_PVT} == 1 then 
-	 set PVT_LOC = $EPICS_EXT_PVT/bin/$HOST_ARCH
-	 set PVT_LIB = $EPICS_EXT_PVT/lib/$HOST_ARCH
+	 set PVT_LOC = $EPICS_EXT_PVT/bin/$EPICS_HOST_ARCH
+	 set PVT_LIB = $EPICS_EXT_PVT/lib/$EPICS_HOST_ARCH
 else if ${?EPICS_EXTENSIONS_PVT} == 1 then 
-	 set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
-	 set PVT_LIB = $EPICS_EXTENSIONS_PVT/lib/$HOST_ARCH
+	 set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$EPICS_HOST_ARCH
+	 set PVT_LIB = $EPICS_EXTENSIONS_PVT/lib/$EPICS_HOST_ARCH
 endif 
 
 # set EZCA_IDL_SHARE & IDL_STARTUP
 
         setenv  EZCA_IDL_SHARE $PVT_LIB/libezcaIDL.so
 
-if $HOST_ARCH == "solaris-sparc" then 
         setenv  IDL_STARTUP $PVT_LOC/../../idllib/ezcaidl_startup.pro 
-	else
-        setenv  IDL_STARTUP $PVT_LOC/ezcaidl_startup.pro 
-endif
 
 if ( ${?EPICS_EXT_PVT} | ${?EPICS_EXTENSIONS_PVT} ) then
 	setenv LD_LIBRARY_PATH $PVT_LIB':'$LD_LIBRARY_PATH
 	if  -e $PVT_LIB/libezcaIDL.so  then
         setenv EZCA_IDL_SHARE $PVT_LIB/libezcaIDL.so
 	endif
-	if $HOST_ARCH == "solaris-sparc" then
 	if  -e $PVT_LOC/../../idllib/ezcaidl_startup.pro  then
         setenv IDL_STARTUP $PVT_LOC/../../idllib/ezcaidl_startup.pro 
-	endif
-	else
-	if  -e $PVT_LOC/ezcaidl_startup.pro  then
-        setenv IDL_STARTUP $PVT_LOC/ezcaidl_startup.pro 
-	endif
 	endif
 endif
 

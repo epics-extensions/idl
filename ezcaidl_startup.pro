@@ -7,20 +7,19 @@
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
 device,pseudo=8
-device,bypass_translation=0         ;  required for 24 bit device
-
-;  assign color
-if !d.n_colors gt 256 then device,decomposed=0
-
+;device,decomposed=0
 device,retain=2
+
+product = getenv('EPICS_EXTENSIONS')
+
+arch = getenv('EPICS_HOST_ARCH')
+if arch eq '' then arch = getenv('HOST_ARCH')
+if arch ne '' then $
+!path=  product +'/bin/'+arch+':'+!path
+!path= product + '/idllib:'+!path
 
 private = getenv('EPICS_EXTENSIONS_PVT')
 print,'private ',private
-
-arch = getenv('HOST_ARCH')
-if arch eq '' then arch = 'solaris-sparc'
-!path= '/usr/local/epics/extensions/bin/'+arch+':'+!path
-!path= '/usr/local/epics/extensions/idllib:'+!path
 if private ne '' then $
 !path= private + '/idllib:' +private+'/bin/'+arch+':'+ !path
 
