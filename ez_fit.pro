@@ -132,7 +132,7 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	PS_init
 	set_plot,'PS'
-	!P.FONT=0
+	!P.FONT=-1
 	if (n_elements(psfile) ne 0) then begin
 
 	if keyword_set(TV) then begin 
@@ -319,7 +319,6 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 			return
 		end
 	end else psfile = 'idl.ps'
-
 	if OS_SYSTEM.os_family eq 'unix' then begin
         	str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile 
 		color = r_curr(0) + g_curr(0)*256L + b_curr(0)*256L ^2
@@ -657,6 +656,7 @@ ERRCODE=0
                 ret=WIDGET_MESSAGE(!err_string + string(!err))
                 if n_elements(unit) then u_close,unit
 		ERRCODE=-99
+;		exit
                 return 
         end
 
@@ -776,6 +776,7 @@ PRO u_close,unit
 ;
 ;       xx-xx-xx      iii  comment     
 ;-
+close,unit
 free_lun,unit
 END
 
@@ -1143,7 +1144,8 @@ if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
 
         id=0
         u_openr,unit,filename
-        u_openw,unit2,filename+'.xdr',/XDR
+;        u_openw,unit2,filename+'.xdr',/XDR
+	openw,/XDR,unit2,filename+'.xdr',/GET_LUN  
 
         WHILE NOT  EOF(unit) DO BEGIN
         id = id + 1
@@ -1170,7 +1172,89 @@ help1:
 	print,''
 END
 
-; $Id: ez_fit.pro,v 1.4 1998/08/10 18:47:53 cha Exp $
+PRO u_xdr2bi,filename,help=help,VT=VT
+;+
+; NAME:
+;       U_XDR2BI
+;
+; PURPOSE:
+;       This IDL routine converts platform-independent XDR data into
+;       native binary data. 
+;
+;       The output filename uses the input filename suffixed with '.2bi'.
+;
+; CALLING SEQUENCE:
+;
+;       U_XDR2BI, 'filename' [,/VT] [,/Help]
+;
+; INPUTS:
+;       filename:   The data file should contain XDR binary data objects.
+;
+; OUTPUTS:
+;       filename.2bi:   Output file. 
+;                   It contains the converted native binary data objects.
+;
+; KEYWORD PARAMETERS:
+;       VT:     If a dumb terminal without X window server is used, 
+;               this option must be set, e.g. a telnet session.
+;       HELP:   If this keyword is set, a simple on line help is given.
+;
+; RESTRICTIONS:
+;       The XDR input file should be created by the u_write command.
+;
+; EXAMPLE:
+;
+;        U_XDR2BI,'catch1d.trashcan.xdr'
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 08-10-98.
+;
+;       xx-xx-xx      iii  comment     
+;-
+;
+
+if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
+
+	found = findfile(filename)
+	if found(0) eq '' then begin
+		print,'Error: '+filename+' not found!'
+		return
+		end
+	if keyword_set(VT) then $
+	OK_WRITE = u_writePermitted(filename+'.2bi',/VT) else $
+	OK_WRITE = u_writePermitted(filename+'.2bi')
+	if OK_WRITE lt 0 then return
+
+        id=0
+        u_openr,unit,filename,/XDR
+        u_openw,unit2,filename+'.2bi'
+
+        WHILE NOT  EOF(unit) DO BEGIN
+        id = id + 1
+        u_read,unit,x
+	u_write,unit2,x
+        END
+        maxno = id
+        u_close,unit
+        u_close,unit2
+	if keyword_set(VT) then $
+	print,string(maxno)+' sets of binary objects saved in "'+ filename+'.2bi"' else $
+        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
+		filename+'.2bi"')
+
+	return
+
+help1:
+
+	print,''
+	print,'Usage: U_XDR2BI,"filename"'
+	print,''
+	print,'This program converts the xdr data objects into native binary format.'
+	print,'A new file "filename.2bi" will be created.'
+	print,''
+END
+
+; $Id: ez_fit.pro,v 1.5 1998/12/22 19:30:59 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1412,6 +1496,11 @@ erase
 
 if !d.name eq 'PS' then cl = 0
 
+if state.yrange(0) eq state.yrange(1) then begin
+	dy =  state.yrange(0)/5
+	state.yrange(0) =  state.yrange(0) - 2*dy
+	state.yrange(1)=  state.yrange(1) + 3*dy
+end
 color = cl 
 if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
 if s(0) eq 1 then $
@@ -1759,6 +1848,7 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;       07-01-97 bkc   Comment out LOADCT,39 inherit color from parent process 
 ;       08-11-97 bkc   Add the curvfit support, only two curves allowed 
 ;       12-22-97 bkc   Add the 24 bit color visual device support 
+;       09-04-98 bkc   Fix the plot problem due to ymax eq ymin
 ;-
 
 ;LOADCT,39
@@ -1950,6 +2040,12 @@ PRO readascii,filename,rarray,x,y,double=double,skip=skip,lines=lines,l_column=l
 ; EXAMPLE:
 ;   
 ;       READASCII, 'Filename', RARRAY, X, Y 
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha
+;
+;       09-16-98      bkc  Allows blank lines at end of ascii file, no blank
+;                          lines allowed between data
 ;-
 
 if n_params() eq 0 then begin
@@ -1968,43 +2064,48 @@ no = y(0)
 start_line=0
 last_line=no
 start_col = 0
-
 if keyword_set(skip) then start_line=skip
 if keyword_set(lines) then last_line=skip+lines
-if (last_line - start_line) lt no then no = last_line - start_line
+if last_line gt no then last_line = no
 
 line=''
 openr,unit,filename,/get_lun
 i=0
+nline=0
 WHILE NOT eof(unit) and i lt last_line DO begin
 	readf,unit,line,prompt=''
 	if i ge start_line then begin
 	line=strcompress(strtrim(line,2))
-
+	
 	res = str_sep(line,' ',/trim)
 	sz=size(res)
-	end_col = sz(1)
 
 	if strmid(line,0,1) ne ';' then begin 
 	if i eq start_line then begin
+	lines = last_line - start_line
+	end_col = sz(1)
 		if keyword_set(l_column) then begin
-			 if l_column lt sz(1) then start_col=l_column
-			end
-		if keyword_set(columns) then end_col = start_col + columns-1
+		 if l_column lt sz(1) and l_column ge 0 then start_col=l_column
+		end
+		if keyword_set(columns) then end_col = start_col + columns
 		if end_col gt sz(1) then end_col = sz(1)
 		if keyword_set(double) then $
-		rarray = make_array(end_col-start_col,no,/double) else $
-		rarray = make_array(end_col-start_col,no,/float)
+		rarray = make_array(end_col-start_col,lines,/double) else $
+		rarray = make_array(end_col-start_col,lines,/float)
 	end
-
-	rarray(*,i-start_line) = float(res(start_col:end_col-1))
+	if strlen(line) gt 0 then begin
+	rarray(*,nline) = float(res(start_col:end_col-1))
+	nline = nline+1
+	end
 	endif else  begin
-		start_line = i+1
+		rstart_line = i+1
+		if rstart_line gt start_line then start_line = rstart_line
 		end
 	end
 	i = i+1
 end
 free_lun,unit
+	if nline lt lines then rarray = rarray(*,0:nline-1) 
 
 	temp = transpose(rarray)
 	x = temp(*,0)
@@ -2302,7 +2403,7 @@ PRO ComfitGraf,x,y,a,yfit,sigma,print=print,test=test,geometric=geometric, $
 ;
 ;                EXPONENTIAL Y = a0  * a1^x + a2 
 ;
-;                GEOMETRICY = a0 * x^a1 + a2 
+;                GEOMETRIC Y = a0 * x^a1 + a2 
 ;
 ;                GOMPERTZ Y = a0 * a1^(a2*x) + a3 
 ;
@@ -2310,7 +2411,7 @@ PRO ComfitGraf,x,y,a,yfit,sigma,print=print,test=test,geometric=geometric, $
 ;
 ;                LOGISTIC Y = 1./(a0 * a1^x + a2) 
 ;
-;                LOGSQUAREY = a0 + a1*alog10(x) + a2 * alog10(x)^2 
+;                LOGSQUARE Y = a0 + a1*alog10(x) + a2 * alog10(x)^2 
 ;
 ;   PRINT:       Specifies whether the output window will be poped up.
 ;
@@ -2799,7 +2900,7 @@ if n_params() lt 4 then begin
 		return
 	end
 
-	result = polyfitw(x,y,w,ndegree,yfit,yband,sigma,a)
+	result = polyfitw(x,y,w,ndegree,yfit,yband,sigma,corrm)
 
 	curv=make_array(n_elements(y),2)
 	curv(0,0) = float(yfit)
@@ -3051,7 +3152,7 @@ PRO gaussfitgraf,x,y,A,estimates=estimages,nterms=nterms,print=print
 
 	fname = 'gaussfit'
 	title = 'Non-linear Least-square Fit of  Gaussian' 
-	get_fit_function,fname,comment
+	get_curvefit_function,fname,comment
 	for i=0,n_elements(A)-1 do comment=[comment,'A'+strtrim(i,2)+'='+ $
 		string(A(i))]
  
@@ -3222,7 +3323,7 @@ help,iter
 	curv(0,1) = float(y)
 
 	title = 'Non-linear Least Square Fit with Weights' 
-	get_fit_function,fname,comment
+	get_curvefit_function,fname,comment
 	for i=0,n_elements(A)-1 do comment=[comment,'A'+strtrim(i,2)+'='+ $
 		string(A(i)) + '     SIGMA='+string(sigma(i))]
  
@@ -3275,7 +3376,11 @@ PRO gfunct,x,a,f,pder
 	 pder=[[bx], [a(0)*x*bx], [replicate(1.,n_elements(f))] ]
 END
 
-PRO get_fit_function,fname,expres
+PRO get_curvefit_funct_pvt,fname,expres
+	expres = 'User defined private function used in curvefit.'
+END
+
+PRO get_curvefit_function,fname,expres
 lfname = strlowcase(fname)
 if  lfname eq 'gfunct' then begin
 	expres='F(X) = A0 * exp( A1 * X ) + A2'
@@ -3295,6 +3400,7 @@ if  lfname eq 'lorentzian' then begin
 	expres = 'Y = A0 * A2^2 / ( (X-A1)^2 + A2^2 ) '
 	return
 	end
+get_curvefit_funct_pvt,fname,expres
 END
 
 
@@ -3820,7 +3926,7 @@ PRO svdfitSetup, GROUP=Group
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
-      TITLE='Function_name:', $
+      TITLE='Function_Name:', $
       UVALUE='SVDFIT_FNAME', $
       XSIZE=20)
 
@@ -4582,10 +4688,11 @@ end
 END
 PRO get_svdfit_function,fname,expres
 ffname= strlowcase(fname)
-if ffname eq 'myfunct' then begin
-	express='Function Name Used: MYFUNC''
-        expres=[express,'Y = A0 + A1 * sin(2*X)/X + A2 * cos(4*X)^2 ']
-        end
+if ffname eq 'svdfunct' then begin
+	express='Function Name Used:  SVDFUNCT'
+        expres=[ express,'F = A0 + A1*X + A2*X^2 + A3*X^3 + ...']
+	return
+	end
 if ffname eq 'legendre' then begin
 	express='Function Name Used:  SVDLEG'
         expres=[ express,'P0(X) = 1']
@@ -4593,10 +4700,19 @@ if ffname eq 'legendre' then begin
         expres= [expres,'P2(X) = (3 * X^2 - 1)/2']
         expres=[expres,'P3(X) = (5 * X^3 - 3 * X) / 2 ', ' ...']
         expres=[expres,'Pn(X) = ((2n - 1)* X * Pn-1(X) - (n-1) * Pn-2(X)) / n ']
+	return
+        end
+get_svdfit_myfunct,fname,expres  ; private myfunct
+if n_elements(expres) eq 0 then expres='Function Name Used in SVDFIT:'+ffname
+END
+
+PRO get_svdfit_myfunct,fname,expres
+if fname eq 'myfunct' then begin
+	express='Function Name Used: MYFUNCT'
+        expres=[express,'Y = A0 + A1 * sin(2*X)/X + A2 * cos(4*X)^2 ']
         end
 if n_elements(expres) eq 0 then expres='Function Name Used: SVDFUNCT '
 END
-
 
 FUNCTION myfunct, X ,M
 if M ne 3 then $ 
@@ -4770,7 +4886,6 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
         a5 = -1.
         A = [a0,a1,a2,a3,a4,a5]
         end
-
 Weights=replicate(1.0,n_elements(x))
 if keyword_set(gaussian) and n_elements(sd) then Weights=1.0 / sd ; Gaussian
 if keyword_set(poisson) and min(y) gt 0. then Weights=1.0 / y       ; Poisson
@@ -4851,7 +4966,7 @@ PRO curvefit_setup, GROUP=Group
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
-      TITLE='Function_Name', $
+      TITLE='Procedure_Name', $
       UVALUE='CURVEFIT_FNAME', $
       XSIZE=20)
 
@@ -4862,7 +4977,7 @@ PRO curvefit_setup, GROUP=Group
       COLUMN=1, FRAME=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
-      TITLE='Override Fit Function Default Paramters', $
+      TITLE='Initial Fitting Coefficients (comma separated)', $
       UVALUE='CURVEFIT_PARAMS', $
       XSIZE=50)
 
