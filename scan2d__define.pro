@@ -755,9 +755,9 @@ unit = self.unit
         u_read,unit,im
         self.image = im
  
-;       newImage = im(0:self.width-1, 0:self.height-1)
-        newImage = im
+        newImage = im(0:self.width-1, 0:self.height-1)
         s = size(newImage)
+        im = newImage
  
         if s(0) ne 2 then begin
 		res = dialog_message('Warning: data is not 2D image',/info)
@@ -1253,8 +1253,10 @@ ydim = self.y_req_npts
 		u_read, unit, x
 		u_read, unit, y
 		u_read, unit, t_image
+		if nos(3) ge i then begin  ; exclude the 2nd set 2b-2c6 
 		def(nos(3)) = 1
 		image_array(*,*,nos(3)) = t_image
+		end
 	end
 
 ; pops up pan images
