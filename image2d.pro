@@ -60,7 +60,7 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 
   WIDGET_CONTROL,Event.top,GET_UVALUE=norm_state,/no_copy
   image2d_state = norm_state.image2d_state
-image2d_state.norm_ids = norm_ids
+
   view_option = image2d_state.view_option
   widget_ids = image2d_state.widget_ids
 
@@ -163,7 +163,6 @@ PRO image2d_normalize_setvalue,image2d_state
 COMMON IMAGE2D_NORM_BLOCK, norm_ids
 
    view_option = image2d_state.view_option
-   image2d_state.norm_ids = norm_ids
 
       mode = 'Normalized Against ...'
    if view_option.fullcolor eq 0 then mode = 'Auto Scaled'
@@ -184,7 +183,9 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	WIDGET_CONTROL,norm_ids.lb4,SET_VALUE=st4
 	WIDGET_CONTROL,norm_ids.lb5,SET_VALUE=st5
 	WIDGET_CONTROL,norm_ids.lb6,SET_VALUE=st6
+
 END
+
 
 PRO image2d_normalize, GROUP=Group,image2d_state,title=title
 COMMON IMAGE2D_NORM_BLOCK, norm_ids
@@ -321,7 +322,7 @@ if XRegistered('image2d_normalize') then return
   image2d_normalize_setvalue,image2d_state
 
   norm_state = { base:image2d_normalize, $
-	norm_ids: image2d_state.norm_ids, $
+	norm_ids: norm_ids, $ 
 	image2d_state:image2d_state}
 
   WIDGET_CONTROL, image2d_normalize, /REALIZE
@@ -330,7 +331,6 @@ if XRegistered('image2d_normalize') then return
 ;  return,image2d_normalize
   XMANAGER, 'image2d_normalize', image2d_normalize, /NO_BLOCK
 END
-
 
 
 PRO image2d_help,Event
@@ -1049,7 +1049,7 @@ xtitle='2D SCAN # '+strtrim(image2d_state.scanno_current,2)+ $
                 strtrim(xarr(image2d_state.view_option.i_min),2) + ', ' + $
                 strtrim(yarr(image2d_state.view_option.j_min),2) + ')'
 
-num_images = fix(total(image2d_state.id_def))
+num_images = fix(total(image2d_state.id_def gt 0))
 str = ['Selected Image File        : '+ image2d_state.name] 
 str = [str,'Total Number of Images     : '+ string(num_images)]
 	if image2d_state.scanno_current eq 0 then begin
@@ -1070,11 +1070,11 @@ str = [str,'Total Number of Images     : '+ string(num_images)]
 	str = [str, 'x_pv = '+image2d_state.x_pv+',   y_pv = '+image2d_state.y_pv]
 	WIDGET_CONTROL, widget_ids.info, SET_VALUE= str
 
-	str = strtrim(image2d_state.view_option.z_min,2) + ' @ (' + $
+	str = 'MIN:'+strtrim(image2d_state.view_option.z_min,2) + ' @ (' + $
 		strtrim(image2d_state.view_option.i_min,2) + ',' + $
 		strtrim(image2d_state.view_option.j_min,2) + ')'
 	WIDGET_CONTROL, widget_ids.zmin, SET_VALUE= str
-	str = strtrim(image2d_state.view_option.z_max,2) + ' @ (' + $
+	str = 'MAX:'+strtrim(image2d_state.view_option.z_max,2) + ' @ (' + $
 		strtrim(image2d_state.view_option.i_max,2) + ',' + $
 		strtrim(image2d_state.view_option.j_max,2) + ')'
 	WIDGET_CONTROL, widget_ids.zmax, SET_VALUE= str
@@ -1635,8 +1635,8 @@ image2d_state = { $
 	height : sz(2), $
 	maxno : sz(3), $       ;  85 last detector defined
 	start : 0, $           ; panimage start index
-	x_mag : 1, $
-	y_mag : 1, $
+	x_mag : 1., $
+	y_mag : 1., $
 	xarr : ptr_new(/allocate_heap), $
 	yarr : ptr_new(/allocate_heap), $
 	image : ptr_new(/allocate_heap), $    ; ref image
@@ -1644,6 +1644,7 @@ image2d_state = { $
 	}
 
 
+  if sz(3) lt 16 then image2d_state.detector = 1
   if n_elements(yarr) lt sz(2) then yarr=yarr(0)+indgen(sz(2))*(yarr(1)-yarr(0))
 
   *image2d_state.xarr = xarr
@@ -1669,6 +1670,7 @@ image2d_state = { $
 
   if keyword_set(outpath) then image2d_state.outpath = outpath
   if keyword_set(id_def) then image2d_state.id_def = id_def
+
   if keyword_set(scanno) then image2d_state.scanno_current = scanno
 
   if keyword_set(pv) then begin
@@ -1917,7 +1919,7 @@ PRO PDMENU93_Event, Event, image2d_state
 	title = title + ' ('+detnm(p1)+' : '+detnm(p2-1)+')'
 	detnm = detnm(p1:p2-1)
 	image_array = image_array(*,*,p1:p2-1)
-	image2d_state.start = p2 
+	image2d_state.start = p1 
 	panimage_sel,image_array,id_def,title=title,detnm=detnm,group=Event.top
     END
   'PanImages.PanImages...': BEGIN
@@ -2068,6 +2070,7 @@ PRO IMAGE2D_BASE_Event, Event
 
 	if Event.Press eq 2 then begin
 	cursor,x,y,/device
+
 	if x ge view_option.margin_l and x lt (!d.x_size-view_option.margin_r) and  $
 	  y ge view_option.margin_b and y lt (!d.y_size-view_option.margin_t) then begin
 	  Ix = fix( float(x-view_option.margin_l) / image2d_state.x_mag)
@@ -2458,14 +2461,14 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
 
   LABEL31 = WIDGET_LABEL( BASE26, $
       UVALUE='LABEL31',/ALIGN_LEFT, $
-      VALUE='MIN Z:                      ')
+      VALUE='MIN Z:                                    ** ')
 
   LABEL32 = WIDGET_LABEL( BASE26, $
       UVALUE='LABEL32',/ALIGN_LEFT, $
-      VALUE='MAX Z:                      ')
+      VALUE='MAX Z:                                    ** ')
 
   BASE40 = WIDGET_BASE(BASE26, $
-      COLUMN=1, $
+      COLUMN=1,  $
       FRAME=1, $
       MAP=1, $
       TITLE='IMAGE2D_ROW3_2_1', $
@@ -2474,7 +2477,7 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
   FieldVal2394 = [ $
     '' ]
   FIELD42 = CW_FIELD( BASE40,VALUE=FieldVal2394, $
-      COLUMN=1, $
+      COLUMN=1, /frame,$
       STRING=1, /NOEDIT, $
       TITLE='Cursor @ X', $
       UVALUE='IMAGE2D_XCURSOR')
@@ -2482,15 +2485,15 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
   FieldVal2459 = [ $
     '' ]
   FIELD43 = CW_FIELD( BASE40,VALUE=FieldVal2459, $
-      COLUMN=1, $
+      COLUMN=1, /frame,$
       STRING=1, /NOEDIT, $
       TITLE='Cursor @ Y', $
       UVALUE='IMAGE2D_YCURSOR')
 
 
-  LABEL49 = WIDGET_LABEL( BASE26, $
-      UVALUE='LABEL49', /ALIGN_LEFT, $
-      VALUE='Z:                      ')
+  LABEL49 = WIDGET_LABEL( BASE40, $
+      UVALUE='LABEL49',/ALIGN_LEFT, $
+      VALUE='Z:                                     ')
 
   BASE50 = WIDGET_BASE(BASE26, $
       COLUMN=1, $
@@ -2648,6 +2651,9 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       UVALUE='BASE92')
 
   sz = size(image_array)
+  if n_elements(xarr) eq 0 then xarr = indgen(sz(1))
+  if n_elements(yarr) eq 0 then yarr = indgen(sz(2))
+  if sz(3) lt 15 and n_elements(seqnm) eq 0 then seqnm=1
   if sz(3) gt 85 then begin
   MenuDesc4955 = [ $
       { CW_PDMENU_S,       1, 'PanImages' }, $ ;        0
