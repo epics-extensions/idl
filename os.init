@@ -9,7 +9,6 @@ OS_SYSTEM = { $
 	os_family: !VERSION.OS_FAMILY, $
 	release	: !VERSION.RELEASE, $
 ;	build_date: !VERSION.BUILD_DATE, $
-;	font	: '-adobe-helvetica-bold-r-normal--24-240-75-75-p-138-iso8859-1', $
 	font	: '-adobe-helvetica-bold-r-normal--24-*', $
 	device  : !d.name, $
 	file_sep: '/', $
@@ -38,4 +37,4 @@ defsysv,'!os',os_system
 
 !QUIET = 1
 
-loadct,39
+; loadct,39
