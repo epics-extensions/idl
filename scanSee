@@ -13,14 +13,14 @@ source $PVT_LOC/ezcaidl_setup
 if $HOST_ARCH == "solaris-sparc" then 
 	set exe = "-rt=$PVT_LOC/../../idllib/scanSee.exe2.idl55"
 	else
-	set exe = "-rt=$PVT_LOC/scanSee.exe2.idl53"
+	set exe = "-rt=$PVT_LOC/scanSee.exe2.idl55"
 endif
-	if -e scanSee.exe2.idl53 then
-	set exe = "scanSee.exe2.idl53"
+	if -e scanSee.exe2.idl55 then
+	set exe = "scanSee.exe2.idl55"
 	endif
 
+echo $exe
 if ( "$1" == "" ) then
-#setenv IDL_NCOLORS 32
 	source /usr/local/rsi/idl_5.5/bin/idl_setup
 	idl -32 $exe
 exit
