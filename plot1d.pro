@@ -6,9 +6,10 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-
+@colorbar.pro
 @fit_statistic.pro
 @PS_open.pro
+@iplot1d.pro
 
 PRO plot1d_help
     str = ['Select Curves: Multiple Selection List', $
@@ -661,7 +662,7 @@ PRO plot1d_replot,state
 COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
  
 ; if 24 bits use color table need set deomposed=0
-if !d.n_colors gt 256 then device,decomposed=0 
+if !d.n_colors gt !d.table_size  then device,decomposed=1 
 
 	state.xsize = !d.x_size
 	state.ysize = !d.y_size
@@ -734,9 +735,9 @@ if !d.name ne 'PS' then WSET,state.winDraw
 !p.multi = [0,1,0,0,0]
 if state.bgrevs then begin
 	state.tcolor = 0
-	state.bgcolor = state.table_size-1
+	state.bgcolor = !d.n_colors-1 
 endif else begin
-	state.tcolor = state.table_size-1
+	state.tcolor = !d.n_colors-1 
 	state.bgcolor = 0
 end
 erase,122  ;,state.bgcolor
@@ -780,7 +781,8 @@ if s(0) eq 1 then $
 ; two dim array - multiple curves
 
 if s(0) eq 2 and s(2) gt 1 then begin
-in_color = make_array(s(2),/int,value=cl)
+in_color = make_array(s(2),/long,value=cl)
+	if state.autocolor eq 1 then getLineColors,in_color
 in_line = make_array(s(2),/int)
 in_symbol = make_array(s(2),/int)
 in_color(0)= cl
@@ -791,21 +793,12 @@ in_symbol(0)=psym
 xt = x
 if state.scatter then xt = x(*,0)
 	; plot 1st line
-	OPLOT,xt,z,COLOR=color-16, thick=thick, linestyle=line, psym=psym, $
+	OPLOT,xt,z,COLOR=in_color(0), thick=thick, linestyle=line, psym=psym, $
 		symsize=state.charsize 
 	dcl = state.table_size-2
 	ncv = 4  ;7
 	colorlevel = dcl / ncv
 	for i= 1 ,s(2) - 1 do begin
-		if state.autocolor eq 1 then begin
-		ii = (i MOD 256) / ncv
-		im = i MOD ncv
-		cl = dcl -ii -im*colorlevel
-		if cl lt 0 then cl = -cl
-		in_color(i) = cl
-		color = cl
-
-		end
 		if psym gt 0 then psym = psym+1
 		if psym lt 0 then psym = psym-1
 
@@ -889,7 +882,7 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	xyouts,real_xr,real_yl, state.legend(pick(i)), color=state.tcolor
 	end
 end
-
+device,decomposed=0
 
 END
 
@@ -992,6 +985,11 @@ CASE B_ev OF
 	end
 'PLOT1D_OPTIONS': begin
 	plot1d_dialogs, state, Group=ev.top
+	end
+'PLOT1D_IPLOT': begin
+	x = state.x
+	y = state.y
+	iplot1d_drv,x,y,title=state.title,group=ev.top
 	end
 'PLOT1D_CLOSE': begin
 	WIDGET_CONTROL,ev.top,BAD=bad,/DESTROY
@@ -1209,6 +1207,8 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;                      Add bgrevs keyword
 ;                      Check for incomplete color table size case 
 ;                      Check for scattering data 1D plot 
+;       04-01-04 bkc   Support both PseudoColor and TrueColor devices
+;                      Add ITOOL... dialog for falling iplot
 ;-
 
 ;LOADCT,39
@@ -1408,8 +1408,6 @@ if keyword_set(CLEANUP) then $
 id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS, TLB_FRAME_ATTR=8) $
 else $
 id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS)
-;WIDGET_CONTROL,id_tlb,default_font='-*-Helvetica-Bold-R-Normal--*-120-*75-*'
-id_draw=WIDGET_DRAW(id_tlb,xsize=xsize,ysize=ysize, RETAIN=2)
 
 if keyword_set(button) eq 0 then begin
 id_tlb_row=WIDGET_BASE(id_tlb,/ROW)
@@ -1428,8 +1426,11 @@ id_tlb_options = WIDGET_BUTTON(id_tlb_row,VALUE='Options...',UVALUE='PLOT1D_OPTI
 id_tlb_printer = WIDGET_BUTTON(id_tlb_row,VALUE='Printer...',UVALUE='PLOT1D_PRINTER')
 id_tlb_print = WIDGET_BUTTON(id_tlb_row,VALUE='Print',UVALUE='PLOT1D_PRINT')
 id_tlb_psplot = WIDGET_BUTTON(id_tlb_row,VALUE='PS Plot',UVALUE='PLOT1D_PSPLOT')
+id_tlb_iplot = WIDGET_BUTTON(id_tlb_row,VALUE='IPLOT',UVALUE='PLOT1D_IPLOT')
 id_tlb_close = WIDGET_BUTTON(id_tlb_row,VALUE='Close',UVALUE='PLOT1D_CLOSE')
 end
+
+id_draw=WIDGET_DRAW(id_tlb,xsize=xsize,ysize=ysize, RETAIN=2)
 
 state.base = id_tlb
 
