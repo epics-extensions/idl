@@ -72,6 +72,11 @@ erase
 
 if !d.name eq 'PS' then cl = 0
 
+if state.yrange(0) eq state.yrange(1) then begin
+	dy =  state.yrange(0)/5
+	state.yrange(0) =  state.yrange(0) - 2*dy
+	state.yrange(1)=  state.yrange(1) + 3*dy
+end
 color = cl 
 if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
 if s(0) eq 1 then $
@@ -419,6 +424,7 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;       07-01-97 bkc   Comment out LOADCT,39 inherit color from parent process 
 ;       08-11-97 bkc   Add the curvfit support, only two curves allowed 
 ;       12-22-97 bkc   Add the 24 bit color visual device support 
+;       09-04-98 bkc   Fix the plot problem due to ymax eq ymin
 ;-
 
 ;LOADCT,39
