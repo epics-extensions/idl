@@ -27,7 +27,7 @@ echo ".run scanSee__define.pro" >>! go_viewer
 echo ".run scanSee.pro" >>! go_viewer
 echo "scanSee $PRM" >>! go_viewer
 if `isainfo -b` == 64 then
-	source /usr/local/rsi/idl_5.4/bin/idl_setup
+	source /usr/local/rsi/idl_5.5/bin/idl_setup
 	idl -32 go_viewer
 else
 	source /usr/local/rsi/idl_5.3/bin/idl_setup
