@@ -10,6 +10,36 @@
 @view3d_2d.pro
 @scan2d_overlay.pro
 
+PRO scansee_getLabels,labels,id_def,rank=rank,label_state,def=def
+; rank : 0-scanH, 1-scan1, 2-scan2
+;
+	irank = 0
+	if keyword_set(rank) then irank=rank
+	id = id_def(4:88,irank)
+	def = where(id gt 0) 
+	ndet = n_elements(def)
+	s_array = labels(267*irank:(irank+1)*267-1)
+	s_array = reform(s_array,89,3)
+	p_name = s_array(0:3,0)
+	p_desc = s_array(0:3,1)
+	p_unit = s_array(0:3,2)
+	d_name = s_array(4:88,0)
+	d_desc = s_array(4:88,1)
+	d_unit = s_array(4:88,2)
+	label_state = {  $
+		p_name : p_name , $
+		p_desc : p_desc, $
+		p_unit : p_unit, $
+		d_name : d_name , $
+		d_desc : d_desc, $
+		d_unit : d_unit, $
+		ndet : ndet, $
+		def : def, $
+		rank : irank $
+	}
+
+END
+
 PRO scanSee_pick3d,file,image_array,pickDet=pickDet,Dump=dump,Group=group
 ;+
 ; NAME:
@@ -46,6 +76,9 @@ PRO scanSee_pick3d,file,image_array,pickDet=pickDet,Dump=dump,Group=group
 ;      v3 = obj_new('scanSee',file=file)
 ;      scanSee_pick3d,file,image_array,/dump,pickDet=2
 ;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, April 26, 2002.
+;       07-15-2002      Add x,y,z descriptions view3d_2d program
 ;-
 	pick = 16
 	if keyword_set(pickDet) then pick = pickDet
@@ -58,12 +91,29 @@ PRO scanSee_pick3d,file,image_array,pickDet=pickDet,Dump=dump,Group=group
         	'01','02','03','04','05','06','07','08','09', $
         	strtrim(indgen(61)+10,2)]
 
-	title = strmid(file,rstrpos(file,!os.file_sep)+1,strlen(file))
+	title = strmid(file,rstrpos(file,!os.file_sep)+1,strlen(file)) + $
+		'('+detname(pick-1)+')'
 
+	labels = *Scan.labels
+	id_def = *Scan.id_def
+	scansee_getLabels,labels,id_def,rank=2,label_state,def=def
+zdesc = label_state.p_name(0)
+if label_state.p_desc(0) ne '' then zdesc = zdesc + '('+label_state.p_desc(0)+')'
+	scansee_getLabels,labels,id_def,rank=1,label_state,def=def
+ydesc = label_state.p_name(0)
+if label_state.p_desc(0) ne '' then ydesc = ydesc + '('+label_state.p_desc(0)+')'
+	scansee_getLabels,labels,id_def,rank=0,label_state,def=def
+xdesc = label_state.d_name(pick-1)
+if label_state.p_desc(0) ne '' then xdesc = xdesc + '('+label_state.d_desc(pick-1)+')'
+
+	pa1d= *(*Scan.pa)[2]
+	pa2d= *(*Scan.pa)[1]
+	pa3d= *(*Scan.pa)[0]
+	zv = pa1d(*,0)
+	yv = pa2d(*,0)
+	xv = pa3d(*,0)
 	image_array = *(*Scan.da)[0]
-;	sz = size(image_array)
-;	panimage,image_array,indgen(sz(3))+1
-	view3d_2d,image_array,title=title+'('+detname(pick-1)+')',Group=group
+	view3d_2d,image_array,0,xv,yv,zv,title=title,Group=group,descs=[xdesc,ydesc,zdesc]
 END
 
 
@@ -351,15 +401,15 @@ class=class,outpath=outpath
 ;     NUM_PTS - returns the requested positioner points in 1D/2D scan
 ;     CPT     - returns the actual positioner points in 1D/2D scan
 ;     PV      - returns the scan PV names
-;     LABELS  - LABELS[57] or LABELS[57,2] returns the string 
+;     LABELS  - LABELS[267] or LABELS[267,2] returns the string 
 ;               description arrays of the 1D/2D scan for 4 positioners (X) 
-;               and 15 detectors (Y)
+;               and 85 detectors (Y)
 ;                LABELS[0:3,0]    - x_names 
-;                LABELS[4:18,0]   - y_names
-;                LABELS[19:22,0]  - x_descs 
-;                LABELS[23:37,0]  - y_descs 
-;                LABELS[38:41,0]  - x_engus 
-;                LABELS[42:56,0]  - y_engus 
+;                LABELS[4:88,0]   - y_names
+;                LABELS[89:92,0]  - x_descs 
+;                LABELS[93:177,0]  - y_descs 
+;                LABELS[178:181,0]  - x_engus 
+;                LABELS[182:266,0]  - y_engus 
 ;     ID_DEF  - ID_DEF[19,DIM] or  returns the indicator for 
 ;               defined positoner/detector of the 1D/2D/3D scan, 
 ;               if value 0 not present, 1 present in scan record
@@ -616,6 +666,7 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, April 4, 2000.
 ;       12-01-2000      Add scan # to title
+;       07-10-2002      Add X,Y,Z axis label description to view3d_2d
 ;
 ;-
 
@@ -631,6 +682,18 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 	cpt = *(*self.gD).cpt
 	npts = *(*self.gD).num_pts
 	pv = *(*self.gD).pv
+	labels = *(*self.gD).labels
+	id_def = *(*self.gD).id_def
+
+	scansee_getLabels,labels,id_def,rank=2,label_state,def=def
+zdesc = label_state.p_name(0)
+if label_state.p_desc(0) ne '' then zdesc = zdesc + '('+label_state.p_desc(0)+')'
+	scansee_getLabels,labels,id_def,rank=1,label_state,def=def
+ydesc = label_state.p_name(0)
+if label_state.p_desc(0) ne '' then ydesc = ydesc + '('+label_state.p_desc(0)+')'
+	scansee_getLabels,labels,id_def,rank=0,label_state,def=def
+xdesc = label_state.d_name(detector-1)
+if label_state.p_desc(0) ne '' then xdesc = xdesc + '('+label_state.d_desc(detector-1)+')'
 
 	sz = size(da3d)
 	if sz(0) eq 4 then begin
@@ -640,7 +703,9 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 	endif else data = da3d
 
 	if keyword_set(title) eq 0 then title='3D Scan# '+strtrim(self.scanno,2)+', '+pv(0)+', ('+self.detname(detector-1) +')'   
-	view3d_2d,data,group=group,title=title,slicer3=slicer3
+
+	
+	view3d_2d,data,group=group,title=title,slicer3=slicer3,descs=[xdesc,ydesc,zdesc]
 END
 
 PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
@@ -1155,10 +1220,27 @@ PRO scanSee::VW2D,group=group
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, April 26, 2002.
-;       xx-xx-xxxx      comment
+;       07-15-2002      Call image2d program with 2D image_array
 ;-
 
-	VW2D,file=self.file,Group=group
+        self->read,pv=pv,dim=dim,cpt=cpt,scanno=scanno, $
+                da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
+                x=xa,y=ya,im=im,labels=labels,id_def=id_def
+	sz = size(da2d)
+	def = self.def(0:sz(3)-1)
+
+ 	scansee_getLabels,labels,id_def,rank=1,label_state,def=def
+	ydescs = label_state.p_desc
+ 	scansee_getLabels,labels,id_def,rank=0,label_state,def=def
+	xdescs = label_state.p_desc
+	zdescs = label_state.d_desc(0:sz(3)-1) 
+
+	if dim eq 2 then $
+	image2d,da2d,xa,ya,group=group,pv=pv,title=self.file, $
+		outpath=self.outpath,id_def=def,scanno=scanno, $
+		xdescs=xdescs,ydescs=ydescs,zdescs=zdescs
+
+;	VW2D,file=self.file,Group=group
 END
 
 PRO scanSee::View2D,detno,xarr=xarr,yarr=yarr,im=im,plot=plot,group=group,_extra=e
