@@ -378,8 +378,8 @@ print,''
 END
 
 
-PRO u_read_set,unit,s,x
-if n_params() ne 3 then begin
+PRO u_read_set,unit,s,x,ERRCODE,help=help
+if n_params() lt 3 then begin
 	print,''
 	print,'Usage: u_read_set, unit, s, x'
 	print,''
@@ -388,6 +388,7 @@ if n_params() ne 3 then begin
 	print,'u_write routine.'
 	print,'     where   S    LONG = Array(5), must be defined before calling this routine'
 	print,'             X    returned array'
+	print,'       ERRCODE    returned code, 0 for success, -99 for failure'
 	return
 	end
 readu,unit,s
@@ -444,20 +445,23 @@ case fix(type) of
 	   end
 else: begin
 	print,'type=',type
-		ret=WIDGET_MESSAGE('Error: wrong type of data read in!!')
-		retall
+;		ret=WIDGET_MESSAGE('Error: wrong type of data read in!!')
+;		retall
+		return
 	end
 endcase
 
 	CATCH,error_status
 	if error_status eq -184 then begin
 		ret=WIDGET_MESSAGE('Error: unable to read data, wrong type of file opened!!')
-		retall
+;		retall
+	return
 	end
 	readu,unit,x
+ERRCODE = 0
 END
 
-PRO u_read,unit,x,help=help
+PRO u_read,unit,x,ERRCODE,help=help
 ;+
 ; NAME:
 ;       U_READ
@@ -469,7 +473,7 @@ PRO u_read,unit,x,help=help
 ;
 ; CALLING SEQUENCE:
 ;
-;       U_READ, Unit, Var [,/Help]
+;       U_READ, Unit, Var [,ERRCODE ,/Help]
 ;
 ; INPUTS:
 ;       Unit:   The logic unit number returned by file open for unformatted
@@ -481,6 +485,8 @@ PRO u_read,unit,x,help=help
 ; OUTPUTS:
 ;       Var:    This variable holds the right type of data obtained from 
 ;               the opened file, it can be either 1D vector, or 2D array.
+;   ERRCODE:    This variable holds the error code for the u_read. It
+;               returns 0 if succeeded, returns -99 if failed.
 ;
 ; RESTRICTIONS:
 ;       All the data must be created by the U_WRITE routine in order to be 
@@ -499,15 +505,17 @@ PRO u_read,unit,x,help=help
 ;       Written by:     Ben-chin K. Cha, 03-23-95.
 ;
 ;       05-30-97	bkc	Support opened file as XDR type data.
+;       10-13-97	bkc	Add the ERRCODE to indicate success or failure.
 ;-
 
+ERRCODE = -99
 if keyword_set(help) then goto, help1
-if n_params() ne 2 then begin
+if n_params() lt 2 then begin
 	print,'Usage: u_read, unit, array'
 	return
 	end
 s = lonarr(5)
-IF NOT EOF(unit) THEN  u_read_set,unit,s,x  ELSE print,'EOF on unit ',unit
+IF NOT EOF(unit) THEN  u_read_set,unit,s,x,ERRCODE  ELSE print,'EOF on unit ',unit
 return
 
 help1:
@@ -673,6 +681,7 @@ if n_elements (printer_info) eq 0 then $
   printer_info = { $
 	name: '', $
 	color: 1, $
+	reverse: 0, $
 	base: 0L, $
 	ptr_field:0L }
 if n_elements(r_curr) eq 0 then begin
@@ -736,9 +745,15 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	; change to reverse video  for TV image
 
+	if printer_info.reverse then begin
 	r_curr = reverse(r_orig)
 	g_curr = reverse(g_orig)
 	b_curr = reverse(b_orig)
+	endif else begin
+	r_curr = r_orig
+	g_curr = g_orig
+	b_curr = b_orig
+	end
 	TVLCT,r_curr,g_curr,b_curr
 
 	    if printer_info.color gt 0 then $
@@ -932,6 +947,11 @@ COMMON PRINTER_BLOCK,printer_info
 
   CASE Ev OF 
 
+  'PS_REVERSE': BEGIN
+	printer_info.reverse = Event.Index
+help,printer_info.reverse
+      END
+
   'BGROUP3': BEGIN
       CASE Event.Value OF
       0: begin
@@ -974,7 +994,7 @@ END
 
 
 
-PRO PS_printer,  GROUP=Group
+PRO PS_printer,psfile=psfile,  GROUP=Group
 ;+
 ; NAME:
 ;	PS_PRINTER
@@ -1020,7 +1040,8 @@ PRO PS_printer,  GROUP=Group
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin K. Cha, 6-01-97.
-;       xx-xx-xx bkc  - comment
+;       10-15-97 bkc  - Add droplist Y/N for reverse color option
+;                       Now it defaults to non reverse color option.
 ;-
 
 COMMON PRINTER_BLOCK,printer_info
@@ -1058,6 +1079,11 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='BGROUP3')
   WIDGET_CONTROL,BGROUP3,SET_VALUE= printer_info.color
 
+  Btn168 = ['N','Y']
+  ps_reverse = WIDGET_DROPLIST(BASE2, VALUE=Btn168, $
+        UVALUE='PS_REVERSE',TITLE='Reverse Color')
+  WIDGET_CONTROL,ps_reverse,SET_DROPLIST_SELECT=printer_info.reverse
+
   FieldVal269 = [ $
     '' ]
   FIELD5 = CW_FIELD( BASE2,VALUE=FieldVal269, $
@@ -1070,9 +1096,7 @@ COMMON PRINTER_BLOCK,printer_info
   if strtrim(printer_info.name,2) ne '' then $
   WIDGET_CONTROL,FIELD5,SET_VALUE=printer_info.name
 
-  Btns342 = [ $
-    'Accept', $
-    'Cancel' ]
+  Btns342 = [ 'Accept', 'Cancel' ] 
   BGROUP7 = CW_BGROUP( BASE2, Btns342, $
       ROW=1, $
       UVALUE='BGROUP7')
@@ -1082,16 +1106,26 @@ COMMON PRINTER_BLOCK,printer_info
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.1 1997/08/18 22:25:04 cha Exp $
+; $Id: view1d.pro,v 1.2 1997/10/16 21:56:00 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 PRO XDispFile_evt, event
 
-WIDGET_CONTROL, GET_UVALUE = retval, event.id
 
-IF(retval EQ "EXIT") THEN WIDGET_CONTROL, event.top, /DESTROY
+WIDGET_CONTROL, event.top, GET_UVALUE = state
+WIDGET_CONTROL, event.id, GET_UVALUE=Ev
 
+CASE Ev OF 
+'EXIT': WIDGET_CONTROL, event.top, /DESTROY
+'FILE_PRINT': begin
+	WIDGET_CONTROL,state.text_area,GET_VALUE=str
+	openw,unit,'tmp',/GET_LUN
+	for i=0,n_elements(str)-1 do printf,unit,str(i)
+	FREE_LUN,unit
+	PS_print,'tmp'
+	end
+ENDCASE
 END
 
 
@@ -1155,6 +1189,8 @@ PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
 ;       4 Oct. 1994     MLR Fixed bug if /TEXT was present and /TITLE was not.
 ;      14 Jul. 1995     BKC Increased the max line to variable size.
 ;      16 Jun. 1997     BKC Max dispalyable line is 10000 for non-unix OS system.
+;      28 Aug. 1997     BKC Add the printer button, file name label, it uses the
+;                       PS_print,file to print.
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
                                                         ;use the defaults if
@@ -1199,12 +1235,16 @@ ENDELSE
 
 filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
 		/COLUMN, $
-		SPACE = 20, $
-		XPAD = 20, $
-		YPAD = 20)
+		SPACE = 5, XPAD = 5, YPAD = 5)
 
-filequit = WIDGET_BUTTON(filebase, $			;create a Done Button
-		VALUE = "Done with " + TITLE, $
+label=WIDGET_LABEL(filebase,value=TITLE)
+rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
+fileprint = WIDGET_BUTTON(rowbtn, $			;create a Done Button
+		VALUE = "Print", $
+		UVALUE = "FILE_PRINT")
+
+filequit = WIDGET_BUTTON(rowbtn, $			;create a Done Button
+		VALUE = "Done", $
 		UVALUE = "EXIT")
 
 IF n_elements(font) gt 0 then $
@@ -1219,6 +1259,12 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 		/SCROLL, $
 		VALUE = a)
 
+state = { $
+	 base: filebase, $
+	 text_area: filetext, $
+	 file: filename $
+	 }
+WIDGET_CONTROL,filebase,SET_UVALUE=state
 
 WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
 
@@ -1229,7 +1275,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.1 1997/08/18 22:25:04 cha Exp $
+; $Id: view1d.pro,v 1.2 1997/10/16 21:56:00 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2025,159 +2071,6 @@ END
 
 
 
-;
-; find  fwh_max, c_mass, peak for a given x,y array
-;
-PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm, $
-	FIT=FIT,XINDEX=XINDEX,LIST=LIST
-
-xindex = keyword_set(XINDEX)
-list = keyword_set(LIST)
-
-nx = n_elements(x)
-a=make_array(nx,/float)
-da=make_array(nx,/float)
-ny=make_array(nx,/float)
-slopey=make_array(nx,/float)
-
-ymin = min(y)
-ymax = max(y)
-ny = y - ymin
-
-peak = ymax
-hpeak = 0.5 * max(ny)
-y_hpeak= hpeak + ymin
-
-; area = int_tabulated(x,ny)
-; harea = 0.5 * area
-
-d0=0
-for i=1,nx-1 do begin
-	dx = x(i) - x(i-1)
-	if dx ne 0. then begin
-	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
-	d0 = d0 + da(i)
-	a(i) = d0
-	slopey(i)= (ny(i)-ny(i-1))/dx
-	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
-	end
-end
-
-area = d0
-harea = 0.5 * area
-
-; Find c_mass
-
-newtons_method,x,a,harea,c_mass
-if list then print,'===='
-if list then print,'C_mass',harea,c_mass
-
-
-; Find half peaks
-
-if list then print,'===='
-nohwdl=0
-nohwdr=0
-x_hwdl=0
-x_hwdr=0
-for i=1,nx-1 do begin
-	yl = ny(i-1) - hpeak
-	yr = ny(i) - hpeak
-       if yl*yr lt 0. and yl lt 0. then begin
-		nohwdl = [nohwdl, i-1]
-;		print,i-1,y(i-1)
-		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
-		x_hwdl= [x_hwdl,x_sol]
-		end
-       if yl*yr lt 0. and yl gt 0. then begin
-		nohwdr = [nohwdr, i-1]
-;		print,i-1,y(i-1)
-		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
-		x_hwdr= [x_hwdr,x_sol]
-		end
-end
-;print,'nohwdl',nohwdl, x_hwdl
-;print,'nohwdr',nohwdr, x_hwdr
-	lo=0
-	fwhm = 0.
-if n_elements(nohwdl) gt 1 then begin 
-	x_hwd = x_hwdl(1:n_elements(nohwdl)-1)
-	nohw = n_elements(x_hwd)
-if n_elements(nohwdr) gt 1 then begin
-	x_hwde = x_hwdr(1:n_elements(nohwdr)-1)
-	nohwe = n_elements(x_hwde)
-	fwhm = make_array(nohw,/float)
-	for i=0,nohw-1 do begin
-		x1 = x_hwd(i)
-	for j=0,nohwe-1 do begin
-		if x_hwde(j) ne x1 then begin
-			fwhm(i) = abs(x_hwde(j) - x1)
-			lo=lo+1
-;			print,'FWHM',lo,fwhm(i)
-			goto,outer
-			end
-		end
-	outer:
-	end
-	end
-	FWHM = max(fwhm)
-end
-
-;if n_elements(nohwdr) gt 1 then begin
-;	if n_elements(x_hwd) gt 0 then $
-;	x_hwd = [x_hwd, x_hwdr(1:n_elements(nohwdr)-1)] else $
-;	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
-;	end
-;if n_elements(x_hwd) gt 0 then begin
-;	x_HPeak = x_hwd(sort(x_hwd))
-;	if list then print,'hpeak,y_hpeak',hpeak,y_hpeak
-;	if list then print,'HPeak pts:',x_HPeak
-;end
-
-; Find peaks
-
-if keyword_set(FIT) then begin
-nopeaks=0
-if list then print,'===='
-for i=1,nx-1 do begin
-       if slopey(i-1) gt 0 and slopey(i-1)*slopey(i) lt 0. then begin
-;		print,i,slopey(i-1),slopey(i)
-		nopeaks = [nopeaks, i]
-		end
-end
-;print,'nopeaks',nopeaks
-no = n_elements(nopeaks)-1
-if no gt 0 then begin
-x_peak = make_array(no,/float)
-y_peak = make_array(no,/float)
-for i=1,no do begin
-	i2= nopeaks(i)
-	i1= i2-1
-	newtons_method,[x(i1),x(i2)],[slopey(i1),slopey(i2)],0.,x_sol,notfound
-	if notfound eq 0 then begin
-if list then 	print,'Peak #',i,x_sol,y(i1)
-		x_peak(i-1)= x_sol
-		y_peak(i-1) = y(i1)
-		end
-end
-endif else begin
-	y_peak = ymax
-	if y(0) gt y(nx-1) then x_peak = x(0) else x_peak = x(nx-1)
-if list then 	print,'Ymax at pt ',y_peak,x_peak
-end
-endif else begin
-
-	for i=0,nx -1 do begin
-		if y(i) eq peak then begin
-		x_peak = x(i)
-		y_peak = peak
-		return
-		end
-	end
-end
-
-END
-
 PRO find_hpeak,x,nx
 print,'===='
 fwh_max= make_array(4,/float)
@@ -2301,8 +2194,9 @@ spawn,[!os.wc,'-l',F],y,/noshell
 if y(0) eq 0 then return, -3
 end
 
-	if V1D_scanData.XDR eq 1 then U_OPENR,unit,F,/XDR else $
-                U_OPENR,unit,F
+	open_binary_type,unit,F,type,view1d_widget_ids.bin_type
+	V1D_scanData.XDR = type
+	u_rewind,unit
                 u_read,unit,version
                 free_lun,unit
                 if string(version(0)) ne V1D_scanData.version then begin
@@ -2423,7 +2317,7 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 filenamepath,V1D_scanData.trashcan,old_file,old_path
 
         FNAME = ''
-	if V1D_scanData.XDR eq 1 then FNAME='*.xdr'
+;	if V1D_scanData.XDR eq 1 then FNAME='*.xdr'
 	filename = 'catch1d.trashcan'
 
         if view1d_plotspec_id.opened ne 0 then free_lun,view1d_plotspec_id.opened
@@ -2455,6 +2349,7 @@ filenamepath,V1D_scanData.trashcan,old_file,old_path
                 FNAME = P+F
 
         id = view1d_check_data_version(FNAME)
+;id=0
         if id ne 0 then begin
 		res=WIDGET_MESSAGE(FNAME+' invalid data file')
 		return
@@ -3499,6 +3394,37 @@ COMMON w_statistic_block,w_statistic_ids
 
   ENDCASE
 
+END
+
+PRO FITTING1DMENU_Event, Event
+COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
+COMMON XY_COORD_BLOCK, xy_id, xy_wid
+COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array , view1d_plotspec_id, view1d_plotspec_limits, view1d_plotspec_saved
+
+if V1D_scanData.act_npts lt 2 then begin
+        w_warningtext,['No data available yet','', $
+                 'You have to load 1D data in first.']
+        return
+end
+
+x = V1D_scanData.pa(0:V1D_scanData.act_npts-1,view1d_plotspec_id.xcord)
+y = make_array(V1D_scanData.act_npts,15)
+y(*,*) = V1D_scanData.da(0:V1D_scanData.act_npts-1,0:14)
+
+  CASE Event.Value OF
+
+  'Fitting.Ez_Fit': BEGIN
+        ez_fit,x=x,y=y,GROUP=Event.Top
+        END
+  'Fitting.1D binary': BEGIN
+        u_openw,unit,'fitting.bin1d',/XDR
+        u_write,unit,x
+        u_write,unit,y
+        u_close,unit
+	st='1D binary data save in "fitting.bin1d"'
+        view1d_warningtext,st
+        END
+  ENDCASE
 END
 
 ;
@@ -5049,7 +4975,6 @@ END
 ; @view1d_plot.pro
 ; @view1d_summary.pro
 
-
 PRO read_desc_engu,labels
 COMMON LABEL_BLOCK,x_names,y_names,x_descs,y_descs,x_engus,y_engus
 
@@ -5073,6 +4998,20 @@ for i=0,14 do begin
 	y_engus(i) = labels(i+4+38)
 end
 
+END
+
+PRO open_binary_type,unit,filename,type,wid
+; check the binary type and return lun unit and XDR type
+
+	type = 0
+	U_OPENR,unit,filename
+	u_read,unit,version
+	if string(version(0)) eq '' then begin
+       		u_close,unit
+        	U_OPENR,unit,filename,/XDR
+		type = 1
+	end
+	if n_params() eq 4 then WIDGET_CONTROL,wid,set_droplist_select=type
 END
 
 
@@ -5236,7 +5175,6 @@ IF fd(0) NE '' THEN BEGIN
 
 found = findfile(indexfile)
 if found(0) ne '' then begin
-	if V1D_scanData.XDR eq 1 then U_OPENR,unit,indexfile,/XDR  else $
 	U_OPENR,unit,indexfile
 	u_read,unit,name
 	u_read,unit,fsize
@@ -5285,7 +5223,6 @@ if found(0) eq '' then return
 	indexfile = view1d_viewscan_id.file + '.index'
 	CATCH,error_status
 	if error_status lt 0 then return
-	if V1D_scanData.XDR eq 1 then U_OPENW,unit,indexfile,/XDR else $
 	U_OPENW,unit,indexfile
 
 	array = view1d_viewscan_id.fptr(0:view1d_viewscan_id.maxno)
@@ -5423,9 +5360,10 @@ view1d_plotspec_id.seqno = view1d_viewscan_id.maxno
 
 view1d_plotspec_id.mode = 1
 if view1d_plotspec_id.seqno gt 0 then begin
-	if V1D_scanData.XDR eq 1 then $
-	U_OPENR,unit,V1D_scanData.trashcan,/XDR else $
-	U_OPENR,unit,V1D_scanData.trashcan
+	open_binary_type,unit,V1D_scanData.trashcan, $
+		type,view1d_widget_ids.bin_type
+	V1D_scanData.XDR=type
+
 	i1= view1d_plotspec_id.seqno
 	point_lun, unit, view1d_viewscan_id.fptr(i1-1)
 	i2 = i1+1
@@ -5729,6 +5667,7 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
   'PRINTMENU': PRINTMENU_EVENT, Event
   'ZOOMMENU': ZOOMMENU_EVENT, Event
   'STATISTICMENU': STATISTICMENU_EVENT, Event
+  'FITTING1DMENU': FITTING1DMENU_EVENT, Event
   'FIELD141': catcher_view1d_filename, Event 
 
   'VIEWSPEC_SLIDER': begin
@@ -5906,6 +5845,10 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;       Written by:     Ben-chin K. Cha, 05-27-97.
 ;
 ;       08-01-97  bkc   Add the 2D scan # in the header 
+;       10-16-97  bkc   Upgrade to R1.3
+;                       Automatic figure out the type of binary data read in
+;                       only works for IDL 5.0.1 and up
+;                       Add the support for ez_fit curve fitting package
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -5928,7 +5871,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='VIEW1D (R1.1)', $
+      TITLE='VIEW1D (R1.3)', $          ;   VIEW1D release
       UVALUE='VIEW1D_1')
 
   BASE68 = WIDGET_BASE(VIEW1D_1, $
@@ -6000,7 +5943,16 @@ endif else $
   PDMENU_statistic = CW_PDMENU( BASE68, MenuStatistic, /RETURN_FULL_NAME, $
       UVALUE='STATISTICMENU')
 
+; fitting menu
+  MenuFitting = [ $
+      { CW_PDMENU_S,       3, 'Fitting' }, $ ;        0
+        { CW_PDMENU_S,       0, 'Ez_Fit' }, $ ;        1
+        { CW_PDMENU_S,       2, '1D binary'} $ ;        1
+  ]
+  PDMENU_fitting = CW_PDMENU( BASE68, MenuFitting, /RETURN_FULL_NAME, $
+      UVALUE='FITTING1DMENU')
 
+; help menu
   MenuHelp = [ $
       { CW_PDMENU_S,       3, 'Help' }, $ ;        0
         { CW_PDMENU_S,       0, 'Version ...' }, $ ;        1
@@ -6023,7 +5975,7 @@ endif else $
 
   Btns915 = ['BIN','XDR']
   pick_xdr = WIDGET_DROPLIST(BASE140, VALUE=BTNS915, $
-        UVALUE='PICK_XDR',TITLE='Type')
+        UVALUE='PICK_XDR',TITLE='')
 if V1D_scanData.XDR eq 1 then begin
   WIDGET_CONTROL,pick_xdr,set_droplist_select = 1
 end
@@ -6068,9 +6020,9 @@ if keyword_set(data) then begin
 found = findfile(data)  
 if found(0) ne '' then begin
 view1d_plotspec_array(3) = data 
-if V1D_scanData.XDR eq 1 then $
-U_OPENR,unit,view1d_plotspec_array(3),/XDR else $
-U_OPENR,unit,view1d_plotspec_array(3)
+	open_binary_type,unit,view1d_plotspec_array(3),type,pick_xdr
+	V1D_scanData.XDR = type
+
 view1d_scan_read_all,unit,maxno
 free_lun,unit
 end
@@ -6185,6 +6137,7 @@ WIDGET_CONTROL, VIEW1D_DRAW61, DRAW_XSIZE=win_state.scr_xsize
       base        : VIEW1D_1,     $
       menubar_base: BASE68,       $
       menuplot_base: view1d_PLOTOPTIONSMENU, $
+      bin_type    : pick_xdr, $ 
       filename    : FIELD141,     $
       label       : view1d_viewscan_label,  $
       seqno       : view1d_viewscan_seqno,  $
@@ -6221,4 +6174,209 @@ if keyword_set(envfile) then V1D_scanData.envfile=envfile
 ;  XMANAGER, 'VIEW1D_1', VIEW1D_1, CLEANUP='catcher_close',NO_BLOCK=0
 
 END
+
+
+
+;
+; find  fwh_max, c_mass, peak for a given x,y array
+;   fwhm -  max of fwhm_wd(i)
+;   fwhm_xl(i)  - start position of fwhm
+;   fwhm_wd(i)  - width of fwhm
+;
+PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm, fwhm_xl,fwhm_wd, $
+	FIT=FIT,XINDEX=XINDEX,LIST=LIST
+
+xindex = keyword_set(XINDEX)
+list = keyword_set(LIST)
+
+nx = n_elements(x)
+a=make_array(nx,/float)
+da=make_array(nx,/float)
+ny=make_array(nx,/float)
+slopey=make_array(nx,/float)
+
+ymin = min(y)
+ymax = max(y)
+ny = y - ymin
+
+peak = ymax
+hpeak = 0.5 * max(ny)
+y_hpeak= hpeak + ymin
+
+; area = int_tabulated(x,ny)
+; harea = 0.5 * area
+
+if list then print,'    I      X       Y      delta_A     A      Slope    Y-Ymin
+d0=0
+for i=1,nx-1 do begin
+	dx = x(i) - x(i-1)
+	if dx ne 0. then begin
+	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
+	d0 = d0 + da(i)
+	a(i) = d0
+	slopey(i)= (ny(i)-ny(i-1))/dx
+	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
+	end
+end
+
+area = d0
+harea = 0.5 * area
+
+; Find c_mass
+
+newtons_method,x,a,harea,c_mass
+if list then print,'===='
+if list then print,'C_mass',harea,c_mass
+
+
+; Find half peaks
+
+if list then print,'===='
+
+;if abs(ny(0)-hpeak) lt 1.e-5 then begin
+; 	x_hwdl=x(0)
+;	nohwdl=0
+;end
+for i=1,nx-1 do begin
+	yl = ny(i-1) - hpeak
+	yr = ny(i) - hpeak
+        if yl*yr lt 0. then begin
+		if n_elements(nohwdl) eq 0 then nohwdl = i-1 else $
+		nohwdl = [nohwdl, i-1]
+		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
+		if n_elements(x_hwdl) eq 0 then x_hwdl = x_sol else $
+		x_hwdl= [x_hwdl,x_sol]
+		i=i+1
+	endif else begin
+		if abs(yl) lt 1.e-5 then begin
+			x_hwdl=[x_hwdl,x(i-1)]
+			nohwdl = [nohwdl, i-1]
+		end
+	end	
+end
+
+	lo=0
+	fwhm = 0.
+if n_elements(nohwdl) gt 1 then begin 
+	x_hwd = x_hwdl(0:n_elements(nohwdl)-1)
+	nohw = n_elements(nohwdl) / 2
+	if slopey(nohwdl(0)) lt 0. then nohw = (n_elements(nohwdl)- 1) / 2
+	fwhm_wd = make_array(nohw,/float)		; fwhm width
+	fwhm_xl = make_array(nohw,/float)		; fwhm start point 
+
+	is = 0
+	if slopey(nohwdl(0)) lt 0. then is=1	
+	for i=0,nohw-1 do begin
+		x1 = x_hwdl(is)
+		fwhm_xl(i) = x1
+		fwhm_wd(i) = abs(x_hwdl(is+1) - x1)
+		lo=lo+1
+;		print,'FWHM',lo, fwhm_xl(i), fwhm_wd(i)
+		is=is+2
+	end
+	FWHM = max(fwhm_wd,imax)
+	if keyword_set(list) then begin
+		print,'Y_MIN,Y_HPeak,Y_PEAK',ymin,y_hpeak,peak
+		print,'HPeak pts:',x_hwdl
+		print,'FWHM start point:',fwhm_xl
+		print,'FWHM width      :',fwhm_wd
+	end
+end
+
+
+; Find peaks
+
+if keyword_set(FIT) then begin
+nopeaks=0
+if list then print,'===='
+for i=1,nx-1 do begin
+       if slopey(i-1) gt 0 and slopey(i-1)*slopey(i) lt 0. then begin
+;		print,i,slopey(i-1),slopey(i)
+		nopeaks = [nopeaks, i]
+		end
+end
+print,'nopeaks',nopeaks
+no = n_elements(nopeaks)-1
+if no gt 0 then begin
+x_peak = make_array(no,/float)
+y_peak = make_array(no,/float)
+for i=1,no do begin
+	i2= nopeaks(i)
+	i1= i2-1
+	newtons_method,[x(i1),x(i2)],[slopey(i1),slopey(i2)],0.,x_sol,notfound
+	if notfound eq 0 then begin
+if list then 	print,'Peak #',i,x_sol,y(i1)
+		x_peak(i-1)= x_sol
+		y_peak(i-1) = y(i1)
+		end
+end
+endif else begin
+	y_peak = ymax
+	if y(0) gt y(nx-1) then x_peak = x(0) else x_peak = x(nx-1)
+if list then 	print,'Ymax at pt ',y_peak,x_peak
+end
+endif else begin
+
+	for i=0,nx -1 do begin
+		if y(i) eq peak then begin
+		x_peak = x(i)
+		y_peak = peak
+		return
+		end
+	end
+end
+
+END
+
+
+
+PRO newtons_method,x,y,y_sol,x_sol,notfound
+notfound = 0
+nx = n_elements(y)
+n1 = 0 
+n2 = nx-1 
+RETEST:
+;print,'N1,N2',n1,n2,y(n1),y(n2)
+if (n2-n1) le 1 then begin
+	if (y_sol - y(n2)) * (y_sol - y(n1)) gt 0 then begin
+		x_sol= x(n1)
+		notfound = 1
+		return
+		end
+	if (x(n2)-x(n1)) eq 0. then begin
+		x_sol = x(n1)
+		return
+	end
+	x_sol = x(n1)+ (y_sol - y(n1)) /(y(n2)-y(n1)) *(x(n2)-x(n1))
+;print,y_sol,y(n1),y(n2),x(n1),x(n2)
+	 return
+	end
+ 
+nm = (n2-n1)/ 2 + n1
+fm = y (nm)
+;print,nm,fm,y_sol
+if abs(fm-y_sol) le 1.e-5 then begin
+	x_sol = x(nm)
+;	print,'Stop at NM,x_sol',nm,x_sol
+	return
+endif else begin
+	if (fm-y_sol) *(y(n2) - y_sol) gt 0 then begin
+		n2 = nm
+	endif else  begin
+		n1 = nm
+	end
+	goto,RETEST
+	end
+END
+
+;
+; using index and factor instead of real value for x array
+;
+PRO newtons_method_norm,x,y,y_sol,n1,x_sol,notfound
+	rx = float(x)
+	newtons_method,rx,y,y_sol,x_sol,notfound
+	n1 = fix(x_sol)
+	x_sol = x_sol-float(n1)
+END
+
 
