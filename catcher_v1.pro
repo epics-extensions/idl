@@ -1,4 +1,4 @@
-; $Id: catcher_v1.pro,v 1.49 2001/11/09 23:40:43 cha Exp $
+; $Id: catcher_v1.pro,v 1.50 2002/03/19 23:17:27 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -93,9 +93,28 @@ if keyword_set(init) eq 0 then begin  ;Supply default values for box:
 	y0 = !d.y_size/2 - ny/2
 	endif
 
-button = 0
-goto, middle
+	if nx lt 0 then begin
+		x0 = x0 + nx
+		nx = -nx
+	endif
+	if ny lt 0 then begin
+		y0 = y0 + ny
+		ny = -ny
+	endif
 
+	x0 = x0 > 0
+	y0 = y0 > 0
+	x0 = x0 < (!d.x_size-1 - nx)	;Never outside window
+	y0 = y0 < (!d.y_size-1 - ny)
+
+	px = [x0, x0 + nx, x0 + nx, x0, x0] ;X points
+	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
+
+	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
+	cursor, x, y, 2, /dev	;Wait for a button
+
+button = 0
 while 1 do begin
 	old_button = button
 	cursor, x, y, 2, /dev	;Wait for a button
@@ -142,7 +161,6 @@ while 1 do begin
 		return
 		endif
 middle:
-
 	if nx lt 0 then begin
 		x0 = x0 + nx
 		nx = -nx
@@ -161,6 +179,7 @@ middle:
 	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
 
 	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
 	wait, .1		;Dont hog it all
 	endwhile
 end
@@ -678,20 +697,28 @@ COMMON GOTO_BLOCK,goto_n,goto_pv,goto_val
 	goto_val = make_array(1,4,/double)
 	goto_pv = w_plotspec_id.goto_pv  ;make_array(4,/string)
 
-	if keyword_set(SCANPV) then begin
+	def = scanData.p_def
+
         piname=scanData.pv+['.P1PV','.P2PV','.P3PV','.P4PV']
+	ti = where (def > 0)
+	if ti(0) eq -1 then return
+	piname = piname(ti)
+
+	if keyword_set(SCANPV) then begin
 	ln = cagetArray(piname, goto_pv, /string)
 	if ln lt 0 then return 
 	end
 
 	k=0
 	for i=0,3 do begin
+		if def(i) then begin
 		s1 = goto_pv(i)
 		if strtrim(s1,2) ne '' then begin
 		xmax = MAX(scanData.pa(0:num_pts,i))
 		xmin = MIN(scanData.pa(0:num_pts,i))
 		goto_val(0,i) = xmin + f1 * (xmax - xmin)	
 		k=k+1
+		end
 		end
 	end
 
@@ -805,7 +832,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
-; $Id: catcher_v1.pro,v 1.49 2001/11/09 23:40:43 cha Exp $
+; $Id: catcher_v1.pro,v 1.50 2002/03/19 23:17:27 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1573,12 +1600,17 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
   'SCAN1D_PVNAME': BEGIN
       WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
+	if strtrim(pv(0),2) eq '' then begin
+		scanData.pv = ''
+		scanData.pvconfig = ''
+		return
+	end
 	len = strpos(pv(0),'.')
 	if len eq -1 then newpv = pv(0) else newpv = strmid(pv(0),0,len)
-	scanData.pv = newpv
-	scanData.pvconfig = newpv
 	if caSearch(newpv+'.EXSC') eq 0 then begin
       	WIDGET_CONTROL,catcher_setup_ids.pv,SET_VALUE=newpv
+	scanData.pv = newpv
+	scanData.pvconfig = newpv
 	pventry_event
 	endif else begin
 		w_warningtext,'Error: invalid SCAN 1D Pvname',40,2
@@ -1586,12 +1618,15 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       END
   'SCAN2D_PVNAME': BEGIN
       WIDGET_CONTROL,catcher_setup_ids.y_pv,GET_VALUE=pv
+	if strtrim(pv(0),2) eq '' then begin
+		scanData.y_pv = ''
+		return
+	end
 	len = strpos(pv(0),'.')
 	if len eq -1 then newpv = pv(0) else newpv = strmid(pv(0),0,len)
-;if newpv eq '' then $ 
-	scanData.y_pv = newpv
 	if caSearch(newpv+'.EXSC') eq 0 then begin
         WIDGET_CONTROL,catcher_setup_ids.y_pv,SET_VALUE=newpv
+	scanData.y_pv = newpv
 	pventry2_event
 	endif else begin
 		w_warningtext,'Error: invalid SCAN 2D Pvname',40,2
@@ -1627,23 +1662,46 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
       END
   'CATCHER_SETUP_DONE': BEGIN
-	write_config
       WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
-	if caSearch(pv(0)) eq 0 then begin
+	if strtrim(pv(0),2) ne '' then begin
+	len = strpos(pv(0),'.')
+	if len eq -1 then newpv = pv(0) else newpv = strmid(pv(0),0,len)
+	if caSearch(newpv+'.EXSC') eq 0 then begin
+	WIDGET_CONTROL,catcher_setup_ids.pv,SET_VALUE=newpv
+	scanData.pv = newpv
+	scanData.pvconfig = newpv
 	pventry_event
+	endif else begin
+		w_warningtext,'Error: invalid SCAN 1D Pvname',40,2
 	end
-        WIDGET_CONTROL,catcher_setup_ids.y_pv,GET_VALUE=pv1
-	if caSearch(pv1(0)) eq 0 then begin
+	endif else begin
+		scanData.pv = ''
+		scanData.pvconfig = ''
+	end
+
+      WIDGET_CONTROL,catcher_setup_ids.y_pv,GET_VALUE=pv1
+	if strtrim(pv1(0),2) ne '' then begin
+	len = strpos(pv1(0),'.')
+	if len eq -1 then newpv = pv1(0) else newpv = strmid(pv1(0),0,len)
+	if caSearch(newpv+'.EXSC') eq 0 then begin
+	WIDGET_CONTROL,catcher_setup_ids.y_pv,SET_VALUE=newpv
+	scanData.y_pv = newpv
 	pventry2_event
+	endif else begin
+		w_warningtext,'Error: invalid SCAN 2D Pvname',40,2
 	end
-        WIDGET_CONTROL,catcher_setup_ids.y_handshake,GET_VALUE=pv2
+	endif else scanData.y_pv = ''
+
+      WIDGET_CONTROL,catcher_setup_ids.y_handshake,GET_VALUE=pv2
 	  if caSearch(pv2(0)) eq 0 then begin
 	  scanData.y_handshake = pv2(0)
           WIDGET_CONTROL,catcher_setup_ids.y_handshake_v,GET_VALUE=v
 	  if strlen(v(0)) gt 0 then catcher_setup_scan.y_handshake_v = v(0)
 	  ln = caputArray(pv2(0),v(0))
 	  end
-;     WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
+
+	WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
+	write_config
       END
   ENDCASE
 END
@@ -1787,11 +1845,11 @@ IF XRegistered('catcher_setup') ne 0 then return
 
   CATCHER_SETUP_DONE = WIDGET_BUTTON( BASE5, $
       UVALUE='CATCHER_SETUP_DONE', $
-      VALUE='Ok')
+      VALUE='Accept')
 
   CATCHER_SETUP_CANCEL = WIDGET_BUTTON( BASE5, $
       UVALUE='CATCHER_SETUP_CANCEL', $
-      VALUE='Close')
+      VALUE='Cancel')
 
 catcher_setup_ids = { base : catcher_setup_base, $
 	pv : SCAN1D_PVNAME, $
@@ -2207,15 +2265,6 @@ if strlen(scanData.y_handshake) gt 1 then $
 	printf,unit,"scanData.y_handshake='",scanData.y_handshake,"'"
 
 ; add  path 
-
-;	if !d.name eq 'X' then begin
-;	x = scanData.path
-;	first = strpos(x,'/home')
-;	if first gt 0 then begin
-;		y = strmid(x,first,strlen(x))
-;		scanData.path = y
-;	end
-;	end
 
 	st = "scanData.path='"+scanData.path+"'"
         printf,unit,st
@@ -3599,7 +3648,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	ch_ratio = float(!d.y_ch_size) / !d.y_size
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
-	color = w_plotspec_id.colorI(id1)
+	color = w_plotspec_id.colorI(id)
 	; 24 bit visual case
 	if !d.n_colors eq 16777216 then begin
 		catch1d_get_pvtcolor,color,t_color
@@ -3989,6 +4038,7 @@ s0 = string(replicate(32b,twd))
 	WIDGET_CONTROL,widget_ids.terminal,SET_VALUE=strtrim(st),BAD_ID=bad_id
 
 end
+
 END
 
 ; calling procedure
@@ -4038,6 +4088,7 @@ if scanData.realtime eq 0 then begin
 if scanData.debug eq 1 then $
 print,'REALTIME_INIT: add caScan at # ',w_plotspec_id.seqno
 
+scanData.p_def = realtime_id.def(0:3)
 scanData.px = make_array(4000,/float)
 scanData.pa = make_array(4000,4,/float)
 scanData.da = make_array(4000,15,/float)
@@ -5226,7 +5277,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
   if w_plotspec_id.color eq 1 then begin
 ;        LOADCT, 39
 	dcl = !d.table_size - 2
-	ncv = 4
+	ncv = 4 
         colorlevel = dcl / ncv
         for i=0,18 do begin
         ii = i / ncv
@@ -6934,6 +6985,7 @@ next_seq_no = seq_no + 1
 	u_read,unit,x_dpt
 
 	realtime_id.def = id_def
+	scanData.p_def = id_def(0:3)
 	scanData.pa = make_array(4000,4,/double)
 	scanData.da = FLTARR(4000,15)
 
@@ -7034,7 +7086,6 @@ if id eq next_seq_no or next_seq_no le 0 then begin
 	if scanData.debug eq 1 then $
 	print,'Scan # ',seq_no, ' accessed.'
 	scanData.scanno = seq_no
-;	setDefaultLabels
 	setPlotLabels
 	UPDATE_PLOT, scanData.lastPlot
 	id = next_seq_no
@@ -7420,7 +7471,7 @@ for i=0,14 do begin
 	5: data_2d.d6(0,0:npts,y_seqno) = px
 	6: data_2d.d7(0,0:npts,y_seqno) = px
 	7: data_2d.d8(0,0:npts,y_seqno) = px
-	8: data_2d.d9(0,0:npts,y_seqno) = px
+		8: data_2d.d9(0,0:npts,y_seqno) = px
 	9: data_2d.d10(0,0:npts,y_seqno) = px
 	10: data_2d.d11(0,0:npts,y_seqno) = px
 	11: data_2d.d12(0,0:npts,y_seqno) = px
@@ -7432,8 +7483,11 @@ for i=0,14 do begin
 	end
 end
 
+	scan_mode_write_image
+
 	if scanData.image gt 2 then catch1d_win_2D_update2 else $
 		catch1d_win_2D_update1
+
 END
 
 PRO catch1d_win_2D_update1,y_seqno
@@ -7555,9 +7609,15 @@ if error_status eq -171 then begin
 	return
         end
 
-	u_openw,unit,filename,/APPEND,/XDR 
-status = FSTAT(unit)
-point_lun,unit,status.size
+	u_openw,unit,filename,/XDR,/APPEND
+	u_rewind,unit
+	point_lun,unit,scanData.im_eof
+	if scanData.debug then $
+	print,'unit=',unit,scanData.y_seqno,scanData.im_eof
+
+;	u_openw,unit,filename,/APPEND,/XDR 
+;status = FSTAT(unit)
+;point_lun,unit,status.size
 
 for i=0,14 do begin
 	if  realtime_id.def(4+i) gt 0 then begin
@@ -7643,7 +7703,7 @@ help,x,y,data_2d.image
 end
 	end
 end
-	close,unit
+	u_close,unit
 	free_lun,unit
 
 END
@@ -8201,7 +8261,7 @@ end
         return
         end
 
-        F = PICKFILE(TITLE='New ...',/WRITE,FILE=filename,PATH=old_path,GET_PATH=P,FILTER=FNAME)
+        F = DIALOG_PICKFILE(TITLE='New ...',/WRITE,FILE=filename,PATH=old_path,GET_PATH=P,FILTER=FNAME)
 
         IF F eq '' THEN return
  
@@ -8269,7 +8329,7 @@ if keyword_set(new) then begin
         end
 
 
-        F = PICKFILE(TITLE='Open ...',/WRITE,FILE=filename,PATH=old_path,GET_PATH=P,FILTER=FNAME)
+        F = DIALOG_PICKFILE(TITLE='Open ...',/WRITE,FILE=filename,PATH=old_path,GET_PATH=P,FILTER=FNAME)
 
         IF F eq '' THEN return 
 
@@ -8639,7 +8699,7 @@ filenamepath,scanData.trashcan,old_file,old_path
 ;        if w_plotspec_id.opened ne 0 then free_lun,w_plotspec_id.opened
 ;        w_plotspec_id.opened = 0
 
-        F = PICKFILE(TITLE='Save As ...',/WRITE,FILE=filename,PATH=old_path,GET_PATH=P,FILTER=FNAME)
+        F = DIALOG_PICKFILE(TITLE='Save As ...',/WRITE,FILE=filename,PATH=old_path,GET_PATH=P,FILTER=FNAME)
 
         IF F eq '' THEN return 
 
@@ -9154,6 +9214,16 @@ if scanData.pvfound eq -1 then return
 
 	setPlotLabels
 
+; get the start position
+
+	filename = scanData.path+w_plotspec_array(3)+'.image'
+	fn = findfile(filename,count=ct)
+	if ct gt 0 then begin
+	openr,1,filename
+	f = fstat(1)
+	close,1
+	scanData.im_eof = f.size	
+	endif else scanData.im_eof = 0L
 	
 END
 
@@ -9438,6 +9508,7 @@ end
 		scanData.y_seqno = 0
 		set_sensitive_on
 		end
+		return
 	  end
 
 ;
@@ -9452,8 +9523,8 @@ end
 		scanData.y_seqno = 0
 		set_sensitive_on
 		if scanData.pid eq 0 then catch1d_refreshScreen
+	        w_plotspec_id.mode = 0
 		end
-
 	end
       ENDELSE
 ENDIF else begin
@@ -10224,10 +10295,18 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;       12-06-00 bkc   - R2.2.2c8+
 ;                        Fix realtime panimage window problem
 ;                        Replace GIF by XDR saving options in view2d, plot2d
-;       06-30-00 bkc   - R2.2.2c9
+;       06-30-01 bkc   - R2.2.2c9
 ;                        Fix xtitle with positioner number
-;	08-01-00 bkc     Modified the PV goto dialog according to the readin 
+;	08-01-01 bkc     Modified the PV goto dialog according to the readin 
 ;			 positioner values
+;       01-16-02 bkc   - Modified scan setup dialog
+;       03-12-02 bkc   - Add 2D scan ranges setup
+;                        Modified regessfit, lorentzian, readascii
+;                        Add bkg color button to plot1d, ez_fit
+;                        Modified 1D Goto based on the input file
+;       03-19-02 bkc   - Save 2D image at the end of each 1D scan
+;                        Add a variation error function FUNCT_ERF1 to
+;                        ez_fit
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10257,7 +10336,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R2.2.2c9)', $
+      TITLE='Scan Data Catcher (R2.2.2c9+)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10507,7 +10586,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R2.2.2c9)'
+scanData.release = '(R2.2.2c9+)'
 
 ; get start home work directory
 
