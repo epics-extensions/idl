@@ -44,4 +44,5 @@ caPendEvent,time=0.000001
 print,caVersion()
 
 ; add periodic ca_pend_event event
-;add_caPendEvent
+add_caPendEvent,timer=5.
+print,' add_caPendEvent,timer=.1'
