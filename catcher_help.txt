@@ -30,49 +30,85 @@ mode if the data catcher detects any scan invoked by the outside CA
 clients, it will close the 1D viewing mode and yields to the data 
 acquisition mode right away.
 
+The data catcher Release 1.5 now provides two additional option keywords: 
+NOSAVE and VIEWONLY. If the /NOSAVE option is specified, every feature of the
+data catcher is available except the new scan data captured will not be 
+saved. If the /VIEWONLY option is specified, only the features of viewing
+the scan data from a file are accessable. 
+
+Be aware that the text fields entered will not be in effect until the user 
+entered the carriage return.
 
 			    FILE USED 
 
 config.file		Before quiting the data catcher a configuration 
-			file will be automatically saved. If not given on 
-			command line, 'catch1d.config' is used.  
+			file will be automatically saved if the monitored
+                        scan record is properly connected. If it is not 
+                        given on command line, 'catch1d.config' is used.  
 
 data.file 		This file is used to record the 1D scan data.
 			Complete 1D scan data is automatically saved at 
 			the end of each scan. If not given on command 
 			line, 'catch1d.trashcan' is used.
 
-env.file		This file should contain a complete list of
-			environment PV variables to be saved with the
+env.file		Optional. This file should contain a complete list 
+                        of environment PV variables to be saved with the
 			1D scan. If not given on command line, 
 			'catch1d.env' is used.
 
-data.file.image  	This file is used to save 2D image data for all
-			defined detectors for the first scan record.
+data.file.image  	This file is used to save 2D image data for 2D
+                        scan.  Each detector defined for the scan record
+			one possesses its own 2D image. 
 			Complete 2D scan data is automatically saved at 
-			the end of 2D scan. The same file name as 1D 
-			data set is used plus a suffix '.image'
+			the end of 2D scan. The name convention for the 
+                        image file is the data file name suffixed with the
+			'.image'. If the data file name is not given on 
+                        the command line, the default 'catch1d.trashcan.
+			image' is assumed.
 
 Report files    	Various levels of report files can be generated
-			by data catcher, they are all prefixed with the
-			same 1D data file name. If data file name is not
-			given on command line, 'catch1d.trashcan' will
-			be used.
+			by the data catcher. The default name convention
+                        is the data file name suffixed with the range of
+                        scan numbers.  If the data file name is not given on 
+                        the command line, the default root name of 
+			'catch1d.trashcan.xxxx_xxxx' is assumed.
 
 catch1d.ps              Postscript 1D plot file. 
+
+view2d.ps               Postscript 2D image/surface plot file. 
 
 
 
 			   USER INTERFACE
 
-The user interface is very simple and is a complete mouse driven. 
-Everything is automatically set up by the data catcher. The only 
+The user interface is very simple and is complete mouse driven. 
+Defaults are automatically set up by the data catcher. The only 
 thing needing to be set up at the first time to bring up the data 
 catcher is the scan record PV names. The function of each widget
 is briefly given below.
 
+Two types of mouse pointer are used by the data catcher: a normal
+pointer and an hourglass pointer. Normally the arraow pointer or 
+cursor point in drawing area is shown. When the data catcher is 
+busy an hourglass pointer is shown.
+
+The arrow pointer is changed to hourglass pointer when the data 
+catcher is busy with time consumed functions. The hourglass pointer
+will return back to the arrow pointer when the data catcher is
+idling and waiting for any X event. 
+
+The main window of the data catcher can not be closed by the window
+manager. This will avoid the user accidentally close the data catch
+which may disrupt the file saving. This will insure the integrity of 
+data file and the configuration file.
+
 
 			     FILE MENU
+
+The File menu let the user to change the directory and name of the
+file to be used by the data catcher. While the scan is going on
+this menu will not be accessable by the user, only when the data catcher 
+is in an idling stage a user can access any entry in this menu.
 
 The File pulldown menu consists of six selection items: 'New ...', 
 'Open ...', 'Close', 'Save As ...', 'Copy ...', and 'Quit'.
@@ -81,15 +117,22 @@ New ...			Pops up a file selection box. A non-existing
 			file name is expected. New scan data acquired 
 			will be saved in this file from now on.
 
-Open ...		Pops up a file selection box. Any data file
-			can be selected to save the acquired data.
-			It defaults to 'catch1d.trashcan'.
+Open ...		Pops up a file selection box. Existing file can
+			be selected or new file can be entered. A message
+			dialog will pops up showing the current file path, 
+			file name, and scan # in the selected file. New 
+			acquired data will be automatically appended to
+			this file.  It defaults to 'catch1d.trashcan'.
 
 Close			Close the curretly opened data file for saving 
-			the acquired data.
+			the acquired data, and the user should select
+			another data file if more scanning to be done.
+			Otherwise the default 'catch1d.trashcan' will be 
+			assumed. Normally a user never need to worry 
+			about closing the file.
 
 Save As ...		Pops up a file selection box. A non-existing
-			file neame is expected. It saves currently
+			file neame is expected. It saves the currently
 			acquired scan data to a brand new file.
 
 Copy ...		Pops up a dialog to copy an existing data
@@ -102,8 +145,14 @@ Quit			Saves the new configuration file and exits
 
 			       SETUP MENU 
 
-The Setup pulldown menu consists of five selection items: 'Acqusition', 
-'AutoSave', 'Realtime', 'DisplayWin', and 'Scan ...'
+The Setup pulldown menu consists of six selection items: 'Acqusition', 
+'AutoSave', 'Realtime', 'TextWin', 'Scan ...', and 'Color ...'
+
+This menu shows the initial set up of data catcher while it is invoked.
+At normal operation all the entry items are availale. At the /NOSAVE 
+mode, the item  'AutoSave' is in-active. At the /VIEWONLY operation only
+the change color table item 'Color ...' is available.
+
  
 Acquisition		Off/On. Turns data acguistion off or on.
 			It defaults to On.
@@ -114,23 +163,31 @@ AutoSave		Off/On. Turns data save option off or on.
 Realtime		Off/On. Turns realtime dispaying option off or on.
 			It defaults to On.
 
-DisplayWin		Off/On. Turns realtime scroll window off or on.
+TextWin			Off/On. Turns realtime text terminal window off or on.
 			It defaults to Off.
 
-Scan ...		Pops up dialog windows for setting various fields for a
-			scan record.
+Scan ...		Pops up dialog windows for setting up for 1D or
+			2D scan. The scan record name is required for data
+			acquisition.  The 1D scan PV name is required for 
+			1D scaning.  Both 1D and 2D scan PV names are 
+			required for 2D scannig. 
 
-Color ...               Loads the IDL color table program.
+Color ...               Loads the IDL color table program. The data catcher
+			currently uses 32 colors. A user can use the private
+			ezcaidl_startup.pro to override this default number
+			of colors used by the IDL.
+
 
 
 
 		             PLOT OPTIONS MENU
 
 The Plot Options pulldown menu consists of seven selection items: 'Plot vs',
-'Plot Style', 'Y Scale', 'Grid', 'Err Bars', 'Versus P#', and 'Plot ...'
+'Plot Style', 'Y Scale', 'Grid', 'Err Bars', 'Versus P#', 'Color Curve', and 
+'Plot ...'
 
-Plot vs			Values/Step #. Plots against to real positioner value 
-			or step #. It defaults to Values.
+Plot vs			Value/Step #. Plots against to real positioner value 
+			or index step #. It defaults to vs Value.
 
 Plot Style		Line/Point/Both. Plots data as line, symbol, or line
 			plus symbol. It defaults to line plot.
@@ -147,23 +204,23 @@ Err Bars		Off/On. Turns error bar (10%) option off or on. It
 Versus P#		P1/P2/P3/P4.  Selects the positioner data to be used
 			for x-axis. It defaults to positioner #1.
 
-Y Range		        Auto/Auto Include Zero.  Selects the exclude or 
-			include zero for y-axis plot. It defaults to 
-			include zero.
+Color Curve             On/Off. Turns the option of color curve plot on or off. 
+			It defaults to on.
 
 Plot ...                Pops up a plot specification dialog which allows the 
-			user to modify the plot options, xy ranges, xy labels,
-			title, and comments for the 1D plot.
+			user to modify the plot xy ranges, xy labels,
+			title, and comments for the 1D plot.  The user plot
+			range is accessed by the 'Set User Scale ...' button.
 
 
 
 			       HELP MENU
 
 The Help pulldown menu consists of two selection items: 'Version ...',
-and 'Help ...'.
+'Release Note ...', 'Help ...', 'Catcher Html ...', and and 'ezcaIDL Html ...'.
 
-Version ...		Prints the version information on the message
-			widget.
+Version ...		Pops up the version information in the message
+			window.
 
 Release Note ...        Pops up the release note window.
 
@@ -193,7 +250,26 @@ and '2D ...'.
 
 			     STATUS FIELD 
 
-This text field gives the current status of the SCAN Record.
+This text field gives the current status of the SCAN Record. It reflects 
+the acquired data points for both 1D and 2D scan.  It will provide the 
+status for PV setup.  It will also provide the status of scanning while 
+the scan is going on,  e. g. 
+
+	For 1D PV Setup:
+	>> PV Valid <<
+
+	For 2D PV Setup:
+	>> PV2 Valid <<
+
+	For 1D scanning: 
+	SCANNING: 12 of 100 Pts 
+
+	For 2D scanning: 
+	SCANNING: 12 of 100 Pts At 10'th Scan 
+	
+	For End of Scan: 
+	IDLE : Acquired  100 Pts 
+
 
 
 			     PRINT MENU 
@@ -202,13 +278,14 @@ The Print pulldown menu consists of two selection items: 'Plot',
 and 'Report ...'.
 
 Plot			Creates the 'catch1d.ps' file and generates a hard
-			copy of 1D plot.
+			copy of 1D plot at the user default printer.
 
 Report ...		Pops up a report generation dialog. Three types
 			of reports can be generated: with complete header,
 			abbreviated header, and data only. It provides
 			flexible creating, viewing, and printing features. 
-
+			Before viewing or printing the report it must be 
+			generated first.
 
 
 			       ZOOM MENU
@@ -216,9 +293,9 @@ Report ...		Pops up a report generation dialog. Three types
 The Zoom pulldown menu consists of five selection items: 'Zoom To Box',
 'Zoom In', 'Zoom Out', 'Auto Scale', and 'User Scale'.
 
-Zoom To Box		Selects bounding box mode. 
+Zoom To Box		Selects bounding box option. 
 			Steps:
-			   Move into drawing area
+			   Move mouse into the drawing area
 			   LMB to position the bounding box
 			   MMB to adjust the bounding box size
 			   RMB to zoom to the bounding box 
@@ -237,8 +314,8 @@ Zoom Out		Selects zoom out mode
 
 Auto Scale		Replots with automatic scaling plus 5% margin.
 
-User Scale		Replots with user specified xmin, xmax, ymin and
-			ymax range
+User Scale ...		Replots with user specified xmin, xmax, ymin and
+			ymax range. It pops up a set user scale dialog.
 
 
 
@@ -247,15 +324,17 @@ User Scale		Replots with user specified xmin, xmax, ymin and
 The Statistic pulldown menu consists of three selection items: 'No fitting ...',
 'Fit-parameter window', and 'Fit parameters on plot'
 
-No fitting ...		This button turns on the statistic calculation and pops
+None			No statistic values shown on the plot
+
+Peak/Centroid/FWHM on plot
+			This button displays the Peak, Centroid, and FWHM on the			plot for the selected detector.
+
+Peak/Centroid/FWHM ...  This button turns on the statistic calculation and pops
 			up a scroll window to display all the local Peaks, 
 			Centroid, and FWHM for each selected detector. 
 			The statistic calculation can be turned off by close 
-			the scroll window.
+			the statistic scroll window.
 
-Fit-parameter window 	Not avialable yet!
-
-Fit parameters on plot  Not avialable yet!
 
 
 
@@ -279,10 +358,10 @@ the default scan record database name, description and engineering
 units will be used for the plot.  A user always can use the Plot ... 
 dialog to modify the plot specification at the view data mode.
 
-The plot can be automatically scaled or user specified. The default
-is auto-scaled, y-axis include zero, with a 5% margin. A user can use 
-the Plot ...  dialog to modify the plot range xmin, xmax, ymin, and 
-ymax in the user-scaled plot.  
+The plot range can be automatically scaled or user specified. The default
+is auto-scaled, with a 5% margin. A user can use the Zoom->User Scale ...
+or the Plot Options->Plot ...  menus to modify the plot range xmin, xmax, 
+ymin, and ymax in the user-scaled plot.  
 
 
 
@@ -290,17 +369,31 @@ ymax in the user-scaled plot.
 
 Click the Left Mouse Button (LMB) on the drawing area will draw a 
 cross-hair and pops up a XY-COORD dialog. It contains a positioner
-number label, two text fields, a 'GoTo' button, and a 'Close' button. 
+number label, two text fields, a 'GoTo ...' button, and a 'Close' button. 
 The X and Y field shows the intersection coordinates of the cross
-hair.  Press the 'GoTo' button issuing a CA put value for the
-specified positioner and physically moves the positioner to the
-cursur specified positon.
+hair.  Press the 'GoTo ...' button pops up the set positioner locations
+dialog.  Press the 'Close' button terminates the query of cursor
+loction.
+
+
+
+		           GOTO ... DIALOG
+
+The set positioner dialog displays a list of all the positioner locations 
+corresponding to the drawing area cross-hair cursor, and a question whether 
+to set the new motor position accordingly, and a close button.  
+If the user press the carriage return for 'Y', then a channel access array 
+put for all the specified positioner(s) will be issued and the hardware 
+physically moves the positioner(s) to the new location(s). The Close button
+closes the dialog.
  
+
+
 
 			   DETECTOR SELECTION 
 
 The detector selection consists of 15 radio buttons. The selection button
-indicates whether the detector will be plotted or not.  If pressed in
+indicates whether the detector will be plotted or not.  If it is pressed in
 the corresponding detector data will be plotted.
 
 
@@ -314,7 +407,7 @@ be monitored by the data catcher. It consists a row of widgets for
 for alternate 2D handshake, a 'Ok' button, and a 'Close' button.
 
 The 'Ok' button accepts all the text fields and properly setup the
-data catcher for monitoring new scan. The 'Close' button closes this 
+data catcher for monitoring the future scan. The 'Close' button closes this 
 dialog and let outside CA clients have sole control of scanning.
 
 
@@ -326,7 +419,7 @@ scanned. The input should end with a carriage return.
 The control of scanning consists of two buttons: 'Start' and 'Stop'.
 The 'Start' button initiates the 1D scan and displays the real-time plot 
 of captured data at the drawing area. The 'Stop' button aborts
-the scan before the completion of 1D scan.
+the scan before the normal completion of 1D scan.
 
 
 			 2D Scan Control
@@ -338,58 +431,69 @@ carriage return.
 The control of scanning consists of two buttons: 'Start' and 'Stop'.
 The 'Start' button initiates the 2D scan and displays the real-time plot 
 of captured data at the drawing area. The 'Stop' button aborts
-the 2D scan before the completion of 2D scan.
+the 2D scan before the normal completion of 2D scan.
 
  
 			 2D Handshake Control
 
-The text field specifies the PV name for 2D SCAN handshake, the second
+The text field specifies the PV name for 2D scan handshake, the second
 text field specifies the value to be used for handshake. The input 
-should end with a carriage return.
+should end with a carriage return. If the handshake PV name is specified
+a channel access put will be performed at the end of each inner loop scan.
 
 
 
 
 		           PLOT ... DIALOG
 
-Plot setup dialog consists of sets of toggle buttons and input text fields
-which will be used by the data catcher in generating plot. 
+Plot setup dialog consists of sets of push buttons and input text fields
+which will be used by the data catcher in modifying the 1D plot. 
 
 The plot title, x & y labels, comment text fields can be 
-modified to override the default values.  The Xmin, Xmax, Ymin, Ymax are 
-the plot range will be used by the user scale plot option.  The text 
-field entered will be in effect by carriage return or until either the 
+modified to override the default values.  Set up the plot ranges  Xmin, 
+Xmax, Ymin, and Ymax can be accessed from the 'Set User Scale ...' button.
+The text field entered will be in effect by carriage return or until either the 
 'Apply' or 'Done' is pressed. The 'Done' button will also close the dialog. 
-If the 'Cancel' button is pressed, it aborts the text changes and close the 
-dialog.
+If the 'Cancel' button is pressed, it terminates the modification and close 
+the dialog.
+
+
+			
+			  USER SCALE ... DIALOG
+
+The user scale dialog allows the user to dynamically specify the X and Y plot 
+ranges.  It consists of xmin, xmax, ymin, ymax fields and three push buttons.
+Slider bars are provided for the easy task of entering the plot ranges. 
+Any value field ended with a carriage return initiates the replot right away
+with the entered value.  The 'User Scale' button takes the X and Y ranges and
+replot the data.  Data falls outside the plot ranges will not be shown in the
+user scale plot.  The 'Auto Scale' button automatically re-plots the whole data
+range based on the data array. 
+
 
 
 			   VIEW 1D ... DIALOG
 
 View 1D dialog consists of: a label describes the current file opened 
 for viewing, a label gives the ranges of scan data recorded in the
-file, a text field signals the current record # from the opened file,
-and two sets of push buttons.
+file, a text field shows the current record # from the opened file,
+a slider bar for selecting the desired scan record, and two sets of 
+push buttons.
 
-The 'Modify Plot', 'ASCII Save', 'ASCII View', and 'ASCII Print'  buttons
+The 'Print Plot', 'Modify Plot', 'ASCII View', and 'ASCII Print'  buttons
 will be active only if a set of recorded scan data is loaded into data 
 catcher.
 
 Press 'Modify Plot' allows you modify the plot specification and replot 
 according to your changes.
 
-Press 'ASCII Save' saves the scan data in a human readable ASCII file.
-The save file will be named with record #, e.g., if the 5th record of
-'catch1d.transhcan' is currently opened for viewing, then the file
-'catch1d.trashcan.5' will be saved  by 'ASCII Save' button.
-
 Press 'ASCII View' saves the ASCII scan data into 'catch1d.trashcan.tmp' 
 file and pops up a scroll text window to display the corresponding data
-for the selected scan #.
+for the selected scan #.  
 
 Press 'ASCII Print' prints the ASCII scan data 'catch1d.trashcan.tmp'.
-Before selecting this button the 'ASCII View' button must be pressed
-first. 
+It is accessible only if the 'ASCII View' has been pressed for the 
+scan record.
 
 The text field entry allows you enter a scan #.
 
@@ -407,32 +511,58 @@ Press 'Done' to close the view mode.
 
 
 
-			      VIEW 2D ... DIALOG
+			  VIEW 2D ... DIALOG
 
-This program allows the user flexible to browse the 2D data image data
-saved by data catcher. For a given image it provides TV, SURFACE, CONTOUR, 
+This program allows the user flexible to browse the 2D scan image data
+saved by the data catcher. For a given image it provides TV, SURFACE, CONTOUR, 
 SHOW3, and XSURFACE plot.  For more information please refer to VIEW2D
 on line help.
  
 
-			  FILE DESCRIPTIONS
+			   FILE DESCRIPTIONS
 
-			    catcher
+			        catcher
+			        -------
 
-A UNIX script file automatically invokes the IDL data catcher for
-user. From UNIX prompt enter  
+A UNIX script file 'catcher' automatically invokes the IDL data catcher for
+user. It can be run from any directory as long as the directory name
+ '/usr/local/epics/extensions/bin/HOST_ARCH' is included in the user search 
+path.  At APS the HOST_ARCH is either sun4 or solaris.
 
-	catcher -h
+catcher  
 
-to get the command syntax help.
+	This will start the data catcher with complete default features. 
+	It includes realtime plot, data acquisition, saving acquired data,  
+	realtime text window, viewing old data option, listening to new data,
+	etc.
+
+catcher -n 
+
+	This will start the data catcher as an old and live data displayer 
+	but it will not save the acquired data. 
+	It is assumed that there is another version of data catcher is 
+	running and the acquired data is saved by that run. 
+
+catcher -v
+
+	This will start the data catcher as a data browser/viewer, no data
+	acquistion will be done. It will only access the viewing features 
+        of the data catcher, no data acquistion is performed by this option.	
+
 
 
 			    catch1d.config
+			    --------------
 
-A configuration file 'catch1d.config' will be saved at the normal 
-completion of data catcher, i.e,  from the File->Quit menu.
+The configuration file 'catch1d.config' will be saved or updated  at the 
+normal completion of the data catcher, i.e,  from the File->Quit menu.
+Only if the scan record is properly connected at the termination time
+then the configuration file will be updated.  The configuration is saved
+at the directory where data catcher was initally invoked.
 
-The contents of 'catch1d.config' include scan record name, plot labels, 
+The contents of 'catch1d.config' include scan record name, home
+directory where data catcher was invoked, the data directory  and
+the data file name where the last scan data was saved, plot labels, 
 plot options, and important scan setup fields of the scan record.  
 Be aware that the 'catch1d.config' only remembers the last status of 
 the data catcher when you exit the program. 
@@ -440,14 +570,12 @@ the data catcher when you exit the program.
 
 
 			     catch1d.env
+			     -----------
 
-The 'catch1d.env' provides the flexible feature of save additional
+The 'catch1d.env' provides the flexible feature of saving additional
 IOC setting values with the scan data. For each PV name defined in
-'catch1d.env' the set value and description will be save.
-
-A complete list of enviroment values will be saved for the reference 
-case at the end of startup scan (reference case).  For subsequent 
-scans only those values changed from the reference case will be saved.
+the 'catch1d.env' file the set value and description can be saved 
+with the scan data.
 
 Each line in 'catch1d.env' consists of a single valid PV name plus the 
 .field name followed with the field description. The PV name and the 
@@ -463,16 +591,25 @@ Any line begins with # in the first column will be treated as a comment
 line. Any PV name is prefixed by '*', it will always be included in the
 saved environment data.
 
+A complete list of enviroment values will be saved for each reference 
+case.  For subsequent scans only those values changed from the reference 
+case will be saved or the PV name is prefixed by '*' will be saved.
+
+The reference case is defined as the data catcher is ready for 
+acquiring new scan data, i.e. when the set up new scan PV names
+is called.  PV name setup is called for the case of initial startup of 
+the data catcher, or the close of the viewing mode.
+
 
 			catch1d_user.pro
+			----------------
 
 Data catcher provided two dummy routines before_scan, and after_scan.
 The before_scan routine is called at the end of scan PV name setup. 
 The after_scan routine is called at the end of each 1D scan.
 
-These two new routines facilitate the user to use the before_scan 
-and after_scan to configure or condition the operation values of 
-additional IOC PV fields, or calling any other task and procedure.
+A user can use these two reserved routines to access his/her own
+before and after scan hooks.
 
 The data catcher automatically loads in the 'catch1d_user.pro'. This is
 the place where a user can provide his/her own version of before_scan and
@@ -482,14 +619,29 @@ of before_scan and after_scan will be used by the data catcher.
 
 
 			catch1d.trashcan
+			----------------
 
-The 1D scan data detected by data catcher is automatically saved in this
-file.
+The 1D scan data detected by the data catcher is automatically saved in this
+file. A user can override this default name by using the File->Open menu 
+or File->New menu to enter meaningful file name.
 
 
 			catch1d.trashcan.image
+			----------------------
 
-The 2D scan data detected by data catcher is automatically saved in this
-file.
+This is the default 2D image file name used by the data catcher.
+In addition to 1D scan data the 2D image data is also saved for the 2D scan.
+The 2D image file name is composed of the 1D scan data file name suffixed 
+with the '.image'.
+
+
+			catch1d.trashcan.index
+			----------------------
+
+This is the scan data index file which is automatically generated by the
+release R1.5 data catcher. This index file eliminates the wait time in read 
+and greatly improves the scan data access time of the data catcher. The index
+file name is composed of the 1D scan data file name suffixed with the '.index'.
+
 
 
