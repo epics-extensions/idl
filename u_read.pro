@@ -25,14 +25,17 @@
 ;help,/struct,!error_state
 ;END
 
-FUNCTION u_writePermitted,filename
+FUNCTION u_writePermitted,filename,VT=VT
 ;
 ; check for filename write permission
 ;
 ; existed
 	found = findfile(filename)
 	if found(0) ne '' then begin
-	ret= dialog_message(['Do you want to overwrite the existed file : ',$
+	ret=''
+	if keyword_set(VT) then $ 
+	read,ret,prompt='Overwrite the existed file - '+filename+' (Yes/No) ?' else $
+	ret= widget_message(['Do you want to overwrite the existed file : ',$
 		'','     '+filename], $
 			/question)
 	if strupcase(ret) eq 'NO' then return,-1
@@ -41,6 +44,8 @@ FUNCTION u_writePermitted,filename
         CATCH,error_status
 ;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
 	if error_status eq -215 or error_status eq -206 then begin
+		if keyword_set(VT) then $
+		read,ret,prompt=!err_string+string(!err) else $
                 ret=WIDGET_MESSAGE(!err_string + string(!err))
                 if n_elements(unit) then u_close,unit
                 return,-1
@@ -424,6 +429,11 @@ if error_status  eq -229 or error_status eq -219 or error_status eq -184 then be
 	return
 	end
 
+IF EOF(unit) THEN begin
+	print,'Error! Error! Error!'
+	print,'Error: wrong type or bad data encountered'
+	return 
+END
 readu,unit,s
 
 if (s(0) gt 1L) then begin	; two dim
@@ -558,7 +568,7 @@ help1:
 END
 
 
-PRO u_bi2xdr,filename,help=help
+PRO u_bi2xdr,filename,help=help,VT=VT
 ;+
 ; NAME:
 ;       U_BI2XDR
@@ -572,7 +582,7 @@ PRO u_bi2xdr,filename,help=help
 ;
 ; CALLING SEQUENCE:
 ;
-;       U_BI2XDR, 'filename' [,/Help]
+;       U_BI2XDR, 'filename' [,/VT] [,/Help]
 ;
 ; INPUTS:
 ;       filename:   The data file should contain pure binary data objects.
@@ -582,6 +592,8 @@ PRO u_bi2xdr,filename,help=help
 ;                   It contains the converted XDR binary data objects.
 ;
 ; KEYWORD PARAMETERS:
+;       VT:     If a dumb terminal without X window server is used, 
+;               this option must be set, e.g. a telnet session.
 ;       HELP:   If this keyword is set, a simple on line help is given.
 ;
 ; RESTRICTIONS:
@@ -601,8 +613,12 @@ PRO u_bi2xdr,filename,help=help
 if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
 
 	found = findfile(filename)
-	if found(0) eq '' then return
-
+	if found(0) eq '' then begin
+		print,'Error: '+filename+' not found!'
+		return
+		end
+	if keyword_set(VT) then $
+	OK_WRITE = u_writePermitted(filename+'.xdr',/VT) else $
 	OK_WRITE = u_writePermitted(filename+'.xdr')
 	if OK_WRITE lt 0 then return
 
@@ -618,6 +634,8 @@ if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
         maxno = id
         u_close,unit
         u_close,unit2
+	if keyword_set(VT) then $
+	print,string(maxno)+' sets of binary objects saved in "'+ filename+'.xdr"' else $
         ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
 		filename+'.xdr"')
 
@@ -633,3 +651,84 @@ help1:
 	print,''
 END
 
+PRO u_xdr2bi,filename,help=help,VT=VT
+;+
+; NAME:
+;       U_XDR2BI
+;
+; PURPOSE:
+;       This IDL routine converts platform-independent XDR data into
+;       native binary data. 
+;
+;       The output filename uses the input filename suffixed with '.2bi'.
+;
+; CALLING SEQUENCE:
+;
+;       U_XDR2BI, 'filename' [,/VT] [,/Help]
+;
+; INPUTS:
+;       filename:   The data file should contain XDR binary data objects.
+;
+; OUTPUTS:
+;       filename.2bi:   Output file. 
+;                   It contains the converted native binary data objects.
+;
+; KEYWORD PARAMETERS:
+;       VT:     If a dumb terminal without X window server is used, 
+;               this option must be set, e.g. a telnet session.
+;       HELP:   If this keyword is set, a simple on line help is given.
+;
+; RESTRICTIONS:
+;       The XDR input file should be created by the u_write command.
+;
+; EXAMPLE:
+;
+;        U_XDR2BI,'catch1d.trashcan.xdr'
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 08-10-98.
+;
+;       xx-xx-xx      iii  comment     
+;-
+;
+
+if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
+
+	found = findfile(filename)
+	if found(0) eq '' then begin
+		print,'Error: '+filename+' not found!'
+		return
+		end
+	if keyword_set(VT) then $
+	OK_WRITE = u_writePermitted(filename+'.2bi',/VT) else $
+	OK_WRITE = u_writePermitted(filename+'.2bi')
+	if OK_WRITE lt 0 then return
+
+        id=0
+        u_openr,unit,filename,/XDR
+        u_openw,unit2,filename+'.2bi'
+
+        WHILE NOT  EOF(unit) DO BEGIN
+        id = id + 1
+        u_read,unit,x
+	u_write,unit2,x
+        END
+        maxno = id
+        u_close,unit
+        u_close,unit2
+	if keyword_set(VT) then $
+	print,string(maxno)+' sets of binary objects saved in "'+ filename+'.2bi"' else $
+        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
+		filename+'.2bi"')
+
+	return
+
+help1:
+
+	print,''
+	print,'Usage: U_XDR2BI,"filename"'
+	print,''
+	print,'This program converts the xdr data objects into native binary format.'
+	print,'A new file "filename.2bi" will be created.'
+	print,''
+END
