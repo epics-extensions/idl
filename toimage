@@ -7,26 +7,17 @@
 # This file is distributed subject to a Software License Agreement found
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
-set HOST_ARCH = `/usr/local/epics/startup/HostArch`
-
-set LOC_PVT=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
-
-if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set LOC_PVT=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
-endif
-
-source $LOC_PVT/ezcaidl_setup
-source $LOC_PVT/idluserdir_setup
-cd $IDL_USERDIR
-
-# source /usr/local/rsi/idl_5/bin/idl_setup
+source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
+source $PVT_LOC/ezcaidl_setup
 
 set xdr = "toImage"
 if ( "$1" !=  "" ) then
         set xdr = $xdr 
 endif
 
+# for IDL 5.5 and later -32 option is required for 64 bit
 echo ".run toImage" >! go_toImage
 echo "$xdr" >>! go_toImage
-idl go_toImage
+        source /usr/local/rsi/idl_5.5/bin/idl_setup
+        idl -32 go_toImage
 rm go_toImage
