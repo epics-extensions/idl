@@ -1,5 +1,5 @@
 
-; $Id: ez_fit.pro,v 1.6 1999/01/15 00:09:22 cha Exp $
+; $Id: ez_fit.pro,v 1.7 1999/07/07 16:47:49 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -154,8 +154,10 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 state = { $
 	 base: filebase, $
 	 text_area: filetext, $
-	 file: filename $
+	 file: '' $
 	 }
+if n_elements(filename) then state.file = filename
+
 WIDGET_CONTROL,filebase,SET_UVALUE=state
 
 WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
@@ -2152,14 +2154,10 @@ WIDGET_CONTROL,SVDFIT_MAIN13,SET_UVALUE=info
   XMANAGER, 'SVDFIT_MAIN13', SVDFIT_MAIN13
 END
 
-
 ;
 ; find  fwh_max, c_mass, peak for a given x,y array
-;   fwhm -  max of fwhm_wd(i)
-;   fwhm_xl(i)  - start position of fwhm
-;   fwhm_wd(i)  - width of fwhm
 ;
-PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm, fwhm_xl,fwhm_wd, $
+PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak,fwhm,fwhm_xl,fwhm_wd, $
 	FIT=FIT,XINDEX=XINDEX,LIST=LIST
 
 xindex = keyword_set(XINDEX)
@@ -2182,7 +2180,6 @@ y_hpeak= hpeak + ymin
 ; area = int_tabulated(x,ny)
 ; harea = 0.5 * area
 
-if list then print,'    I      X       Y      delta_A     A      Slope    Y-Ymin
 d0=0
 for i=1,nx-1 do begin
 	dx = x(i) - x(i-1)
@@ -2208,57 +2205,63 @@ if list then print,'C_mass',harea,c_mass
 ; Find half peaks
 
 if list then print,'===='
-
-;if abs(ny(0)-hpeak) lt 1.e-5 then begin
-; 	x_hwdl=x(0)
-;	nohwdl=0
-;end
+nohwdl=0
+nohwdr=0
+x_hwdl=0
+x_hwdr=0
 for i=1,nx-1 do begin
 	yl = ny(i-1) - hpeak
 	yr = ny(i) - hpeak
-        if yl*yr lt 0. then begin
-		if n_elements(nohwdl) eq 0 then nohwdl = i-1 else $
+       if yl*yr lt 0. and yl lt 0. then begin
 		nohwdl = [nohwdl, i-1]
+;		print,i-1,y(i-1)
 		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
-		if n_elements(x_hwdl) eq 0 then x_hwdl = x_sol else $
 		x_hwdl= [x_hwdl,x_sol]
-		i=i+1
-	endif else begin
-		if abs(yl) lt 1.e-5 then begin
-			x_hwdl=[x_hwdl,x(i-1)]
-			nohwdl = [nohwdl, i-1]
 		end
-	end	
+       if yl*yr lt 0. and yl gt 0. then begin
+		nohwdr = [nohwdr, i-1]
+;		print,i-1,y(i-1)
+		newtons_method,[x(i-1),x(i)],[yl,yr],0.,x_sol,notfound
+		x_hwdr= [x_hwdr,x_sol]
+		end
 end
-
+;print,'nohwdl',nohwdl, x_hwdl
+;print,'nohwdr',nohwdr, x_hwdr
 	lo=0
 	fwhm = 0.
 if n_elements(nohwdl) gt 1 then begin 
-	x_hwd = x_hwdl(0:n_elements(nohwdl)-1)
-	nohw = n_elements(nohwdl) / 2
-	if slopey(nohwdl(0)) lt 0. then nohw = (n_elements(nohwdl)- 1) / 2
-	fwhm_wd = make_array(nohw,/float)		; fwhm width
-	fwhm_xl = make_array(nohw,/float)		; fwhm start point 
-
-	is = 0
-	if slopey(nohwdl(0)) lt 0. then is=1	
+	x_hwd = x_hwdl(1:n_elements(nohwdl)-1)
+	nohw = n_elements(x_hwd)
+if n_elements(nohwdr) gt 1 then begin
+	x_hwde = x_hwdr(1:n_elements(nohwdr)-1)
+	nohwe = n_elements(x_hwde)
+	fwhm = make_array(nohw,/float)
 	for i=0,nohw-1 do begin
-		x1 = x_hwdl(is)
-		fwhm_xl(i) = x1
-		fwhm_wd(i) = abs(x_hwdl(is+1) - x1)
-		lo=lo+1
-;		print,'FWHM',lo, fwhm_xl(i), fwhm_wd(i)
-		is=is+2
+		x1 = x_hwd(i)
+	for j=0,nohwe-1 do begin
+		if x_hwde(j) ne x1 then begin
+			fwhm(i) = abs(x_hwde(j) - x1)
+			lo=lo+1
+;			print,'FWHM',lo,fwhm(i)
+			goto,outer
+			end
+		end
+	outer:
 	end
-	FWHM = max(fwhm_wd,imax)
-	if keyword_set(list) then begin
-		print,'Y_MIN,Y_HPeak,Y_PEAK',ymin,y_hpeak,peak
-		print,'HPeak pts:',x_hwdl
-		print,'FWHM start point:',fwhm_xl
-		print,'FWHM width      :',fwhm_wd
 	end
+	FWHM = max(fwhm)
 end
 
+;if n_elements(nohwdr) gt 1 then begin
+;	if n_elements(x_hwd) gt 0 then $
+;	x_hwd = [x_hwd, x_hwdr(1:n_elements(nohwdr)-1)] else $
+;	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
+;	end
+;if n_elements(x_hwd) gt 0 then begin
+;	x_HPeak = x_hwd(sort(x_hwd))
+;	if list then print,'hpeak,y_hpeak',hpeak,y_hpeak
+;	if list then print,'HPeak pts:',x_HPeak
+;end
 
 ; Find peaks
 
@@ -2271,7 +2274,7 @@ for i=1,nx-1 do begin
 		nopeaks = [nopeaks, i]
 		end
 end
-print,'nopeaks',nopeaks
+;print,'nopeaks',nopeaks
 no = n_elements(nopeaks)-1
 if no gt 0 then begin
 x_peak = make_array(no,/float)
@@ -2305,7 +2308,6 @@ end
 END
 
 
-
 PRO newtons_method,x,y,y_sol,x_sol,notfound
 notfound = 0
 nx = n_elements(y)
@@ -2324,7 +2326,6 @@ if (n2-n1) le 1 then begin
 		return
 	end
 	x_sol = x(n1)+ (y_sol - y(n1)) /(y(n2)-y(n1)) *(x(n2)-x(n1))
-;print,y_sol,y(n1),y(n2),x(n1),x(n2)
 	 return
 	end
  
