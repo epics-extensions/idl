@@ -1,0 +1,34 @@
+#!/bin/csh -f
+set HOST_ARCH = `/usr/local/epics/startup/HostArch`
+setenv HOST_ARCH  $HOST_ARCH
+set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
+
+if ${?EPICS_EXTENSIONS_PVT} == 1 then 
+	set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
+endif
+
+setenv IDL_DEVICE X
+
+# source /usr/local/rsi/idl_5.3/bin/idl_setup
+source $PVT_LOC/idluserdir_setup
+cd $IDL_USERDIR
+
+setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
+
+set PRM=""
+if $1 != "" then 
+	set PRM=",file='$1'"
+endif
+
+echo ".run ez_fit" >! go_viewer
+echo ".run nexus_scan.pro" >>! go_viewer
+echo "nexus_scan $PRM" >>! go_viewer
+if `isainfo -b` == 64 then
+	source /usr/local/rsi/idl_5.5/bin/idl_setup
+	idl -32 go_viewer
+else
+	source /usr/local/rsi/idl_5.3/bin/idl_setup
+	idl go_viewer
+endif
+rm go_viewer
+
