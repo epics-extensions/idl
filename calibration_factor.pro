@@ -344,10 +344,16 @@ PRO CALIBRA_Event, Event
 	end
 	r = Execute('temp='+equ_str)
 ;	r= call_function('temp=',equ_str)
-
 	if info.dim eq 1 then begin
 	xarr = info.xv
-	plot1d,xarr,temp,title=info.equa_str
+; plot overlay with all selected lines 
+	yarr = make_array(info.width,info.no+1)
+	yarr(*,0) = temp(*)
+	for i=1,info.no do begin
+	yarr(*,i) = info.image_array(*,info.oper(i))
+	end
+;	plot1d,xarr,temp,title=info.equa_str
+	plot1d,xarr,yarr,title=info.equa_str,/data
 	end
 	if info.dim eq 2 then begin
 	xarr = info.xv
