@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.35 2004/05/07 19:00:09 cha Exp $
+; $Id: DC.pro,v 1.36 2004/05/24 20:26:13 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1089,7 +1089,7 @@ if w_plotspec_id.type eq 0 then begin
 	   idd = id-npd
 	   if strlen(x_descs(idd)) gt 1 then $
 		xyouts,xdis2,ydis,'  '+x_descs(idd), /device else $
-		xyouts,xdis2,ydis,'  Encoder '+detname(id), /device
+		xyouts,xdis2,ydis,'  Encoder P'+strtrim(idd+1,2), /device
 	end
 endif else begin
 	sym = id1+1
@@ -2984,14 +2984,16 @@ if realtime_id.axis eq 1 then begin
 		max_value=0,['1','1']
 
 
-	if n1 gt 0  then begin
-	 x = scanData.px(1:n1)
+	n0=1
+	if scanData.y_scan then n0=0
+	if n1 gt 1  then begin
+	 x = scanData.px(n0:n1)
 	
 	; plot Detector vs positioner 
 	for i=0,scanData.nd - 1 do begin
 	if realtime_id.def(4+i) ne 0 and scanData.wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
-	y = scanData.da(1:n1,i)
+	y = scanData.da(n0:n1,i)
 
 		oplot,x,y,LINE=ln_style(i), $
 			PSYM = symbol * (i+1) mod 8, $
@@ -3002,7 +3004,7 @@ if realtime_id.axis eq 1 then begin
 	for i=0,scanData.num_pos - 1 do begin
 	if realtime_id.def(i) ne 0 and scanData.wf_sel(scanData.nd+i) eq 1 then begin
 	color = w_plotspec_id.colorI(scanData.nd+i)
-	y = scanData.pa(1:n1,i)
+	y = scanData.pa(n0:n1,i)
 	
 	oplot,x,y,LINE=ln_style(i+scanData.nd), $
 			PSYM = symbol * (i+1) mod 8, $
@@ -7479,6 +7481,7 @@ if scanData.pvfound eq -1 then return
 ;  find new filename based on prefix and scan #
 
 	calc_newfilename,/get,err=ferr
+
 	catch1d_viewdataSetup
 
 ; update panimage required for new scan
@@ -7663,6 +7666,9 @@ set_sensitive_off   ; when realtime is going on don't let user change
                     ; this will guard the outside client invoked scan
 		    ; only stop can terminate this
 		realtime_init
+	if scanData.y_scan eq 0 then begin
+	calc_newfilename,/get,err=ferr
+	end
 		end
 	if realtime_id.ind ne 2 then begin
 		realtime_read,scanData.req_npts
@@ -8114,6 +8120,7 @@ scanData.pvfound = res
 
 ; update imax for panimage window
 	widget_control,widget_ids.pickimin,set_slider_max=scanData.req_npts-1
+
 END
 
 
@@ -8151,32 +8158,33 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 		end
    END
 
-	tn = str_sep(pd(1),": ")       ; works only if ': ' is true
-	if n_elements(tn) gt 1 then begin
-	  filename = tn(1) 
+;	tn = str_sep(pd(1),": ")       ; works only if ': ' is true
+	tn = str_sep(pd(1)," ")
+	nst = n_elements(tn)
+	if nst gt 1 then begin
+	  filename = tn(nst-1) 
 
 	  	; calculate new suffix
 
-		l = strpos(tn(1),'.',/reverse_search)
-		suffix = strmid(tn(1),l,strlen(tn(1))-l)
+		l = strpos(filename,'.',/reverse_search)
+		suffix = strmid(filename,l,strlen(filename)-l)
 		if suffix ne scanData.suffix then scanData.suffix = suffix
 
 	  	; check file number 
-		l1 = strpos(tn(1),'_')
-		l2 = strpos(tn(1),'.')
-		seq = fix(strmid(tn(1),l1+1,l2-l1-1))
+		l1 = strpos(filename,'_')
+		l2 = strpos(filename,'.')
+		seq = fix(strmid(filename,l1+1,l2-l1-1))
 
-;print,no,seq,callno,tn(1),w_plotspec_array(3)
-	if no ne callno or abs(seq-callno) ge 2 or ps lt 0 then begin
-	if ps lt 0 then wait,0.001
-	err=-1
+if scanData.debug then begin
+print,pd,tn,' filename=',filename,', w_plotspec_array(3)=',w_plotspec_array(3)
+print,callno,seq,no,ps
+end
+
+	scanData.trashcan = scanData.path + filename
+	w_plotspec_array(3) = filename
+	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
+	scanData.scanno = scanData.fileno - 1
 	return
-	end
-
-	  if filename eq w_plotspec_array(3) and no ne callno then begin
-		err=-1
-		return
-	  end
 
 	endif else begin
 	print,"***saveData_message busy*** scan #",no
