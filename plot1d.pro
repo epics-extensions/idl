@@ -1,9 +1,19 @@
+
 @PS_open.pro
 
+PRO plot1d_help
+    str = ['Select Curves: Multiple Selection List', $
+	'Toggle All button select all curves or just one', $
+	'Click any item from scroll list just select one curve',$
+	'Click while hold down CNTL adding the item to the list', $ 
+	'Click while hold down SHIFT adding the items between 2 last clicks' $ 
+	]
+   res = dialog_message(str,title='plot1d_help',/info)
+END
 
 PRO plot1d_dialogs_Event, Event
-COMMON PLOT1D_BLOCK,plot1d_state
-  widget_control,Event.top,get_uvalue=state,/no_copy
+
+  WIDGET_CONTROL,Event.top,get_uvalue=state
 
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
@@ -19,6 +29,26 @@ COMMON PLOT1D_BLOCK,plot1d_state
 	widget_control,event.id,get_value=x
         state.ysize = x 
 	widget_control,state.id_draw,scr_xsize=state.xsize,scr_ysize=state.ysize
+      END
+  'plot1d_xrange1': BEGIN
+	widget_control,Event.id,get_value=x
+	state.xmin = x
+      END
+  'plot1d_xrange2': BEGIN
+	widget_control,Event.id,get_value=x
+	state.xmax = x
+      END
+  'plot1d_yrange1': BEGIN
+	widget_control,Event.id,get_value=x
+	state.ymin = x
+      END
+  'plot1d_yrange2': BEGIN
+	widget_control,Event.id,get_value=x
+	state.ymax = x
+      END
+  'plot1d_userscale': BEGIN
+	state.userscale = Event.Index 
+  	widget_control,state.rangebase,SENSITIVE = state.userscale
       END
   'plot1d_charsize': BEGIN
 	state.charsize = Event.Index + 1
@@ -43,11 +73,75 @@ COMMON PLOT1D_BLOCK,plot1d_state
       END
   'plot1d_all': BEGIN
 	state.selection = Event.Select 
-	WIDGET_CONTROL,state.selectID,SET_VALUE=state.selection
+;	WIDGET_CONTROL,state.selectID,SET_VALUE=state.selection
+	; set main_list
+	if Event.Select then begin
+		sel = indgen(n_elements(state.selection))
+		WIDGET_CONTROL,state.main_list,SET_LIST_SELECT=sel
+		str = 'Curve'+strtrim(sel,2)
+	endif else begin
+		WIDGET_CONTROL,state.main_list,SET_LIST_SELECT=Event.Select
+		state.selection(0) = 1
+		str = 'Curve0'
+	end
+	state.legend = str
+	WIDGET_CONTROL,state.legendStrWid,set_value=str
       END
-  'plot1d_select': BEGIN
-	WIDGET_CONTROL,Event.ID,GET_VALUE=sel
-	state.selection = sel
+  'plot1d_even': BEGIN
+		state.selection= 0 
+  		WIDGET_CONTROL,state.plotallWID,SET_VALUE=0
+		state.legend = ''
+                for i=0,n_elements(state.selection)-1,2 do begin
+			if i eq 0 then sel = 0 else $
+			sel = [sel,i]
+			state.selection(i) = 1
+                end
+		
+                state.list_sel = sel 
+	for i=0,n_elements(sel)-1 do begin
+		state.legend(i) = 'Curve'+strtrim(sel(i),2)
+		if i eq 0 then str = state.legend(0) else $
+		str = [str,state.legend(i)]
+	end
+	WIDGET_CONTROL,state.legendStrWid,set_value=str
+	WIDGET_CONTROL,state.main_list,set_list_select=sel
+      END
+  'plot1d_odd': BEGIN
+		state.selection= 0 
+  		WIDGET_CONTROL,state.plotallWID,SET_VALUE=0
+		state.legend = ''
+                for i=1,n_elements(state.selection)-1,2 do begin
+			if i eq 1 then sel = 1 else $
+			sel = [sel,i]
+			state.selection(i) = 1
+                end
+		
+                state.list_sel = sel 
+	for i=0,n_elements(sel)-1 do begin
+		state.legend(i) = 'Curve'+strtrim(sel(i),2)
+		if i eq 0 then str = state.legend(0) else $
+		str = [str,state.legend(i)]
+	end
+	WIDGET_CONTROL,state.legendStrWid,set_value=str
+	WIDGET_CONTROL,state.main_list,set_list_select=sel
+      END
+  'plot1d_main_list': BEGIN
+		state.selection= 0 
+  		WIDGET_CONTROL,state.plotallWID,SET_VALUE=0
+		state.legend = ''
+		sel = WIDGET_INFO(state.main_list, /list_select)
+                state.list_sel = sel 
+                if sel(0) ne -1 then begin
+                for i=0,n_elements(sel)-1 do begin
+			state.selection(state.curves(sel(i))) = 1
+			state.legend(i) = 'Curve'+strtrim(sel(i),2)
+                end
+                end
+	for i=0,n_elements(state.list_sel)-1 do begin
+		if i eq 0 then str = state.legend(0) else $
+		str = [str,state.legend(i)]
+	end
+	WIDGET_CONTROL,state.legendStrWid,set_value=str
       END
   'plot1d_title': BEGIN
 	WIDGET_CONTROL,Event.Id,GET_VALUE=val
@@ -60,6 +154,9 @@ COMMON PLOT1D_BLOCK,plot1d_state
   'plot1d_ytitle': BEGIN
 	WIDGET_CONTROL,Event.Id,GET_VALUE=val
 	state.ytitle = val(0)
+      END
+  'plot1d_help': BEGIN
+	plot1d_help
       END
   'plot1d_comment': BEGIN
 	WIDGET_CONTROL,Event.Id,GET_VALUE=val
@@ -93,11 +190,13 @@ COMMON PLOT1D_BLOCK,plot1d_state
 	WIDGET_CONTROL,Event.Id,GET_VALUE=val
 	ln=0
 	for i=0,n_elements(state.legend)-1 do begin
+	state.legend(i) = ''
 	if strlen(strtrim(val[i],2)) gt 1 then begin
 		state.legend(ln)= val(i)
 		ln = ln+1
 		end
 	end
+	WIDGET_CONTROL,Event.Id,SET_VALUE=state.legend
       END
   'plot1d_legendx': BEGIN
 	WIDGET_CONTROL,Event.Id,GET_VALUE=val
@@ -123,21 +222,22 @@ COMMON PLOT1D_BLOCK,plot1d_state
   'plot1d_xysize_cancel': BEGIN
 	WIDGET_CONTROL,state.dialogsWid,/DESTROY
 	state.dialogsWid = 0L
+	state.legendWid = 0L
+  	WIDGET_CONTROL,state.base,set_uvalue=state
+	return	
       END
   ENDCASE
 
   plot1d_replot,state
-  plot1d_state = state
-  widget_control,Event.top,set_uvalue=state,/no_copy,bad_ID=b
+
+  WIDGET_CONTROL,Event.top,set_uvalue=state
+  WIDGET_CONTROL,state.base,set_uvalue=state
 
 END
 
 
 
 PRO plot1d_dialogs, GROUP=Group ,state
-COMMON PLOT1D_BLOCK,plot1d_state
-
-state = plot1d_state
 
 if XRegistered('plot1d_dialogs') then return
 
@@ -146,6 +246,7 @@ if XRegistered('plot1d_dialogs') then return
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
   plot1d_xysize = WIDGET_BASE(GROUP_LEADER=Group, $
+	TITLE=state.wtitle+'Setup', $
       ROW=1, $
       MAP=1, $
       UVALUE='plot1d_xysize')
@@ -197,6 +298,10 @@ if XRegistered('plot1d_dialogs') then return
   charsize = WIDGET_DROPLIST(BASE2_1,title='CharSize:',value=['1','2'], $
 		UVALUE='plot1d_charsize')
   widget_control,charsize,set_droplist_select=0
+
+  userscale = WIDGET_DROPLIST(BASE2_1,value=['AutoScl','UserScl'], $
+		UVALUE='plot1d_userscale')
+  widget_control,userscale,set_droplist_select=0
 
   BASE2_2 = WIDGET_BASE(BASE2, $
       ROW=1, $
@@ -270,10 +375,29 @@ if XRegistered('plot1d_dialogs') then return
 		UVALUE='plot1d_yexpand')
   widget_control,yexpand,set_droplist_select=state.yexpand
 
+  BASE2_411 = WIDGET_BASE(BASE2, $
+      /ROW, $
+      MAP=1, $
+      UVALUE='BASE2_411')
+  labeluser = WIDGET_LABEL(BASE2_411,VALUE='UserScl Ranges:')
+  xrange = state.xrange
+  yrange = state.yrange
+  xrange1 = CW_FIELD(BASE2_411,VALUE=xrange(0),/return_events,/float, $
+		title='XMin:',XSIZE=10,UVALUE='plot1d_xrange1')
+  xrange2 = CW_FIELD(BASE2_411,VALUE=xrange(1),/return_events,/float, $
+		title='XMax:',XSIZE=10,UVALUE='plot1d_xrange2')
+  yrange1 = CW_FIELD(BASE2_411,VALUE=yrange(0),/return_events,/float, $
+		title='YMin:',XSIZE=10,UVALUE='plot1d_yrange1')
+  yrange2 = CW_FIELD(BASE2_411,VALUE=yrange(1),/return_events,/float, $
+		title='YMax:',XSIZE=10,UVALUE='plot1d_yrange2')
+  state.rangebase = BASE2_411
+  widget_control,state.rangebase,SENSITIVE = 0
+
   BASE2_6 = WIDGET_BASE(BASE2, $
       /ROW, $
       MAP=1, $
       UVALUE='BASE2_6')
+
   BASE2_61 = WIDGET_BASE(BASE2_6, $
       /COLUMN, $
       MAP=1, $
@@ -304,24 +428,34 @@ if XRegistered('plot1d_dialogs') then return
 
 if n_elements(state.selection) gt 1 then begin
   BASE2_62 = WIDGET_BASE(BASE2_6, $
-      /COLUMN, $
+      /ROW, /FRAME, $
       MAP=1, $
       UVALUE='BASE2_62')
-  lebel2 = widget_label(BASE2_62,value='Select curves #')
-  BGROUP4 = CW_BGROUP( BASE2_62,state.curves,$
-      NONEXCLUSIVE=1, $
-        COLUMN=5, $
-      UVALUE='plot1d_select', $
-      X_SCROLL_SIZE=200, $
-      Y_SCROLL_SIZE=50)
-  WIDGET_CONTROL,BGROUP4,SET_VALUE=state.selection
-  state.selectID = BGROUP4
-  
-  BGROUP14 = CW_BGROUP( BASE2_62, ['All'], $
+  lebel2 = widget_label(BASE2_62,value='SelectCurves:')
+
+  BASE2_622 = WIDGET_BASE(BASE2_62, $
+      /COLUMN,  $
+      MAP=1, $
+      UVALUE='BASE2_622')
+  BGROUP14 = CW_BGROUP( BASE2_622, ['All'], $
       COLUMN=1, $
       NONEXCLUSIVE=1, $
       UVALUE='plot1d_all')
   WIDGET_CONTROL,BGROUP14,SET_VALUE=1  
+  state.plotallWID = BGROUP14
+  help_list = WIDGET_BUTTON(BASE2_622,VALUE='Help...',UVALUE='plot1d_help')
+  even_list = WIDGET_BUTTON(BASE2_622,VALUE='Even #',UVALUE='plot1d_even')
+  odd_list = WIDGET_BUTTON(BASE2_622,VALUE='Odd #',UVALUE='plot1d_odd')
+
+
+   ;Hold down cntrl to select only those items that are chicked on.
+   ; Shift select items between last two clicks
+
+   main_list = WIDGET_LIST(BASE2_62, VALUE=state.curves, /MULTIPLE, $
+          UVALUE='plot1d_main_list', YSIZE=6)
+   state.main_list = main_list
+   WIDGET_CONTROL,main_list,set_list_select=state.list_sel
+  
 end
 
   BASE2_4 = WIDGET_BASE(BASE2, $
@@ -329,7 +463,7 @@ end
       MAP=1, $
       UVALUE='BASE2_4')
   BASE2_41 = WIDGET_BASE(BASE2_4, $
-      /COLUMN, $
+      /ROW, $
       MAP=1, $
       UVALUE='BASE2_41')
   lebel1 = widget_label(BASE2_41,value='At most 10 comment lines')
@@ -386,11 +520,13 @@ end
       YSIZE=4)
 
   state.legendWid = BASE2_3
+  state.legendStrWid = legend
 
   state.dialogsWid = plot1d_xysize
 
   WIDGET_CONTROL, plot1d_xysize, /REALIZE
-  widget_control,plot1d_xysize,set_uvalue=state
+
+   WIDGET_CONTROL,plot1d_xysize,set_uvalue=state
 
   XMANAGER, 'plot1d_dialogs', plot1d_xysize
 END
@@ -479,7 +615,13 @@ COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
 	s = size(y) 
 	end
 
-	state.yrange = [min(y),max(y)]
+	if state.userscale eq 0 then begin
+		state.xrange = [min(state.x),max(state.x)]
+		state.yrange = [min(y),max(y)]
+	endif else begin
+		state.xrange = [state.xmin,state.xmax]
+		state.yrange = [state.ymin,state.ymax]
+	end
 
 ; set xy margin
 
@@ -507,7 +649,11 @@ if state.yrange(0) eq state.yrange(1) then begin
 end
 
 ; expand the yrange
-exdy = state.yexpand *(state.yrange(1)-state.yrange(0))
+yrange = state.yrange
+if state.userscale eq 0 then begin 
+	exdy = state.yexpand *(state.yrange(1)-state.yrange(0))
+	yrange = yrange+0.1*[-exdy,exdy]
+end
 
 	!x.style = state.xstyle
 	!y.style = state.ystyle
@@ -519,7 +665,7 @@ z = y(*,0)
 if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
 if s(0) eq 1 then $
 	PLOT,state.x,z, COLOR=color, $
-		xrange=state.xrange, yrange = state.yrange+0.1*[-exdy,exdy], $
+		xrange=state.xrange, yrange = yrange, $
 		ylog=state.ylog, xlog=state.xlog, psym=psym, $
 		xgridstyle=state.grid, $
 		ygridstyle=state.grid, $
@@ -540,7 +686,7 @@ in_symbol(0)=psym
 x = state.x
 if state.scatter then x = state.x(*,0)
 	PLOT,x,z,COLOR=color, $
-		xrange=state.xrange, yrange = state.yrange+0.1*[-exdy,exdy], $
+		xrange=state.xrange, yrange = yrange, $
 		ylog=state.ylog, xlog=state.xlog, $
 		xgridstyle=state.grid, $
 		ygridstyle=state.grid, $
@@ -645,18 +791,17 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	oplot,x,y,linestyle=in_line(i),color=color,thick=2
 	oplot,x,y,linestyle=in_line(i),color=color,psym=in_symbol(i),thick=2
 
-	xyouts,real_xr,real_yl, state.legend(pick(i))
+	xyouts,real_xr,real_yl, state.legend(i)
 	end
 end
 
 END
 
 PRO plot1d_event,ev 
-COMMON PLOT1D_BLOCK,plot1d_state
+
+WIDGET_CONTROL,ev.Top,GET_UVALUE=state
 
 ; resize event
-
-   state = plot1d_state
 
 IF (ev.id EQ ev.top) then begin
 ; plot1d the draw widget and redraw its plot;
@@ -667,6 +812,7 @@ IF (ev.id EQ ev.top) then begin
 
 	plot1d_replot, state
 
+	WIDGET_CONTROL,ev.Top,GET_UVALUE=state
 	return
 ENDIF
 
@@ -692,8 +838,14 @@ CASE B_ev OF
 	end
 'PLOT1D_CLOSE': begin
 	WIDGET_CONTROL,ev.top,BAD=bad,/DESTROY
+	return
 	end
 ENDCASE
+
+	catch,error_status
+	if error_status then return
+	WIDGET_CONTROL,ev.Top,SET_UVALUE=state
+
 END
 
 PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
@@ -707,7 +859,6 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 	curvfit=curvfit, $
 	xstyle=xstyle, ystyle=ystyle, $
 	wtitle=wtitle, report=report, button=button, GROUP=GROUP
-COMMON PLOT1D_BLOCK,plot1d_state
 ;+
 ; NAME:
 ;       PLOT1D
@@ -884,6 +1035,8 @@ COMMON PLOT1D_BLOCK,plot1d_state
 ;       09-19-99 bkc   Support plot1d various plot options
 ;                      Support the multiple scatter plot
 ;                      Add the support of report, factor, charsize keywords
+;       11-19-99 bkc   Support auto-scaled/user-specified X,Y plot ranges
+;                      Add multiple list selection of curves
 ;-
 
 ;LOADCT,39
@@ -910,12 +1063,14 @@ if sz(0) eq 1 then begin
 	leg = '' 
 	curves = '1'
 	selection = 1
+	list_sel = 0
 	rfactor = 1.
 end
 if sz(0) eq 2 then begin
 	leg = make_array(sz(2),/string) 
 	curves = strtrim(indgen(sz(2)),2)
 	selection = make_array(sz(2),/int,value=1)
+	list_sel = indgen(sz(2))
 	rfactor = make_array(sz(2),value=1.)
 end
 if keyword_set(factor) then rfactor = factor
@@ -938,15 +1093,22 @@ if keyword_set(legend) then leg = string(legend)
 if keyword_set(comment) then footnote = string(comment)
 
 state = { $
+	base:0L, $
+	rangebase:0L, $
 	id_draw:0L, $
 	winDraw:0L,$
 	dialogsWid:0L,$
 	legendWid:0L,$
+	legendStrWid:0L,$
+	plotallWid:0L,$
+	main_list: 0L, $	; multi-list
+	list_sel: list_sel, $   ; initially all selected
 	report:'',$
 	autocolor: 1, $ 	; automatic use different color for each curve
 	color:cl, $
 	symbol: 0, $
 	curvfit: 0, $		; whether data is from curve fitting
+	wtitle:wti, $
 	xtitle:xl, $
 	ytitle:yl, $
 	title:ti, $
@@ -966,6 +1128,10 @@ state = { $
 	comment: strarr(10), $  ; footnote, $
         xrange: [min(xa),max(xa)], $
         yrange: [min(ya),max(ya)], $
+	xmin: 0., $
+	xmax: 0., $
+	ymin: 0., $
+	ymax: 0., $
 	legendon: 0, $
 	xylegend: [.75,0.35], $
 	legend: leg, $
@@ -975,14 +1141,20 @@ state = { $
 	thick: 2, $
 	linestyle: 0, $
 	charsize: 1, $
+	userscale: 0, $
 	scatter: 0, $       ; if 1 scatter plot
 	factor: rfactor, $
 	x: xa, $
 	y: ya $
 	}
 
+state.xmin = state.xrange(0)
+state.xmax = state.xrange(1)
+state.ymin = state.yrange(0)
+state.ymax = state.yrange(1)
+
 xsz = size(xa)
-if total(xsz - sz) eq 0. then state.scatter = 1
+if (total(xsz) - total(sz)) eq 0. then state.scatter = 1
 
 state.comment = footnote
 if keyword_set(xstyle) then state.xstyle = xstyle 
@@ -1055,6 +1227,8 @@ id_tlb_print = WIDGET_BUTTON(id_tlb_row,VALUE='Print',UVALUE='PLOT1D_PRINT')
 id_tlb_close = WIDGET_BUTTON(id_tlb_row,VALUE='Close',UVALUE='PLOT1D_CLOSE')
 end
 
+state.base = id_tlb
+
 g_tlb=WIDGET_INFO(id_tlb,/geometry)
 
 WIDGET_CONTROL,id_tlb, /realize
@@ -1067,7 +1241,8 @@ WIDGET_CONTROL,id_draw,get_value=windraw
 	
 	plot1d_replot, state
 
-	plot1d_state = state
+	WIDGET_CONTROL,id_tlb,SET_UVALUE=state
+
 xmanager,'plot1d',id_tlb,  GROUP_LEADER=GROUP,/NO_BLOCK, $
 	EVENT_HANDLER="plot1d_event"
 
