@@ -212,6 +212,14 @@ PRO view3d_2Dredisplay,state,Event
 		end
 		im = reform(im)
 
+; update the preview of 2D-slice
+	wset,state.drawWID
+	erase
+	temp = im
+	if max(im) eq min(im) then temp = !d.table_size*im
+	TVSCL, congrid(temp,100,100)
+	if state.display lt 0 then return
+
 	CASE state.display OF 
 	0: begin
 		plot2d,im,xarr=x,yarr=y,title=title,group=state.base
@@ -231,8 +239,7 @@ PRO view3d_2Dredisplay,state,Event
 		scan2d_roi,im,x,y,group=Event.top,header=title,comment=title
 	   end
 	3: begin
-		if max(x) eq min(x) then x = indgen(n_elements(x))
-		if max(y) eq min(y) then y = indgen(n_elements(y))
+;		if max(x) eq min(x) then x = indgen(n_elements(x))
 		calibra_pick1d,im,xa=x,ya=y,title=title,group=state.base
 	   end
 	ENDCASE
@@ -258,12 +265,23 @@ PRO VIEWDRV3D_Event, Event
 	list = state.list(0:state.dim(state.rank)-1)
 	WIDGET_CONTROL,state.listWid,SET_VALUE=list
 	WIDGET_CONTROL,state.listWid,SET_LIST_SELECT=state.kindex
+	WIDGET_CONTROL,state.sldrWid,SET_SLIDER_MAX=state.dim(state.rank)-1
 	view3d_2Dredisplay,state,Event
       END
   'VIEW3D_INDEX': BEGIN
 	r =  WIDGET_INFO(Event.ID,/LIST_SELECT)
 	state.kindex = r
 	view3d_2Dredisplay,state,Event
+	WIDGET_CONTROL,state.sldrWid,SET_VALUE=r
+      END
+  'VIEW3D_IMAGE_SLIDER': BEGIN
+	state.kindex = Event.value  ; r
+	odisplay = state.display
+	state.display = -1
+	view3d_2Dredisplay,state,Event
+	state.display = odisplay
+      END
+  'VIEW3D_IMAGE_SLICE': BEGIN
       END
   'VIEW3D_ACCEPT': BEGIN
 	view3d_2Dredisplay,state,Event
@@ -335,6 +353,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 ;                       against the input coordinates. If invalid coordinates
 ;                       are entered, it will try to display data against index #.
 ;       04-24-2001  bkc Add Outpath, Class keywords on the command line
+;       02-22-2002  bkc Add a slider and a preview image of 2D slice
 ;-
 
 
@@ -414,6 +433,15 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
       YSIZE=5)
   WIDGET_CONTROL,LIST17,SET_VALUE=listVal919(0:sz(rank+1)-1)
 
+  BASE19 = WIDGET_BASE(BASE2, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE19')
+  draw18 = WIDGET_DRAW(BASE19,xsize=100,ysize=100, $
+	RETAIN=2, UVALUE='VIEW3D_IMAGE_SLICE')
+  slider = WIDGET_SLIDER(BASE19,MAXIMUM=sz(rank+1)-1,MINIMUM=0,VALUE=0, $
+		UVALUE='VIEW3D_IMAGE_SLIDER')
+
   BASE20 = WIDGET_BASE(BASE1, $
       ROW=1, $
       MAP=1, $
@@ -442,12 +470,14 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 	outpath: p, $
 	class: '', $
 	base:VIEWDRV3D, $
+	drawWID: 0L, $
 	display:0, $
 	rank: rank, $
 	dim: sz(1:3), $
 	title: title, $
 	list: ListVal919, $
 	listWid: list17, $
+	sldrWid: slider, $
 	kindex : 0 ,$
 	slicer3 : 0,$
 	x: ptr_new(/allocate_heap), $
@@ -465,6 +495,10 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
   *view3drv_state.z = zv
 
   WIDGET_CONTROL, VIEWDRV3D, /REALIZE
+
+  COMMON DRAW18_COMM, DRAWView3d_2d_Id
+  WIDGET_CONTROL,DRAW18, GET_VALUE=DRAWView3d_2d_Id
+  view3drv_state.drawWID = DRAWView3d_2d_Id
 
   WIDGET_CONTROL, LIST17, SET_LIST_SELECT=view3drv_state.kindex
   WIDGET_CONTROL, BGROUP11, SET_VALUE=view3drv_state.rank
