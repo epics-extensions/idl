@@ -339,7 +339,7 @@ DONE:
   return, res
 END
 
-; $Id: DC.pro,v 1.7 1999/10/25 20:37:22 cha Exp $
+; $Id: DC.pro,v 1.8 2000/02/28 17:59:00 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1037,8 +1037,8 @@ if !d.name ne 'PS' then WSET, widget_ids.plot_area
 
    ; If plotting before p1 was read ...
 ;   IF ((STRLEN(scanData.pv) EQ 0) OR  $    gives problem when no config
-    IF (  (ymax LE ymin)             OR  $
-       ((MIN(p1) EQ 0) AND (MAX(p1) EQ 0))) THEN  BEGIN
+    IF (ymax LE ymin)      AND  $
+       (MIN(p1)  AND MAX(p1) ) THEN  BEGIN
 	p1=indgen(num_pts+1)
 	xmin=0
 	xmax=num_pts
@@ -1292,8 +1292,8 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 ;
 ;  increase the xmin,xmax by +5%
 ;
-	if xmax eq xmin then dx = 1. else $
         dx = 0.05 *(xmax-xmin)
+	if dx le 1.0e-15 then dx = 1.
         xmax = xmax + dx
         xmin = xmin - dx
 
@@ -4222,7 +4222,7 @@ CASE eventval OF
 			strput,str,no,4-len
 		endif else str=no
 		rename=scanData.trashcan+'.'+str
-		rename=scanData.home+!os.file_sep+w_plotspec_array(3)+'.'+str
+		rename=scanData.outpath+w_plotspec_array(3)+'.'+str
 		res=cw_term(w_viewscan_ids.base,filename=filename,/SCROLL, $
 			rename=rename,bg_names='Save As...')
 		END
@@ -4234,6 +4234,7 @@ CASE eventval OF
 		save_scan_dump,file1
 filename = w_plotspec_array(3)+'.'+ string(w_plotspec_id.seqno + 1)
 filename = strcompress(filename,/remove_all)
+
 if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/noshell $
 	else spawn,[OS_SYSTEM.mv, file1, filename]
 
@@ -4315,7 +4316,7 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
                 END
 	"VIEWSPEC_2DIMAGE" : BEGIN
-		vw2d, GROUP=event.top, file=scanData.trashcan
+		vw2d,/CA, GROUP=event.top, file=scanData.trashcan
 		END
 	"VIEWSPEC_FIRST_FILE" : BEGIN
 		scanData.fileno = 1
@@ -4888,6 +4889,15 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
         newImage = image
         s = size(newImage)
 
+        view_option.x_min = 0
+        view_option.y_min = 0
+        view_option.x_max = catch2d_file.width
+        view_option.y_max = catch2d_file.height
+                WIDGET_CONTROL,widget_ids.x_min,SET_VALUE=0
+                WIDGET_CONTROL,widget_ids.x_max,SET_VALUE=view_option.x_max
+                WIDGET_CONTROL,widget_ids.y_min,SET_VALUE=0
+                WIDGET_CONTROL,widget_ids.y_max,SET_VALUE=view_option.y_max
+
         ; find the max only for 2D or 1D
 
         if s(0) eq 2 then totalno = s(4) - 1
@@ -5357,6 +5367,7 @@ printf,unit,' '
 
 END
 
+
 PRO view1d_summary_generate_DCreport
 COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON CATCH1D_COM, widget_ids, scanData 
@@ -5385,51 +5396,7 @@ if found(0) ne '' then  begin
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
 	view1d_summary_id.outfile=strcompress(file(0),/remove_all)
 
-	;  use the data directory first if failed then home directory
-
-	report_path = scandata.path
-	save_outfile = scandata.path+view1d_summary_id.outfile
-
-; quard trashcan
-	if save_outfile eq scandata.trashcan then begin
-		res = widget_message('Error: illigal file name entered!!',/error)
-		return
-	end
-
-; quard existing file 
-	found = findfile(save_outfile)
-	if found(0) ne '' then begin
-
-		st = ['Warning!  Warning!  Warning!  ' , save_outfile, '     already existed.', $
-		     ' Is it ok to rename as ', $
-		     save_outfile+ '.bk','???']
-		res = widget_message(st,/Question)
-		if res eq 'No' then goto,view_print
-		move_file = save_outfile + '.bk'
-deepmove:
-		found1 = findfile(move_file)
-		if found1(0) ne '' then begin
-			st = [' Warning!  Warning!', $
-				move_file, $
-				'also already existed !!']
-			res = widget_message(st,/Question)
-			if res eq 'No' then goto,view_print 
-			move_file = move_file + '.bk'
-			goto,deepmove
-		end
-		spawn,[OS_SYSTEM.mv, save_outfile, move_file],/noshell 
-	end
-
-	CATCH,error_status
-	if error_status ne 0 then begin
-		print,error_status,!err_string
-		report_path = scandata.home + '/'
-		save_outfile = report_path+view1d_summary_id.outfile
-		goto, RESETSENSE
-	end
-	openw,unit,save_outfile,/get_lun
-	free_lun,unit
-RESETSENSE:
+	save_outfile = scanData.outpath+view1d_summary_id.outfile
 
 ; save as one big file
     if view1d_summary_id.separate eq 0 then begin
@@ -5449,7 +5416,7 @@ RESETSENSE:
 	st = strtrim(i,2)
 	len = strlen(st)
 	strput,sss,st,len0-len
-		save_outfile=report_path+w_plotspec_array(3)+'.'+sss
+		save_outfile=scanData.outpath+w_plotspec_array(3)+'.'+sss
 		summary_report_dump,filename,save_outfile,i,i,view1d_summary_id.header
 	if scanData.debug eq 1 then print,save_outfile
 	end
@@ -5549,23 +5516,10 @@ end
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
 	filename=strcompress(file(0),/remove_all)
 
-	; check the data directory first
-
-	view1d_summary_id.outfile = scanData.path + filename
-	found = findfile(view1d_summary_id.outfile)
-	if found(0) ne '' then begin
-	  xdisplayfile,view1d_summary_id.outfile,width=110,GROUP=event.top 
-  		return
- 	end
-
-	; check startup directory
-
-	found = findfile(filename)
-	if found(0) ne '' then 	$
-        xdisplayfile,filename,width=110,GROUP=event.top else begin
-		view1d_summary_generate_DCreport
-;	  	xdisplayfile,view1d_summary_id.outfile,width=110,GROUP=event.top
-	end
+	outfile = scanData.outpath + filename
+	found = findfile(outfile,count=ct)
+	if ct eq 0 then view1d_summary_generate_DCreport
+	  xdisplayfile,outfile,width=110,GROUP=event.top 
 	END
 
   'summary_print': BEGIN
@@ -5573,26 +5527,15 @@ end
 	WIDGET_CONTROL,view1d_summary_ids.outfile, GET_VALUE=file
 	filename=strcompress(file(0),/remove_all)
 
-	; check the data directory first
-
-	view1d_summary_id.outfile = scanData.path + filename
-	found = findfile(view1d_summary_id.outfile)
-	if found(0) ne '' then begin
+	outfile = scanData.outpath + filename
+	found = findfile(outfile,count=ct)
+	if ct gt 0 then begin
 		if OS_SYSTEM.os_family eq 'unix' then $
-		spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, '-r', view1d_summary_id.outfile], /noshell else $
-		spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, view1d_summary_id.outfile]
+		spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, '-r',outfile], /noshell else $
+		spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer,outfile]
 		return
-	end
-
-	; check startup directory
-
-	found = findfile(filename)
-	if found(0) ne '' then 	begin 
-		if OS_SYSTEM.os_family eq 'unix' then $
-		spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, '-r', filename], /noshell else $
-		spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, filename]
 	endif else $
-		w_warningtext,['Error:','    '+filename+ '  not found!']
+		w_warningtext,['Error:','    '+outfile+ '  not found!','      Generate it first.']
 	END
   'summary_cancel': BEGIN
 	WIDGET_CONTROL, view1d_summary_ids.base , /DESTROY
@@ -6896,9 +6839,6 @@ PRO PDMENU_VDATA_Event, Event
   'ViewData.2D ...': BEGIN
 	vw2d, GROUP=event.top, file=scanData.trashcan
  	END
-;  'ViewData.1D Overlay ...': BEGIN
-;        view1d_overlay, scanData.trashcan, GROUP=event.top 
-; 	END
   ENDCASE
 END
 
@@ -6988,6 +6928,7 @@ END
 PRO STATISTICMENU_Event, Event
 
   COMMON CATCH1D_COM, widget_ids, scanData
+COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON w_statistic_block,w_statistic_ids
 
@@ -7018,6 +6959,64 @@ COMMON w_statistic_block,w_statistic_ids
         if widget_ids.statistic eq 0 then $
                 w_statistic,st,34,25,'Statistic',GROUP=Event.top $
           else WIDGET_CONTROL,widget_ids.statistic,SET_VALUE=st
+        end
+    END
+
+  'Statistic.FWHM on Y.All...': BEGIN
+        w_plotspec_id.statistic = 5
+        num_pts = scanData.act_npts-1
+        VX=scanData.pa(0:num_pts,0)
+        for i=0,14 do begin
+        IF (realtime_id.def(4+i) gt 0) THEN begin
+        VY=scanData.da(0:num_pts,i)
+        title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+ strtrim(scanData.scanno,2)
+        statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+                title=title,group=Event.top
+        end
+        end
+    END
+  'Statistic.FWHM on Y.One...': BEGIN
+        w_plotspec_id.statistic = 5
+        num_pts = scanData.act_npts-1
+        VX=scanData.pa(0:num_pts,0)
+        for i=0,14 do begin
+        IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
+        VY=scanData.da(0:num_pts,i)
+        title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(scanData.scanno,2)
+        statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+                report='fwhm.rpt',title=title,group=Event.top
+        return
+        end
+        end
+    END
+
+  'Statistic.FWHM on DY/DX.All...': BEGIN
+        w_plotspec_id.statistic = 6
+        num_pts = scanData.act_npts-1
+        VX=scanData.pa(0:num_pts,0)
+        for i=0,14 do begin
+        IF (realtime_id.def(4+i) gt 0) THEN begin
+        VY=scanData.da(0:num_pts,i)
+        VY = slope(VX,VY)
+        title='FWHM of DY/DX of Detector '+strtrim(i+1,2) + '    SCAN # '+strtrim(scanData.scanno,2)
+        statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+                title=title,group=Event.top
+        end
+        end
+    END
+  'Statistic.FWHM on DY/DX.One...': BEGIN
+        w_plotspec_id.statistic = 6
+        num_pts = scanData.act_npts-1
+        VX=scanData.pa(0:num_pts,0)
+        for i=0,14 do begin
+        IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
+        VY=scanData.da(0:num_pts,i)
+        VY = slope(VX,VY)
+        title='FWHM of DY/DX of Detector '+strtrim(i+1,2) + '    SCAN # '+strtrim(scanData.scanno,2)
+        statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
+                report='fwhm.rpt',title=title,group=Event.top
+        return
+        end
         end
     END
 
@@ -7468,6 +7467,7 @@ end ;     end of if scanData.option = 1
   'PDMENU_VDATA': PDMENU_VDATA_Event, Event
   'VIEWDATA_BTN': BEGIN
 	catch1d_viewmode, Event
+;	scanSee,filename=scanData.trashcan, fileno=scanData.fileno, Group=Event.top
  	END
 
  ; Event for SETUP_MENU
@@ -7872,6 +7872,19 @@ print,scanData.home
 print,scanData.path
 end
 
+outpath = scanData.path
+catch,error_status
+if error_status ne 0 then begin
+        outpath = scanData.home+!os.file_sep
+end
+openw,unit,outpath+'.tmp',/get_lun
+close,unit
+outpath = outpath+'ASCII'+!os.file_sep
+found = findfile(outpath,count=ct)
+if ct eq 0 then spawn,!os.mkdir+' '+outpath
+
+scanData.outpath = outpath
+
 ; override the data file on command line by the setting in 
 ; the configuration file
 
@@ -7976,6 +7989,8 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;                       Validate the PS plot of zoom result. 
 ;       09-20-1999      View Report automatically generates it if file not found
 ;       10-15-1999      Automatically load the first selected curve to ezfit
+;       02-15-2000      ASCII files saved under ASCII subdirectory
+;       02-25-2000      Add submenu FWHM on Y and FWHM on DY/DX 
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8031,9 +8046,8 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
 ;  MenuVData = [ $
 ;      { CW_PDMENU_S,       3, 'ViewData' }, $ ;        0
-;        { CW_PDMENU_S,       0, '1D ...' }, $ ;        1
-;        { CW_PDMENU_S,       0, '2D ...' } $ ;        1
-;        { CW_PDMENU_S,       0, '1D Overlay ...' } $ ;        1
+;        { CW_PDMENU_S,       0, 'R1 ...' }, $ ;        1
+;        { CW_PDMENU_S,       0, 'R2 ...' } $ ;        1
 ;	]
 
 ;  PDMENU_VDATA = CW_PDMENU( BASE68, MenuVData, /RETURN_FULL_NAME, $
@@ -8065,6 +8079,12 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
         { CW_PDMENU_S,       0, 'None' }, $ ;        1
         { CW_PDMENU_S,       0, 'Peak/Centroid/FWHM on plot' }, $ ;        1
         { CW_PDMENU_S,       0, 'Peak/Centroid/FWHM ...' }, $ ;        1
+        { CW_PDMENU_S,       1, 'FWHM on Y' }, $ ;        1
+        { CW_PDMENU_S,       0, 'One...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'All...' }, $ ;        1
+        { CW_PDMENU_S,       1, 'FWHM on DY/DX' }, $ ;        1
+        { CW_PDMENU_S,       0, 'One...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'All...' }, $ ;        1
         { CW_PDMENU_S,       2, 'Average/Deviation ...' } $ ;        1
   ]
 
