@@ -11,7 +11,7 @@ source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 
 set xdr = "sscan"
 if ( "$1" !=  "" ) then
-        set xdr = $xdr',/XDR' 
+        set xdr = $xdr",file='"$1"'" 
 endif
 
 echo "loadct,39" >! go_viewer
