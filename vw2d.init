@@ -53,7 +53,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	path    : h+!os.file_sep,   $ ;'/', $
 	outpath : h+!os.file_sep, $
         name    : 'catch1d.trashcan.image',           $
-	suffix  : '', $      ; mda or scan
+	suffix  : 'mda', $      ; mda or scan
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
 	pan     : 0, $ ; pan all detectors or not
