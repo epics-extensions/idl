@@ -1,4 +1,4 @@
-; $Id: xdisplayfile.pro,v 1.1 1999/07/07 19:21:53 cha Exp $
+; $Id: xdisplayfile.pro,v 1.2 2001/04/04 21:30:06 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -11,7 +11,8 @@ WIDGET_CONTROL, event.id, GET_UVALUE=Ev
 CASE Ev OF 
 'EXIT': WIDGET_CONTROL, event.top, /DESTROY
 'FILE_PRINT': begin
-	if state.file ne '' then begin
+	r = findfile(state.file,count=ct)
+	if r(0) ne '' then begin
 		PS_enscript,state.file
 	endif else begin
 	WIDGET_CONTROL,state.text_area,GET_VALUE=str
