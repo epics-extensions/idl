@@ -1190,7 +1190,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		TV,newimage2*fact
 	endif else begin
 		newimage2 = bytscl(newimage2,top=ncolors,min=v_min,max=v_max)
-		TV,newimage2
+		TVSCL,newimage2
 	end
 	return
    end
@@ -1420,7 +1420,6 @@ end
 		    TV,newimage2,xo,yo,xsize=xw,ysize=yw,/nan else $
 		    TVSCL,newimage2,xo,yo,xsize=xw,ysize=yw,/nan
 
-
 		    plot,/noerase,/nodata, pos=pos, [-1,-1], $
 			xrange=xrange, yrange=yrange, $
 			xticklen= -!p.ticklen, yticklen=-!p.ticklen, $
@@ -1429,9 +1428,10 @@ end
 			xstyle = 1, ystyle=1 ,color=t_color
 
 		endif else begin
+		newimage2 = congrid(image,width,height)
 		if v_max eq v_min then $
-		    TV,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan else $
-		    TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan
+		    TV,newimage2*fact, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b else $
+		    TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b
 
 		    p1 = [float(image2d_state.view_option.margin_l)/ !d.x_size, $
 			float(image2d_state.view_option.margin_b)/!d.y_size, $
@@ -1594,7 +1594,6 @@ end
 			xstyle = 1, ystyle=1, color=t_color
 
 		endif else begin
-
 		if v_max eq v_min then $
 		    TV,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan else $
 		    TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan
@@ -1694,8 +1693,9 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	list = indgen(sz(3)) + 1
   if keyword_set(seqnm) then begin
 	ListVal949= 'S'+ strtrim(list,2)
-	if n_elements(zdescs) gt 1 then ListVal949 = zdescs 
 	if n_elements(seqnm) gt 1 then ListVal949 = seqnm
+  end
+	if n_elements(zdescs) gt 1 then ListVal949 = ListVal949+': '+ zdescs 
 
 	if sz(3) gt 15 then begin
 	widget_control,widget_ids.sel_image,set_value=ListVal949(0:14)
@@ -1703,7 +1703,6 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 ;	widget_control,widget_ids.sel_base,set_value=ListVal949(15:sz(3)-1)
 	endif else $
 	widget_control,widget_ids.sel_image,set_value=ListVal949(0:sz(3)-1)
-  end
 
   norm_ids = { $
 	base :0L, $
@@ -1742,7 +1741,7 @@ image2d_state = { $
 	x_desc : '', $ 
 	xdescs : make_array(4,/string), $
 	ydescs : make_array(4,/string), $	
-	zdescs : make_array(sz(3),/string), $	
+	zdescs : make_array(85,/string), $	
 	title : '', $
 	width : sz(1), $
 	height : sz(2), $
@@ -1796,8 +1795,24 @@ image2d_state = { $
 	image2d_state.y_pv = pv(1)
   end
 
+; use assignname_read dialog to assign names 
+
+;	found = findfile('.tmpName')
+;	if found(0) ne '' then begin
+;	xdr_open,unit,'.tmpName'
+;	xdr_read,unit,zdescs
+;	xdr_close,unit
+;	end
+
+	nel = n_elements(zdescs) 
+	if nel gt 0 then begin
+	if keyword_set(VERS) and nel gt 70 then begin
+	  zdescs=zdescs(15:sz(3)-1)
+	end
+	end
+
   if keyword_set(zdescs) then begin
-	image2d_state.zdescs = zdescs
+	image2d_state.zdescs = zdescs(0:n_elements(zdescs)-1)
 	nd = n_elements(zdescs)
 	if nd le 15 then image2d_state.detector = nd
 	image2d_state.z_desc = zdescs(image2d_state.detector-1)
@@ -1848,9 +1863,77 @@ PRO image2d_resetInit,image2d_state
 
 END
 
-PRO image2d_toAim,Event
+PRO image2d_igor,image2d_state,group=group
+
+        image_array = *image2d_state.image_array
+        xarr = *image2d_state.xarr
+        yarr = *image2d_state.yarr
+	x = xarr(0:image2d_state.width-1)
+        y = yarr(0:image2d_state.height-1)
+
+        def = image2d_state.id_def
+        nodet = n_elements(def)
+
+        xdim = image2d_state.width
+        ydim = image2d_state.height   ;catch2d_file.y_req_npts
+
+	t_format = 'G18.8'
+	if keyword_set(format) then t_format = format
+
+	dir = image2d_state.outpath+'ASCII'+!os.file_sep
+	found = findfile(dir,count=ct)
+	if ct lt 1 then spawn,!os.mkdir + ' ' +dir
+	file = dir+image2d_state.name+'_IGOR'
+	lp = strpos(image2d_state.name,'.')
+
+	class='_mda'
+        if lp gt 0 then class = strmid(image2d_state.name,0,lp)+class
+        openw,fw,file ,/get_lun
+	printf,fw,'IGOR'
+
+	for i=0,nodet-1 do begin
+	if def(i) gt 0 then begin
+	image =image_array(*,*,i)
+	suf0 = '00'
+	suf = strtrim(i,2)
+	ln = strlen(suf)
+	strput,suf0,suf,2-ln
+	comment = 'X // '+ image2d_state.zdescs(i)
+
+	comment2 = 'D'+strtrim(i+1,2)
+	ip = strpos(image2d_state.DPVS(i),':')
+	if ip gt 0 then comment2 = strmid(image2d_state.DPVS(i),0,ip) 
+	comment2 = comment2 +'_'+class
+
+	printf,fw,comment
+	printf,fw,'Waves/O/D/N=('+strtrim(xdim,2)+', '+strtrim(ydim,2)+') '+comment2 
+	printf,fw,'BEGIN'
+
+	s = size(image)
+	dim = s(1:2)
+
+	f0 = '('+ '5000('+t_format+',:))'
+	newdata = transpose(image)
+	d1 = dim(1)
+	d2 = dim(0)
+	temp = make_array(dim(1))
+	for j=0,d2-1 do begin
+	temp = newdata(0:d1-1,j)
+	printf,fw,format=f0,temp
+	end
+	printf,fw,'END'
+	printf,fw,'X SetScale/I x '+ strtrim(x(0),2) + ', ' + strtrim(x(d2-1),2)+', ' + comment2
+	printf,fw,'X SetScale/I y '+ strtrim(y(0),2) + ', ' + strtrim(y(d1-1),2)+', ' + comment2
+	printf,fw,' '
+	end
+	end
+	free_lun,fw
+
+	xdisplayfile,file,title=file,group=group
 END
 
+PRO image2d_toAim,Event
+END
 
 PRO PDMENU4_Event, Event, image2d_state
 COMMON IMAGE2D_NORM_BLOCK, norm_ids
@@ -1917,6 +2000,9 @@ COMMON COLORBAR, colorbar_data
         outname=image2d_state.name+'_'+st+'.xdr'
         outpath = image2d_state.outpath+'XDR'+!os.file_sep
         rename_dialog,outpath,'image2d.xdr',outname,GROUP=Event.Top
+    END
+  'File.Save as IGOR TXT': BEGIN
+	image2d_igor,image2d_state,GROUP=Event.top
     END
   'File.Printer...': BEGIN
 	PS_printer,Group=Event.top
@@ -2623,6 +2709,7 @@ PS_init
         { CW_PDMENU_S,       0, 'Save as PNG' }, $ ;        3
         { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        4
         { CW_PDMENU_S,       0, 'Save as XDR' }, $ ;        5
+        { CW_PDMENU_S,       0, 'Save as IGOR TXT' }, $ ;        5
         { CW_PDMENU_S,       0, 'Printer...' }, $ ;        6
         { CW_PDMENU_S,       0, 'print' }, $ ;        7
         { CW_PDMENU_S,       0, 'PS_close' }, $ ;        8
@@ -2707,6 +2794,7 @@ PS_init
     'DE', $
     'DF' ]
 
+
   if keyword_set(zdescs) then ListVal1099=zdescs
   LIST20 = WIDGET_LIST( BASE8,VALUE=ListVal1099, $
       UVALUE='IMAGE2D_LIST2', $
@@ -2767,11 +2855,11 @@ PS_init
 
   LABEL31 = WIDGET_LABEL( BASE26, $
       UVALUE='LABEL31',/ALIGN_LEFT, $
-      VALUE='MIN Z:                                    ** ')
+      VALUE='MIN Z:                                ** ')
 
   LABEL32 = WIDGET_LABEL( BASE26, $
       UVALUE='LABEL32',/ALIGN_LEFT, $
-      VALUE='MAX Z:                                    ** ')
+      VALUE='MAX Z:                                ** ')
 
   BASE40 = WIDGET_BASE(BASE26, $
       COLUMN=1,  $
@@ -2783,7 +2871,7 @@ PS_init
   FieldVal2394 = [ $
     '' ]
   FIELD42 = CW_FIELD( BASE40,VALUE=FieldVal2394, $
-      COLUMN=1, /frame,$
+      /frame,$
       STRING=1, /NOEDIT, $
       TITLE='Cursor @ X', $
       UVALUE='IMAGE2D_XCURSOR')
@@ -2791,7 +2879,7 @@ PS_init
   FieldVal2459 = [ $
     '' ]
   FIELD43 = CW_FIELD( BASE40,VALUE=FieldVal2459, $
-      COLUMN=1, /frame,$
+      /frame,$
       STRING=1, /NOEDIT, $
       TITLE='Cursor @ Y', $
       UVALUE='IMAGE2D_YCURSOR')
@@ -2866,9 +2954,7 @@ PS_init
 
   BUTTON67 = WIDGET_BUTTON( BASE50, $
       UVALUE='IMAGE2D_SETRANGE', $
-      VALUE='Set New 2D Scan Ranges')
-
-
+      VALUE='Set New 2D Scan Ranges...')
 
 
   BASE69 = WIDGET_BASE(BASE2, $
