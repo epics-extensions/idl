@@ -69,6 +69,105 @@ PRO parse_num,instring,res,sep1=sep1,sep2=sep2
         end
 END
 
+
+
+
+PRO scan2d::NewPos,pos_id, outfile=outfile
+;+
+; NAME:
+;      	scan2d::NEWPOS
+;
+; PURPOSE:
+; 	This method allows the user generate a new 2D image file with
+;       new postioner selected instead of default positioner P1
+;
+; ARGUMENTS:
+;    POS_ID:  New positioner # selected (must > 1 and < 5)
+;             default is positioner 2.
+;
+; KEYWORD:
+;    OUTFILE: Specifies the output image file, default is the
+;             temporary file name 'tmp.image' is used.
+;
+; RESTRICTION:
+;    The positioner id entered must be defined for the scan1 record. 
+;
+; EXAMPLES
+;    In this example the orignal 1D and 2D scan data are stored in 'junk2' 
+;    and 'junk2.image'. The purpose is to create a new image file with
+;    positioner2 values as the X vector, the new image file will be saved
+;    as 'junk2.image_2'. The v3 object is used to varify the new image file.
+;
+; 	v2 = obj_new('scan2d',file='junk2.image')
+;       v2->newPos,2
+;
+;       v3 = obj_new('scan2d',file='junk2.image_2')
+;       v3->view,1
+;-
+
+	if n_elements(pos_id) eq 0 then pos_id=2 
+	if pos_id lt 2 then return
+	
+	len = strpos(self.name,'.image')
+	if len gt 0 then file1 = strmid(self.name,0,len)
+	if self.path ne '' then file1 = self.path+!os.file_sep+ file1
+
+	v1 = obj_new('scan1d',file=file1)
+
+	if obj_valid(v1) eq 0 then begin
+	str = ['Usage: v2->newPos, v1, pos_id, outfile="new.image"', $
+		'where', $
+		'V2 must be an "scan2d" object', $
+		'V1 must be an "scan1d" object']
+	r = dialog_message(str,/error)
+
+		return
+	end
+
+	nfile = 'tmp.image'  ;self.name+'_2'
+	if keyword_set(outfile) then nfile=outfile
+	
+	u_openw,unit2,nfile,/XDR
+
+	unit = self.unit
+	self->point_lun,0
+
+	FOR seqno = 1,self.maxno DO BEGIN
+	u_read,unit,pvs
+	u_read,unit,nos
+	u_read,unit,x
+	u_read,unit,y
+	u_read,unit,im
+
+	scan1d = nos(0)-nos(2)
+	v1->read,scan1d,pa=pa,da=da,np=np,nd=nd,x_names=x_names, $
+		x_descs=x_descs,x_engus=x_engus
+
+	; output new image file
+	sz = size(pa)
+	if sz(0) eq 1 then pos_id = 1
+	if sz(0) eq 2 and pos_id gt sz(2) then pos_id = sz(2)
+	xlabel = x_descs(pos_id-1) +'(' + x_engus(pos_id-1) +')'
+	pvs(0,3) = byte(xlabel) 
+
+	x = pa(*,pos_id-1)
+	u_write,unit2,pvs
+	u_write,unit2,nos
+	u_write,unit2,x
+	u_write,unit2,y
+	u_write,unit2,im
+	END
+
+	u_close,unit2
+	obj_destroy,v1
+
+	if keyword_set(outfile) then return
+
+	str = !os.mv + ' ' + nfile +' '+self.path
+	spawn,str
+
+END
+
 PRO scan2d::ASCII1D,lineno,endno=endno,all=all,nowin=nowin,format=format,group=group
 ;+
 ; NAME:
