@@ -1371,8 +1371,31 @@ ENDIF
 
   CASE Ev OF 
 
+  'plot2d_XValue': BEGIN
+        END
+  'plot2d_YValue': BEGIN
+        END
+  'plot2d_ZValue': BEGIN
+        END
   'DRAW3': BEGIN
 	WSET,plot2d_state.win
+if event.PRESS eq 1 then begin
+	cursor,x,y,0,/data ;,/device
+	sz = size(plot2d_state.data)
+	dx = float(plot2d_state.range(1)-plot2d_state.range(0))/sz(1)
+	dy = float(plot2d_state.range(3)-plot2d_state.range(2))/sz(2)
+	cursor,x,y,0,/data ;/device
+	i = fix(float(x-plot2d_state.range(0))/dx)
+	j = fix(float(y-plot2d_state.range(2))/dy)
+	if i ge 0 and i lt sz(1) and j ge 0 and j lt sz(2) then begin
+	val = plot2d_state.data(i,j)
+	WIDGET_CONTROL,plot2d_state.xpixel,SET_VALUE=x
+	WIDGET_CONTROL,plot2d_state.ypixel,SET_VALUE=y
+	WIDGET_CONTROL,plot2d_state.zpixel,SET_VALUE=val
+	WIDGET_CONTROL,plot2d_state.i_xpixel,SET_VALUE=i
+	WIDGET_CONTROL,plot2d_state.i_ypixel,SET_VALUE=j
+	end
+end
 if event.PRESS eq 2 then begin
 	plot2d_replot, plot2d_state
 	cursor,x,y,0,/data ;,/device
@@ -1753,6 +1776,11 @@ if keyword_set(classname) then class = classname
 	id_draw:0L, $
 	win:0, $
 	old_win: !d.window, $
+	i_xpixel: 0L, $
+	i_ypixel: 0L, $
+	xpixel: 0L, $
+	ypixel: 0L, $
+	zpixel: 0L, $
 	marginBase: 0L, $
 	labelBase: 0L, $
 	tvprocess: 0L, $         ; tvprocess base widget
@@ -1832,8 +1860,25 @@ if keyword_set(comment) then begin
   BGROUP2 = CW_BGROUP( BASE1, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
 
-  DRAW3 = WIDGET_DRAW( Plot2dMAIN13, XSIZE=xsize, YSIZE=ysize, RETAIN=2, $
+  BASE1_1 = WIDGET_BASE(Plot2dMAIN13, /ROW)
+  DRAW3 = WIDGET_DRAW( BASE1_1, XSIZE=xsize, YSIZE=ysize, RETAIN=2, $
 		BUTTON_EVENTS=1,UVALUE='DRAW3')
+  BASE1_2 = WIDGET_BASE(BASE1_1, /COLUMN)
+  zpixel = CW_FIELD( BASE1_2,VALUE='        ', $
+      ROW=1, TITLE='Val', $
+      UVALUE='plot2d_ZValue')
+  xpixel = CW_FIELD( BASE1_2,VALUE='        ', $
+      ROW=1, TITLE='X', $
+      UVALUE='plot2d_XValue')
+  ypixel = CW_FIELD( BASE1_2,VALUE='        ', $
+      ROW=1, TITLE='Y', $
+      UVALUE='plot2d_YValue')
+  i_xpixel = CW_FIELD( BASE1_2,VALUE='        ', $
+      ROW=1, TITLE='X-index',xsize=5, $
+      UVALUE='plot2d_Xindex')
+  i_ypixel = CW_FIELD( BASE1_2,VALUE='        ', $
+      ROW=1, TITLE='Y-index',xsize=5, $
+      UVALUE='plot2d_Yindex')
 
   BASE2 = WIDGET_BASE(Plot2dMAIN13, /ROW)
 
@@ -1865,6 +1910,11 @@ if keyword_set(comment) then begin
 	plot2d_state.base = tlb 
 	plot2d_state.id_draw = DRAW3
 	plot2d_state.win = drawWin 
+	plot2d_state.xpixel = xpixel 
+	plot2d_state.ypixel = ypixel 
+	plot2d_state.zpixel = zpixel 
+	plot2d_state.i_xpixel = i_xpixel 
+	plot2d_state.i_ypixel = i_ypixel 
 	plot2d_state.xsize = g_tlb.scr_xsize
 	plot2d_state.ysize = g_tlb.scr_ysize
 
