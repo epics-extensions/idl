@@ -2279,6 +2279,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 ;                          as X-axis
 ;       01-23-02      bkc  Use keyword YROW to specify the line to be used 
 ;                          as Y-axis ( only used by 2D data array)
+;       07-15-02      bkc  Move drawing area  cursor event to top
 ;-
 
 if n_params() eq 0 then begin
@@ -4065,6 +4066,20 @@ IF TAG_NAMES(event, /STRUCTURE_NAME) EQ 'WIDGET_KILL_REQUEST' THEN begin
         end
 
   CASE Ev OF 
+  'ROI_DRAW_FITTING': BEGIN
+	if Event.Press eq 1 then begin
+	wset,widget_ids.drawId
+	cursor,x,y,/data
+	if x ge widget_ids.xrange(0) and x le widget_ids.xrange(1) then begin
+	WIDGET_CONTROL, widget_ids.centroid, SET_VALUE= strtrim(x,2)
+        widget_ids.A1(widget_ids.roi) = float(x)
+	end
+	if y ge widget_ids.yrange(0) and y le widget_ids.yrange(1) then begin
+	WIDGET_CONTROL, widget_ids.intensity, SET_VALUE= strtrim(y,2) 
+        widget_ids.A0(widget_ids.roi) = float(y)
+	end
+	end
+	END
   'ROI_SELECT': BEGIN
 	widget_ids.roi = Event.index
 	xl = strtrim(widget_ids.xl_val(Event.index),2)
@@ -4233,18 +4248,6 @@ end
   'ROI_EXIT': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY
         END
-  'ROI_DRAW_FITTING': BEGIN
-	wset,widget_ids.drawId
-	cursor,x,y,/data
-	if x ge widget_ids.xrange(0) and x le widget_ids.xrange(1) then begin
-	WIDGET_CONTROL, widget_ids.centroid, SET_VALUE= strtrim(x,2)
-        widget_ids.A1(widget_ids.roi) = float(x)
-	end
-	if y ge widget_ids.yrange(0) and y le widget_ids.yrange(1) then begin
-	WIDGET_CONTROL, widget_ids.intensity, SET_VALUE= strtrim(y,2) 
-        widget_ids.A0(widget_ids.roi) = float(y)
-	end
-	END
   ENDCASE
 END
 
