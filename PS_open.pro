@@ -68,6 +68,7 @@ PRO os_init
 @os.init
 END
 
+
 ;
 ; PS_open,'name.ps'               name defalut to idl
 ;
@@ -202,7 +203,7 @@ PRO PS_TVRD,file=file,wid=wid,xoffset=xoffset,yoffset=yoffset,scale=scale
 	set_plot,'PS'
 	device,filename=file,/color,bits=8, $
 		xoffset=xoffset, yoffset=yoffset, $
-		/Courier,/Bold, scale_factor=scale, $
+		scale_factor=scale, $
 		xsize=width,ysize=height
 	TV,arr
 	PS_close
@@ -524,7 +525,7 @@ if XRegistered('PS_printer') then return
 END
 
 
-PRO PS_open,psfile,TV=TV,xoffset=xoffset,yoffset=yoffset,xsize=xsize,ysize=ysize,scale_factor=scale_factor
+PRO PS_open,psfile,TV=TV,xoffset=xoffset,yoffset=yoffset,xsize=xsize,ysize=ysize,scale_factor=scale_factor,font=font
 ;+
 ; NAME:
 ;       PS_OPEN
@@ -550,6 +551,7 @@ PRO PS_open,psfile,TV=TV,xoffset=xoffset,yoffset=yoffset,xsize=xsize,ysize=ysize
 ;   XSIZE:	  Specifies yoffset in centimeter, default 15
 ;   YSIZE:	  Specifies yoffset in centimeter, default 15
 ;   SCALE_FACTOR: Specifies scale factor, default 1
+;   FONT:         Specifies font string
 ;
 ; COMMON BLOCKS:
 ;       COMMON PRINTER_BLOCK
@@ -575,6 +577,7 @@ PRO PS_open,psfile,TV=TV,xoffset=xoffset,yoffset=yoffset,xsize=xsize,ysize=ysize
 ;                       2D TV plot, to get reverse video use the xloadct's
 ;                       option, reverse feature  
 ;       03-03-03   bkc  add keyword xoffset,yoffset,xsize,ysize
+;       05-19-04   bkc  add keyword font string
 ;-
 
 COMMON PRINTER_BLOCK,printer_info
@@ -595,20 +598,20 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 	   if keyword_set(xsize) eq 0 then xsize=15
 	   if keyword_set(ysize) eq 0 then ysize=15
 	   if keyword_set(scale_factor) then scale=scale_factor
+	   if keyword_set(font) eq 0 then font='Courier'
 
 	    if printer_info.color gt 0 then $
-		device,filename=psfile,/color,bits=8, $
-			/Courier,/Bold, scale_factor=scale,xoffset=xoffset, $
+		device,filename=psfile,/color,bits=8, set_font=font,/Bold, $ 
+			scale_factor=scale,xoffset=xoffset, $
 			 yoffset=yoffset, xsize=xsize, ysize=ysize  else  $
 		device,filename=psfile,/Courier,/Bold
 	endif else begin
 	    if printer_info.color gt 0 then begin
-		device,filename=psfile,/color,bits=8, $
-			/Courier,/Bold, $
+		device,filename=psfile,/color,bits=8,set_font=font,/Bold, $
 			scale_factor=scale_factor, $
 			yoffset=7, xsize=17.78, ysize=12.7  
  	    endif else $
-		device,filename=psfile,/Courier,/Bold, $
+		device,filename=psfile,set_font=font,/Bold, $
 			scale_factor=scale_factor, $
 			yoffset=7, xsize=17.78, ysize=12.7  
 	end
