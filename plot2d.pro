@@ -6,7 +6,441 @@
 ;  a=sin(a/5) / exp(a/50)
 ;  data = a#a
 ;
+@PS_open.pro
 
+PRO plot2d_setupMargins,parent
+COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
+
+  BASE27_0 = WIDGET_BASE(parent, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE27_0')
+
+  plot2d_DONE_MARGINS = WIDGET_BUTTON(BASE27_0,VALUE='DonePlotMargins',$
+	UVALUE='plot2d_DONE_MARGINS')
+
+  BASE27 = WIDGET_BASE(BASE27_0, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE27')
+
+  FieldVal4942 = plot2d_state.xmargin1
+  plot2d_setupXleft = CW_FIELD( BASE27,VALUE=FieldVal4942, $
+      ROW=1, $
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Margins: Left', $
+      UVALUE='plot2d_setupXleft', $
+      XSIZE=2)
+
+  FieldVal4944 = plot2d_state.xmargin2
+  plot2d_setupXright = CW_FIELD( BASE27,VALUE=FieldVal4944, $
+      ROW=1, $
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Right', $
+      UVALUE='plot2d_setupXright', $
+      XSIZE=2)
+
+  FieldVal4946 = plot2d_state.ymargin1
+  plot2d_setupYbottom = CW_FIELD( BASE27,VALUE=FieldVal4946, $
+      ROW=1, $
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Bottom', $
+      UVALUE='plot2d_setupYbottom', $
+      XSIZE=2)
+
+  FieldVal4948 = plot2d_state.ymargin2
+  plot2d_setupYTop = CW_FIELD( BASE27,VALUE=FieldVal4948, $
+      ROW=1, $
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Top', $
+      UVALUE='plot2d_setupYTop', $
+      XSIZE=2)
+
+  BMP5267 = [ $
+    [ 128b, 1b ], $
+    [ 144b, 9b ], $
+    [ 160b, 5b ], $
+    [ 192b, 3b ], $
+    [ 130b, 65b ], $
+    [ 4b, 32b ], $
+    [ 8b, 16b ], $
+    [ 31b, 248b ], $
+    [ 31b, 248b ], $
+    [ 8b, 16b ], $
+    [ 4b, 32b ], $
+    [ 130b, 65b ], $
+    [ 192b, 3b ], $
+    [ 160b, 5b ], $
+    [ 144b, 9b ], $
+    [ 128b, 1b ]  $
+  ]
+  BMP5269 = [ $
+    [ 128b, 1b ], $
+    [ 192b, 3b ], $
+    [ 160b, 5b ], $
+    [ 128b, 1b ], $
+    [ 136b, 17b ], $
+    [ 4b, 32b ], $
+    [ 2b, 64b ], $
+    [ 31b, 248b ], $
+    [ 31b, 248b ], $
+    [ 2b, 64b ], $
+    [ 4b, 32b ], $
+    [ 136b, 17b ], $
+    [ 128b, 1b ], $
+    [ 160b, 5b ], $
+    [ 192b, 3b ], $
+    [ 128b, 1b ]  $
+  ]
+
+  plot2d_setupZoomin = WIDGET_BUTTON( BASE27,VALUE=BMP5267, $
+	UVALUE='plot2d_setupZoomin')
+  plot2d_setupZoomout = WIDGET_BUTTON( BASE27,VALUE=BMP5269, $
+	UVALUE='plot2d_setupZoomout')
+
+  plot2d_state.marginBase = BASE27_0
+END
+
+
+PRO plot2d_setupLabels,parent
+COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
+
+
+  BASE41 = WIDGET_BASE(parent, $
+      COLUMN=1, FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE41')
+
+  plot2d_done_labels=WIDGET_BUTTON(BASE41,VALUE='DoneLabels', $
+		UVALUE='plot2d_DONE_LABELS')
+
+  FieldVal4956 = plot2d_state.title
+  plot2d_setupTitle = CW_FIELD( BASE41,VALUE=FieldVal4956, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Title', $
+      UVALUE='plot2d_setupTitle', $
+      XSIZE=40)
+
+  BASE36 = WIDGET_BASE(BASE41, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE36')
+
+  FieldVal4951 = plot2d_state.xtitle
+  plot2d_setupXtitle = CW_FIELD( BASE36,VALUE=FieldVal4951, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Xtitle', $
+      UVALUE='plot2d_setupXtitle', $
+      XSIZE=20)
+
+  FieldVal4953 = plot2d_state.ytitle
+  plot2d_setupYtitle = CW_FIELD( BASE36,VALUE=FieldVal4953, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Ytitle', $
+      UVALUE='plot2d_setupYtitle', $
+      XSIZE=20)
+
+
+  BASE42 = WIDGET_BASE(BASE41, $
+      COLUMN=1, FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE42')
+
+  cmt = plot2d_state.comment(0:plot2d_state.footnote-1)
+  plot2d_setupComment = CW_FIELD( BASE42,VALUE=cmt, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Legend', $
+      UVALUE='plot2d_setupComment', $
+      XSIZE=40,YSIZE=5)
+
+  BASE42_2 = WIDGET_BASE(BASE42, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE42_2')
+
+  plot2d_setupLocX = CW_FIELD( BASE42_2,VALUE=plot2d_state.xloc, $
+      ROW=1, $
+      FLOAT=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Relative Placing:  rXLoc', $
+      UVALUE='plot2d_setupLocX', $
+      XSIZE=8)
+  plot2d_setupLocY = CW_FIELD( BASE42_2,VALUE=plot2d_state.yloc, $
+      ROW=1, $
+      FLOAT=1, $
+      RETURN_EVENTS=1, $
+      TITLE='rYLoc', $
+      UVALUE='plot2d_setupLocY', $
+      XSIZE=8)
+
+  plot2d_state.labelBase = BASE41
+
+END
+
+PRO plot2d_tvprocess_Event, Event
+COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+  'plot2d_setThreshold': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=val
+	plot2d_state.threshValue=val(0)
+	plot2d_state.thresh=val(0)
+	if plot2d_state.type ne 2 then $
+	plot2d_state.thresh = fix((val(0)-plot2d_state.min) /(plot2d_state.max-plot2d_state.min)*(!d.table_size-1))
+	WIDGET_CONTROL,plot2d_state.threshID,SET_VALUE=plot2d_state.thresh
+	plot2d_replot,plot2d_state
+      END
+  'SLIDER7': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=thresh
+	plot2d_state.thresh = thresh(0)
+	plot2d_state.threshValue = thresh(0)
+	if plot2d_state.type ne 2 then $
+	plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)* thresh(0)/(!d.table_size-1) 
+	WIDGET_CONTROL,plot2d_state.threshVID,SET_VALUE=plot2d_state.threshValue
+	plot2d_replot,plot2d_state
+      END
+  'SLIDER3': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=pixel_min
+	plot2d_state.pixel_min = pixel_min(0)
+	if plot2d_state.pixel_min gt plot2d_state.pixel_max then $
+		plot2d_state.pixel_min = plot2d_state.pixel_max-1
+	WIDGET_CONTROL,Event.id,SET_VALUE=plot2d_state.pixel_min
+	plot2d_state.tvoption = 8
+	plot2d_replot,plot2d_state
+      END
+  'SLIDER5': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=pixel_max
+	plot2d_state.pixel_max = pixel_max(0)
+	if plot2d_state.pixel_min gt plot2d_state.pixel_max then $
+		plot2d_state.pixel_max = plot2d_state.pixel_min+1
+	WIDGET_CONTROL,Event.id,SET_VALUE=plot2d_state.pixel_max
+	plot2d_state.tvoption = 8
+	plot2d_replot,plot2d_state
+      END
+  'FIELD127': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=pts
+	npts = pts(0)
+	dim = n_elements(plot2d_state.xarr)
+	if n_elements(plot2d_state.yarr) lt dim then dim = n_elements(plot2d_state.yarr) 
+	if npts gt dim then npts = dim
+	id = npts MOD 2
+	if id eq 0 then npts = npts-1
+	if npts lt 3 then npts = 3
+	plot2d_state.npts = npts 
+	WIDGET_CONTROL,Event.id,SET_VALUE=plot2d_state.npts
+	plot2d_replot,plot2d_state
+      END
+  'BUTTON131': BEGIN
+	plot2d_state.tvoption = 1
+	plot2d_replot,plot2d_state
+      END
+  'BUTTON132': BEGIN
+	plot2d_state.tvoption = 2
+	plot2d_replot,plot2d_state
+      END
+  'BUTTON133': BEGIN
+	plot2d_state.tvoption = 3
+	plot2d_replot,plot2d_state
+      END
+  'BUTTON134': BEGIN
+	plot2d_state.tvoption = 4
+	plot2d_replot,plot2d_state
+      END
+  'BUTTON135': BEGIN
+	plot2d_state.tvoption = 5
+	plot2d_replot,plot2d_state
+      END
+  'BUTTON136': BEGIN
+	plot2d_state.tvoption = 6
+	plot2d_replot,plot2d_state
+	END
+  'BUTTON138': BEGIN
+	plot2d_state.tvoption = 7
+	plot2d_replot,plot2d_state
+	END
+  'BUTTON137': BEGIN
+	plot2d_state.tvoption = 0
+	plot2d_state = plot2d_stateInit
+	plot2d_replot,plot2d_state
+	END
+  'BUTTON140': BEGIN
+	WIDGET_CONTROL,Event.top,/DESTROY
+	plot2d_state.tvoption = 0
+	plot2d_state.tvprocess = 0L
+      END
+  ENDCASE
+END
+
+
+; DO NOT REMOVE THIS COMMENT: END plot2d_tvprocess
+; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
+
+
+
+PRO plot2d_tvprocess, GROUP=Group
+COMMON PLOT2D_BLOCK,plot2d_state
+
+if plot2d_state.max eq plot2d_state.min then begin
+	res = dialog_message('Sorry, not available for constant image',/INFO)
+	 return
+end
+if XRegistered('plot2d_tvprocess') then return
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+  plot2d_state.plottype = 0
+  plot2d_replot,plot2d_state
+
+  plot2d_tvprocess = WIDGET_BASE(GROUP_LEADER=Group, $
+      COLUMN=1, TITLE='Plot2d_TV_options', $
+      MAP=1, $
+      UVALUE='plot2d_tvprocess')
+
+  BASE129 = WIDGET_BASE(plot2d_tvprocess, $
+      ROw=1, $
+      MAP=1, $
+      UVALUE='BASE129')
+
+  BASE75 = WIDGET_BASE(BASE129, $
+      COLUMN=1, $
+      FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE75')
+
+  BASE108 = WIDGET_BASE(BASE75, $
+      ROW=1, $
+      FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE108')
+
+  BUTTON137 = WIDGET_BUTTON( BASE108, $
+      UVALUE='BUTTON137', $
+      VALUE='Default')
+
+  BUTTON138 = WIDGET_BUTTON( BASE108, $
+      UVALUE='BUTTON138', $
+      VALUE='Hist_Equal')
+
+  BUTTON140 = WIDGET_BUTTON( BASE108, $
+      UVALUE='BUTTON140', $
+      VALUE=' Done ')
+
+  BASE90 = WIDGET_BASE(BASE75, $
+      ROW=1, $
+      FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE90')
+
+  BASE94 = WIDGET_BASE(BASE90, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE94')
+
+  SLIDER5 = CW_FSLIDER( BASE94, $
+      MAXIMUM=plot2d_state.pixel_max, $
+      MINIMUM=plot2d_state.pixel_min, $
+      TITLE='Scaling Pixels < ',$ 
+      UVALUE='SLIDER5', $
+      VALUE=plot2d_state.pixel_max)
+
+  SLIDER3 = CW_FSLIDER( BASE94, $
+      MAXIMUM=plot2d_state.pixel_max, $
+      MINIMUM=plot2d_state.pixel_min, $
+      TITLE='Scaling Pixels > ', $
+      UVALUE='SLIDER3', $
+      VALUE=plot2d_state.pixel_min)
+
+  BASE77 = WIDGET_BASE(BASE75, $
+      COLUMN=1, $
+      FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE77')
+
+  FieldVal7575 = [ $
+    '7' ]
+  FIELD127 = CW_FIELD( BASE77,VALUE=FieldVal7575, $
+      ROW=1, $
+      INTEGER=1, $
+      RETURN_EVENTS=1, $
+      TITLE='SMOOTH Width (odd)', $
+      UVALUE='FIELD127', $
+      XSIZE=2)
+  BUTTON133 = WIDGET_BUTTON( BASE77, $
+      UVALUE='BUTTON133', $
+      VALUE='Smooth')
+  BUTTON134 = WIDGET_BUTTON( BASE77, $
+      UVALUE='BUTTON134', $
+      VALUE='Unsharp Mask')
+
+  BASE71 = WIDGET_BASE(BASE75, $
+      COLUMN=1, $
+      FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE71')
+  LABEL135 = WIDGET_LABEL( BASE71, $
+	VALUE='Image Sharpening Methods')
+  BUTTON135 = WIDGET_BUTTON( BASE71, $
+      UVALUE='BUTTON135', $
+      VALUE='Roberts')
+  BUTTON136 = WIDGET_BUTTON( BASE71, $
+      UVALUE='BUTTON136', $
+      VALUE='Sobel')
+
+  BASE76 = WIDGET_BASE(BASE75, $
+      COLUMN=1, $
+      FRAME=1, $
+      MAP=1, $
+      UVALUE='BASE76')
+ label7 = WIDGET_LABEL(BASE76,VALUE='>Threshold <')
+
+  BASE78 = WIDGET_BASE(BASE76, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE78')
+  BUTTON131 = WIDGET_BUTTON( BASE78, $
+      UVALUE='BUTTON131', $
+      VALUE='Threshold <')
+  BUTTON132 = WIDGET_BUTTON( BASE78, $
+      UVALUE='BUTTON132', $
+      VALUE='Threshold >')
+
+  threshVID = CW_FIELD( BASE76,VALUE=plot2d_state.threshValue, $
+      ROW=1, $
+      Float=1, $
+      RETURN_EVENTS=1, $
+      TITLE=' ', $
+      UVALUE='plot2d_setThreshold')
+
+ SLIDER7 = WIDGET_SLIDER( BASE76, $
+      MAXIMUM=!d.table_size-1, $
+      MINIMUM=0, /SCROLL, /SUPPRESS_VALUE, $
+;      TITLE='Threshold Value', $
+      UVALUE='SLIDER7', $
+      VALUE=plot2d_state.thresh)
+  plot2d_state.tvprocess = plot2d_tvprocess
+  plot2d_state.threshID = SLIDER7
+  plot2d_state.threshVID = threshVID
+
+  WIDGET_CONTROL, plot2d_tvprocess, /REALIZE
+
+  XMANAGER, 'plot2d_tvprocess', plot2d_tvprocess, /NO_BLOCK
+END
 
 PRO plot2d_setupContourLevels_Event, Event
 COMMON PLOT2d_BLOCK,plot2d_state
@@ -20,7 +454,6 @@ COMMON PLOT2d_BLOCK,plot2d_state
   'TEXT16': BEGIN
       END
   'BUTTON18': BEGIN
-      Print, 'Event for Accept'
 	WIDGET_CONTROL,info.textID,get_value=st
 	nlevels = n_elements(st)
 	if nlevels gt 12 then begin
@@ -84,7 +517,7 @@ PRO plot2d_setupContourLevels, GROUP=Group, c_levels
 		end
 	end
   TEXT16 = WIDGET_TEXT( BASE14,VALUE=levels(0:n_elements(c_levels)-1), $
-      EDITABLE=1, $
+      EDITABLE=1, /scroll, $
       UVALUE='TEXT16', $
       XSIZE=12, $
       YSIZE=12)
@@ -112,7 +545,7 @@ PRO plot2d_setupContourLevels, GROUP=Group, c_levels
   WIDGET_CONTROL, plot2d_setupContourLevels, set_uvalue=info 
   WIDGET_CONTROL, plot2d_setupContourLevels, /REALIZE
 
-  XMANAGER, 'plot2d_setupContourLevels', plot2d_setupContourLevels, Event_Handler='plot2d_setupContourLevels_event'
+  XMANAGER, 'plot2d_setupContourLevels', plot2d_setupContourLevels, Event_Handler='plot2d_setupContourLevels_event',/NO_BLOCK
 
 END
 
@@ -212,6 +645,15 @@ COMMON PLOT2d_BLOCK,plot2d_state
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
 	plot2d_state.yloc= ch(0) 
       END
+  'plot2d_DONE_LABELS': BEGIN
+	WIDGET_CONTROL,plot2d_state.labelBase,/Destroy
+      END
+  'plot2d_DONE_MARGINS': BEGIN
+	WIDGET_CONTROL,plot2d_state.marginBase,/Destroy
+      END
+  'plot2d_DONE_VIEWANGLE': BEGIN
+	WIDGET_CONTROL,plot2d_state.viewangleBase,/Destroy
+      END
   'plot2d_setupComment': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
 	nline = n_elements(ch)
@@ -225,6 +667,12 @@ COMMON PLOT2d_BLOCK,plot2d_state
       END
   'BUTTON50': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY
+      END
+  'BUTTON51': BEGIN
+	plot2d_setupLabels,Event.Top
+      END
+  'BUTTON52': BEGIN
+	plot2d_setupMargins,Event.Top
       END
   ENDCASE
 	plot2d_replot, plot2d_state
@@ -296,7 +744,7 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       UVALUE='plot2d_setupContourCsize', $
       XSIZE=5)
 
-  plot2d_setupLevels = WIDGET_BUTTON(BASE21,VALUE='C_Levels ...', $
+  plot2d_setupLevels = WIDGET_BUTTON(BASE21,VALUE='Contour_Levels ...', $
 	UVALUE='plot2d_setupLevels')
 
   BASE44 = WIDGET_BASE(plot2d_setupMain13, $
@@ -325,7 +773,7 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       ROW=1, $
       FLOAT=1, $
       RETURN_EVENTS=1, $
-      TITLE='Rotation Ax', $
+      TITLE='Rotation Angles: Ax', $
       UVALUE='plot2d_setupAx', $
       XSIZE=5)
 
@@ -334,7 +782,7 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       MINIMUM=-180, $
       UVALUE='plot2d_setupSLIDER3', $
       VALUE=plot2d_state.ax, $
-      XSIZE=180)
+      XSIZE=100,SCROLL=1)
 
   FieldVal4939 = plot2d_state.az
   plot2d_setupAz = CW_FIELD( BASE24,VALUE=FieldVal4939, $
@@ -350,134 +798,22 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       MINIMUM=-180, $
       UVALUE='plot2d_setupSLIDER4', $
       VALUE=plot2d_state.az, $
-      XSIZE=180)
-
-  BASE27 = WIDGET_BASE(plot2d_setupMain13, $
-      ROW=1, $
-      MAP=1, $
-      UVALUE='BASE27')
-
-  FieldVal4942 = plot2d_state.xmargin1
-  plot2d_setupXleft = CW_FIELD( BASE27,VALUE=FieldVal4942, $
-      ROW=1, $
-      INTEGER=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Xmargin Left', $
-      UVALUE='plot2d_setupXleft', $
-      XSIZE=2)
-
-  FieldVal4944 = plot2d_state.xmargin2
-  plot2d_setupXright = CW_FIELD( BASE27,VALUE=FieldVal4944, $
-      ROW=1, $
-      INTEGER=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Right', $
-      UVALUE='plot2d_setupXright', $
-      XSIZE=2)
-
-  FieldVal4946 = plot2d_state.ymargin1
-  plot2d_setupYbottom = CW_FIELD( BASE27,VALUE=FieldVal4946, $
-      ROW=1, $
-      INTEGER=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Ymargin Bottom', $
-      UVALUE='plot2d_setupYbottom', $
-      XSIZE=2)
-
-  FieldVal4948 = plot2d_state.ymargin2
-  plot2d_setupYTop = CW_FIELD( BASE27,VALUE=FieldVal4948, $
-      ROW=1, $
-      INTEGER=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Top', $
-      UVALUE='plot2d_setupYTop', $
-      XSIZE=2)
-
-  plot2d_setupZoomin = WIDGET_BUTTON( BASE27,VALUE='Zi', $
-	UVALUE='plot2d_setupZoomin')
-  plot2d_setupZoomout = WIDGET_BUTTON( BASE27,VALUE='Zo', $
-	UVALUE='plot2d_setupZoomout')
-
-  BASE36 = WIDGET_BASE(plot2d_setupMain13, $
-      ROW=1, $
-      MAP=1, $
-      UVALUE='BASE36')
-
-  FieldVal4951 = plot2d_state.xtitle
-  plot2d_setupXtitle = CW_FIELD( BASE36,VALUE=FieldVal4951, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Xtitle', $
-      UVALUE='plot2d_setupXtitle', $
-      XSIZE=20)
-
-  FieldVal4953 = plot2d_state.ytitle
-  plot2d_setupYtitle = CW_FIELD( BASE36,VALUE=FieldVal4953, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Ytitle', $
-      UVALUE='plot2d_setupYtitle', $
-      XSIZE=20)
-
-
-  BASE41 = WIDGET_BASE(plot2d_setupMain13, $
-      COLUMN=1, $
-      MAP=1, $
-      UVALUE='BASE41')
-
-  FieldVal4956 = plot2d_state.title
-  plot2d_setupTitle = CW_FIELD( BASE41,VALUE=FieldVal4956, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Title', $
-      UVALUE='plot2d_setupTitle', $
-      XSIZE=40)
-
-  BASE42 = WIDGET_BASE(BASE41, $
-      ROW=1, FRAME=1, $
-      MAP=1, $
-      UVALUE='BASE42')
-
-  cmt = plot2d_state.comment(0:plot2d_state.footnote-1)
-  plot2d_setupComment = CW_FIELD( BASE42,VALUE=cmt, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Comment', $
-      UVALUE='plot2d_setupComment', $
-      XSIZE=40,YSIZE=5)
-
-  BASE42_2 = WIDGET_BASE(BASE42, $
-      COLUMN=1, $
-      MAP=1, $
-      UVALUE='BASE42_2')
-;  plot2d_setupLoc = WIDGET_LABEL(BASE42_2,value='Location')
-  plot2d_setupLocX = CW_FIELD( BASE42_2,VALUE=plot2d_state.xloc, $
-      ROW=1, $
-      FLOAT=1, $
-      RETURN_EVENTS=1, $
-      TITLE='rXLoc', $
-      UVALUE='plot2d_setupLocX', $
-      XSIZE=5)
-  plot2d_setupLocY = CW_FIELD( BASE42_2,VALUE=plot2d_state.yloc, $
-      ROW=1, $
-      FLOAT=1, $
-      RETURN_EVENTS=1, $
-      TITLE='rYLoc', $
-      UVALUE='plot2d_setupLocY', $
-      XSIZE=5)
+      XSIZE=100,SCROLL=1)
 
   BASE47 = WIDGET_BASE(plot2d_setupMain13, $
       ROW=1, $
       MAP=1, $
       UVALUE='BASE47')
 
+  BUTTON52 = WIDGET_BUTTON( BASE47, $
+      UVALUE='BUTTON52', $
+      VALUE='SetPlotMargins')
+  BUTTON51 = WIDGET_BUTTON( BASE47, $
+      UVALUE='BUTTON51', $
+      VALUE='SetPlotLabels')
   BUTTON50 = WIDGET_BUTTON( BASE47, $
       UVALUE='BUTTON50', $
-      VALUE='Close')
+      VALUE='   Close   ')
 
   setup_info = { $
 	Ax: plot2d_setupAx, $
@@ -489,7 +825,7 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
   WIDGET_CONTROL, plot2d_setupMAIN13, set_uvalue=setup_info
   WIDGET_CONTROL, plot2d_setupMain13, /REALIZE
 
-  XMANAGER, 'plot2d_setupMain13', plot2d_setupMain13
+  XMANAGER, 'plot2d_setupMain13', plot2d_setupMain13, /NO_BLOCK
 END
 
 PRO plot2d_replot, plot2d_state
@@ -534,16 +870,65 @@ CASE plot2d_state.plottype OF
         xrange=[plot2d_state.xarr(0), plot2d_state.xarr(dim(0)-1)]
         yrange=[plot2d_state.yarr(0), plot2d_state.yarr(dim(1)-1)]
  
-	left=!d.x_size * 0.2
-	right=!d.x_size * 0.1
-	bottom=!d.y_size *0.1
-	top=!d.y_size *0.1
+	left=!d.x_size * 0.2 * plot2d_state.zoom
+	right=!d.x_size * 0.1 * plot2d_state.zoom
+	bottom=!d.y_size *0.1 * plot2d_state.zoom
+	top=!d.y_size *0.1 * plot2d_state.zoom
+if left gt 0.4*!d.x_size then left = !d.x_size *.4
+if right gt 0.4*!d.x_size then right = !d.x_size *.4
+if bottom gt 0.4*!d.y_size then bottom = !d.y_size *.4
+if top gt 0.4*!d.y_size then top = !d.y_size *.4
 	width=!d.x_size-left-right
 	height=!d.y_size-top-bottom
 	data = plot2d_state.data
 	if !d.name ne 'PS' then data = CONGRID(plot2d_state.data,width,height)
-        TVSCL,data,left,bottom,xsize=width,ysize=height
- 
+
+;newdata = make_array(width,height,/byte)
+if plot2d_state.type eq 2 then begin
+	newdata = data 
+endif else begin
+	newdata = (data - plot2d_state.min)/(plot2d_state.max - plot2d_state.min)*!d.table_size
+newdata = fix(newdata)
+end
+;thresh = (plot2d_state.thresh-plot2d_state.min)/(plot2d_state.max - plot2d_state.min)*!d.table_size
+;thresh = fix(thresh)
+
+if plot2d_state.tvoption gt 0 then begin
+case plot2d_state.tvoption of
+1: begin 
+   newdata = newdata LT plot2d_state.thresh
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   end
+2: begin
+   newdata = newdata GT plot2d_state.thresh
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   end
+3: begin
+   newdata = smooth(newdata,plot2d_state.npts) 
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   end
+4: begin
+   newdata = fix(newdata - smooth(newdata,plot2d_state.npts)) 
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   end
+5: begin
+   newdata = roberts(newdata) 
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   end
+6: begin
+   newdata = sobel(newdata) 
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   end
+7: begin
+   newdata = hist_equal(newdata) 
+   TV,newdata,left,bottom,xsize=width,ysize=height
+   end
+8: begin
+   TVSCL, data>plot2d_state.pixel_min<plot2d_state.pixel_max,left,bottom,xsize=width,ysize=height
+   end
+endcase
+endif else TVSCL,data,left,bottom,xsize=width,ysize=height
+
         plot,xrange=xrange,yrange=yrange,/nodata,[-1,-1],/noerase, $
                 pos=[float(left)/!d.x_size, float(bottom)/!d.y_size, $
                  (!d.x_size-float(right))/!d.x_size, $
@@ -646,7 +1031,7 @@ END
 ; inorder to support TV,SURFACE,CONTOUR, the common block is required
 ;
 PRO Plot2dMAIN13_Event, Event
-COMMON PLOT2D_BLOCK,plot2d_state
+COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;  WIDGET_CONTROL,Event.top,GET_UVALUE=plot2d_state
 
 ; if top resize  event plot2d the base widget and redraw its plot;
@@ -670,6 +1055,7 @@ ENDIF
       Print, 'Event for plot2d_area'
       END
   'BGROUP2': BEGIN
+      plot2d_state = plot2d_stateInit
       CASE Event.Value OF
       0: plot2d_state.plottype= 0  	;tv
       1: plot2d_state.plottype= 1  	;surface
@@ -682,27 +1068,41 @@ ENDIF
   'BGROUP6': BEGIN
       CASE Event.Value OF
       0: begin
+	old_device = !d.name
 	 set_plot,'PS'
         !P.FONT=-1     ; maintain consistent labelling across all IDL devices
         device,/Courier,/Bold, /color, bits=8
         plot2d_replot, plot2d_state
         !P.FONT=-1
         device,/close
-        spawn,'lpr idl.ps'
-        print,'Print idl.ps'
-        set_plot,'X'
+	if old_device eq 'WIN' then begin
+		str = !os.prt + ' idl.ps ' + !os.printer 
+	endif else begin
+		str = 'lpr idl.ps'
+		if !os.printer ne '' then str = 'lpr -P'+!os.printer+ ' idl.ps'
+	end
+	spawn, str
+        print, str
+        set_plot,old_device   ; 'X'
 	end
       1: begin
-	xloadct, GROUP=Event.top
+	PS_printer
 	end
       2: begin
-	plot2d_setup, GROUP=Event.top
+	xloadct, GROUP=Event.top
 	end
       3: begin
+	plot2d_setup, GROUP=Event.top
+	end
+      4: begin
+	plot2d_tvprocess, GROUP=Event.top
+	end
+      5: begin
 	WIDGET_CONTROL,Event.top,BAD=bad,/DESTROY
 	catch,error_status
 	if error_status eq 0 then $
 	WSET,plot2d_state.old_win
+	plot2d_state.win = plot2d_state.old_win
 	end
       ELSE: Message,'Unknown button pressed'
       ENDCASE
@@ -723,15 +1123,16 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 	rxloc=rxloc, ryloc=ryloc, comment=comment, $
 	stamp=stamp, wTitle=wTitle, GROUP=Group
 
-COMMON PLOT2D_BLOCK,plot2d_state
+COMMON PLOT2D_BLOCK,plot2d_state,plot2d_stateInit
 ;+
 ; NAME:
 ;       PLOT2D
 ;
 ; PURPOSE:
 ;       This routine provides a general purpose, flexible generic 2D plot
-;       package.  It provides simple to use and various features of 
-;       automatic generating 2D TV, SURFACE, CONTOUR, and SHADE_SURF plot.
+;       package.  It provides 2D TV, SURFACE, CONTOUR, and SHADE_SURF plot.
+;       It is very simple to use and provides various features of 
+;       adjusting 2D plot area, size, style, title, comment, etc.  
 ;
 ;       The window generated by this routine will be resizable by the
 ;       window manager.
@@ -809,6 +1210,7 @@ COMMON PLOT2D_BLOCK,plot2d_state
 ;       The max and min value will be shown as the default comment.
 ;
 ; RESTRICTIONS:
+;       Fon contour plot only 12 levels is allowed.
 ;
 ; EXAMPLES:
 ;       Create a resizable 2D plot without any title or label
@@ -821,9 +1223,13 @@ COMMON PLOT2D_BLOCK,plot2d_state
 ;       12-22-1998      Add zoom in/out button to control X, Y margins
 ;       01-15-1999      Allow 5 comment lines on plot
 ;                       Replace base widget MAIN13 by Plot2dMAIN13
+;       03-05-1999      Add Plot Options support to let user set the plot
+;                       margins, title, labels, color table, various
+;                       plot style, etc.
 ;
 ;-
 
+if XRegistered('Plot2dMAIN13') then WIDGET_CONTROL,plot2d_state.base,/DESTROY
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -836,7 +1242,7 @@ yl =''
 zl =''
 ti = ''			; plot title
 wti='PLOT2D (R1.0)'		; window title
-cl = !d.n_colors
+cl = !d.table_size
 timestamp=''
 xloc = 0.01
 yloc = 0.98
@@ -857,6 +1263,7 @@ if keyword_set(stamp) then timestamp = strtrim(stamp,2)
 
 ; set x,y array 
 sz = size(data)
+if sz(n_elements(sz)-2) eq 1 then data = fix(data)
 xdim = sz(1)
 ydim = sz(2)
 xarray = indgen(xdim)
@@ -872,7 +1279,7 @@ if keyword_set(yarr) then yarray = yarr
 	y:1, $
 	xarr:xarray, $
 	yarr:yarray, $
-	plottype:1, $     	;surface
+	plottype:0, $     	; 0 - TV 1-surface
 	charsize:1, $
 	c_charsize:1, $
 	xlog:0, $
@@ -904,9 +1311,30 @@ if keyword_set(yarr) then yarray = yarr
 	id_draw:0L, $
 	win:0, $
 	old_win: !d.window, $
+	marginBase: 0L, $
+	labelBase: 0L, $
+	tvprocess: 0L, $         ; tvprocess base widget
+	threshID: 0L, $   ; threshold slider
+	threshVID: 0L, $  ; threshold value
+	tvoption: 0, $         ; tvprocess
+	thresh: 140, $          ; threshold index value
+	threshValue: 140., $      ; threshold value
+	pixel_min:0., $
+	pixel_max:255., $
+	type: sz(n_elements(sz)-2), $
+	npts:7, $		; smooth by 7x7 points
 	xsize: xsize, $
 	ysize: ysize $
 	}
+
+; check for byte array or non byte
+
+if plot2d_state.type ne 2 then begin
+plot2d_state.pixel_min = plot2d_state.min
+plot2d_state.pixel_max = plot2d_state.max
+plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)*plot2d_state.thresh/(!d.table_size-1) 
+print,'threshValue',plot2d_state.threshValue
+end
 
 	if n_elements(footnote) gt 0 then plot2d_state.comment = footnote
 
@@ -971,8 +1399,10 @@ if keyword_set(comment) then begin
 
   Btns361 = [ $
     'Print', $
+    'Printer ...', $
     'Colors ...', $
     'Plot Options ...', $ 
+    'TV Options ...', $ 
     'Done' ]
   BGROUP6 = CW_BGROUP( BASE2, Btns361, $
       ROW=1, $
@@ -998,6 +1428,7 @@ if keyword_set(comment) then begin
 	plot2d_state.xsize = g_tlb.scr_xsize
 	plot2d_state.ysize = g_tlb.scr_ysize
 
+	plot2d_stateInit = plot2d_state
   	plot2d_replot, plot2d_state
 
   WIDGET_CONTROL, Plot2dMAIN13, SET_UVALUE=plot2d_state
