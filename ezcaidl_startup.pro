@@ -41,4 +41,8 @@ print,'Run ezcaIDLWidgets ...'
 caInit
 caSetTimeout,0.001
 caPendIO,time=0.01,list_time=3.
+caPendEvent,time=0.000001
 print,caVersion()
+
+; add periodic ca_pend_event event
+add_caPendEvent
