@@ -599,17 +599,17 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 	set_plot,'PS'
 	!P.FONT=-1
 	if (n_elements(psfile) ne 0) then begin
+	   scale = 1
+	   if keyword_set(scale_factor) then scale=scale_factor
 
 	if keyword_set(TV) then begin 
 
 	; use xloadct reverse video, reverse legend only  
 
-	   scale = 1
 	   if keyword_set(yoffset) eq 0 then yoffset=7.
 	   if keyword_set(xoffset) eq 0 then xoffset=1.905
 	   if keyword_set(xsize) eq 0 then xsize=15
 	   if keyword_set(ysize) eq 0 then ysize=15
-	   if keyword_set(scale_factor) then scale=scale_factor
 	   if keyword_set(font) eq 0 then font='Courier'
 
 	    if printer_info.color gt 0 then $
