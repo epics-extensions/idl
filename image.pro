@@ -995,10 +995,10 @@ END
 pro OnOpen, Event
 ; If there is a file, draw it to the draw widget.
 
-ftype=''
 WIDGET_CONTROL,event.top,GET_UVALUE=img_state,/NO_COPY
 
 reg = ['*.jpg','*.tif*','*.png','*.xdr','*.txt']
+reg = '*.jpg;*.tif*;*.png;*.xdr;*.txt'
 ;catch,error_status
 ;if error_status ne 0 then reg = '*.*'
 
@@ -1007,6 +1007,12 @@ reg = ['*.jpg','*.tif*','*.png','*.xdr','*.txt']
 
         IF sFile eq path THEN GOTO,NOPICKFILE 
 
+	catch,error_status
+	if error_status ne 0 then begin
+		r = dialog_message("Wrong type of file picked!",title="Read Error",/info)
+		goto,nopickfile 
+	end
+ 
 	img_displayImage, sfile, path, img_state,Event
 
 	img_init_filelist, sFile, img_state
