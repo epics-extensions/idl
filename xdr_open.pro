@@ -152,6 +152,24 @@ PRO xdr_rewind,unit
 END
 
 PRO xdr_close,unit
+;+
+; NAME:
+;       XDR_CLOSE
+;
+; PURPOSE:
+;       This routine closes the opened XDR file.
+;
+; CALLING SEQUENCE:
+;       XDR_CLOSE, Unit
+;
+; PARAMETERS:
+;       Unit:        The free logic unit number obtained by XDR_OPEN.
+;
+; EXAMPLE:
+;	XDR_CLOSE,unit
+;
+;-
+
 	free_lun,unit
 END
 
@@ -168,8 +186,9 @@ PRO xdr_open,unit,filename,read=read,write=write,append=append,error=error
 ;
 ;       XDR_OPEN, Unit, Filename [,WRITE=Write] [,APPEND=Append] [,ERROR=Error]
 ;
-; INPUTS:
+; PARAMETERS:
 ;       Filename:    The varible specifies the input XDR file name.
+;       Unit:        The free logic unit number obtained for opened file.
 ;
 ; KEYWORD PARAMETERS:
 ;      WRITE:   Overwrite the file for writing with new data.
