@@ -71,7 +71,7 @@ PRO PICK2D_Event, Event
 	end
 	data_info.idet = id
   	data = data_info.im_array(*,*,data_info.idet)
-	plot2d,data,xarr=data_info.x,yarr=data_info.y
+	plot2d,data,xarr=data_info.x,yarr=data_info.y,title=title
       END
   ENDCASE
 
