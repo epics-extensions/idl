@@ -4,6 +4,9 @@
 #
 
 set HOST_ARCH = `/usr/local/epics/startup/HostArch`
+if $HOST_ARCH == "" then 
+	set HOST_ARCH=solaris
+endif
 setenv HOST_ARCH  $HOST_ARCH
 set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
 set PVT_LIB = $EPICS_EXTENSIONS/lib/$HOST_ARCH
