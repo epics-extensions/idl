@@ -1,3 +1,35 @@
+			Release Note for scanSee R2.5
+			==============================
+
+A frontend scanSee Browser program is written. It allows the user to
+access scanSee, vw2d, pick3d, SB, 1D Overlay programs.
+
+scanSee   -  unix script to view 1D/2D/3D data with realtime feature
+vw2d      -  unix script to view 2D data only
+pick3d    -  unix script to view large 3D data with detector selection
+SB        -  unix script to view 1D/2D/3D data using scanSee objects 
+1D Overlay-  call scanSee_overlay program with scanSee objects
+
+BUGS FIXED
+
+1) The problem of changing P1PV name in the scan1 database record
+   causing the subsequent scanSee displayed filename out of sync 
+   with the actual saveData filename in database is fixed.
+   Now scanSee always uses the saveData filename directly.
+
+2) The problem of scanSee filename out of sync with the actual saveData 
+   filename due to starting sub-directory different from the saveData
+   sub-directory is fixed.
+
+3) The problem of GoTo dialog always using the current PV positioner
+   defined in the scan1 database record is fixed. Now the Goto dialog
+   depends on the PV names defined in the read in scan1 record data,
+   i.e. always consistant with the 1D graphic plot.
+   
+
+
+
+
 			Release Note for scanSee R2.4
 			==============================
 
