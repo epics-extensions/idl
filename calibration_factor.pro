@@ -90,17 +90,20 @@ PRO CALIBRA_createEqu,Event
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
   BASE3 = WIDGET_BASE(info.base, $
-      ROW=1, /scroll, x_scroll_size=500, $
+      ROW=1, /scroll, x_scroll_size=500, y_scroll_size=100, $
       MAP=1, $
       UVALUE='BASE3')
-  info.oper_ids(0) = WIDGET_DROPLIST(BASE3,value=info.factors, $
+  info.oper_ids(0) = WIDGET_LIST(BASE3,value=info.factors,YSIZE=4, $
 		UVALUE='CALIBRA_OPER0')
+WIDGET_CONTROL,info.oper_ids(0),SET_LIST_SELECT=0
 
 	for i=1,info.no do begin
-  info.meth_ids(i) = WIDGET_DROPLIST(BASE3,value=info.methods, $
+  info.meth_ids(i) = WIDGET_LIST(BASE3,value=info.methods,YSIZE=4, $
 		UVALUE=info.meth_uvalue(i))
-  info.oper_ids(i) = WIDGET_DROPLIST(BASE3,value=info.values, $
+  info.oper_ids(i) = WIDGET_LIST(BASE3,value=info.values,YSIZE=4, $
 		UVALUE=info.oper_uvalue(i))
+WIDGET_CONTROL,info.meth_ids(i),SET_LIST_SELECT=0
+WIDGET_CONTROL,info.oper_ids(i),SET_LIST_SELECT=0
 	end
 	info.base3 = BASE3
 	info.oper = 0
@@ -206,7 +209,7 @@ PRO CALIBRA_Event, Event
   	WIDGET_CONTROL, info.text, SENSITIVE=0
 	WIDGET_CONTROL,Event.Id,GET_VALUE=no
 	; at most 5 terms allowed
-	if no gt 0 and no lt 15 and no ne info.no then info.no = no
+	if no gt 0 and no lt info.ndet and no ne info.no then info.no = no
   	WIDGET_CONTROL, info.base, SET_UVALUE=info
 	if info.base3 ne 0L then CALIBRA_deleteEqu,Event
 	CALIBRA_createEqu,Event
@@ -239,7 +242,8 @@ PRO CALIBRA_Event, Event
 ; check for missing detector data
  
 	if info.oper(1) gt info.ldet then begin
-	r = dialog_message('Error: no data defined for D'+strtrim(info.oper(1)+1,2),/error)
+	r = dialog_message('Error: no data defined for '+ info.values(info.oper(1)),/error)
+
 	return
 	end
 
@@ -310,10 +314,9 @@ PRO CALIBRA_Event, Event
 	end
 	info.image_final = temp
   	WIDGET_CONTROL, info.base, SET_UVALUE=info
-	
       END
   'CALIBRA_DEFAULT': BEGIN
-	vector = make_array(15,value=1.)
+	vector = make_array(info.ndet,value=1.)
 	info.vector = vector
 	info.file = ''
 	WIDGET_CONTROL,info.table, set_value=transpose(vector)
@@ -351,7 +354,7 @@ PRO CALIBRA_Event, Event
            info.oper(id) = Event.index
 	   if id eq 0 then begin
 ;		res = WIDGET_INFO(info.oper_ids(1))
-		WIDGET_CONTROL,info.oper_ids(1),SET_DROPLIST_SELECT=Event.index
+		WIDGET_CONTROL,info.oper_ids(1),SET_LIST_SELECT=Event.index
 		info.oper(1) = Event.index
 	   end
   	   WIDGET_CONTROL, info.base, SET_UVALUE=info
@@ -378,11 +381,11 @@ PRO calibration_help1
 	'       Press the "ASCII..." button to view the ASCII file', $
 	'       Press the "Pick1D..." button to get various row/column 1D plots',$
 	'----------------------------------------------------', $
-	'Table Area    -  15 factors are modifiable by the user', $
+	'Table Area    -  85 factors are modifiable by the user', $
 	'                 Calibration factors can be loaded in or saved ',$
 	'                 thru File  menu', $
 	'# of Opers:   -  specifies the number of math opeations desired', $
-	'                 Entered desired number (<15)  followed with CR,', $
+	'                 Entered desired number (<85)  followed with CR,', $
 	'                 ACTIVATES the droplist area.',$
 	' ....         -  displays the resultant calibration function',$
 	'Droplist Area -  specifies the mathmatical operations on various',$
@@ -434,12 +437,12 @@ PRO calibration_factor,image_array,id_def,dvalues=dvalues, no_field=no_field, GR
 ;
 ; ARGUMENTS:
 ;   IMAGE_ARRAY  -  Specify the 2D image array
-;                   IMAGE_ARRAY[WIDTH,HEIGHT,15]
-;   ID_DEF[15]   -  Specify the vector of detector indicator definition
+;                   IMAGE_ARRAY[WIDTH,HEIGHT,85]
+;   ID_DEF[85]   -  Specify the vector of detector indicator definition
 ;                   0 not defined, 1 defined
 ;
 ; KEYWORD:
-;   DVALUES[15]  - Specify the vector of multiplication factors for detectors
+;   DVALUES[85]  - Specify the vector of multiplication factors for detectors
 ;                  default to 1.
 ;   XV[WIDTH]    - Specify the vector of real X position values
 ;                  default to index array
@@ -474,10 +477,10 @@ if XRegistered('CALIBRA') then return
 if n_params() eq 0 then begin
 	str = [ 'Usage: calibration_factor, Image_array, id_def', $
 		' ',$
-		' Image_array(width,height,15) - required input image array',$
+		' Image_array(width,height,85) - required input image array',$
 		'   width         - image X dimension', $
 		'   height        - image Y dimension', $
-		' Id_def(15)      - the detector image presence indicator', $
+		' Id_def(85)      - the detector image presence indicator', $
 		'                   0 not defined, 1 defined',$
 		'' $
 	]
@@ -524,10 +527,12 @@ end
   if sz(0) eq 3 then begin
 	image_final = 0*image_array(*,*,0)
 	dim=2
+	ndet = sz(3)
 	end
   if sz(0) eq 2 then begin
 	image_final = 0*image_array(*,0)
 	dim=1
+	ndet = 85
 	end
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
@@ -567,16 +572,18 @@ end
       UVALUE='LABEL3', $
       VALUE='Calibration Factor')
 
-  rlabels = make_array(15,/string)
-  rvalues = make_array(15,/float,value=1.)
+  rlabels = make_array(ndet,/string)
+  rvalues = make_array(ndet,/float,value=1.)
 
   if keyword_set(dvalues) then rvalues(0:n_elements(dvalues)-1) = dvalues
 
-  for i=0,14 do begin
-  	rlabels(i) = '  F'+ strtrim(i+1,2)
-  end
+  detname = [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+        '01','02','03','04','05','06','07','08','09', $
+        strtrim(indgen(61)+10,2)]
+
+  rlabels = '  F'+ detname(0:ndet-1)
   table3 = widget_table(BASE2,value=transpose(rvalues), $
-		row_labels=rlabels,row_heights=15, $
+		row_labels=rlabels,row_heights=16, Y_SCROLL_SIZE=16, $
 		column_labels='', $
 		/editable,UVALUE='CALIBRA_EDIT')
 
@@ -608,15 +615,12 @@ end
 	 UVALUE='CALIBRA_EQU')
 
   methods=['*','/','+','-']
-  values = ['D1','D2','D3','D4','D5','D6','D7','D8', $
-        'D9','D10','D11','D12','D13','D14','D15']
-  factors = ['F1','F2','F3','F4','F5','F6','F7','F8', $
-        'F9','F10','F11','F12','F13','F14','F15']
+  
+  values = 'D'+ detname(0:ndet-1)
+  factors = 'F'+ detname(0:ndet-1)
 
-  oper_ids = make_array(15,/long,value=0L)
-  meth_ids = make_array(15,/long,value=0L)
-
-  sz = size(image_array)
+  oper_ids = make_array(ndet,/long,value=0L)
+  meth_ids = make_array(ndet,/long,value=0L)
 
   if n_elements(xv) eq 0 then xv = indgen(sz(1))
   if n_elements(yv) eq 0 then yv = indgen(sz(2))
@@ -642,12 +646,12 @@ end
 	   factors : factors, $
 	   values : values, $
 	   methods : methods, $
-	   meth_uvalue : make_array(15,/string), $
-	   oper_uvalue : make_array(15,/string), $
-	   oper_ids : make_array(15,value=0L), $   ; oper_ids, $
-	   meth_ids : make_array(15,value=0L), $   ; meth_ids, $
-	   oper: make_array(15,/int,value=0), $
-	   method: make_array(15,/int,value=0), $
+	   meth_uvalue : make_array(ndet,/string), $
+	   oper_uvalue : make_array(ndet,/string), $
+	   oper_ids : make_array(ndet,value=0L), $   ; oper_ids, $
+	   meth_ids : make_array(ndet,value=0L), $   ; meth_ids, $
+	   oper: make_array(ndet,/int,value=0), $
+	   method: make_array(ndet,/int,value=0), $
 	   vector: rvalues, $
 	   id_def: id_def, $
 	   xv: xv, $
@@ -656,30 +660,35 @@ end
 	   dim:dim, $
 	   width: sz(1), $
 	   height: sz(2), $
+	   ndet: ndet, $
 	   image_final: image_final, $
 	   image_array: image_array $
 	}
 
-  for i=0,14 do begin
+  for i=0,ndet-1 do begin
 	if id_def(i) gt 0 then info.ldet = i
 	info.meth_uvalue(i) = 'CALIBRA_METHOD'+ strtrim(i,2)
 	info.oper_uvalue(i) = 'CALIBRA_OPER'+ strtrim(i,2)
   end
 
   BASE3 = WIDGET_BASE(CALIBRA, $
-      ROW=1, /scroll, x_scroll_size=500, $
+      ROW=1, /scroll, x_scroll_size=500,y_scroll_size=100, $
       MAP=1, $
       UVALUE='BASE3')
    info.base3 = base3
 
-  info.oper_ids(0)= WIDGET_DROPLIST(BASE3,value=factors, $
+  info.oper_ids(0)= WIDGET_LIST(BASE3,value=factors,YSIZE=4, $
 		UVALUE=info.oper_uvalue(0))
+WIDGET_CONTROL,info.oper_ids(0),SET_LIST_SELECT=0
   for i=1,no do begin
-	info.meth_ids(i) = WIDGET_DROPLIST(BASE3,value=methods, $
+	info.meth_ids(i) = WIDGET_LIST(BASE3,value=methods,YSIZE=4, $
 			UVALUE=info.meth_uvalue(i))
-	info.oper_ids(i) = WIDGET_DROPLIST(BASE3,value=values, $
+	info.oper_ids(i) = WIDGET_LIST(BASE3,value=values,YSIZE=4, $
 			UVALUE=info.oper_uvalue(i))
+WIDGET_CONTROL,info.meth_ids(i),SET_LIST_SELECT=0
+WIDGET_CONTROL,info.oper_ids(i),SET_LIST_SELECT=0
   end
+
   WIDGET_CONTROL, info.accept, SENSITIVE=0
   WIDGET_CONTROL, info.text, SENSITIVE=0
   WIDGET_CONTROL, info.calibroi, SENSITIVE=0
