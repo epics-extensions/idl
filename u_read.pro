@@ -205,7 +205,8 @@ PRO u_openr,unit,filename,help=help,XDR=XDR
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin K. Cha, 03-23-95.
 ;
-;       xx-xx-xx      iii  comment     
+;       07-27-00    bkc Add readu and rewind to take care the read error 
+;                       for WIN system 
 ;-
 if keyword_set(help) then goto, help1
 if n_elements(filename) eq 0 then filename='data.dat'
@@ -214,6 +215,10 @@ if keyword_set(XDR) then  $
 	openr,/XDR,unit,filename,/GET_LUN $
 else $
 	openr,unit,filename,/GET_LUN
+	if !d.name eq 'WIN' then begin
+		readu,unit,s
+		u_rewind,unit
+	end
 
 if n_params() eq 0 then print,'unit=',unit
 return
@@ -337,6 +342,7 @@ endif else begin
 	if no eq 4 then s = [s,0] else $		; vector
 	if no eq 3 then s = [s,0,0]			; scalor
 end
+
 writeu,unit,s(0:4),array
 return
 
@@ -424,7 +430,7 @@ if n_params() lt 3 then begin
 	end
 
 CATCH,error_status
-if error_status  eq -229 or error_status eq -219 or error_status eq -184 then begin 
+if error_status  then begin 
 	str = [ !err_string + string(!err),'', $
 		'Error: unable to read data, wrong type of file opened!!' ]
 	ret=WIDGET_MESSAGE(str)
@@ -436,12 +442,13 @@ IF EOF(unit) THEN begin
 	print,'Error: wrong type or bad data encountered'
 	return 
 END
+s = lonarr(5)
 readu,unit,s
 
 if (s(0) gt 1L) then begin	; two dim
 	type = s(3)
 	int = s(4)
-endif else if (s(0) eq 1) then begin    ; one dim
+endif else if (s(0) eq 1L) then begin    ; one dim
 	type = s(2)
 	int = s(3)
 endif else if (s(0) eq 0) then begin     ; scalor
@@ -450,36 +457,37 @@ endif else if (s(0) eq 0) then begin     ; scalor
 end
 ;print,s
 ;print,'type=',type, '  dim=',int
-int2 = int/s(1)
 case fix(type) of 
 	1: if (s(0) eq 2) then begin		; byte
 		x = make_array(s(1),s(2),/byte) 
 	   endif else begin
-		x = bytarr(fix(int))  	
+		if !d.name eq 'WIN' then x = bytarr(s(1)) else x = bytarr(fix(int))
 	   end
 	2: if (s(0) eq 2) then begin		; int
 		x = make_array(s(1),s(2),/int) 
 	   endif else begin
-		x = intarr(fix(int))  	
+		if !d.name eq 'WIN' then x = intarr(s(1)) else  x = intarr(fix(int))  	
 	   end
 	3: if (s(0) eq 2) then begin		; long 
 		x = make_array(s(1),s(2),/long) 
 	   endif else begin
-		x = lonarr(fix(int))  	
+		if !d.name eq 'WIN' then x = lonarr(s(1)) else  x = lonarr(fix(int))	
 	   end
 	4: if (s(0) eq 2) then begin		; float
 		x = make_array(s(1),s(2),/float) 
 	   endif else begin
-		x = fltarr(fix(int))  	
+		if !d.name eq 'WIN' then x = fltarr(s(1)) else  x = fltarr(fix(int))  	
 	   end
 	5: if (s(0) eq 2) then begin		; double 
 		x = make_array(s(1),s(2),/double) 
 	   endif else begin
+		if !d.name eq 'WIN' then x = make_array(s(1),/double)  else $	
 		x = make_array(fix(int),/double)  	
 	   end
 	6: if (s(0) eq 2) then begin		; complex
 		x = make_array(s(1),s(2),/complex) 
 	   endif else begin
+		if !d.name eq 'WIN' then x = make_array(s(1),/complex)  else $	
 		x = make_array(fix(int),/complex)  	
 	   end
 	7: if (s(0) eq 2) then begin		; string
@@ -487,6 +495,7 @@ case fix(type) of
 		print,'size=',s
 		return
 	   endif else begin
+		if !d.name eq 'WIN' then x = make_array(s(1),/string,value=string(replicate(32b,s(4))))  else $	
 		x = make_array(fix(int),/string,value=string(replicate(32b,s(4))))  	
 	   end
 else: begin
@@ -496,7 +505,6 @@ else: begin
 		return
 	end
 endcase
-
 	readu,unit,x
 ERRCODE = 0
 END
@@ -556,7 +564,7 @@ if n_params() lt 2 then begin
 	return
 	end
 s = lonarr(5)
-IF NOT EOF(unit) THEN  u_read_set,unit,s,x,ERRCODE ;ELSE print,'EOF on unit ',unit
+IF NOT EOF(unit) THEN u_read_set,unit,s,x,ERRCODE 
 return
 
 help1:
@@ -735,3 +743,4 @@ help1:
 	print,'A new file "filename.2bi" will be created.'
 	print,''
 END
+
