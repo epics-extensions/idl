@@ -74,9 +74,10 @@ if n_elements (printer_info) eq 0 then $
 	reverse: 0, $
 	base: 0L, $
 	ptr_field:0L }
-if n_elements(r_curr) eq 0 then begin
-	LOADCT,39
-	end
+; inherit from the parent process
+;if n_elements(r_curr) eq 0 then begin
+;	LOADCT,39  
+;	end
 END
 
 PRO PS_open,psfile,TV=TV

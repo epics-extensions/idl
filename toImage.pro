@@ -1,4 +1,118 @@
 @catcher_v1.pro
+
+PRO catch1d_fill_2D_image
+COMMON CATCH1D_COM, widget_ids, scanData
+COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
+  COMMON CATCH1D_2D_COM, data_2d
+
+; assign 2D data array
+
+ip = 0
+npts = scanData.act_npts-1
+y_seqno = scanData.y_seqno
+px = make_array(npts,/float)
+for i=0,14 do begin
+	if realtime_id.def(4+i) gt 0 then begin
+	px = scanData.da(0:npts,i)
+	CASE i OF
+	0: data_2d.d1(0,0:npts,y_seqno) = px
+	1: data_2d.d2(0,0:npts,y_seqno) = px
+	2: data_2d.d3(0,0:npts,y_seqno) = px
+	3: data_2d.d4(0,0:npts,y_seqno) = px
+	4: data_2d.d5(0,0:npts,y_seqno) = px
+	5: data_2d.d6(0,0:npts,y_seqno) = px
+	6: data_2d.d7(0,0:npts,y_seqno) = px
+	7: data_2d.d8(0,0:npts,y_seqno) = px
+	8: data_2d.d9(0,0:npts,y_seqno) = px
+	9: data_2d.d10(0,0:npts,y_seqno) = px
+	10: data_2d.d11(0,0:npts,y_seqno) = px
+	11: data_2d.d12(0,0:npts,y_seqno) = px
+	12: data_2d.d13(0,0:npts,y_seqno) = px
+	13: data_2d.d14(0,0:npts,y_seqno) = px
+	14: data_2d.d15(0,0:npts,y_seqno) = px
+	ENDCASE
+	ip = ip + 1
+	end
+end
+
+; update the image plot
+
+;loadct, 39
+
+npts = scanData.act_npts-1
+if n_params() eq 0 then y_seqno = scanData.y_seqno
+if y_seqno lt 0 then return
+	width = scanData.image_width * scanData.image
+	height = scanData.image_height * scanData.image
+
+	old_win = !D.window
+	new_win = old_win - 1 
+	if y_seqno eq 0 then begin
+		window,new_win, xsize = 8*width, ysize=2*height, title='2D_Images'
+		for i=0,14 do begin
+		xi=(i mod 8)*width+width/2 - 5
+		yi=height/2+(15-i)/8*height
+		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+		end
+        plots,[0,8*width],[height,height],/device
+        for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+
+	end
+
+; WSET: Window is closed and unavailable.        -324  R4.0.1
+; WSET: Window is closed and unavailable.        -367  R5.0
+; WSET: Window is closed and unavailable.        -386  R5.1
+CATCH,error_status
+if error_status lt 0 then begin
+;	print,!err_string,!err
+	if error_status eq -367 or error_status eq -386 or error_status eq -324 then begin
+
+;print,'name: ',!error_state.name
+;print,'code: ',!error_state.code
+;print,'msg:  ',!error_state.msg
+;print,'sys_msg:  ',!error_state.sys_msg
+
+	window,new_win, xsize = 8*width, ysize=2*height, title='2D_Images'
+		for i=0,14 do begin
+		xi=(i mod 8)*width+width/2 - 5
+		yi=height/2+(15-i)/8*height
+		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+		end
+        plots,[0,8*width],[height,height],/device
+        for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+
+        end
+end
+
+	wset,new_win
+
+;	erase
+	for sel=0,14 do begin
+	if realtime_id.def(4+sel) gt 0 then begin
+	CASE sel OF
+	0: data_2d.image = data_2d.d1(0,0:npts,0:y_seqno)
+	1: data_2d.image = data_2d.d2(0,0:npts,0:y_seqno)
+	2: data_2d.image = data_2d.d3(0,0:npts,0:y_seqno)
+	3: data_2d.image = data_2d.d4(0,0:npts,0:y_seqno)
+	4: data_2d.image = data_2d.d5(0,0:npts,0:y_seqno)
+	5: data_2d.image = data_2d.d6(0,0:npts,0:y_seqno)
+	6: data_2d.image = data_2d.d7(0,0:npts,0:y_seqno)
+	7: data_2d.image = data_2d.d8(0,0:npts,0:y_seqno)
+	8: data_2d.image = data_2d.d9(0,0:npts,0:y_seqno)
+	9: data_2d.image = data_2d.d10(0,0:npts,0:y_seqno)
+	10: data_2d.image = data_2d.d11(0,0:npts,0:y_seqno)
+	11: data_2d.image = data_2d.d12(0,0:npts,0:y_seqno)
+	12: data_2d.image = data_2d.d13(0,0:npts,0:y_seqno)
+	13: data_2d.image = data_2d.d14(0,0:npts,0:y_seqno)
+	14: data_2d.image = data_2d.d15(0,0:npts,0:y_seqno)
+	ENDCASE
+	temp = congrid(data_2d.image, width, height)
+	TVSCL, temp, sel
+	end
+	end
+
+	wset,old_win
+END
 ;
 ; extract 2D data from 1D file 
 ; scan_read_extract,startno=31,endno=109,infile='/home/sricat/CHA/2idd/cancer21.scans',/outfile
@@ -107,11 +221,32 @@ if keyword_set(y_pv) then scanData.y_pv = y_pv
 	catch1d_readFileIndex,infile
 	if w_viewscan_id.maxno gt 1 then begin
 
+	if startno gt w_viewscan_id.maxno then begin
+		st = ['Only '+ string(w_viewscan_id.maxno)+'   1D scans found in ',infile]
+		res = widget_message(st ,/Info)
+		return
+	end
+	if endno gt w_viewscan_id.maxno then endno = w_viewscan_id.maxno
+
 	if keyword_set(XDR) then u_openr, unit, infile, /XDR else $
 	u_openr, unit, infile
 	w_viewscan_id.unit = unit
+newpos:
 	point_lun,w_viewscan_id.unit, w_viewscan_id.fptr(startno-1)
 	scan_read_record,unit,version,pv,num_pts,FA,x,y,n,ze
+;	print,'w_plotspec_id.seqno, refno,y_seqno,scanno_2d,y_scan,y_req_npts,y_act_npts,y_value'
+;	print,y
+	; adjust startno endno
+	if (endno - startno) gt y(5) then endno = startno + y(5)-1
+	if y(4) eq 0 and y(2) eq 0 then begin
+		startno = startno+1 
+		goto, newpos
+	end
+	if y(4) and y(2) gt 0 then begin
+		if y(2) lt y(5) then startno = startno - y(2)
+		goto, newpos
+	end
+
 	width = num_pts(0) + 1
 	pxarray = make_array(width)
 	pxarray = FA(*,0)
@@ -127,10 +262,13 @@ if keyword_set(y_pv) then scanData.y_pv = y_pv
 		  point_lun,w_viewscan_id.unit, w_viewscan_id.fptr(id-1)
 		  if keyword_set(view) then scan_read, unit, id, id+1 else $
 		  scan_read, unit, id, 0 
-		  catch1d_fill_2D_data
+		  if scanData.y_scan eq 0 and scanData.y_seqno eq 0 then goto,new2dscan 
+		  catch1d_fill_2D_image
 		  pyarray(i) = scanData.y_value
 		end
+new2dscan:
 		u_close, unit
+	endno = startno+i-1
 
 		if keyword_set(outfile) then begin
 			if keyword_set(new) then begin
@@ -153,6 +291,13 @@ endif else begin
 	print,'Usage: scan_read_extract,startno=startno,endno=endno,infile=infile [,outfile=outfile] [,new=new] [,view=view] [,y_pv=y_pv]
 end
 
+	st = [  '2D scan seqno #  : '+string(fix(y(3))), $
+		'', $
+		'    Start scan # : '+string(fix(startno)), $
+		'    End   scan # : '+string(fix(endno)), $
+		'    Image Width  : '+string(fix(y(5))), $
+		'    Image Height : '+string(fix(endno-startno+1))]
+	res = widget_message(st,/info)
 END
 
 
@@ -373,7 +518,7 @@ END
 
 
 
-PRO toImage, GROUP=Group
+PRO toImage, GROUP=Group,viewonly=viewonly
 ;+
 ; NAME:
 ;       TOIMAGE
@@ -399,6 +544,7 @@ PRO toImage, GROUP=Group
 ;     GROUP:    The widget ID of the group leader of the widget.  If this 
 ;               keyword is specified, the death of the group leader results in
 ;               the death of TOIMAGE.
+;     VIEWONLY: To construct and view the 2D images from the 1D scan data 
 ;
 ; OUTPUTS:
 ;       During 2D image construction the images are display on screen.
@@ -436,6 +582,7 @@ COMMON TOIMAGE_BLOCK,widget_ids
   MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
       MAP=1, $
+      TITLE='toImage', $
       UVALUE='MAIN13')
 
   BASE2 = WIDGET_BASE(MAIN13, $
@@ -516,7 +663,9 @@ COMMON TOIMAGE_BLOCK,widget_ids
       XSIZE=4)
 
 
-BTNS913=['ViewOnly','Append','CreateNew']	
+if keyword_set(viewonly) then $
+BTNS913=['ViewOnly']	else $
+BTNS913=['ViewOnly','Append','CreateNew'] 
 new_image= WIDGET_DROPLIST(BASE8, VALUE=BTNS913, $
         UVALUE='TOIMAGE_NEW',TITLE='Images :')
   WIDGET_CONTROL,new_image,set_droplist_select = 0
@@ -531,6 +680,8 @@ new_image= WIDGET_DROPLIST(BASE8, VALUE=BTNS913, $
       TITLE='Out Image File:', $
       UVALUE='TOIMAGE_OUTFILE', $
       XSIZE=60)
+  if keyword_set(viewonly) then $
+  WIDGET_CONTROL,OUTFILENAME,SENSITIVE= 0
 
   BASE9 = WIDGET_BASE(BASE2, $
       ROW=1, $
