@@ -545,7 +545,7 @@ PRO readScanFile,filename,gD,scanno
 END
 
 
-PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=height,scanno=scanno,xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv
+PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=height,scanno=scanno,xdesc=xdesc,ydesc=ydesc,xpv=xpv,ypv=ypv,plot=plot,group=group
 ;+
 ; NAME:
 ;       SCAN2DDATA
@@ -564,6 +564,7 @@ PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=hei
 ;
 ; KEYWORD PARAMETERS:
 ;       View:        If specified, the TVSCL of the 2D image is plotted.
+;       Plot:        If specified, the 2D image plot program is called.
 ;       Xarr:        Returns the positioner 1 vector of X scan
 ;       Yarr:        Returns the positioner 1 vector of Y scan
 ;       Im:          Returns the 2D image of the selected detector
@@ -660,33 +661,50 @@ PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=hei
 	width = w
 	height = h
 
+        header_note1 = '2D Scan # '+string(scanno) + $
+                ',    Image seqno ' + string(seq)
+        header_note = 'Image( '+strtrim(w,2)+' , '+  strtrim(h,2)+') '
+
 	if keyword_set(view) then begin
 	loadct,39
 	window,0,xsize=500,ysize=500,title='scan2d Object'
  
         ncolors = !d.table_size
-        header_note1 = '2D Scan # '+string(scanno) + $
-                ',    Image seqno ' + string(seq)
-        header_note = 'Image( '+strtrim(w,2)+' , '+  strtrim(h,2)+') '
+
           xdis = 0.001 * !d.x_size
           ydis = !d.y_size - 1.2 * !d.y_ch_size
           xyouts,xdis,ydis,header_note1,/device,color=ncolors-1
  
           ydis = !d.y_size - 2.2 * !d.y_ch_size
           xyouts,xdis,ydis,header_note,/device,color=ncolors-1
-        xrange=[xarr(0), xarr(w-1)]
-        yrange=[yarr(0), yarr(h-1)]
  
         TVSCL,congrid(im,!d.x_size -100,!d.y_size-100),50,50
  
-        plot,xrange=xrange,yrange=yrange,[xrange(0)-1,yrange(0)-1],/noerase, $
+	xrange=[xarr(0),xarr(w-1)]
+	yrange=[yarr(0),yarr(h-1)]
+;	xrange=[min(xarr),max(xarr)]
+;	yrange=[min(yarr),max(yarr)]
+	xstyle = 1
+	ystyle = 1
+	if yrange(0) eq yrange(1) then ystyle = 4
+	if xrange(0) eq xrange(1) then xstyle = 4
+        plot,xrange=xrange,yrange=yrange,[-1+yrange(0),-1+yrange(0)],/noerase, $
                 pos=[50./!d.x_size, 50./!d.y_size, $
                  (!d.x_size-50.)/!d.x_size, (!d.y_size-50.)/!d.y_size], $
-                xstyle=1, ystyle=1, xtitle=xdesc, ytitle=ydesc, $
+                xstyle=xstyle, ystyle=ystyle, xtitle=xdesc, ytitle=ydesc, $
                 title=xpv + 'D'+ strtrim(seq,2)
-	end
  
-	endif else print,'Error: not a 2D scan!'
+	end
+
+	if keyword_set(plot) then $
+        plot2d,im, xarr=xarr, yarr=yarr, $
+                comment=[header_note1,header_note], $
+                xtitle=xdesc, ytitle=ydesc, $
+                title=xpv + 'D'+ strtrim(seq,2), group=group
+
+	endif else begin
+		res = dialog_message('Error: not a 2D scan!',/Error)
+	end
 END
 
 
@@ -737,7 +755,7 @@ END
 PRO scan1Ddata,gD,seq,plot=plot,pa=pa,da=da,npts=npts,$
 xsel=xsel,ysel=ysel,xarr=xarr,yarr=yarr, $
 xdesc=xdesc,ydesc=ydesc,xengu=xengu,yengu=yengu, $
-id_def=id_def,scanno_2d=scanno_2d,title=title
+id_def=id_def,scanno_2d=scanno_2d,title=title,group=group
 ;+
 ; NAME:
 ;       SCAN1DDATA
@@ -843,8 +861,9 @@ IF dim EQ 2 THEN BEGIN
         da2D = *(*gD).da2D
 
 	if (seq-1) lt 0 or seq gt cpt(1) then begin
-		print,'Error: Invalid scan number',seq
-		print,'       Valid scan range: [1-' ,strtrim(cpt(1),2),']'
+		str = ['Error: Invalid scan line number'+string(seq), $
+		  '       Valid scan range: [1-' + strtrim(cpt(1),2) + ']']
+		res = dialog_message(str,/error)
 		return
 	end
 
@@ -903,7 +922,7 @@ end
 		ydesc = desc1(4:max_pidi-1)
 		xengu = labels(2*max_pidi:2*max_pidi+3,0)
 		yengu = labels(2*max_pidi+4:3*max_pidi-1,0)
-	ENDIF ELSE BEGIN
+	END
 	if keyword_set(xsel) then begin
 		if xsel gt 0 and xsel lt 4 then isel = xsel
 	end
@@ -913,6 +932,7 @@ end
 	res=0
 	if keyword_set(ysel) then begin
 	 parse_num,string(ysel),res
+	end
 	no = n_elements(res)
 	yarr = make_array(npts(0),no)
 	ydesc = make_array(no,/string)
@@ -922,8 +942,6 @@ end
 	ydesc(i) = desc1(4+res(i))
 	yengu(i) = labels(max_pidi*2+4+res(i),0)
 	end
-	end
-	END
 
 	if keyword_set(plot) then begin
 		if n_elements(res) eq 1 then $
@@ -931,7 +949,7 @@ end
 		xtitle=xdesc(0), $
 		ytitle=ydesc(0) else $
 		plot1d,xarr,yarr,title=title, $
-		xtitle=xdesc(0)
+		xtitle=xdesc(0), group=group
 	end
  
 END
