@@ -1,0 +1,108 @@
+#!/bin/csh -f
+# 
+# usage: catcher -c test.config -d test.trashcan -e test.env 
+#
+# Author: Ben-chin Cha
+# 
+if ("$1" == "-h" | "$1" == "-help") then
+	goto help:
+endif
+source $EPICS_EXTENSIONS/bin/sun4/setup_ezcaIDL
+set x = "" ; set y = ""; set z=""
+if -e catch1d.config then
+	cp catch1d.config catch1d.config.tmp
+else
+	echo ";  " >! catch1d.config
+endif
+while ( "$1" !=  "" & "$2" != "") 
+   switch("$1")
+   case -config:  
+   case -c:  
+	set x = 'config''="'$2'"' 
+	if -e $2 then
+		cp $2 catch1d.config.tmp
+	else 
+		echo "; New configuration file '" $2 "' will be created." >! catch1d.config.tmp
+	endif
+	breaksw
+   case	-envfile:  
+   case -e:
+	set y = 'envfile''="'$2'"'
+	breaksw
+   case	-data:  
+   case	-d:  
+	set z = 'data''="'$2'"'
+	breaksw
+   default:
+	breaksw
+   endsw
+   shift; shift
+end
+
+set xyz = "catcher_v1"
+
+if ("$x" != "") then
+	set xyz = $xyz','$x
+endif
+if ("$y" != "") then
+ 	set xyz = $xyz','$y
+endif
+if ("$z" != "") then
+	 set xyz = $xyz','$z
+endif
+echo $xyz >! go_catcher
+cat go_catcher
+	idl go_catcher 
+exit
+help::
+echo  ""
+echo NAME
+echo "      catcher - run the EPICS IDL data catcher program "
+echo ""
+echo SYNOPSIS
+echo "      catcher [ -c file.config ] [ -d file.data ] [ -e file.env ] "
+echo ""
+echo DESCRIPTION
+echo "     catcher provides the user with very flexible file specification"
+echo "     feature to startup the IDL data catcher program.  The data"
+echo "     catcher program is written in IDL 4.0.1, and ezcaIDL CA interface "
+echo "     routines which in terms uses EPICS 3.12.2 channel access "
+echo "     library routines.  "
+echo "" 
+echo "     Currently, the data catcher can capture both 1D and 2D scan data"
+echo "     through setting monitor on the EPICS scan record. During data"
+echo "     acquisition it also provides real-time plotting. Post acquisition"
+echo "     it also provides simple 1D and 2D post data plot and analysis. "
+echo "     Each scan record can support up-to four positioners and fifteen"
+echo "     detectors."
+echo ""
+echo OPTIONS 
+echo "     -c fn  Assign the configuration file to be used. The file name"
+echo "            should begin with alphabetic character and must separate"
+echo "            with the option with a blank space. "
+echo ""
+echo "            If this option is not specified, the default file"
+echo "            'catch1d.config' will be used."
+echo "" 
+echo "     -d fn  Assign the acquisition data file to be used. The file name"
+echo "            should begin with alphabetic character and must separate"
+echo "            with the option with a blank space."
+echo ""
+echo "            If this option is not specified, the default file "
+echo "            'catch1d.trashcan' will be used."
+echo "" 
+echo "     -e fn  Assign the environment file to be used. The file name"
+echo "            should begin with alphabetic character and must separate"
+echo "            with the option with a blank space. This file allows"
+echo "            additional environment variables to be saved with the "
+echo "            acquired scan data."
+echo ""
+echo "            If this option not specified, the default file"
+echo "            'catch1d.env' will be used."
+echo ""
+echo "     -h     Generate this online help page."
+echo ""
+echo EXAMPLES
+echo "     catcher -c test.config -d test.data -e test.env "
+echo "     catcher -c test.config "
+echo "     catcher -d test.dat"

@@ -1,0 +1,48 @@
+#!/bin/csh
+#
+# Setet up idl environment variables for ezcaIDL
+#
+
+set HOST_ARCH = `/usr/local/epics/startup/HostArch`
+setenv HOST_ARCH  $HOST_ARCH
+set PVT_LOC = /usr/local/epics/extensions/bin/$HOST_ARCH
+
+# set EZCA_IDL_SHARE
+
+if ${?EPICS_EXT_PVT} == 1 then 
+	 set PVT_LOC = $EPICS_EXT_PVT/bin/$HOST_ARCH
+else if ${?EPICS_EXTENSIONS_PVT} == 1 then 
+	 set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
+else if ${?EPICS_EXTENSIONS} == 1 then
+	set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
+endif 
+
+if -e ezcaIDL.so  then
+        setenv  EZCA_IDL_SHARE ezcaIDL.so
+        setenv  EZCA_WAVE_SHARE ezcaWave.so
+else if -e $PVT_LOC/ezcaIDL.so  then
+        setenv  EZCA_IDL_SHARE $PVT_LOC/ezcaIDL.so
+        setenv  EZCA_WAVE_SHARE $PVT_LOC/ezcaWave.so
+endif
+
+# set IDL_STARTUP
+
+if  -e idl_startup.pro  then 
+        setenv IDL_STARTUP idl_startup.pro 
+else if -e $PVT_LOC/ezcaidl_startup.pro  then
+#        setenv  IDL_STARTUP $PVT_LOC/ezcaidl_startup.pro 
+# copy the ezcaidl_startup.pro to user pviate area if not found
+	cp $PVT_LOC/ezcaidl_startup.pro idl_startup.pro
+	chmod 644 idl_startup.pro
+        setenv  IDL_STARTUP idl_startup.pro 
+endif
+
+# release 3.6 
+#setenv IDL_DIR /usr/local/idl
+#setenv IDL_PATH +/usr/local/idl
+# release 4.0
+source /usr/local/rsi/idl/bin/idl_setup
+setenv IDL_DEVICE X
+
+exit
+

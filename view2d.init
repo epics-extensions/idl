@@ -1,0 +1,79 @@
+COMMON CATCH2D_IMAGE, widget_ids, view_option, image
+COMMON CATCH2D_FILE_BLOCK,catch2d_file
+
+  widget_ids = {                  $ 
+      base        : MAIN13_2,     $
+      xsurface    : 0L,  $
+      top_base    : BASE68,       $
+      sel_base    : BASE185,       $
+      slider	  : 0L,  $
+      seqno	  : FIELD100, $
+      plot_wid    : DRAW62,       $
+      plot_area   : DRAW62_Id,    $
+      y_max       : FIELD246,     $
+      y_min       : FIELD157,     $
+      x_max       : FIELD159,     $
+      x_min       : FIELD161,     $
+      info        : TEXT133,	  $
+      z_max	:  CURSOR62_MAX, $
+      x_cursor	:  CURSOR62_X, $
+      y_cursor	:  CURSOR62_Y, $
+      z_cursor	:  CURSOR62_Z, $
+	xzl	:  CURSOR62_XZL, $
+	yzl	:  CURSOR62_YZL, $
+	x1	: !x, $
+	y1	: !y, $
+	x2	: !x, $
+	y2	: !y $
+	}
+
+  catch2d_file = {                $
+        name    : 'catch1d.trashcan.image',           $
+        opened  : 0,            $
+	fptr	: make_array(10000,/long), $
+;       mode    : 0,            $   ; 0 - scan, 1 - view
+        seqno   : 0,            $
+        maxno   : 0,             $
+	x_pv	: '', $
+	y_pv	: '', $
+	file_1d	: '', $
+	scanno_2d  : 0, $  	; current 2d scan #
+	scanno  : 0, $  	; current image at the end 1d scan #
+	width   : 100, $  	; current image width 
+	height  : 100, $  	; current image height
+	detector : 0, $  	; current image detector index (15 detectors)
+	x_act_npts :  100, $
+	y_act_npts :  100, $
+	y_req_npts :  100, $
+	x_mag : 1, $ 	; x image mag facctor
+	y_mag : 1, $ 	; y image mag facctor
+	xprof :  1, $	; window 1
+	yprof :  3, $	; window 3
+	xarr	: make_array(512), $
+	yarr	: make_array(512), $
+	image	: make_array(512,512,/float) $
+        }
+  
+  view_option = { $
+	surface : 3, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
+	user	: 1, $  ; if 1 use user set range
+	versus  : 0, $  ;  step # or values 
+	width	: 100, $  	; default x set range 
+	height  : 100, $	; default y set range
+	x_min	: 0, $		; user set xmin
+	x_max	: 100, $	; user set xmax
+	y_min	: 0, $		; user set ymin
+	y_max	: 100, $	; user set ymax
+	x	: 0, $
+	y	: 0, $
+	z	: 0., $
+	z_max	: 0. $
+	}
+
+   WIDGET_CONTROL, widget_ids.y_max, SET_VALUE = view_option.height 
+   WIDGET_CONTROL, widget_ids.y_min, SET_VALUE = 0
+   WIDGET_CONTROL, widget_ids.x_max, SET_VALUE = view_option.width
+   WIDGET_CONTROL, widget_ids.x_min, SET_VALUE = 0
+
+   LOADCT,5      ;load a usable color table
+
