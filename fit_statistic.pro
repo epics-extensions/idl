@@ -93,9 +93,7 @@ PRO  getStatisticDeviation_1d,id1,y,mean,sdev,mdev,st
         index = where(y gt mean, count)      ; check for constant function
         mean = [mean,0.,0.,0.]
         if count gt 0 then mean = MOMENT(y,mdev=mdev,sdev=sdev)
-
-st = id1
-st= [st+' ']
+	st= [string(id1) + ' ']
         st = [st, '   Mean         = '+string(mean(0))]
         st = [st, '   Standard Dev = '+string(sdev)]
         st = [st, '   Mean Abs Dev = '+string(mdev)]
