@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.34 2004/04/13 20:10:02 cha Exp $
+; $Id: DC.pro,v 1.35 2004/05/07 19:00:09 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2847,6 +2847,7 @@ if cpts le 1 then return
 retval = pd
 
 if cpts le scanData.act_npts  then return
+if !d.n_colors gt !d.table_size then device,decomposed=1
 
 n1 = realtime_id.no
 n2 = cpts - 1  
@@ -2984,16 +2985,15 @@ if realtime_id.axis eq 1 then begin
 
 
 	if n1 gt 0  then begin
+	 x = scanData.px(1:n1)
+	
 	; plot Detector vs positioner 
 	for i=0,scanData.nd - 1 do begin
 	if realtime_id.def(4+i) ne 0 and scanData.wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
-		oplot,scanData.px(1:n1), scanData.da(1:n1,i),LINE=ln_style(i), $
+	y = scanData.da(1:n1,i)
+
+		oplot,x,y,LINE=ln_style(i), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -3002,12 +3002,9 @@ if realtime_id.axis eq 1 then begin
 	for i=0,scanData.num_pos - 1 do begin
 	if realtime_id.def(i) ne 0 and scanData.wf_sel(scanData.nd+i) eq 1 then begin
 	color = w_plotspec_id.colorI(scanData.nd+i)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
-	oplot,scanData.px(1:n1), scanData.pa(1:n1,i),LINE=ln_style(i+scanData.nd), $
+	y = scanData.pa(1:n1,i)
+	
+	oplot,x,y,LINE=ln_style(i+scanData.nd), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -3028,13 +3025,8 @@ for i=0,scanData.nd-1 do begin
 		end
 		if scanData.wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
-			 oplot,xtemp, ytemp,LINE=ln_style(i), $
-			PSYM = symbol * (i+1) mod 8, $
+		 oplot,xtemp, ytemp,LINE=ln_style(i), $
+			 PSYM = symbol * (i+1) mod 8, $
 			 COLOR=color
 		end
 	end
@@ -3050,12 +3042,7 @@ for i=0,scanData.num_pos-1 do begin
 		end
 		if scanData.wf_sel(i+scanData.nd) eq 1 then begin
 	color = w_plotspec_id.colorI(i+scanData.nd)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
-			oplot,xtemp, ytemp,LINE=ln_style(i+scanData.nd), $
+		oplot,xtemp, ytemp,LINE=ln_style(i+scanData.nd), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -3071,7 +3058,7 @@ if (n2+1) ge npts then begin
 	realtime_id.ind = 2
 ;	print,'caclock',caclock()
 	end
-
+if !d.n_colors gt !d.table_size then device,decomposed=0
 END
 
 
