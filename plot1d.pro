@@ -20,7 +20,6 @@ PRO plot1d_dialogs_Event, Event
   CASE Ev OF 
 
   'plot1d_xsize': BEGIN
-      Print, 'Event for X Size:',ev
 	widget_control,event.id,get_value=x
         state.xsize = x 
 	widget_control,state.id_draw,scr_xsize=state.xsize,scr_ysize=state.ysize
@@ -64,6 +63,9 @@ PRO plot1d_dialogs_Event, Event
       END
   'plot1d_yexpand': BEGIN
 	state.yexpand = Event.Index
+      END
+  'plot1d_bgreverse': BEGIN
+	state.bgrevs = Event.Index
       END
   'plot1d_xstyle': BEGIN
 	state.xstyle = 2^Event.Index
@@ -375,6 +377,10 @@ if XRegistered('plot1d_dialogs') then return
 		UVALUE='plot1d_yexpand')
   widget_control,yexpand,set_droplist_select=state.yexpand
 
+  bgrever = WIDGET_DROPLIST(BASE2_2,title='Bg:',value=['Blk','Wht'], $
+		UVALUE='plot1d_bgreverse')
+  widget_control,bgrever,set_droplist_select=state.bgrevs
+
   BASE2_411 = WIDGET_BASE(BASE2, $
       /ROW, $
       MAP=1, $
@@ -640,7 +646,14 @@ if !d.name eq 'WIN' then device,decomposed=1
 
 if !d.name ne 'PS' then WSET,state.winDraw
 !p.multi = [0,1,0,0,0]
-erase
+if state.bgrevs then begin
+	state.tcolor = 0
+	state.bgcolor = !d.table_size-1
+endif else begin
+	state.tcolor = !d.table_size-1
+	state.bgcolor = 0
+end
+erase,122  ;,state.bgcolor
 
 if !d.name eq 'PS' then cl = 0
 
@@ -665,8 +678,7 @@ color = cl
 z = y(*,0)
 
 if !d.n_colors eq 16777216 then catch1d_get_pvtcolor,cl,color
-if s(0) eq 1 then $
-	PLOT,state.x,z, COLOR=color, $
+	PLOT,state.x,z,/nodata, COLOR=state.tcolor, background=state.bgcolor, $
 		xrange=state.xrange, yrange = yrange, $
 		ylog=state.ylog, xlog=state.xlog, psym=psym, $
 		xgridstyle=state.grid, $
@@ -675,6 +687,9 @@ if s(0) eq 1 then $
 		linestyle=line, $
 		xmargin=xmgin, ymargin=ymgin, $
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
+
+if s(0) eq 1 then $
+	OPLOT,state.x,z, COLOR=color, thick=thick, psym=psym, linestyle=line 
 
 ; two dim array - multiple curves
 
@@ -687,15 +702,7 @@ in_line(0)= line
 in_symbol(0)=psym
 x = state.x
 if state.scatter then x = state.x(*,0)
-	PLOT,x,z,COLOR=color, $
-		xrange=state.xrange, yrange = yrange, $
-		ylog=state.ylog, xlog=state.xlog, $
-		xgridstyle=state.grid, $
-		ygridstyle=state.grid, $
-		thick=thick,  xthick=2, ythick=2,$
-		linestyle=line, psym=psym, $
-		xmargin=xmgin, ymargin=ymgin, $
-		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
+	OPLOT,x,z,COLOR=color, thick=thick, linestyle=line, psym=psym 
 	
 ;	dcl = state.color / 16
 	dcl = !d.table_size-2
@@ -745,7 +752,8 @@ if state.footnote ne 0 then begin
 	real_dy = y_ch_size       ; character pixel height
 	real_yl = state.footnote*real_dy +!d.y_ch_size
 	for i=0,state.footnote -1 do begin
-	xyouts,real_xl,(real_yl-i*real_dy), state.comment(i), /DEVICE ,charsize=state.charsize
+	xyouts,real_xl,(real_yl-i*real_dy), state.comment(i), /DEVICE , $
+		color=state.tcolor,charsize=state.charsize
 	end
 end
 
@@ -753,9 +761,9 @@ end
 	
 if state.stamp ne 0 then begin
 	st = systime(0)
-	xyouts,0.01*state.xsize, 1, st, /device
+	xyouts,0.01*state.xsize, 1, st, /device, color=state.tcolor
 	xyouts,0.75*state.xsize, 1, $
-		 'User Name:  '+getenv('USER'), /device
+		 'User Name:  '+getenv('USER'), /device, color=state.tcolor
 end
 
 ; draw legend
@@ -771,7 +779,7 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	real_xl = real_x1 + 0.16*(!x.crange(1)-!x.crange(0))
 	real_yl = real_y1 - 0.5*real_dy
 
-	xyouts,real_x1,real_y1,'LEGEND'
+	xyouts,real_x1,real_y1,'LEGEND', color=state.tcolor
 	oplot,[real_x1,real_xl],[real_yl,real_yl],thick=2
 
 	real_xl = real_x1 + 0.075*(!x.crange(1)-!x.crange(0))
@@ -793,7 +801,7 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	oplot,x,y,linestyle=in_line(i),color=color,thick=2
 	oplot,x,y,linestyle=in_line(i),color=color,psym=in_symbol(i),thick=2
 
-	xyouts,real_xr,real_yl, state.legend(i)
+	xyouts,real_xr,real_yl, state.legend(i), color=state.tcolor
 	end
 end
 
@@ -822,11 +830,31 @@ ENDIF
 
 WIDGET_CONTROL,ev.Id,GET_UVALUE=B_ev
 CASE B_ev OF
+'PLOT1D_DATA': begin
+	sz = size(state.y)
+	nel = sz(1)
+	f1 = '('+ strtrim(nel+1,2)+'G17.7)'
+	openw,1,'plot1d.txt'
+	if sz(0) eq 1 then $
+	for i=0,nel-1 do printf,1,state.x(i),state.y(i)
+	if sz(0) eq 2 then $
+	for i=0,nel-1 do begin
+	y = reform(state.y(i,*))
+	printf,1,format=f1,state.x(i),y
+	end
+	close,1
+	xdisplayfile,'plot1d.txt',title='Listing of plot1d.txt',Group=Ev.top
+	cd,current=cpath
+	rename_dialog,cpath,'plot1d.txt','',Group=Ev.top
+	end
 'PLOT1D_REPORT': begin
 	widget_control,ev.Id,GET_VALUE=st
 	xdisplayfile,state.report,title='Listing of '+ state.report
  	end
-'PLOT1D_PRINT': begin
+'PLOT1D_PRINTER': begin
+	PS_printer,Group=Ev.top
+	end
+'PLOT1D_PSPLOT': begin
 	PS_open, 'idl.ps'
 	linestyle = state.linestyle
 	state.autocolor = 0
@@ -836,6 +864,14 @@ CASE B_ev OF
 	PS_print, 'idl.ps'
 	state.autocolor = 1
 	state.linestyle = linestyle 
+	end
+'PLOT1D_PRINT': begin
+	WSET,state.winDraw
+	arr = TVRD()
+	PS_open, 'idl.ps',/TV
+	TV,arr
+	PS_close
+	PS_print, 'idl.ps'
 	end
 'PLOT1D_OPTIONS': begin
 	plot1d_dialogs, state, Group=ev.top
@@ -862,7 +898,7 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 	comment=comment, cleanup=cleanup, $
 	curvfit=curvfit, $
 	xstyle=xstyle, ystyle=ystyle, $
-	wtitle=wtitle, report=report, button=button, GROUP=GROUP
+	wtitle=wtitle, report=report, data=data, button=button, GROUP=GROUP
 ;+
 ; NAME:
 ;       PLOT1D
@@ -969,6 +1005,7 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;               keyword is specified, the death of the group leader results 
 ;               in the death of PLOT1D.
 ;
+;       DATA:   Set this keyword if an xdisplayfile data button is desired
 ;       REPORT: Set this keyword if an xdisplayfile report button is desired
 ;               It specifies the report file name to be displayed.
 ;
@@ -1041,6 +1078,10 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;                      Add the support of report, factor, charsize keywords
 ;       11-19-99 bkc   Support auto-scaled/user-specified X,Y plot ranges
 ;                      Add multiple list selection of curves
+;       02-12-01 bkc   Support 'plot1d.txt' data report option
+;       03-09-01 bkc   Default white backgrund color
+;                      Print button dum the screen plot by using TVRD
+;                      PS Plot button generates PS plot output 
 ;-
 
 ;LOADCT,39
@@ -1109,7 +1150,10 @@ state = { $
 	list_sel: list_sel, $   ; initially all selected
 	report:'',$
 	autocolor: 1, $ 	; automatic use different color for each curve
-	color:cl, $
+	bgrevs : 1, $          ; reverse background 
+	tcolor : 0, $
+	bgcolor : !d.table_size-1, $
+	color:cl-1, $
 	symbol: 0, $
 	curvfit: 0, $		; whether data is from curve fitting
 	wtitle:wti, $
@@ -1221,13 +1265,19 @@ id_draw=WIDGET_DRAW(id_tlb,xsize=xsize,ysize=ysize, RETAIN=2)
 if keyword_set(button) eq 0 then begin
 id_tlb_row=WIDGET_BASE(id_tlb,/ROW)
 
+if keyword_set(data) then begin
+ id_data_report = WIDGET_BUTTON(id_tlb_row,VALUE='Data...',UVALUE='PLOT1D_DATA')
+end
+
 if keyword_set(report) then begin
 	state.report = report
  id_tlb_report = WIDGET_BUTTON(id_tlb_row,VALUE=report+'...',UVALUE='PLOT1D_REPORT')
 end
 
 id_tlb_options = WIDGET_BUTTON(id_tlb_row,VALUE='Options...',UVALUE='PLOT1D_OPTIONS')
+id_tlb_printer = WIDGET_BUTTON(id_tlb_row,VALUE='Printer...',UVALUE='PLOT1D_PRINTER')
 id_tlb_print = WIDGET_BUTTON(id_tlb_row,VALUE='Print',UVALUE='PLOT1D_PRINT')
+id_tlb_psplot = WIDGET_BUTTON(id_tlb_row,VALUE='PS Plot',UVALUE='PLOT1D_PSPLOT')
 id_tlb_close = WIDGET_BUTTON(id_tlb_row,VALUE='Close',UVALUE='PLOT1D_CLOSE')
 end
 
