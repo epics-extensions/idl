@@ -1,3 +1,43 @@
+                        CATCHER R2.2.2c4  RELEASE NOTE 
+                        ==========================
+
+The 'No Save' mode has been modified. Start from this release, the data
+catcher will use the lock file mechanism to determine whether it should 
+be in 'Save' or 'No Save'  mode. Once the 1D data file is opened by any
+catcher processor, a lock file is created, and only the processor
+possessing the lock  can save the new data to the data file. 
+The lock file can only be closed by the processor which creates it. 
+
+If the file lock already existed when a data file is opened, it is assumed
+that the file is already used by other catcher, then a 'No Save' dialog 
+message pops up to bring the user's attention.  
+
+In case of a dead lock was left due to the prior catcher processor been
+abnormally terminated, if the user still want to use the old file to
+store more scans then a user has to remove the lock file first before
+running the new catcher. Otherwise, always use File->New to start a
+new file.
+
+
+
+                        CATCHER R2.2.2c3  RELEASE NOTE 
+                        ==========================
+
+The view2d is upgraded to R2.3e. 2D ROI statistic is upgraded to R1.0.
+If the catcher is started with "-n" option, it will not allow the user
+to save scan data in old data file any more.
+
+A new unix script runCatcher is created which checks whether there is 
+another catcher running for the same user on the same work station. 
+If it found a catcher running for the same user, new catcher will be 
+automatically started with "-n" option.
+
+                        CATCHER R2.2.2c2  RELEASE NOTE 
+                        ==========================
+
+The view2d is upgraded to R2.3d. It supports TIFF, GIF, and 2D ROI
+statistics.
+
                         CATCHER R2.2.2c1  RELEASE NOTE 
                         ==========================
 
