@@ -1,3 +1,40 @@
+                        CATCHER R2.2.2b  RELEASE NOTE 
+                        ==========================
+
+<<File->New>>
+
+Start from this version R2.2.2b both 1D scan data and 2D image 
+data will be saved in XDR binary format only. 
+
+In order to do scan data acquisition a user has to use File->New
+to enter a new file name. Then 1D and 2D scan data will be saved in XDR 
+binary format.  
+
+<<File->Open>>
+
+In this version it still allows the user to view the scan data saved by 
+earlier versions but no new scan data can be appended to the old file.
+If the old native binary file used a user will notice that 'ViewOnly' 
+mode is shown on the main window.
+
+<<XDR to Native Binary>>
+
+In case of a user want to convert the XDR data saved by this version into 
+old native binary format as saved in earlier version, there is a routine 
+U_XDR2BI is available to do the data conversion.
+
+To access U_XDR2BI routine, a user has to load u_read.pro into IDL session 
+first, then at IDL prompt enter the following:
+
+	IDL> .run /usr/local/epics/extensions/bin/solaris/u_read
+	IDL> U_XDR2BI,'filename.xdr'
+		
+At the completion of the above routine, the native binary file 
+'filename.xdr.2bi' will be saved in the same directory.
+
+
+
+
                         CATCHER R2.2.2a  RELEASE NOTE 
                         ==========================
 
