@@ -47,8 +47,20 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	y_req_npts :  100, $
 	x_mag : 1, $ 	; x image mag facctor
 	y_mag : 1, $ 	; y image mag facctor
-	xprof :  1, $	; window 1
-	yprof :  3, $	; window 3
+;	xprof :  1, $	; window 1
+;	yprof :  3, $	; window 3
+	xprof : -1, $   ; xz profile window 
+	yprof : -1, $   ; yz profile window
+	xzdraw : 0, $   ; xz draw area
+	yzdraw : 0, $   ; yz draw area
+	xzline_x : [0,0],$
+	xzline_z : [0,0],$
+	xzline_xo : [0,0],$
+	xzline_zo : [0,0],$
+	yzline_y : [0,0],$
+	yzline_z : [0,0],$
+	yzline_yo : [0,0],$
+	yzline_zo : [0,0],$
 	xarr	: make_array(512), $
 	yarr	: make_array(512), $
 	image	: make_array(512,512,/float) $
