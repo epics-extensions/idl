@@ -373,8 +373,8 @@ st = ['IMAGE2D -  An image array viewing program which allows the user to load 2
   'iamge_array directly into IDL', $
   '','                       *File  Menu*','',$
   'Save Image for Aim  - save 2D image variables accepted by the AIM program', $
-  'Save as JPEG      - save TV image as IDL JPEG file', $
-  'Save as TIFF      - save TV image as IDL TIFF file in reverse order', $
+  'Save as PNG         - save TV image as IDL PNG file', $
+  'Save as TIFF        - save TV image as IDL TIFF file in reverse order', $
   'Save as XDR         - save 2D image, X,Y,Z ranges in XDR format', $
   'Printer...          - dialog to override the default printer', $
   'Print               - send TV plot to PS plotter device', $
@@ -1838,6 +1838,15 @@ COMMON COLORBAR, colorbar_data
 	outpath = image2d_state.outpath+'JPG'+!os.file_sep
 	rename_dialog,outpath,'image2d.jpg',outname,Group=Event.top
     END
+  'File.Save as PNG': BEGIN
+	tvlct,r,g,b,/get
+        if !d.n_colors gt !d.table_size then $
+	write_png,'image2d.png',tvrd(/true) else $
+	write_png,'image2d.png',tvrd(),r,g,b
+	outname = image2d_state.name+'_'+image2d_state.DPVS(image2d_state.detector-1)+'.png'
+	outpath = image2d_state.outpath+'PNG'+!os.file_sep
+	rename_dialog,outpath,'image2d.png',outname,Group=Event.top
+    END
   'File.Save as TIFF': BEGIN
 	tvlct,r,g,b,/get
 	if !d.n_colors gt !d.table_size then $
@@ -2247,6 +2256,11 @@ close,1
 	x = float(xarr)
 	y = float(yarr)
 
+	catch,status_error
+	if status_error ne 0 then begin
+	  WIDGET_CONTROL,Event.Top,SET_UVALUE=image2d_state,/NO_COPY,BAD_ID=bad
+	  return
+	end
 	iImage,image,rgb_table=rgb,GROUP=Event.top, $
 	title=image2d_state.name+': ('+image2d_state.DPVS(image2d_state.detector-1)+')', $ 
 		view_grid=[2,2], $
@@ -2542,7 +2556,7 @@ PS_init
       { CW_PDMENU_S,       1, 'File' }, $ ;        0
 ;        { CW_PDMENU_S,       0, 'Open...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
-        { CW_PDMENU_S,       0, 'Save as JPEG' }, $ ;        3
+        { CW_PDMENU_S,       0, 'Save as PNG' }, $ ;        3
         { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        4
         { CW_PDMENU_S,       0, 'Save as XDR' }, $ ;        5
         { CW_PDMENU_S,       0, 'Printer...' }, $ ;        6
@@ -2644,9 +2658,6 @@ PS_init
   BUTTON18 = WIDGET_DROPLIST( BASE8, value=['iImage','iSurface','iContour'], $
       UVALUE='IMAGE2D_ITOOL', $
       TITLE='ITOOL')
-
-;  xaxis = widget_droplist(BASE8,value=['P1','P2','P3','P4','Step#'], $
-;	TITLE='X axis:',UVALUE='IMAGE2D_XAXIS')
 
   BASE24 = WIDGET_BASE(BASE2, $
       ROW=1, $
