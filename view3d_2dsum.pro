@@ -131,6 +131,7 @@ END
 
 
 PRO view3d_2dsum_plot,state
+
 	rank = state.rank
 	CASE rank OF
 	0: begin
@@ -148,10 +149,11 @@ PRO view3d_2dsum_plot,state
 	title='Rank='+strtrim(state.rank,2)+', I='+strtrim(state.i_pick,2)+', J='+strtrim(state.j_pick,2)+'
 	xtitle = 'K1='+strtrim(state.k1_pick,2)+', K2='+strtrim(state.k2_pick,2)
 
+	x = state.zv
 	if state.PS eq 2 then begin
 	  openw,1,'idl.ps'
 	  printf,1,title+',  '+xtitle
-	  for i=0,n_elements(v)-1 do printf,1,i,v(i)
+	  for i=0,n_elements(v)-1 do printf,1,i,x(i),v(i)
 	  close,1
 	  xdisplayfile,'idl.ps',group=state.base
 	  state.PS = 0
@@ -491,27 +493,6 @@ if n_elements(rank) eq 0 then rank=0
       MAP=1, $
       UVALUE='BASE2')
 
-  BASE3 = WIDGET_BASE(BASE2, $
-      COLUMN=1, $
-      MAP=1, $
-      UVALUE='BASE3')
-
-  SLIDER4 = WIDGET_SLIDER( BASE3, $
-      MAXIMUM=view3d_2dsumState.imax-1, $
-      MINIMUM=0, /scroll, $
-      TITLE='I', /vertical, ysize=80, $ 
-      UVALUE='VIEW3D_SUM_I', $
-      VALUE=view3d_2dsumState.i_pick)
-  view3d_2dsumState.i_slider = SLIDER4
-
-  SLIDER5 = WIDGET_SLIDER( BASE3, $
-      MAXIMUM=view3d_2dsumState.jmax-1, $
-      MINIMUM=0, /scroll, $
-      TITLE='J', /vertical, ysize=80, $
-      UVALUE='VIEW3D_SUM_J', $
-      VALUE=view3d_2dsumState.j_pick)
-  view3d_2dsumState.j_slider = SLIDER5
-
 
   BASE5 = WIDGET_BASE(BASE2, $
       COLUMN=1, $
@@ -548,6 +529,28 @@ if n_elements(rank) eq 0 then rank=0
       UVALUE='VIEW3D_SUM_K2', $
       VALUE=view3d_2dsumState.kmax-1)
   view3d_2dsumState.k2_slider = SLIDER7
+
+
+  BASE3 = WIDGET_BASE(BASE2, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE3')
+
+  SLIDER4 = WIDGET_SLIDER( BASE3, $
+      MAXIMUM=view3d_2dsumState.imax-1, $
+      MINIMUM=0, /scroll, $
+      TITLE='I', /vertical, ysize=80, $ 
+      UVALUE='VIEW3D_SUM_I', $
+      VALUE=view3d_2dsumState.i_pick)
+  view3d_2dsumState.i_slider = SLIDER4
+
+  SLIDER5 = WIDGET_SLIDER( BASE3, $
+      MAXIMUM=view3d_2dsumState.jmax-1, $
+      MINIMUM=0, /scroll, $
+      TITLE='J', /vertical, ysize=80, $
+      UVALUE='VIEW3D_SUM_J', $
+      VALUE=view3d_2dsumState.j_pick)
+  view3d_2dsumState.j_slider = SLIDER5
 
   BASE52 = WIDGET_BASE(BASE2, $
       COLUMN=1, $
