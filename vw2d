@@ -17,6 +17,8 @@ set xdr = "vw2d"
 
 echo ".run panimage" >! go_viewer
 echo ".run vw2d" >>! go_viewer
-echo "$xdr" >>! go_viewer
+echo ".run assignname_read" >>! go_viewer
+echo "assignname_read,dname" >>! go_viewer
+echo "$xdr,dname=dname" >>! go_viewer
 idl go_viewer
 rm go_viewer
