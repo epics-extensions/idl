@@ -508,7 +508,6 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
       EXCLUSIVE=1, $
       LABEL_TOP='Plot Axial Numbers in', $
       UVALUE='VIEW3D_VALUES')
-  widget_control,BGROUP12,set_value=0
 
   BASE14 = WIDGET_BASE(BASE2, $
       COLUMN=1, $
@@ -577,7 +576,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 	sldrWid: slider, $
 	kindex : 0 ,$
 	slicer3 : 0,$
-	value: 0, $    ; axial values in 0-index, 1-values
+	value: 1, $    ; axial values in 0-index, 1-values
 	x: ptr_new(/allocate_heap), $
 	y: ptr_new(/allocate_heap), $
 	z: ptr_new(/allocate_heap), $
@@ -586,6 +585,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
   if keyword_set(slicer3) then view3drv_state.slicer3 = 1
   if keyword_set(outpath) then view3drv_state.outpath = outpath
   if keyword_set(class) then view3drv_state.class = class
+  widget_control,BGROUP12,set_value=view3drv_state.value
 		
   *view3drv_state.data = data
   *view3drv_state.x = xv
