@@ -123,6 +123,7 @@ if !d.name eq 'X' then device,bypass_translation=0,retain=2
 	ps_b : 0.125, $		; PS bottom 
 	ps_r : 0.875, $		; PS right 
 	ps_t : 0.875, $		; PS top 
+	pickx : 0, $            ; Pick Pi position index: 0,1,2,3
 	x_min	: 0, $		; user set xmin
 	x_max	: 2000, $	; user set xmax
 	y_min	: 0, $		; user set ymin
