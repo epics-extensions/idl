@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.37 2001/07/10 15:34:49 cha Exp $
+; $Id: view2d.pro,v 1.38 2001/07/10 16:50:11 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3027,8 +3027,7 @@ if n_elements(image) eq 0  then begin
 end
 x = catch2d_file.xarr(0:catch2d_file.width-1)
 y = catch2d_file.yarr(0:catch2d_file.height-1)
-im = make_array(catch2d_file.width, catch2d_file.height)
-im(*,*) = image
+im = image(0:catch2d_file.width-1,0:catch2d_file.height-1)
 
   CASE Event.Value OF
 
