@@ -730,6 +730,7 @@ end
 	   image_array: image_array $
 	}
 
+  if sz(0) eq 2 then info.ldet = sz(2)   ; for 1D data
   info.ndet = ndet
   for i=0,ndet-1 do begin
 	info.meth_uvalue(i) = 'CALIBRA_METHOD'+ strtrim(i,2)
