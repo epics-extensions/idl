@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: view2d.pro,v 1.43 2004/04/12 21:02:24 cha Exp $
+; $Id: view2d.pro,v 1.44 2004/07/13 19:14:46 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -293,6 +293,49 @@ if n_params() lt 1 then begin
 	TV,data,TRUE=channel
 
 END
+
+PRO catch1d_get_pvtcolor,i,color
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+; 24 bits
+	if n_elements(R_ORIG) eq 0 then $
+	catch1d_get_pvtct
+	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
+;	plot,indgen(10),color=color
+END
+
+PRO catch1d_load_pvtct,ctfile
+	if n_params() eq 0 then restore,'catch1d.tbl' else $
+	restore,ctfile
+	tvlct,red,green,blue
+	xpalette
+END
+
+PRO catch1d_save_pvtct
+	tvlct,red,green,blue,/get
+	save,red,green,blue,file='catch1d.tbl'
+END
+
+PRO catch1d_get_pvtct
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+
+; set ORIG color 
+
+	file = 'pvtcolors.dat'
+	found = findfile(file)
+	if found(0) ne '' then begin
+	restore,file
+	tvlct,red,green,blue
+	endif else begin
+	LOADCT,39
+	tvlct,red,green,blue,/get
+	end
+
+	R_ORIG = red
+	G_ORIG = green
+	B_ORIG = blue
+
+END
+
 
 PRO w_warningtext_quest
 COMMON w_warningtext_block,w_warningtext_ids
@@ -1984,25 +2027,11 @@ update:
 	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
 
 	if keyword_set(PNG) then begin
-	tvlct,R,G,B,/get
-	if !d.n_colors gt !d.table_size then $
-	WRITE_PNG,'view2d.png',TVRD(/true) else $
-	WRITE_PNG,'view2d.png',TVRD(),R,G,B
-	fileSeqString,catch2d_file.scanno_current,suf0
-	outname=catch2d_file.name+'.pan'+suf0+'.png'
-	dir = catch2d_file.outpath+'PNG'+!os.file_sep
-	rename_dialog,dir,'view2d.png',outname,GROUP=Event.Top
+	save_png,win=catch2d_file.win,file='view2d.png'
 	end
 
 	if keyword_set(TIFF) then begin
-	tvlct,R,G,B,/get
-	if !d.n_colors gt !d.table_size then $
-	WRITE_TIFF,'view2d.tiff',reverse(TVRD(/true),3) else $
-	WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
-	fileSeqString,catch2d_file.scanno_current,suf0
-	outname=catch2d_file.name+'.pan'+suf0+'.tiff'
-	dir = catch2d_file.outpath+'TIFF'+!os.file_sep
-	rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
+	save_tiff,win=catch2d_file.win,file='view2d.tiff'
 	end
 
 	if keyword_set(XDR) then begin
@@ -2300,20 +2329,10 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			zmax = max(newim)
 			zmin = min(newim)
 			dz= (zmax-zmin)/ 9.
-			dc = nc / 10 
 			colors = nc 
 			levels = zmin
 			for i=1,9 do begin
 			levels = [levels, zmin + dz*i]
-			colors = [colors, nc - dc*i ]
-			end
-			if !d.n_colors gt !d.table_size then begin
-				catch1d_get_pvtcolor,colors(0),lcolor
-				for i=1,9 do begin
-				catch1d_get_pvtcolor,colors(i),tcolor
-				lcolor =[lcolor,tcolor]
-				end
-			colors = lcolor
 			end
 
 		if view_option.versus then begin       ; versus values
@@ -2325,6 +2344,8 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			temp = indgen(iy)
 			ny=temp(y_min:iy-1)
 		end
+		colors = view_option.colorI(0:9)
+		if !d.n_colors gt !d.table_size then  colors = view_option.colorV(0:9)
 		if !d.n_colors gt !d.table_size then device,decomposed=1
 		CONTOUR, newim,nx,ny, $
 			background=view_option.bg, color=t_color, $
@@ -2450,6 +2471,27 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	colorbar_data.wid = !d.window 
 	posy = colorbar_data.y
 
+; set color for log scale
+log = 0
+off = 0.
+if v_max gt v_min then begin
+if view_option.log eq 1 then begin
+	newimage2 = congrid(alog10(newimage-v_min), width, height)
+	if v_min lt 0 then begin
+	; log scale is not good for v_man < 0
+	off = v_min
+	v_max = v_max-v_min
+	v_min= 0.;.01*v_max
+	end
+	log = 1
+	v_max = alog10(v_max)
+	if v_min eq 0 then begin
+		if v_max gt 1. then v_min = .01*v_max else $
+		v_min = -2
+	endif else v_min = alog10(v_min)
+end
+end
+	
 		if !d.name eq 'PS' then begin
 		    t_color = 0
 		    xo = !d.x_size * view_option.ps_l
@@ -2460,7 +2502,9 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		    pos = [view_option.ps_l, view_option.ps_b, $
 			view_option.ps_r, view_option.ps_t]
 
-		    TV,newimage2,xo,yo,xsize=xw,ysize=yw
+		if v_min eq v_max then $
+		TV,newimage2,xo,yo,xsize=xw,ysize=yw,/NAN else $
+		    TVSCL,newimage2,xo,yo,xsize=xw,ysize=yw,/NAN
 
 		    plot,/noerase,/nodata,pos=pos, [-1,-1], $
 			xrange=xrange, yrange=yrange, $
@@ -2481,8 +2525,9 @@ w = colorbar_data.width*10
                         ncap=colorbar_data.nlabel
 
 		endif else begin
-
-		    TV,newimage2, view_option.margin_l, view_option.margin_b
+		if v_min eq v_max then $
+		TV,newimage2,view_option.margin_l,view_option.margin_b,/NAN else $
+		    TVSCL,newimage2,view_option.margin_l,view_option.margin_b,/NAN
 
 		    p1 = [float(view_option.margin_l)/ !d.x_size, $
 			float(view_option.margin_b)/!d.y_size, $
@@ -2502,6 +2547,7 @@ w = colorbar_data.width*10
 			horizontal=colorbar_data.horiz, $
 			x=colorbar_data.x, y=posy, $
 			reverse=printer_info.reverse, $
+			log=log,off=off, $
 			ncap=colorbar_data.nlabel, format=colorbar_data.format
 		end
 			
@@ -2596,13 +2642,36 @@ w = colorbar_data.width*10
 	title = catch2d_file.z_desc + ' - ' + title else $
 	title = 'D'+strtrim(catch2d_file.detector,2) + ' - '+title
 
+; set color for log scale
+log = 0
+off = 0.
+if v_max gt v_min then begin
+if view_option.log eq 1 then begin
+	newimage2 = congrid(alog10(newimage-v_min), width, height)
+	if v_min lt 0 then begin
+	; log scale is not good for v_man < 0
+	off = v_min
+	v_max = v_max-v_min
+	v_min= 0.;.01*v_max
+	end
+	log = 1
+	v_max = alog10(v_max)
+	if v_min eq 0 then begin
+		if v_max gt 1. then v_min = .01*v_max else $
+		v_min = -2
+	endif else v_min = alog10(v_min)
+end
+end
+	
 		if !d.name eq 'PS' then begin
 		    xo = !d.x_size * view_option.ps_l
 		    yo = !d.y_size * view_option.ps_b
 		    xw = !d.x_size * xratio *(view_option.ps_r - view_option.ps_l)
 		    yw = !d.y_size * yratio *(view_option.ps_t - view_option.ps_b)
 
-		    TV,newimage2,xo,yo,xsize=xw,ysize=yw
+		if v_min eq v_max then $
+		TV,newimage2,xo,yo,xsize=xw,ysize=yw,/NAN else $
+		    TVSCL,newimage2,xo,yo,xsize=xw,ysize=yw,/NAN
 
 		    pos = [view_option.ps_l, view_option.ps_b, $
 			xw / !d.x_size + view_option.ps_l,  $
@@ -2623,10 +2692,13 @@ w = colorbar_data.width*10
                         horizontal=colorbar_data.horiz, $
                         reverse=printer_info.reverse, $
                         format=colorbar_data.format, $
+			log=log,off=off, $
                         ncap=colorbar_data.nlabel
 
 		endif else begin
-		    TV,newimage2, view_option.margin_l, view_option.margin_b
+		  if v_min eq v_max then $
+		  TV,newimage2,view_option.margin_l,view_option.margin_b,/NAN else $
+		    TVSCL,newimage2,view_option.margin_l,view_option.margin_b,/NAN
 
 		    p1 = [float(view_option.margin_l)/ !d.x_size, $
 			float(view_option.margin_b)/!d.y_size, $
@@ -2649,6 +2721,7 @@ w = colorbar_data.width*10
 			horizontal=colorbar_data.horiz, $
 			x=colorbar_data.x, y=posy, $
 			reverse=printer_info.reverse, $
+			log=log,off=off, $
 			ncap=colorbar_data.nlabel, format=colorbar_data.format
 		end
 
@@ -2716,8 +2789,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
 	catch2d_file.xarr = xa(0:catch2d_file.width-1)
 	catch2d_file.yarr = ya(0:catch2d_file.height-1)
-;	Image = image(0:catch2d_file.width-1, 0:catch2d_file.height-1)
-;	catch2d_file.image = image
+	Image = image(0:catch2d_file.width-1, 0:catch2d_file.height-1)
+;	*catch2d_file.image = image
 
 	newImage = image
 	s = size(newImage)
@@ -2954,24 +3027,10 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
     END
 
   'File.Save as TIFF': BEGIN
-	tvlct,R,G,B,/get
-	if !d.n_colors gt !d.table_size then $
-	WRITE_TIFF,'view2d.tiff',reverse(TVRD(/true),3) else $
-	WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
-	fileSeqString,catch2d_file.seqno,suf0
-	outname=catch2d_file.name+'.'+suf0+'.tiff'
-	dir = catch2d_file.outpath+'TIFF'+!os.file_sep
-	rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
+	save_tiff,win=view_option.d_wid,file='view2d.tiff'
     END
   'File.Save as PNG': BEGIN
-	tvlct,R,G,B,/get
-	if !d.n_colors gt !d.table_size then $
-	WRITE_PNG,'view2d.png',TVRD(/true) else $
-	WRITE_PNG,'view2d.png',TVRD(),R,G,B
-	fileSeqString,catch2d_file.seqno,suf0
-	outname=catch2d_file.name+'.'+suf0+'.png'
-	dir = catch2d_file.outpath+'PNG'+!os.file_sep
-	rename_dialog,dir,'view2d.png',outname,GROUP=Event.Top
+	save_png,win=view_option.d_wid,file='view2d.png'
     END
 
   'File.Printer ...': BEGIN
@@ -2979,7 +3038,11 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
     END
 
   'File.Print': BEGIN
-    PS_open,'view2d.ps',/TV
+     wid = view_option.d_wid
+     PS_TVRD,wid=wid,file='view2d.ps'
+    END
+  'File.PS Plot': BEGIN
+    PS_open,'view2d.ps',/TV ,font=view_option.fontname
     REPLOT
     PS_close
     PS_print,'view2d.ps'
@@ -3031,6 +3094,12 @@ COMMON COLORBAR, colorbar_data
 	return
     END
 
+  'Color.Color in Log Scale': bEGIN
+	view_option.log = 1
+	REPLOT
+	view_option.log = 0
+	return
+    END
   'Color.Change Color Table ...': BEGIN
     XLOADCT
 	return
@@ -3426,6 +3495,10 @@ close,1
 	view2d_changeXaxis
 	REPLOT
 	END
+  'PICK_LOGCOLOR': BEGIN
+	view_option.log = Event.Index 
+	REPLOT
+	END
   'IMAGE_PAN': BEGIN
 	view2d_pan_images_on
       END
@@ -3705,6 +3778,9 @@ PRO view2d, GROUP=Group, file=file, XDR=XDR,CA=CA
 ;       05-07-02 bkc  Add ranges to XDR image save
 ;                     Modify the user interface of Image Color Scheme
 ;       04-07-04 bkc  Add replace TIFF by PNG 
+;       05-19-04 bkc  Release R2.5.1
+;                     Add the Log Scale color On/Off option to allow more 
+;                     colors displayed in case of weak background signal
 ;-
 ;
 @os.init
@@ -3716,7 +3792,7 @@ if XRegistered('main13_2') ne 0  then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VIEW2D (R2.5)'
+  version = 'VIEW2D (R2.5.1)'
 
   main13_2 = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -3747,6 +3823,7 @@ if XRegistered('main13_2') ne 0  then return
         { CW_PDMENU_S,       0, 'Save as XDR' }, $ ;        2
         { CW_PDMENU_S,       0, 'Printer ...' }, $ ;        2
         { CW_PDMENU_S,       0, 'Print' }, $ ;        2
+        { CW_PDMENU_S,       0, 'PS Plot' }, $ ;        2
         { CW_PDMENU_S,       0, 'PS_close' }, $ ;        2
         { CW_PDMENU_S,       2, 'Quit' } $  ;      6
   ]
@@ -3821,6 +3898,9 @@ if XRegistered('main13_2') ne 0  then return
 
   pick_xaxis = WIDGET_DROPLIST(BASE185, VALUE=['P1','P2','P3','P4'], $
         UVALUE='PICK_2DXAXIS',TITLE='Xaxis')
+
+  logColor = WIDGET_DROPLIST(BASE185, VALUE=['Off','On'], $
+        UVALUE='PICK_LOGCOLOR',TITLE='Log')
 
   base185_1 = widget_base(BASE185,/row,/frame)
   ascii_data = WIDGET_BUTTON( BASE185_1, VALUE='ASCII ...', $
