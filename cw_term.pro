@@ -95,6 +95,7 @@ if n_elements(dir) eq 0 then begin
 	end
 	return,1
 END
+
 PRO cwterm_Save_Event, Event
 COMMON SYSTEM_BLOCK,OS_SYSTEM
 
@@ -123,6 +124,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 	ret = findpath(dir(0),/create)
 	WIDGET_CONTROL,info.newname, GET_VALUE=newname
 	filename = strtrim(dir,2)+strtrim(newname,2)
+
 	if strtrim(filename(0),2) ne '' then begin
 	found = findfile(filename(0))
 	if found(0) ne '' then begin
@@ -134,7 +136,6 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 	end
 	spawn,[OS_SYSTEM.mv, info.oldname, filename(0)],/noshell
 	WIDGET_CONTROL,info.base,/DESTROY
-;	res=widget_message('File: "'+filename(0)+'" saved',/info)
 	end
       END
   'CWTERM_SAVECANCEL': BEGIN
@@ -295,8 +296,15 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 	CASE event.value OF
 	  'Save As...': BEGIN
 		if XRegistered('cwterm_Save') eq 0 then $
-		cwterm_save_dialog,GROUP=Event.id, $
-			rename=state.rename,oldname=fileName
+;		cwterm_save_dialog,GROUP=Event.id, $
+;			rename=state.rename,oldname=fileName
+ 	p = strpos(state.rename,!os.file_sep,/reverse_search)
+	path = strmid(state.rename,0,p)
+	new = strmid(state.rename,p+1,strlen(state.rename)-p-1)
+ 	p = strpos(fileName,!os.file_sep,/reverse_search)
+	old = strmid(fileName,p+1,strlen(fileName)-p-1)
+	WIDGET_CONTROL,Event.top,/DESTROY,BAD_ID=bad
+	rename_dialog,path,old,new
 	      END
 	  'Close': BEGIN
 	      WIDGET_CONTROL, parent, DESTROY=1, BAD_ID=bad_id
