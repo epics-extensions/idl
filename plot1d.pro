@@ -166,7 +166,7 @@ PRO plot1d, x, y, id_tlb, windraw, $
 	xmargin=xmargin, ymargin=ymargin, stamp=stamp,$
 	legend=legend, xylegend=xylegend, $
 	width=width, height=height, $
-	comment=comment, $
+	comment=comment, cleanup=cleanup, $
 	wtitle=wtitle, button=button, GROUP=GROUP
 ;+
 ; NAME:
@@ -266,6 +266,9 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ;       BUTTON: Set this keyword if no print and close buttons are desired
 ;               for the PLOT1D widget.
 ;
+;       CLEANUP: Set this keyword if the created window can no be closed by the
+;                window manager is desired.
+;
 ; OPTIONAL_OUTPUTS:
 ;       ID_TLB: The widget ID of the top level base returned by the PLOT1D. 
 ;
@@ -318,6 +321,7 @@ PRO plot1d, x, y, id_tlb, windraw, $
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Mar. 7, 1996.
 ;
+;       04-26-96    Add the window cleanup keyword 
 ;-
 
 
@@ -430,7 +434,11 @@ if ysize lt 250 then ysize=250
 
 ; drawing with data 
 
+if keyword_set(CLEANUP) then $
+id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS, TLB_FRAME_ATTR=8) $
+else $
 id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS)
+;WIDGET_CONTROL,id_tlb,default_font='-*-Helvetica-Bold-R-Normal--*-120-*75-*'
 id_draw=WIDGET_DRAW(id_tlb,xsize=xsize,ysize=ysize)
 
 if keyword_set(button) eq 0 then begin
