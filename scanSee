@@ -18,10 +18,9 @@ endif
 
 set xdr = "DC"
 
-echo ".run read_scan.pro.R2" >! go_viewer
-echo ".run readScan.pro.R2" >>! go_viewer
-echo ".run DC.pro.R2.1" >>! go_viewer
-echo ".run vw2d.pro.R2.1" >>! go_viewer
+echo ".run readScan.pro" >! go_viewer
+echo ".run DC.pro.R2.3" >>! go_viewer
+echo ".run vw2d.pro.R2.2" >>! go_viewer
 echo "$xdr" >>! go_viewer
 if `isainfo -b` == 64 then
 	source /usr/local/rsi/idl_5.4/bin/idl_setup
