@@ -1,5 +1,5 @@
 
-; $Id: view1d.pro,v 1.11 1999/01/14 23:49:45 cha Exp $
+; $Id: view1d.pro,v 1.12 1999/01/29 21:32:02 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -167,7 +167,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.11 1999/01/14 23:49:45 cha Exp $
+; $Id: view1d.pro,v 1.12 1999/01/29 21:32:02 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3193,6 +3193,7 @@ END
 
 
 PRO view1d_summary_setup_Event, GROUP=GROUP, Event
+COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
 COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array, view1d_plotspec_id, view1d_plotspec_limits , view1d_plotspec_saved
@@ -3321,12 +3322,12 @@ deepmove:
 			move_file = move_file + '.bk'
 			goto,deepmove
 		end
-		spawn,[!os.mv, save_outfile, move_file],/noshell 
+		spawn,[OS_SYSTEM.mv, save_outfile, move_file],/noshell 
 	end
 
 	CATCH,error_status
 	if error_status ne 0 then begin ;  eq -171 or error_status eq -206 then begin
-		report_path = V1D_scandata.home + !os.file_sep 
+		report_path = V1D_scandata.home + OS_SYSTEM.file_sep 
 		save_outfile = report_path+view1d_summary_id.outfile
 		goto, RESETSENSE
 	end
@@ -3397,9 +3398,10 @@ view_print:
 	view1d_summary_id.outfile = V1D_scanData.path + filename
 	found = findfile(view1d_summary_id.outfile)
 	if found(0) ne '' then begin
-	 if !os.os_family eq 'unix' then $
-       	 spawn,[!os.prt, !os.printer, '-r', view1d_summary_id.outfile], /noshell else $
-	 spawn,[!os.prt,view1d_summary_id.outfile]
+	 if OS_SYSTEM.os_family eq 'unix' then $
+	 str = OS_SYSTEM.prt + ' ' + OS_SYSTEM.printer + ' -r '+view1d_summary_id.outfile  else $
+	 str = OS_SYSTEM.prt + ' ' + view1d_summary_id.outfile
+	 spawn,str + ' &'
 		return
 	end
 
@@ -3407,9 +3409,10 @@ view_print:
 
 	found = findfile(filename)
 	if found(0) ne '' then 	begin 
-	 if !os.os_family eq 'unix' then $
-         spawn,[!os.prt, !os.printer, '-r', filename], /noshell else $
-	 spawn,[!os.prt,filename]
+	 if OS_SYSTEM.os_family eq 'unix' then $
+	 str = OS_SYSTEM.prt + ' ' + OS_SYSTEM.printer + ' -r '+filename  else $
+	 str = OS_SYSTEM.prt + ' ' + filename 
+	 spawn,str + ' &'
 	endif else $
 	view1d_warningtext,['Error:','    '+filename+ '  not found!']
 	END
