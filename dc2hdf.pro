@@ -634,7 +634,7 @@ help1:
 END
 
 
-; $Id: dc2hdf.pro,v 1.1 1998/05/26 15:35:05 cha Exp $
+; $Id: dc2hdf.pro,v 1.2 1998/05/26 21:56:40 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -3486,7 +3486,7 @@ debug : 0,    $   ;  0 normal runing mode, 1 debug mode
 option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'CATCHER_V1', $
-      release     : '(R2.2.1)', $
+      release     : '(R2.2.2)', $
       pv          : '',           $
       pvconfig    : '',           $
       pvwait      : '',           $
