@@ -8,6 +8,7 @@ DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt \
 SCRIPTS = ezcaidl_setup setup_ezcaIDL ezcaidl_startup.pro \
 	os.init PS_open.pro u_read.pro cw_term.pro plot1d.pro plot2d.pro \
 	colorbar.pro rename_dialog.pro scan2d_roi.pro xdisplayfile.pro \
+	fit_statistic.pro \
 	dc2tiff dc2tiff.pro scan2d_convert.pro \
 	ez_fit.pro ezfit catch1d.tbl fixIndexFile.pro \
 	catcher_v1.pro catcher_v1.init catcher toImage.pro toimage \
