@@ -1,0 +1,36 @@
+.run ~cha/epics/extensions/src/idl/readScan
+
+;  required var:  file, seq is required for 2D scan
+
+st = [ $
+ 'The variables "File" and "seq" must be defined first.  ', $
+ 'For example :  ', $
+ '               file = "/home/oxygen9/BOUCHER/data/version1_1/rix:_0004.scan"' ,$
+ '               file = "/home/sricat/CHA/data/rix/cha:_0001.scan"' ,$
+ '               file = "/home/sricat/CHA/data/rix/cha:_0000.scan"' ,$
+ '               seq = 1       ; specify the row # ' ,$
+ '               @dc2ins_1d' ,$
+ '' ]
+  
+
+if n_elements(file) eq 0 then xdisplayfile,text=st,title='dc2ins_1d'
+if n_elements(file) eq 0 then stop
+ 
+delvar,st
+readScanFile,file,gD,scanno
+dim = *(*gD).dim
+
+if dim eq 1 then $
+scan1Ddata,gD,seq,xarr=x,yarr=ya,ysel='0,1',xdesc=xdesc,ydesc=ydesc
+if dim eq 2 then $
+scan1Ddata,gD,seq,xarr=x,yarr=ya,xdesc=xdesc,ydesc=ydesc
+
+scanimage_free,gD
+delvar,gD
+delvar,os_system
+;scanimage_cleanup
+
+get_1DLines,ya,'tmp.txt','all detectors',ydesc
+
+insight
+
