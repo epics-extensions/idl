@@ -346,8 +346,7 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 			res=dialog_message(temp,/info,title='PS legend problem')
 			PS_printer
 			spawn,'gv '+psfile + ' &'
-		endif else print,'spawn',str 
-  		spawn,str
+		endif else spawn,str
 	endif else begin
 		str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
 	        spawn,str
