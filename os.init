@@ -28,11 +28,11 @@ if !d.name eq 'WIN' then OS_SYSTEM.mv = 'rename'
 if !d.name eq 'WIN' then OS_SYSTEM.cp = 'copy'
 if !d.name eq 'WIN' then OS_SYSTEM.lpr = 'copy'
 if !d.name eq 'WIN' then OS_SYSTEM.prt = 'copy'
-if !d.name eq 'WIN' then OS_SYSTEM.printer = 'pnt:'
+if !d.name eq 'WIN' then OS_SYSTEM.printer = '\\oxygen\id1'
 
 defsysv,'!os',os_system
 
-if !d.name eq 'WIN' then CD,'\idl'
+if !d.name eq 'WIN' then CD,'C:\idl\viewer2.2'
 
 !QUIET = 1
 
