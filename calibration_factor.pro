@@ -338,11 +338,12 @@ PRO CALIBRA_Event, Event
 ;	equ_str = equ_str + info.end_str
 
 	catch,err_status
-	r = Execute('temp='+equ_str)
 	if err_status ne 0 then begin
 		r= dialog_message('Incomplete calibration function defined',/error)
 		return
 	end
+	r = Execute('temp='+equ_str)
+;	r= call_function('temp=',equ_str)
 
 	if info.dim eq 1 then begin
 	xarr = info.xv
@@ -475,7 +476,8 @@ PRO CALIBRA_findID,EV,substring,id
 END
 
 
-PRO calibration_factor,image_array,id_def,dnames=dnames,dvalues=dvalues, no_field=no_field, GROUP=Group,title=title,xv=xv,yv=yv,inpath=inpath,classname=classname,format=format 
+PRO calibration_factor,image_array,id_def,dnames=dnames,dvalues=dvalues, no_field=no_field, GROUP=Group,title=title,xv=xv,yv=yv, $
+inpath=inpath,classname=classname,format=format,vers=vers 
 ;+
 ;
 ; NAME:
@@ -518,6 +520,7 @@ PRO calibration_factor,image_array,id_def,dnames=dnames,dvalues=dvalues, no_fiel
 ;                  default to ''
 ;   GROUP        - Specify the parent Group widget ID, destroy of the parent
 ;                  widget resulting the destroy of this calibration program 
+;   VERS      - Specify the new synApps 4.6 detector names used
 ;
 ; EXAMPLE:
 ;    Following example calls the calibration program with known image_array,
@@ -649,6 +652,7 @@ end
   detname = [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
         '01','02','03','04','05','06','07','08','09', $
         strtrim(indgen(61)+10,2)]
+  if keyword_set(VERS) then detname = detname(15:84)
 
   if keyword_set(DNAMES) then detname=dnames
 
