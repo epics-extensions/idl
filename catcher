@@ -18,16 +18,6 @@ else
 	source $EPICS_EXTENSIONS/bin/$HOST_ARCH/setup_ezcaIDL
 endif
 
-if $IDL_DIR == '/usr/local/rsi/idl_4' then
-	source /usr/local/rsi/idl_4/bin/idl_setup
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2"
-	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2"
-	endif
-	if -e catcher.exe2 then
-	set exe = "-rt=catcher.exe2"
-	endif
-else
 	source /usr/local/rsi/idl_5/bin/idl_setup
 	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl5"
 	if ${?EPICS_EXTENSIONS_PVT} == 1 then
@@ -36,7 +26,7 @@ else
 	if -e catcher.exe2.idl5 then
 	set exe = "-rt=catcher.exe2.idl5"
 	endif
-endif
+
 # echo $exe
 
 if -e catch1d.config then
