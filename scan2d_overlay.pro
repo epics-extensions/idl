@@ -684,6 +684,7 @@ END
 
 
 PRO overlayImage_draw2,overlay_state
+widget_control,/hourglass
 
 	xdim = overlay_state.xdim
 	ydim = overlay_state.ydim
