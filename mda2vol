@@ -1,5 +1,5 @@
 #!/bin/csh -f
-source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
+source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 
 set runfile=""
 if "$1" != "" then

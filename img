@@ -7,7 +7,7 @@
 # This file is distributed subject to a Software License Agreement found
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
-source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
+source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 
 echo "@os.init" >! go_viewer
 echo ".run PS_open" >>! go_viewer
