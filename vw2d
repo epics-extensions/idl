@@ -7,7 +7,7 @@ if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
 endif
 
-source /usr/local/rsi/idl_5.1/bin/idl_setup
+#source /usr/local/rsi/idl_5.1/bin/idl_setup
 
 setenv IDL_DEVICE X
 
@@ -15,7 +15,8 @@ setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
 
 set xdr = "vw2d"
 
-echo ".run vw2d" >! go_viewer
+echo ".run panimage" >! go_viewer
+echo ".run vw2d" >>! go_viewer
 echo "$xdr" >>! go_viewer
 idl go_viewer
 rm go_viewer
