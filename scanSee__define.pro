@@ -3,7 +3,8 @@
 ;
 @u_read.pro
 @fit_statistic.pro
-; @readScan.pro
+@readScan.pro
+@read_scan.pro.R2
 @colorbar.pro
 @scan2d_roi.pro
 @view3d_2d.pro
@@ -31,6 +32,121 @@ PRO scanSee_pick3d,file,image_array,pickDet=pickDet,Dump=dump,Group=group
 ;	sz = size(image_array)
 ;	panimage,image_array,indgen(sz(3))+1
 	view3d_2d,image_array,title=title+'('+detname(pick-1)+')',Group=group
+END
+
+
+PRO scanSee::overlay,list,num_max=num_max,det_sel=det_sel,pick1d=pick1d,xdata=xdata,ydata=ydata,plot=plot,title=title,GROUP=group
+;+
+; NAME:
+;       scanSee::Overlay
+;
+; PURPOSE:
+;       This method allows the user to extract 1D scan out of scan files
+;       specified by a list of scan numbers. The keyword XDATA, YDATA 
+;       returns the corresponding X, Y vector array for the list of scans.
+;
+; CALLING SEQUENCE:
+;       Obj->[scanSee::]OVERLAY,list [,NUM_MAX=num_max] [,DET_SEL=det_sel] 
+;             [,PICK1D=pick1d] [,XDATA=xdata] [,YDATA=ydata] 
+;
+; ARGUMENTS:
+;   LIST     - Specifies the list of scan numbers to be overlayed 
+;
+; KEYWORD:
+;   NUM_MAX  - Specifies the max number of data points in 1D scan 
+;              (default same as num_pts[0] from the current active object) 
+;   DET_SEL  - Specifies the detector number picked (default 1)
+;   PICK1D   - Specifies the 1D line # from the 2D scan (default 1)
+;   Xdata    - Returns X data array xdata(num_max,nline)
+;   YDATA    - Returns Y data array ydata(num_max,nline)
+;   PLOT     - Specifies whether PLOT1D will be called
+;   TITLE    - Specifies the plot tile for PLOT1D 
+;   GROUP    - Specifies the parent for PLOT1D window
+;
+; RESTREICTION:
+; 	It is assumed that the list contains 1D scan file only.
+;       If 2D scan file detected and PICK1D is not specified then the 1st 
+;       line of 2D image is picked.
+;       If the DET_SEL is not defined then the detecor 1 is assumed
+;
+; EXAMPLE:
+;   Example 1 - Extract 1D scan line # 4 from the 2D scan [2,5, 7] files
+;               for the detector # 5. The xdata, and ydata returns the
+;               position and detector array with dimension (num_max,3)
+;               where num_max is same as the X dim of the v1 object.
+;               Call obj_new is required only if v1 never been defined.
+;
+;         v1 = obj_new('scanSee',file='/home/beams/CHA/data/xxx/cha:_0002.scan')
+;         v1->overlay,[2,5,7],DET_SET=5,PICK1D=4,xdata=xdata,ydata=ydata
+;
+;   Example 2 - Extract and overlay plot the detector 5's first line scan 
+;               from the following list of 1D/2D scan [1,2,5,7]
+;
+;         v1->overlay,[1,2,5,7],DET_SET=5,xdata=xdata,ydata=ydata,/plot
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, June 1, 2001.  
+;       xx-xx-xxxx      comment
+;-
+
+
+    if keyword_set(det_sel) eq 0 then det_sel = 1
+    if keyword_set(pick1d) eq 0 then pick1d = 1	
+
+    if obj_valid(self) then begin
+
+	nfile = n_elements(list)
+	num_pts = *(*self.gD).num_pts
+	numx = num_pts(0)
+	if keyword_set(num_max) then numx = num_max
+
+	ydata = make_array(numx,nfile)
+	xdata = make_array(numx,nfile)
+
+	nms=''
+	for i=0,nfile-1 do begin
+	scanno = list(i)
+	nms = nms + strtrim(scanno,2)+','
+        if scanno lt 10000 then begin
+        str = '0000'
+        st = strtrim(scanno,2)
+        len = strlen(st)
+        strput,str,st,4-len
+        endif else str = strtrim(scanno,2)
+        filename = self.prefix+str+self.suffix
+        print,filename
+
+	self->Next,scanno
+	self->Read,dim=dim,pa1d=pa1d,da1d=da1d,da2d=da2d,pa2d=pa2d,cpt=cpt,id_def=id_def
+	
+	pt1 = cpt(0)
+	if pt1 gt numx then pt1 = numx
+;	if i eq 0 then x = pa1d(0:pt1-1,0)
+	x = pa1d(*,0)
+	xdata(0,i) = x(0:pt1-1)
+
+	if det_sel le (self.nd+1) then begin
+		v = da1d(0:pt1-1,det_sel-1)
+		if dim ge 2 then v = da2d(0:pt1-1,pick1d-1,det_sel-1)
+		ydata(0,i) = v(0:pt1-1)
+	end
+;print,i,list(i),dim,cpt,self.nd
+;help,pa1d,da1d
+;if dim ge 2 then help,pa2d,da2d
+;print,pick1d,det_sel
+;print,v
+	end
+
+;	help,xdata
+;	print,xdata
+;	help,ydata
+;	print,ydata
+;	self->ascii2d,det_sel,/view
+
+	if n_elements(title) eq 0 then $
+	title = 'SCAN:'+nms+ '(Detector # '+strtrim(det_sel,2) + ', Line # '+strtrim(pick1d,2)+')'
+	if keyword_set(plot) then plot1d,x,ydata,/data,title=title,group=group
+    end
 END
 
 
@@ -611,6 +727,7 @@ if error_status ne 0 then begin
 	return	
 	end
 	self.win = -1
+	return
 end
 if self.win ne -1 then wdelete,self.win
 self.win = -1
@@ -846,7 +963,7 @@ PRO scanSee::First,seqno,filename
 	return
 	end
 
-	list = findfile(self.path+'*.scan',count=ct)
+	list = findfile(self.path+'*'+self.suffix,count=ct)
 	if ct gt 0 then begin
 
 	ip = rstrpos(self.prefix,!os.file_sep)+1
@@ -898,7 +1015,7 @@ PRO scanSee::Last,seqno,filename
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       03-15-01    bkc Accommondate for W95 use wild search for *.scan
 ;-
-	found = findfile(self.path+'*.scan',count=ct)
+	found = findfile(self.path+'*'+self.suffix,count=ct)
 	len = strlen(self.prefix)
 	sp = rstrpos(self.prefix,!os.file_sep)
 	if sp gt -1 then sp=sp+1
@@ -1671,7 +1788,10 @@ heap_gc
 	self.name = strmid(filename,rp+1,len)
 	rp = rstrpos(self.file,'_')
 	self.prefix = strmid(self.file,0,rp+1)
-	self.suffix =  '.scan'
+
+	po = strpos(self.name,'.',/reverse_search)
+;	self.suffix =  '.scan'
+	self.suffix = strmid(self.name,po,strlen(self.name)-po)
 
 	dir = self.path
         CATCH,error_status
