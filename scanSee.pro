@@ -1058,7 +1058,7 @@ PRO SS_VIEWSPEC_Event, Event
   'PDMENU2D_INFO_SCANSEE': scanSee_PDMENU2D_Info_Event,state,Event
   ENDCASE
 
-      WIDGET_CONTROL,event.top,SET_UVALUE=state
+      WIDGET_CONTROL,event.top,SET_UVALUE=state,bad_id=bad
 END
 
 
