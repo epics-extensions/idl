@@ -1,0 +1,23 @@
+ 
+			PICK3D Program
+
+This program is specially written for viewing big 3D scan file.
+It only accept 3D scan file which must be created by the IOC scan software.
+
+The actual time used for reading a 3D scan array depends on 
+the size of 3D scan and the memeory available on the operating system. 
+For a 3D scan with dimensions 2000x50x50 the memory used by a single
+3D data array will by 20Mb. Pick3d will only load one 3D data array 
+of the selected detector into IDL.  This will reduce the memory used 
+by the PICK3D and improve the program performance on UNIX.
+
+The user first should pick the detector # desired from the detector list 
+before select the 3D file from the scan file data directory. At the normal 
+completion of loading a 3D scan file, the 2D slicer dialog program of the 
+picked detector will pop up. Then a user can use various buttons to pick 
+the axis, slicer # to access desired image slice, to run PLOT2D, ASCII, 
+PICK1D viewing program on the selected detector's 3D array.
+
+A 2D Menu allows the user to run various 2D programs to access the lower 
+level 2D data array. 
+
