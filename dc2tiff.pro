@@ -103,7 +103,11 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	ELSE:
 	ENDCASE
 
-	tiff_v2->view,tiff_ids.imageno,/noplot,type=tiff_ids.viewtype
+	tiff_v2->view,tiff_ids.imageno,scanno,detno,/noplot,type=tiff_ids.viewtype
+	tiff_ids.scanno_current=scanno
+	tiff_ids.detector=detno-1
+	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
+	WIDGET_CONTROL,tiff_ids.detector_id,SET_LIST_SELECT=detno-1
 
 END
 
@@ -124,6 +128,9 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	tiff_ids.filename = f
 	WIDGET_CONTROL,tiff_ids.filename_id,SET_VALUE=f
 	tiff_init
+
+	WIDGET_CONTROL,tiff_ids.base2,SENSITIVE=1
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_SLIDER_MIN=1
 	WIDGET_CONTROL,tiff_ids.slider_id,SET_SLIDER_MAX=tiff_ids.maxno
 	WIDGET_CONTROL,tiff_ids.list_id,SET_VALUE=''
 	WIDGET_CONTROL,tiff_ids.classname_id,SET_VALUE=tiff_ids.classname
@@ -133,8 +140,12 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	2: sub = 'GIF'
 	3: sub = 'ASCII'
 	ENDCASE
-	tiff_ids.outpath = tiff_ids.tiffpath +!os.file_sep +sub+!os.file_sep
+	dir = tiff_ids.tiffpath +!os.file_sep +sub+!os.file_sep
+	tiff_ids.outpath = dir
 	WIDGET_CONTROL,tiff_ids.tiffpath_id,SET_VALUE=tiff_ids.outpath
+	found = findfile(dir,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +dir
+	tiff_ids.outpath = dir
       END
   'TIFF_FILE2': BEGIN
 	WIDGET_CONTROL,tiff_ids.filename_id,GET_VALUE=filename
@@ -174,7 +185,7 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	tiff_v2->panimage,scanno,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	tiff_ids.scanno_current = scanno
-	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno+tiff_ids.detector+1
 	tiff_ids.imageno = seqno
       END
   'SCAN_FIRST': BEGIN
@@ -182,23 +193,31 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	tiff_v2->panimage,1,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
-	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno+tiff_ids.detector+1
 	tiff_ids.imageno = seqno
       END
   'SCAN_NEXT': BEGIN
+	if tiff_ids.scanno_current ge tiff_ids.scanno_last then begin
+		r = dialog_message('No more 2D scan',/Info)
+		return
+	end
 	tiff_ids.scanno_current=1 + tiff_ids.scanno_current
 	tiff_v2->panimage,tiff_ids.scanno_current,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
-	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno+tiff_ids.detector+1
 	tiff_ids.imageno = seqno
       END
   'SCAN_PREV': BEGIN
+	if tiff_ids.scanno_current le 1 then begin
+		r = dialog_message('It is already the first 2D scan',/Info)
+		return
+	end
 	tiff_ids.scanno_current = tiff_ids.scanno_current - 1
 	tiff_v2->panimage,tiff_ids.scanno_current,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
-	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno+tiff_ids.detector+1
 	tiff_ids.imageno = seqno
       END
   'SCAN_LAST': BEGIN
@@ -206,7 +225,7 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	tiff_v2->panimage,tiff_ids.scanno_last,seqno=seqno,new_win=new_win
 	tiff_ids.panimagewin = new_win
 	WIDGET_CONTROL,tiff_ids.scanno_id,SET_VALUE=tiff_ids.scanno_current
-	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno+tiff_ids.detector+1
 	tiff_ids.imageno = seqno
       END
   'TIFF_FIRST': BEGIN
@@ -240,10 +259,11 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	update_tiffplot
       END
   'TIFF_PANIMAGES': BEGIN
-	tiff_v2->panimage,new_win=new_win,seqno=seqno
+	tiff_v2->panimage,new_win=new_win,seqno=seqno,error=error
+	if error eq -1 then return
 	tiff_ids.panimagewin = new_win
-	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno
-	tiff_ids.imageno = seqno
+	WIDGET_CONTROL,tiff_ids.slider_id,SET_VALUE=seqno+tiff_ids.detector
+	tiff_ids.imageno = seqno+tiff_ids.detector
       END
   'TIFF_LISTAPPEND': BEGIN
 	WIDGET_CONTROL,tiff_ids.slider_id,GET_VALUE=no
@@ -256,10 +276,29 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
   'TIFF_LISTCLR': BEGIN
 	WIDGET_CONTROL,tiff_ids.list_id,SET_VALUE=''
       END
+  'TIFF_DETECTOR': BEGIN
+	sel = WIDGET_INFO(tiff_ids.detector_id,/list_select)
+	tiff_ids.detector = sel
+      END
+  'TIFF_LISTALLDET': BEGIN
+	if tiff_ids.maxno lt 2 then return
+	tiff_v2->detliststring,st
+	WIDGET_CONTROL,tiff_ids.list_id,SET_VALUE=st
+      END
+  'TIFF_LISTSAMEDET': BEGIN
+	if tiff_ids.maxno lt 2 then return
+	detno = tiff_ids.detector+1
+	tiff_v2->detliststring,detno=detno,st
+	WIDGET_CONTROL,tiff_ids.list_id,SET_VALUE=st
+      END
   'TIFF_LISTWHOLE': BEGIN
 	if tiff_ids.maxno lt 2 then return
 	st = '1-'+strtrim(tiff_ids.maxno,2)
 	WIDGET_CONTROL,tiff_ids.list_id,SET_VALUE=st
+	if tiff_ids.type eq 3 then begin
+	WIDGET_CONTROL,/HOURGLASS
+	tiff_v2->ascii2d,/all,/nowin
+	end
       END
   'TIFF_DIR': BEGIN
 	WIDGET_CONTROL,tiff_ids.tiffpath_id,GET_VALUE=dir
@@ -273,7 +312,7 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
       END
   'TIFF_DONE': BEGIN
       WIDGET_CONTROL,tiff_ids.base,/DESTROY
-      wdelete,0
+	exit
       END
   'TIFF_ASCII': BEGIN
 	if tiff_ids.type ne 3 then begin
@@ -297,7 +336,7 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 		end
 	endif else begin
 		F=dialog_pickfile(filter='*.image.*txt',GET_PATH=p,GROUP=Event.Top,/MUST_EXIST,$
-		PATH=tiff_ids.tiffpath,TITLE='Select Image ASCII File',/READ)
+		PATH=tiff_ids.outpath,TITLE='Select Image ASCII File',/READ)
 		if F eq '' then return
 		xdisplayfile,F	
 	end
@@ -374,21 +413,28 @@ COMMON TIFF_BLOCK,tiff_ids,tiff_v2
 	'                         changed to a user desired directory', $
 	'     Output Classname:   same as the image filename', $
 	'', $	
-	'2. Select the Image Type TIFF/R-TIFF/GIF/ASCII to be saved', $
+	'2. View as TV/SURFACE/CONTOUR/SHADE_SURFACE plot', $
+	'   Select the Image Type TIFF/R-TIFF/GIF/ASCII to be saved', $
 	'   Note:  output file will be saved in the output Dir/Path, the', $
 	'          filename is constructed from image classname, #, and type',$
 	'       --Type-----------Output Filename-----------',$
 	'         TIFF/R-TIFF  classname+.#+.tiff   (bottom-top/reverse order)',$
 	'         GIF          classname+.#+.gif',$
 	'         ASCII        classname+.#+.txt','',$
-	'3. Use <<,->,<-,>> buttons to preview the first,next,prev,last Image #', $
+	'3. Use Scan 2D # Field, First, Next, Prev, Last buttons to point', $
+	'   to the desired 2D scan # panImages', $
+	'   Use the scroll list to pick the desired detector from 2D scan', $
+	'   Use <<,->,<-,>> buttons to access and preview the Image #', $
  
-	'   Drag Image# slider to position the 2D scan # of the image',$
-	'   Press the D1...D15 button to view all detectors of the image#',$
+	'   Drag Image# slider to access and preview the image #',$
+	'   Press the D1...D15 button to access the current panImages of image#',$
 	'',$
 	'4. List field accepts the comma separated image# to be saved', $
 	'   Note: AddList button adds the slider image# to List field', $
-	'         Whole_List button sets to complete range of image#','',$
+	'         Use Image # RangeList button to extract all images in a 2D scan', $
+	'         Whole_List button sets to complete range of image#',$
+	'         Same Detector List button extracts the same detector from the whole list', $
+	'', $
 	'5. Use the Accept_List button to generate the output files', $
 	'', $
 	'6. Use the View ASCII... button to view the ASCII files', $
@@ -423,6 +469,7 @@ loadct,39
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
   tiff_ids = { base: 0L, $
+	base2: 0L, $
 	filename_id: 0L, $
 	filename: '', $
 	path: '',$
@@ -434,6 +481,8 @@ loadct,39
 	classname: '', $
 	slider_id:   0L, $
 	scanno_id:   0L, $
+	detector_id:   0L, $
+	detector: 0, $
 	scanno_last :0, $
 	scanno_current :0, $
 	maxno: 1, $
@@ -453,20 +502,21 @@ loadct,39
 	end
 
   MAIN13 = WIDGET_BASE(GROUP_LEADER=Group, $
-      ROW=1, $
+      COLUMN=1, $
       MAP=1, $
+	TITLE='dc2tiff - create TIFF/GIF/ASCII Image Files', $
       UVALUE='MAIN13')
 
+  BASE1 = WIDGET_BASE(MAIN13, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE1')
   BASE2 = WIDGET_BASE(MAIN13, $
       COLUMN=1, $
       MAP=1, $
       UVALUE='BASE2')
 
-  LABEL3 = WIDGET_LABEL( BASE2, $
-      UVALUE='LABEL3', $
-      VALUE='Create TIFF/GIF/ASCII Image Files')
-
-  BASE4 = WIDGET_BASE(BASE2, $
+  BASE4 = WIDGET_BASE(BASE1, $
       ROW=1, $
       MAP=1, $
       UVALUE='BASE4')
@@ -482,6 +532,10 @@ loadct,39
   BUTTON31 = WIDGET_BUTTON( BASE4, $
       UVALUE='TIFF_HELP', $
       VALUE='Help...')
+
+  BUTTON19 = WIDGET_BUTTON( BASE4, $
+      UVALUE='TIFF_DONE', $
+      VALUE='Done')
 
   TIFF_FILE2 = CW_FIELD( BASE2,VALUE=tiff_ids.filename, $
       ROW=1, $
@@ -557,11 +611,18 @@ loadct,39
       UVALUE='SCAN_LAST', $
       VALUE='Last')
 
+  DET_BUTTON5 = WIDGET_BUTTON( BASE20, $
+      UVALUE='TIFF_LISTALLDET', $
+      VALUE='Image # RangeList')
+
 
   BASE25 = WIDGET_BASE(BASE2_0, $
       ROW=1, $
       MAP=1, $
       UVALUE='BASE25')
+  
+  TIFF_DETECTOR = WIDGET_LIST(BASE25,value=strtrim(indgen(15)+1,2), $
+	UVALUE='TIFF_DETECTOR',YSIZE=3)
 
   TIFF_FIRST = WIDGET_BUTTON( BASE25, $
       UVALUE='TIFF_FIRST', $
@@ -680,9 +741,13 @@ BMP210 = [ $
       UVALUE='TIFF_LISTCLR', $
       VALUE='Clear_List')
 
-  CLR_BUTTON5 = WIDGET_BUTTON( BASE25_1, $
+  All_BUTTON5 = WIDGET_BUTTON( BASE25_1, $
       UVALUE='TIFF_LISTWHOLE', $
       VALUE='Whole_List')
+
+  DET_BUTTON5 = WIDGET_BUTTON( BASE25_1, $
+      UVALUE='TIFF_LISTSAMEDET', $
+      VALUE='Same Detector List')
 
   BUTTON20 = WIDGET_BUTTON( BASE25_1, $
       UVALUE='TIFF_ACCEPT', $
@@ -693,18 +758,18 @@ BMP210 = [ $
       MAP=1, $
       UVALUE='BASE18')
 
-  BUTTON19 = WIDGET_BUTTON( BASE18, $
-      UVALUE='TIFF_DONE', $
-      VALUE='Done')
-
 	tiff_ids.base = MAIN13 
+	tiff_ids.base2 = BASE2
 	tiff_ids.filename_id = TIFF_FILE2
 	tiff_ids.scanno_id = SCAN_NUMBER
 	tiff_ids.list_id = TIFF_LIST
 	tiff_ids.tiffpath_id = TIFF_DIR
 	tiff_ids.classname_id = TIFF_CLASSNAME
 	tiff_ids.slider_id = TIFF_SLIDER
+	tiff_ids.detector_id = TIFF_DETECTOR
+	WIDGET_CONTROL,tiff_ids.detector_id,SET_LIST_SELECT=tiff_ids.detector
 	
+	WIDGET_CONTROL,tiff_ids.base2,SENSITIVE=0
 
   WIDGET_CONTROL, MAIN13, /REALIZE
 
