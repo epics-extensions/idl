@@ -1,0 +1,157 @@
+
+			CATCHER 1.4 RELEASE NOTE 
+		        ========================
+
+Both catcher_v1.pro and view2d.pro are been modified in this release.
+In this release a user has more control in viewing the 2D scan image.
+The data catcher allows the window manager to control the main window
+and a friendlier scan status field is implemented.
+
+CATCHER_V1 
+==========
+
+				Bugs Fixed
+				----------
+- File->New  
+
+The bug of File->New failed to create the new file is observed in 
+Version 1.3, even though that the message indicates that the new file 
+will be used. This problem is fixed in this release, the old file will
+be closed and the new file will be saved.
+
+ 
+- Message Window 
+
+Fixed the bug in setting the default title for the message window in 
+w_warningtext routine
+
+
+				Improvement
+				-----------
+- Main Window  
+
+The main window of data catcher now is managed by the window manager again, 
+except that the window can not be closed by the window manager directly.  
+It can only be closed by the File->Quit selection.  This way the user can 
+still freely  control the winodw of data catcher through window manager.
+Similarly the view1D window is also managed by the window manager now, 
+except it can not be closed by the window manager.
+
+This change will protect the user from accidentally killing the normal
+operation of the data catcher.
+
+
+- Status Text Field 
+
+Modified the Status field to reflect the acquired data points for both
+1D and 2D scan.  It will provide the status for PV setup.  It will also
+provide the status of scanning while the scan is going on,  e. g. 
+
+	For 1D PV Setup:
+	>> PV Valid <<
+
+	For 2D PV Setup:
+	>> PV2 Valid <<
+
+	For 1D scanning: 
+	SCANNING: 12 of 100 Pts 
+
+	For 2D scanning: 
+	SCANNING: 12 of 100 Pts At 10'th Scan 
+	
+	For End of Scan: 
+	IDLE : Acquired  100 Pts 
+
+
+- 2D-Image Window 
+
+Previously the 2D scan data is displayed as an image pixel data.
+If the acquired number of data point is small the image is too small 
+to view by the user. 
+
+In this version, the 2D scan image window has been modified to use a 
+fixed 200x200 pixel window. No matter how big the image data is, it 
+will be automatically re-mapped to 200x200. Image is always visible 
+now except for the case where all the data is 0. In which color 0 is
+used in plot.
+
+16 colors is used for displaying the image data. The linear color 
+interpolation of image data is used to better dislaying the image.  
+Each detector has its own image. The image window is redrawn at 
+the end of each 1D scan to reflect how far 2D scan has proceeded. 
+At the normal completion of 2D scan the whole window is filled
+with pixel. Now the 2D image window serves as a true indicator 
+for 2D scan.
+
+
+
+VIEW2D
+======
+
+Previously, a user has no direct control of access the scan number.
+A User has to based on the information block to figure out the 
+image corresponding to which scan and which detector.  It is very 
+hard for users to do that. In this version a better control of
+accessing 2D image is implementd.
+
+For a given image file, at the startup of VIEW2D program the total 
+number of 2D scans and the total number of images found are listed 
+in output terminal.
+
+For each 2D scan, each detector has its own image data.  Each scan 
+record can monitor up to 15 detectors, i.e., each 2D scan at most 
+can have 15 image data.
+
+At the end of 2D scan, only the defined detectors possess 2D images.
+Non defined detectors has no image saved. Each scan may have different 
+number of detectors defined.  For example, if only detector 1 and 
+detector 4 PV names are defined, there will be two images saved for
+this 2D scan. The first image corresponds to detector 1 and the 
+second image corresponds to detecor 4.
+
+Now the 'First', 'Next', 'Prev', 'Last',  and 'Slide bar' are used to
+select the 2D scan number. They are used to position to the first
+image data for the interested scan number. A set of 15 image buttons 
+is added to VIEW2D to let the user to select the interested detector 
+image within a given selected scan number. 
+
+For the current image data, the information block will show the 
+corresponding Scan #, Detector #, and the corresponding image 
+sequence # in the whole file. 
+
+16 colors is used for displaying the image data. The linear color 
+interpolation of image data is used to better represent the image.  
+
+
+
+
+
+			CATCHER 1.3 RELEASE NOTE 
+		        ========================
+
+- Dropped the support for scan fields setup window and messsage text field
+
+- Reduced the data catcher window size by moving scan setup pvname
+  entries to a pop up setup window
+
+- Realtime trend plot against the real time axis is implemented
+
+- Fixed problems of realtime plot for some of the linear-relative
+  mode
+
+- Realtime plot title reflects the scan record name monitored and the
+  X axis label identifies the positioner selected in plot
+
+- Fixed problems of generating environment report for arbitrarily
+  located key pvnames in environment file 
+
+- Fixed various miscellaneous replot bugs 
+
+- Implemented various on line help and HTLM documents 
+        access catcher sub-program packages
+        access ezcaIDL reference manual
+
+- Default number of colors used by data catcher is set to 16 now,
+  before it let IDL grab all the colors are currently available.
+
+
