@@ -274,13 +274,13 @@ PRO AllASCII1DSetup, state, GROUP=Group
 
   LABEL4 = WIDGET_LABEL( BASE2, $
       UVALUE='LABEL4', $
-      VALUE='(Max 1D Line # '+strtrim(state.maxno,2)+')')
+      VALUE='(Total 1D Lines : '+strtrim(state.maxno,2)+')')
 
   FIELD4 = CW_FIELD( BASE2,VALUE='1', $
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='Start 1D Line #', $
+      TITLE='Begin 1D Line #', $
       UVALUE='VIEWSPEC_STARTNO', $
       XSIZE=5)
 
@@ -288,7 +288,7 @@ PRO AllASCII1DSetup, state, GROUP=Group
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
-      TITLE='End 1D Line #', $
+      TITLE='End 1D Line # ( < '+strtrim(state.maxno,2)+' )', $
       UVALUE='VIEWSPEC_ENDNO', $
       XSIZE=5)
 
@@ -657,7 +657,7 @@ PRO SS_VIEWSPEC_Event, Event
 		if i eq 0 then legend = strtrim(res(i)+1,2) else $
 		legend = [legend,strtrim(res(i)+1,2)]
 	end
-	title = 'Detector D'+strtrim(state.detno,2) + ' Overlay Plot'
+	title = 'Detector '+state.detname(state.detno-1) + ' Overlay Plot'
 	xtitle=labels(0)
 	ytitle=labels(4,0)
 	wtitle = '1D Overlay Plot'
@@ -718,6 +718,9 @@ PRO SS_VIEWSPEC_Event, Event
       END
   'VIEWSPEC_PICK1D': BEGIN
 	v->calibration,pick1d=state.detno,GROUP=Event.top
+      END
+  'VIEWSPEC_VW2D': BEGIN
+	v->vw2d,GROUP=Event.top
       END
   'VIEWSPEC_ROI2D': BEGIN
 	v->ROI,state.detno,GROUP=Event.top
@@ -1023,9 +1026,11 @@ filetype = WIDGET_LABEL( BASE4, $
 
   BASE28_1 = WIDGET_BASE(BASE28_0, $
       COLUMN=1, UVALUE='BASE28_1')
+
   BUTTON25 = WIDGET_BUTTON( BASE28_1, $
       UVALUE='VIEWSPEC_PLOT2D', $
       VALUE='PLOT2D...')
+
   BUTTON15 = WIDGET_BUTTON( BASE28_1, $
       UVALUE='VIEWSPEC_ASCII2D', $
       VALUE='ASCII2D...')
@@ -1034,7 +1039,6 @@ filetype = WIDGET_LABEL( BASE4, $
       UVALUE='VIEWSPEC_PICK1D', $
       VALUE='2D_PICK1D... ')
 
-
   MenuPANImage = [ $
       { CW_PDMENU_S,       1, 'PanImage' }, $ ;        0
         { CW_PDMENU_S,       0, 'Options...' }, $ ;        1
@@ -1042,6 +1046,11 @@ filetype = WIDGET_LABEL( BASE4, $
         ]
   PDMENU2D_panimage = CW_PDMENU( BASE28_1, MenuPANImage, /RETURN_FULL_NAME, $
       UVALUE='PDMENU2D_PANIMAGE_SCANSEE')
+
+  @vw2d.bm
+  BUTTON38 = WIDGET_BUTTON( BASE28_1, $
+      UVALUE='VIEWSPEC_VW2D', $
+      VALUE=BMP167,/BITMAP)
 
   BASE28_3 = WIDGET_BASE(BASE28_0, /FRAME, $
       COLUMN=1, UVALUE='BASE28_3')
