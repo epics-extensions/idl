@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: xdisplayfile.pro,v 1.7 2004/01/30 21:25:31 cha Exp $
+; $Id: xdisplayfile.pro,v 1.8 2004/04/14 17:51:11 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -140,8 +140,6 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
   endif else begin
 
     y=10000
-;    if OS_SYSTEM.os_family eq 'unix' then begin
-;	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
 	WC,FILENAME,y
 
 	lines=long(y(0))
@@ -149,7 +147,6 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
 	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
 	return
 	end
-;    end
 
 	  a = strarr(y(0))				;Maximum # of lines
 	  i = 0L
@@ -200,12 +197,6 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 		/SCROLL, $
 		VALUE = a)
 
-;state = { $
-;	 base: filebase, $
-;	 filetext: filetext, $
-;	 file: '' $
-;	 }
- 
  state = { ourGroup: ourGroup, $
 	filename: title, $
 	filetext: filetext, $
