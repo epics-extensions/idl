@@ -19,7 +19,7 @@ print,!path
 
 ;  assign color
 private_table = fix(getenv('IDL_NCOLORS'))
-if private_table gt 0 and private_table lt 256 then window,colors = private_table
+if private_table gt 0 and private_table lt 256 then window,colors = private_table,/pixmap
 if !d.window ne -1 then wdelete
 
 device,retain=2
