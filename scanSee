@@ -7,7 +7,7 @@
 # This file is distributed subject to a Software License Agreement found
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
-source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
+source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 source $PVT_LOC/ezcaidl_setup
 
 	set exe = "-rt=$PVT_LOC/sscan.sav"
@@ -29,16 +29,12 @@ if ( "$1" == "-A" | "$1" == "-a" | "$1" == "-Auto" ) then
         shift
 endif
 
-echo ".run ez_fit.pro" >>! go_viewer
+echo ".run ez_fit.pro" >! go_viewer
+echo ".run sscan.pro" >>! go_viewer
 echo ".run DC.pro" >>! go_viewer
 echo ".run user_scan.pro" >>! go_viewer
 echo "$xdr" >>! go_viewer
 cat go_viewer
-#if `isainfo -b` == 64 then
-	source /usr/local/rsi/idl_6.0/bin/idl_setup
-	idl -32 go_viewer
-#else
-#	source /usr/local/rsi/idl_5.3/bin/idl_setup
-#	idl go_viewer
-#endif
+source /usr/local/rsi/idl/bin/idl_setup
+idl -32 go_viewer
 rm go_viewer
