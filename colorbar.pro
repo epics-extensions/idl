@@ -53,7 +53,7 @@ if !d.n_colors le 256 then begin
  	return	
 end
 ; use 16 true color for line plot
-	getTrueColor,var,/echo
+	getTrueColor,var ;,/echo
 	nc = n_elements(var)
 	no = n_elements(colorA)
 	for i=0,no-1 do begin
@@ -63,6 +63,7 @@ end
 	return
 
 END
+
 PRO setfont,fname,bold=bold,italic=italic,width=width,space=space
 	if n_elements(width) eq 0 then width = 9
 	if n_elements(space) eq 0 then space = 12 
@@ -457,7 +458,7 @@ if keyword_set(ncolors) eq 0 then ncolors=!d.table_size
 	if n_elements(y) eq 0 then y = 25*fact 
 	beh = height;    20
 	bew = width/ns ;    (xsize-x*2)/ns
-	if bew lt 0 then begin
+	if bew le 0 then begin
 		r = dialog_message('Error: X position too big for horizontal colorbar',/Error)
 		return
 	end
