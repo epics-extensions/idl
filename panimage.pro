@@ -59,6 +59,10 @@ error=0
 
 	if n_elements(id_def) eq 0 then id_def = make_array(sz(3),value=1)
 
+	detname = 'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+       		'01','02','03','04','05','06','07','08','09', $
+              	strtrim(indgen(61)+10,2)]
+
 ; pops up pan images
 
 update:
@@ -96,7 +100,7 @@ o_win = -1
 		ii = NL-i
 		xi=(i mod NC)*width+width/2 - 5 
 		yi=height/2+ii/NC*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+		xyouts, xi,yi,detname(i),/device
 		end
 	end
 
