@@ -296,7 +296,7 @@ class=class,outpath=outpath
 
 END
 
-PRO scanSee::view3d_panImage,slice,rank,tiff=tiff,reverse=reverse,gif=gif,pict=pict,group=group
+PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,pict=pict,group=group
 ;+
 ; NAME:
 ;       scanSee::VIEW3D_PANIMAGE
@@ -307,13 +307,14 @@ PRO scanSee::view3d_panImage,slice,rank,tiff=tiff,reverse=reverse,gif=gif,pict=p
 ;    Widgets.
 ;
 ; CALLING SEQUENCE:
-;      Obj->[scanSee::]VIEW3D_PANIMAGE, Slice [,Rank] [,/TIFF] 
+;      Obj->[scanSee::]VIEW3D_PANIMAGE, Slice [,Rank] [,Data] [,/TIFF] 
 ;                  [,/REVERSE] [,/GIF] [,/PICT] [,GROUP=group]
 ;
 ; ARGUMENTS:
 ;      Slice     - Specifies the slice # in the viewing direction 
 ;      RANK      - Specifies the viewing axis direction, 0-X axis, 1-Y axis,
 ;                  2-Z axis, default is Z axis
+;      DATA      - returns the panimage data array
 ;
 ; KEYWORDS:
 ;       GIF      - specifies the output gif filename
@@ -437,7 +438,7 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 	da3d = *(*self.gD).da3D
 	data = da3d(*,*,*,detector-1)
 
-	if keyword_set(title) eq 0 then title='scan3D Object: Detector '+strtrim(detector,2)
+	if keyword_set(title) eq 0 then title='scan3D_2D Slicer: Detector '+strtrim(detector,2)
 	view3d_2d,data,group=group,title=title,slicer3=slicer3
 END
 
