@@ -15,7 +15,59 @@
 ;@idlitparameterset__define.pro
 ;@idlitdatacontainer__define.pro
 ;@idlitvisroi__define.pro
+@h5b.pro
 
+
+PRO HDFSDSDATA_Flipfiles,nametag=nametag,Event,one=one
+; Flip all the hdf file found in the data directory
+; 	one   - display only the first image found in a file otherwise
+;		display everyone found in a file
+;   nametag   - specify the search tagname of the data image, default is
+;		'data'
+COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
+	
+	if keyword_set(nametag) eq 0 then nametag = 'data'
+
+	 if HDF_Query.fpath eq '' then return
+        files = file_search(HDF_Query.fpath+'*',/mark)
+        num = n_elements(files)
+        HDF_Query.filenos[1] = num-1
+        if HDF_Query.filenos[0] lt num then HDF_Query.filenos[0] = num
+
+	WSET,HDF_Query_id.draw1
+
+        FOR i=0,num-1 DO BEGIN
+
+       	HDFSDSDATA_checkfile,files(i),Event,/seloff
+
+	if HDF_Query.file eq files(i) then begin
+
+	for seqno=HDF_Query.NUMSDS-1,0,-1 do begin
+        sds_id = HDF_SD_SELECT(HDF_Query.sd_id,seqno)
+        HDF_SD_GETINFO,sds_id, LABEL=Ti, UNIT=read_unit, NAME=n
+;print,files(i),' ,',nametag,' ,',n
+	if strpos(n,nametag) ge 0 then begin
+          HDF_SD_GETDATA,SDS_ID,Data
+          HDF_Query.tname= n
+          HDF_Query.seqno = seqno
+          *HDF_Query.data = data
+	  sz = size(data)
+	  if sz(0) eq 2 then begin
+		y1 = min(data)
+		y2 = max(data)
+		newdata = fix(float(Data-y1)/(y2-y1)*!d.table_size)
+		erase
+	        TV,congrid(newdata,!d.x_size/2,!d.y_size-20)
+		xyouts, 0.6*!d.x_size, 0.5*!d.y_size, HDF_Query.classname,/DEVICE
+	  end
+	  if keyword_set(one) then break    
+	end
+        HDF_SD_ENDACCESS,sds_id
+        end
+
+	end
+	END
+END
 
 PRO SDS_CONST_Event, Event
 COMMON HDF_QUERY_BLOCK,HDF_Query,HDF_Query_id
@@ -557,7 +609,8 @@ CASE no OF
 		y1=min(data)
 		y2=max(data)
                 !p.multi(0)=!p.multi(1)
-;                TVSCL, Data
+	if !d.n_colors gt !d.table_size then device,decomposed=0
+;        	TVSCL, Data
 	newdata = fix(float(Data-y1)/(y2-y1)*!d.table_size)
 	TV,congrid(newdata,!d.x_size/2,!d.y_size-20)
                 !p.multi(0)=!p.multi(1)-1
@@ -768,6 +821,7 @@ type = s(n_elements(s)-2)
 		old_win = !d.window
 		!p.multi = [0,2,0,0,0]
 		!p.multi(0)=!p.multi(1)
+	if !d.n_colors gt !d.table_size then device,decomposed=0
 ;		TVSCL, CONGRID(data,!d.x_size/2, !d.y_size-20)
 	newdata = fix(float(data-y1)/(y2-y1)*!d.table_size)
 	TV,congrid(newdata,!d.x_size/2,!d.y_size-20)
@@ -2239,6 +2293,7 @@ CASE no OF
 	y2 = max(data)
 	if y1 eq y2 then return
 	!p.multi(0) = !p.multi(1)
+	if !d.n_colors gt !d.table_size then device,decomposed=0
 ;	TVSCL,CONGRID(data,!d.x_size/2,!d.y_size-20)
 	newdata = fix(float(data-y1)/(y2-y1)*!d.table_size)
 	TV,congrid(newdata,!d.x_size/2,!d.y_size-20)
@@ -5181,15 +5236,26 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
             HDFSDSDATA, HDF_Query.file, HDF_Query.maxno,GROUP=Event.top
 END
 
-PRO HDFSDSDATA_checkfile,F,Event
+PRO HDFSDSDATA_checkfile,F,Event,seloff=seloff
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 
 	found = HDF_ISHDF(F)
 	
 	if found eq 0 then begin
+	  if h5f_is_hdf5(F) then begin
+		WIDGET_CONTROL,HDF_Query_id.filename, SET_VALUE=F
+		HDF_Query.file = F
+		h5b_sds,file=F,Group=Event.top
+		return
+	  end
+
+	  if keyword_set(seloff) eq 0 then begin
 		r = dialog_message(/error,'Error: '+F+ ' is not a HDF file!')
 		return
-		end
+	  end
+	  print,F,' is not a HDF file!'
+	  return
+	end
 
 	HDF_Query.file = F
 
@@ -5211,6 +5277,7 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	WIDGET_CONTROL,HDF_Query_id.filename, SET_VALUE=HDF_Query.file
 
 	HDFInitData,file=F
+	if keyword_set(seloff) ne 1 then begin
 	DumpHDFAN,F,tag=101,dataString=d,/desc
 	if n_elements(d) then $
 	WIDGET_CONTROL,HDF_Query_id.term,SET_VALUE=d else $
@@ -5218,6 +5285,7 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	WSET,HDF_Query_id.draw1
 	erase
 	invoke_HDFSDSDATA,Event
+	end
 
 	; write config
 	openw,1,'hdfb.config'
@@ -5232,7 +5300,7 @@ PRO HDFSDSDATA_config,file
 	close,1
 END
 
-PRO HDFSDSDATA_checkfileSeq,Event,first=first,last=last,next=next,prev=prev
+PRO HDFSDSDATA_checkfileSeq,Event,first=first,last=last,next=next,prev=prev,inext=inext,iprev=iprev,mid=mid
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 	if HDF_Query.fpath eq '' then return 
 	r = file_search(HDF_Query.fpath+'*',/mark)
@@ -5248,6 +5316,15 @@ seq:
 	end
 	if keyword_set(prev) then begin
 		 if i gt 0 then i = i-1 else i=num-1
+	end
+	if keyword_set(inext) then begin
+		if (i+10) lt (num-1) then i = i+10 else i=num-1
+	end
+	if keyword_set(iprev) then begin
+		if (i-10) gt 0 then i = i-10 else i=0
+	end
+	if keyword_set(mid) then begin
+		if num gt 2 then i = num/2 
 	end
 	if keyword_set(first) then i = 0
 	if keyword_set(last) then i = num-1
@@ -5311,8 +5388,21 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
   'HDF_NEXT_FILE': BEGIN
 	HDFSDSDATA_checkfileSeq,Event,/next
 	END
+  'HDF_NEXT10_FILE': BEGIN
+	HDFSDSDATA_checkfileSeq,Event,/inext
+	END
   'HDF_PREV_FILE': BEGIN
 	HDFSDSDATA_checkfileSeq,Event,/prev
+	END
+  'HDF_PREV10_FILE': BEGIN
+	HDFSDSDATA_checkfileSeq,Event,/iprev
+	END
+  'HDF_FLIPALL_FILE': BEGIN
+	HDFSDSDATA_Flipfiles,nametag=HDF_Query.nametag,Event
+	END
+  'HDF_TAGIMAGE': BEGIN
+	WIDGET_CONTROL,Event.Id, GET_VALUE=tag 
+	HDF_Query.nametag = strtrim(tag(0),2)
 	END
   'HDF_FILENAME': BEGIN
 	WIDGET_CONTROL,HDF_Query_id.filename, GET_VALUE=file 
@@ -5405,6 +5495,12 @@ COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 		'  ->    -  Bitmap button for Next file',$
 		'  <-    -  Bitmap button for Prev file',$
 		'  <|    -  Bitmap button for Last file',$
+		'  -10   -  File seq reduce by 10',$
+		'  +10   -  File seq increase by 10',$
+		'  Mid   -  Pick Middle seq file number',$
+		'  Show Images - Display images which contain the specified SDS ', $
+		'                name in current directory',$
+		'  SDS name: - Specify name string of SDS data to be searched', $
 		'', $
 		'HDF Info Droplist - select & display HDF info in text area and pops up query dialog', $
 		'     Types of popup query dialog: ', $
@@ -5647,8 +5743,9 @@ END
 PRO HDFB, filename, GROUP=Group
 COMMON HDF_QUERY_BLOCK, HDF_Query, HDF_Query_id
 COMMON HDF_ID_BLOCK,vgroup_ids,vdata_ids,sds_ids
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
-loadct,39
+;catch1d_get_pvtct
 
 HDF_Query = { $,
         fid :   0L, $
@@ -5667,6 +5764,7 @@ HDF_Query = { $,
 	dir: '', $
 	classname: '', $
 	textfile : 'hdf_data.txt', $
+	nametag: 'data', $
 	search : '', $
 	tname: '', $
 	wtime : 0.5, $  ; dump continuously 
@@ -5805,6 +5903,20 @@ end
 
   BMPBTN15 = WIDGET_BUTTON( BASE_file,VALUE=BMP809, $
       UVALUE='HDF_LAST_FILE')
+
+  BTN16 = WIDGET_BUTTON( BASE_file,VALUE='-10', $
+      UVALUE='HDF_PREV10_FILE')
+  BTN17 = WIDGET_BUTTON( BASE_file,VALUE='+10', $
+      UVALUE='HDF_NEXT10_FILE')
+  BTN18 = WIDGET_BUTTON( BASE_file,VALUE='Mid', $
+      UVALUE='HDF_NEXT10_FILE')
+  base_search = widget_base(BASE_file,/frame,/ROW,/MAP,UVALUE='NAMESEARCH')
+  BTN19 = WIDGET_BUTTON( base_search,VALUE='Show Images', $
+      UVALUE='HDF_FLIPALL_FILE')
+  HDF_lb1 = widget_label(base_search,value='SDS name:')
+  HDF_TAGIMAGE = WIDGET_TEXT( base_search,VALUE=HDF_Query.nametag, $
+      YSIZE=1, XSIZE=10, /EDITABLE, $
+      UVALUE='HDF_TAGIMAGE')
 
   BASE0 = WIDGET_BASE(MAIN13_HDF, $
       ROW=1, $
