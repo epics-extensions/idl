@@ -241,6 +241,8 @@ PRO scansee_pickouter1d,state,Event,rank=rank
 
 	idet = id_def(4:88,rk)   ; outer loop 1D
 	nd = where(idet gt 0)	
+		
+	if nd(0) eq -1 then return 
 	dname = state.detname(nd)
 	da = make_array(cpt(rk),n_elements(nd))
 	for i=0,n_elements(nd)-1 do begin
@@ -251,7 +253,7 @@ PRO scansee_pickouter1d,state,Event,rank=rank
 	x = pa1d(*,ipos)	
 	plot1d,x,da,Group=Event.top,/data,legend=dname, $ ;xylegend=[1.5,-1.5], $
 		title=pv(rk),comment='Scan # '+strtrim(state.fileno,2)
-;	end
+	;end
 END
 
 
