@@ -4,10 +4,15 @@ include $(EPICS)/config/CONFIG_EXTENSIONS
 
 DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt
 SCRIPTS = setup_ezcaIDL ezcaidl_startup.pro \
-	catcher_v1.pro catcher_v1.init catcher\
+	catcher_v1.pro catcher_v1.init catcher \
+	view1d.pro view1d.init \
 	view2d.pro view2d.init plot1d.pro \
+	os.init \
+	dcviewer.pro viewer_startup.pro viewer \
 	PS_open.pro u_read.pro catcher_view1d.pro catcher_V1D \
-	catcher.exe 
+	hdf_browser.pro hdfb hdf_startup.pro  plot2d.pro \
+	dc2hdf catcher2hdf.pro \
+	catcher.exe2 catcher.exe2.idl5
 
 include $(EPICS)/config/RULES.Unix
 
