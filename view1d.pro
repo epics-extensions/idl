@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: view1d.pro,v 1.24 2004/04/14 17:43:18 cha Exp $
+; $Id: view1d.pro,v 1.25 2004/07/13 19:06:40 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -140,8 +140,6 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
   endif else begin
 
     y=10000
-;    if OS_SYSTEM.os_family eq 'unix' then begin
-;	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
 	WC,FILENAME,y
 
 	lines=long(y(0))
@@ -149,7 +147,6 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
 	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
 	return
 	end
-;    end
 
 	  a = strarr(y(0))				;Maximum # of lines
 	  i = 0L
@@ -216,7 +213,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.24 2004/04/14 17:43:18 cha Exp $
+; $Id: view1d.pro,v 1.25 2004/07/13 19:06:40 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -401,59 +398,6 @@ middle:
 	wait, .1		;Dont hog it all
 	endwhile
 end
-
-PRO catch1d_get_pvtcolor,i,color
-COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
-; 24 bits
-	if n_elements(R_ORIG) eq 0 then $
-	catch1d_get_pvtct
-	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
-;	plot,indgen(10),color=color
-END
-
-PRO catch1d_load_pvtct,ctfile
-	if n_params() eq 0 then restore,'catch1d.tbl' else $
-	restore,ctfile
-	tvlct,red,green,blue
-	xpalette
-END
-
-PRO catch1d_save_pvtct
-	tvlct,red,green,blue,/get
-	save,red,green,blue,file='catch1d.tbl'
-END
-
-PRO catch1d_get_pvtct
-COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
-
-; 8 bit visual
-
-	if  !d.n_colors lt 16777216 then begin
-		tvlct,red,green,blue,/get
-	endif else begin
-
-; 24 bit visual
-	file = 'catch1d.tbl'
-	found = findfile(file)
-	if found(0) eq '' then begin
-		file =getenv('EPICS_EXTENSIONS_PVT')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		found1 = findfile(file)
-		if found1(0) eq '' then $
-		file =getenv('EPICS_EXTENSIONS')+'/bin/'+getenv('HOST_ARCH')+'/catch1d.tbl'
-		end
-	restore,file
-	tvlct,red,green,blue
-	end
-
-; set ORIG color 
-
-	R_ORIG = red
-	G_ORIG = green
-	B_ORIG = blue
-
-	LOADCT,39
-END
-
 @fit_statistic.pro
 
 PRO  getStatisticDeviation_1d,id1,y,mean,sdev,mdev,st
@@ -1303,14 +1247,13 @@ PRO HELPMENU_Event, Event
 
   CASE Event.Value OF 
   'Help.Version ...': BEGIN
-	st = ['          VIEW1D Version  : (R1.5a)', $
+	st = ['          VIEW1D Version  : (R1.5e+)', $
 	        '','This program allows the IDL users to view the', $
 		'1D data saved by the data catcher developed at APS/XFD.', $
 		'','This IDL program supports different platform. The system', $
 		'operation dependent parameters are defined in the os.init', $
 		'which can be tailored to fit different platform.',$ 
-		'', 'This program is written in IDL 4.01b and is IDL 5.0', $
-		'compatiable.']	
+		'It has been fully tested on UNIX and WIN systems']	
 	res = WIDGET_MESSAGE(st,/information,dialog_parent=Event.Top)
  	END
 
@@ -2037,8 +1980,6 @@ COMMON font_block, text_font, graf_font, ps_font
 COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 COMMON w_statistic_block,w_statistic_ids
 
-if !d.n_colors gt !d.table_size then device,decomposed=1
-
    WIDGET_CONTROL, view1d_widget_ids.wf_select, GET_VALUE = wf_sel
    x_axis = view1d_plotspec_id.x_axis_u
 
@@ -2165,7 +2106,7 @@ if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
 restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
 TVLCT,red,green,blue
-end
+endif else device,decomposed=1
 
 if !d.name eq !os.device then WSET, view1d_widget_ids.plot_area
 ;   ERASE
@@ -2353,8 +2294,8 @@ footer_note= 'comment: ' + strtrim(view1d_plotspec_array(5))
 	ydis = 0.1*!d.y_ch_size
 	xyouts,xdis,ydis,footer_note,/device
 
-if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue
-if !d.n_colors gt !d.table_size then device,decomposed=0
+if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue else $
+device,decomposed=0
 END
 
 
@@ -2500,6 +2441,9 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
 	color = view1d_plotspec_id.colorI(id)
+	if !d.n_colors gt !d.table_size then color = view1d_plotspec_id.colorV(id)
+; if black-white
+	if view1d_plotspec_id.color eq 0 then color = !d.n_colors - 1
 	if !d.name eq 'PS' then color = 0
 
 ;if V1D_scanData.debug eq 1 then $
@@ -3461,6 +3405,7 @@ END
 ; view1d_drv.pro
 ;
  
+@colorbar.pro
 @u_read.pro
 @PS_open.pro
 @cw_term.pro
@@ -3906,23 +3851,6 @@ if n_params() eq 4 then return
         WIDGET_CONTROL,ids(m),SET_VALUE=' '+strmid(r_names(m),1,len)
 END
 
-PRO plotoption_setcolor
-COMMON view1d_plotspec_block, view1d_plotspec_ids, view1d_plotspec_array , view1d_plotspec_id, view1d_plotspec_limits, view1d_plotspec_saved
-
-  if view1d_plotspec_id.color eq 1 then begin
-;       LOADCT, 39
-        dcl = !d.table_size - 2 
-	ncv = 4
-        colorlevel = dcl / ncv 
-        for i=0,18 do begin
-        ii = i / ncv
-        im = i mod ncv
-        view1d_plotspec_id.colorI(i) = dcl - ii - im * colorlevel 
-        end
-  end
-
-END
-
 
 PRO view1d_PLOTOPTIONSMENU_EVENT, Event
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -3938,14 +3866,10 @@ COMMON view1d_PLOTMENU_OPTION_BLOCK,ids,r_names
     2: begin
 	view1d_plotoptionsmenu_set_string,2,3
 	view1d_plotspec_id.color = 1
-	plotoption_setcolor
 	end
     3: begin
 	view1d_plotoptionsmenu_set_string,3,2
 	view1d_plotspec_id.color = 0
-	for i=0,18 do begin
-       	view1d_plotspec_id.colorI(i) = !d.table_size - 1 
-	end
 	end
 ; solid / dotted/ dashed
       5: begin
@@ -4399,6 +4323,7 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;                       Add submenu FWHM on Y and DY/DX to Statistic menu
 ;       05-17-03  bkc   R1.5e+ 
 ;		        Add option of selection 'PS ratio' droplist
+;	07-07-04  bkc	Support 24 bit true color devices
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
