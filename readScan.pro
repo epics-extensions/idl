@@ -66,7 +66,7 @@ PRO scanimage_cleanup
 	heap_gc
 END
 
-PRO scanimage_alloc,filename,gD,scanno
+PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header
 
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
@@ -86,11 +86,9 @@ gData = { $
 	gD = ptr_new(/allocate_heap)
 	*gD = gData
 
-;	scanno = read_scan(filename,dim,num_pts,cpt,pv,labels,id_def,pa1D,da1D,pa2D,da2D)
+; add keyword pickDet, header to read_scan
 
-; help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,pa2d,da1d,da2d
-
-	scanno = read_scan(filename, Scan)
+	scanno = read_scan(filename, Scan,pickDet=pickDet,header=header)
 	*gData.scanno = scanno
 
 	if scanno lt 0 then return
@@ -321,6 +319,9 @@ PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=hei
                 ',    Image seqno ' + string(seq)
         header_note = 'Image( '+strtrim(w,2)+' , '+  strtrim(h,2)+') '
 
+	if keyword_set(dname) then title = xpv + dname else $
+	title=xpv + 'D'+ strtrim(seq,2)
+
 	if keyword_set(view) then begin
 	loadct,39
 	window,0,xsize=500,ysize=500,title='scan2d Object'
@@ -348,8 +349,6 @@ PRO scan2Ddata,gD,seq,view=view,xarr=xarr,yarr=yarr,im=im,width=width,height=hei
 	if yrange(0) eq yrange(1) then ystyle = 4
 	if xrange(0) eq xrange(1) then xstyle = 4
 
-	if keyword_set(dname) then title = xpv + dname else $
-	title=xpv + 'D'+ strtrim(seq,2)
         plot,xrange=xrange,yrange=yrange,[-1+yrange(0),-1+yrange(0)],/noerase, $
                 pos=[50./!d.x_size, 50./!d.y_size, $
                  (!d.x_size-50.)/!d.x_size, (!d.y_size-50.)/!d.y_size], $
