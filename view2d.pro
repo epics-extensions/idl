@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.36 2001/07/02 21:02:10 cha Exp $
+; $Id: view2d.pro,v 1.37 2001/07/10 15:34:49 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2649,6 +2649,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 		end 
 
 
+	if view_option.pickx gt 1 then view2d_changeXaxis
 	if keyword_set(view) then REPLOT
 END
 
@@ -3046,7 +3047,37 @@ im(*,*) = image
   ENDCASE
 END
 
+PRO view2d_changeXaxis
+COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
+COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
+	WIDGET_CONTROL,/HOURGLASS
+	file1 = catch2d_file.path + catch2d_file.file_1d
+	found = findfile(file1,count=ct)
+	if ct lt 1 then return
+
+	scanno = catch2d_file.scanno-catch2d_file.height+1
+	x_names=''
+	x_descs=''
+	x_engus=''
+	v1 = obj_new('scan1d',file=file1)
+	if obj_valid(v1) then begin
+	v1->point_lun,scanno
+	v1->read,scanno,pa=pa,da=da,nd=nd,np=np,x_names=x_names,x_descs=x_descs,x_engus=x_engus
+	sz = size(pa)
+	if view_option.pickx gt np then begin
+		x = indgen(sz(1))
+		xlabel = 'P'+strtrim(view_option.pickx,2)
+	endif else begin
+		x = pa(*,view_option.pickx-1)
+		xlabel = x_descs(view_option.pickx-1) + ' ('+ x_engus(view_option.pickx-1) + ')'
+	end
+	catch2d_file.x_desc = xlabel
+	catch2d_file.xarr = x
+	end
+	obj_destroy,v1
+END
+	
 PRO main13_2_Event, Event
 
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
@@ -3243,14 +3274,8 @@ COMMON w_warningtext_block,w_warningtext_ids
   'PICK_2DXAXIS': BEGIN
 	if catch2d_file.maxno eq 0 then return
 	view_option.pickx = Event.Index + 1
-	WIDGET_CONTROL,/HOURGLASS
-	file = catch2d_file.path + catch2d_file.name
-	if view_option.pickx gt 1 then begin
-	v2 = obj_new('scan2d',file=file)
-	v2->newPos,view_option.pickx,outfile='tmp.image'
-	obj_destroy,v2
-        viewscanimage_init, 'tmp.image'
-	endif else viewscanimage_init,file
+	view2d_changeXaxis
+	REPLOT
 	END
   'IMAGE_PAN': BEGIN
 	view2d_pan_images_on
@@ -3613,8 +3638,9 @@ if XRegistered('main13_2') ne 0  then return
   plot_versus = WIDGET_DROPLIST(BASE177, VALUE=Btns918, $
 	UVALUE='PLOTVERSUS', TITLE='Plot vs')
 
-  pick_xaxis = WIDGET_DROPLIST(BASE177, VALUE=['P1','P2','P3','P4'], $
-        UVALUE='PICK_2DXAXIS',TITLE='')
+  Btns915 = ['BIN','XDR']
+  pick_xdr = WIDGET_DROPLIST(BASE177, VALUE=BTNS915, $
+        UVALUE='PICK_XDR',TITLE='')
 
 
 ; add the view mode widgets
@@ -3625,9 +3651,8 @@ if XRegistered('main13_2') ne 0  then return
       TITLE='View btns', $
       UVALUE='BASE185')
 
-  Btns915 = ['BIN','XDR']
-  pick_xdr = WIDGET_DROPLIST(BASE185, VALUE=BTNS915, $
-        UVALUE='PICK_XDR',TITLE='')
+  pick_xaxis = WIDGET_DROPLIST(BASE185, VALUE=['P1','P2','P3','P4'], $
+        UVALUE='PICK_2DXAXIS',TITLE='Xaxis')
 
   base185_1 = widget_base(BASE185,/row,/frame)
   ascii_data = WIDGET_BUTTON( BASE185_1, VALUE='ASCII ...', $
