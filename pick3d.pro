@@ -6,9 +6,379 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, 
+;	10-05-2003 bkc  Add features of automatic ascii/xdr/tiff files generation
+;-
+
 ; @read_scan.pro.R2.4
 @view3d_2d.pro
 @panimage.pro
+
+
+
+PRO pick3d_report_imascii,im,xa,ya,fn
+	sz = size(im)
+	f0_0 = '('+strtrim(sz(2),2)+'g17.8)'
+	f0_1 = '('+strtrim(sz(1),2)+'g17.8)'
+	openw,1,fn
+	printf,1,'Xaxis:'
+	printf,1,format=f0_1,xa
+	printf,1,'Yaxis:'
+	printf,1,format=f0_0,ya
+	printf,1,'Rows='+strtrim(sz(1),2), '    Cols='+strtrim(sz(2),2)
+	for i=0,sz(1)-1 do begin
+	lineA = reform(im(i,*))
+	printf,1,format=f0_0,lineA
+	end
+	close,1
+END
+
+
+PRO parse_num0,instring,ids,sep=sep
+Keysepar = '-'
+if keyword_set(sep) then Keysepar = sep
+res = strpos(instring,keysepar)
+if res ne -1 then begin
+        str = str_sep(instring,keysepar,/trim)
+        no = fix(str(1)) - fix(str(0)) + 1
+        ids = indgen(no) + fix(str(0))
+endif else begin
+        com = strpos(instring,',')
+        if com ne -1 then begin
+                str = str_sep(instring,',')
+                ids = fix(str)
+        endif else begin
+                str = str_sep(instring,' ')
+                ids = fix(str)
+        end
+ 
+end
+END
+ 
+; parse by sep1 first then by sep2
+; default sep1=',' sep2='-'
+;       instring = '1,2:5,7'
+;       instring = '1,2-5,7'
+PRO parse_num,instring,res,sep1=sep1,sep2=sep2
+        d_sep1 = ','
+        d_sep2 = '-'
+        if keyword_set(sep1) then d_sep1 = sep1
+        if keyword_set(sep2) then d_sep2 = sep2
+        str = str_sep(instring,d_sep1,/trim)
+        res = fix(str(0))
+        for i=0,n_elements(str)-1 do begin
+        newstr =  strtrim(str(i),2)
+        if strlen(newstr) gt 0 then begin
+        parse_num0,newstr,ids,sep=d_sep2
+        if i eq 0 then begin
+                if n_elements(ids) gt 1 then res = ids
+                end
+        if i gt 0 then  res = [res,ids]
+        end
+        end
+END
+
+PRO pick3d_XdrRpt,rpt_state,TIFF=TIFF
+  pick3d_state = rpt_state.state
+  det_list = *rpt_state.det_list
+  slc_list = *rpt_state.slc_list
+  TVLCT,R,G,B,/get
+  if keyword_set(TIFF) then window,1,xsize=350,ysize=350,retain=2,/pixmap
+
+	axis = pick3d_state.panaxis
+        det = where(pick3d_state.id_def(*,0) > 0)
+	last_det = det(n_elements(det)-1)	
+
+        for i=0,n_elements(det_list)-1 do begin
+	if det_list(i) le (last_det+1) then begin
+        pick3d_state.pickDet = det_list(i)
+        view3d_pickDet,pick3d_state,data
+        data = *(pick3d_state.data)
+	sz = size(data)
+
+	prefix = strmid(pick3d_state.class,0,strlen(pick3d_state.class)-4)
+	if keyword_set(TIFF) then $
+		path = pick3d_state.path+'TIFF'+!os.file_sep else $
+		path = pick3d_state.path+'XDR'+!os.file_sep
+  	file_mkdir,path
+
+	xa = *pick3d_state.x
+        ya = *pick3d_state.y
+        if axis eq 1 then  ya = *pick3d_state.z
+        if axis eq 0 then  begin
+                xa = ya
+                ya = *pick3d_state.z
+        end
+
+		for j=0,n_elements(slc_list)-1 do begin
+		jj = slc_list(j)
+		if axis eq 2 then begin
+		if jj le sz(3) then begin
+			im = data(*,*,jj-1)
+			if keyword_set(TIFF) then  $
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Zs'+ strtrim(jj,2)+'.tif' else $
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Zs'+ strtrim(jj,2)+'.xdr'
+print,fn
+			end
+		end
+		if axis eq 1 then begin
+		if jj le sz(2) then begin
+			im = reform(data(*,jj-1,*))
+			if keyword_set(TIFF) then  $
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Ys'+ strtrim(jj,2)+'.tif' else $
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Ys'+ strtrim(jj,2)+'.xdr'
+print,fn
+			end
+		end
+		if axis eq 0 then begin
+		if (jj le sz(1)) then begin
+			im = reform(data(jj-1,*,*))
+			if keyword_set(TIFF) then  $
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Xs'+ strtrim(jj,2)+'.tif' else $
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Xs'+ strtrim(jj,2)+'.xdr'
+print,fn
+			end
+	 	    end
+	 	      ; write TIFF/XDR	
+			if keyword_set(TIFF) then begin
+			  wset,1
+			  tvscl,congrid(im,350,350)
+			  write_tiff,fn,tvrd(),red=R,green=G,blue=B
+			endif else begin
+			  xdr_open,unit,fn,/write
+			  xdr_write,unit,im
+			  xdr_close,unit
+			end
+		end
+	end
+        end
+	
+	wdelete,1
+END
+
+PRO pick3d_asciiRpt,rpt_state
+
+  pick3d_state = rpt_state.state
+  det_list = *rpt_state.det_list
+  slc_list = *rpt_state.slc_list
+  file_mkdir,pick3d_state.path+'ASCII'
+
+	axis = pick3d_state.panaxis
+        det = where(pick3d_state.id_def(*,0) > 0)
+	last_det = det(n_elements(det)-1)	
+
+        for i=0,n_elements(det_list)-1 do begin
+	if det_list(i) le (last_det+1) then begin
+        pick3d_state.pickDet = det_list(i)
+        view3d_pickDet,pick3d_state,data
+        data = *(pick3d_state.data)
+	sz = size(data)
+
+;	prefix = strmid(pick3d_state.filename,0,strlen(pick3d_state.filename)-4)
+	prefix = strmid(pick3d_state.class,0,strlen(pick3d_state.class)-4)
+	path = pick3d_state.path+'ASCII'+!os.file_sep
+  	file_mkdir,path
+	xa = *pick3d_state.x
+        ya = *pick3d_state.y
+        if axis eq 1 then  ya = *pick3d_state.z
+        if axis eq 0 then  begin
+                xa = ya
+                ya = *pick3d_state.z
+        end
+
+
+		for j=0,n_elements(slc_list)-1 do begin
+		jj = slc_list(j)
+		if axis eq 2 then begin
+		if jj le sz(3) then begin
+			im = data(*,*,jj-1)
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Zs'+ strtrim(jj,2)+'.txt'
+print,fn
+			pick3d_report_imascii,im,xa,ya,fn		
+			end
+		end
+		if axis eq 1 then begin
+		if jj le sz(2) then begin
+			im = reform(data(*,jj-1,*))
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Ys'+ strtrim(jj,2)+'.txt'
+print,fn
+			pick3d_report_imascii,im,xa,ya,fn		
+			end
+		end
+		if axis eq 0 then begin
+		if (jj le sz(1)) then begin
+			im = reform(data(jj-1,*,*))
+			fn = path+prefix+'.'+ $
+				pick3d_state.detname(det_list(i)-1) + $
+				'.Xs'+ strtrim(jj,2)+'.txt'
+print,fn
+			pick3d_report_imascii,im,xa,ya,fn		
+			end
+	 	    end
+		end
+	end
+        end
+	
+END
+
+PRO pick3d_report_Event, Event
+
+  WIDGET_CONTROL,Event.top,GET_UVALUE=rpt_state
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+
+  'FIELD5': BEGIN
+      Print, 'Event for Detectors:'
+      END
+  'FIELD6': BEGIN
+      Print, 'Event for Slices:'
+      END
+  'pick3d_sliceXdr_accept': BEGIN
+	widget_control,rpt_state.det_WID,get_value=st1
+	widget_control,rpt_state.slc_WID,get_value=st2
+	sep2='-'
+	if strcmp(st1,':') eq 1 then sep2=':'
+	parse_num,st1,det_list,sep2=sep2
+	sep2='-'
+	if strcmp(st2,':') eq 1 then sep2=':'
+	parse_num,st2,slc_list,sep2=sep2
+	*rpt_state.det_list = det_list
+	*rpt_state.slc_list = slc_list
+	pick3d_XdrRpt,rpt_state
+      WIDGET_CONTROL,Event.top,/DESTROY
+      END
+  'pick3d_sliceTiff_accept': BEGIN
+	widget_control,rpt_state.det_WID,get_value=st1
+	widget_control,rpt_state.slc_WID,get_value=st2
+	sep2='-'
+	if strcmp(st1,':') eq 1 then sep2=':'
+	parse_num,st1,det_list,sep2=sep2
+	sep2='-'
+	if strcmp(st2,':') eq 1 then sep2=':'
+	parse_num,st2,slc_list,sep2=sep2
+	*rpt_state.det_list = det_list
+	*rpt_state.slc_list = slc_list
+	pick3d_XdrRpt,rpt_state,/TIFF
+      WIDGET_CONTROL,Event.top,/DESTROY
+      END
+  'pick3d_sliceRpt_accept': BEGIN
+	widget_control,rpt_state.det_WID,get_value=st1
+	widget_control,rpt_state.slc_WID,get_value=st2
+	sep2='-'
+	if strcmp(st1,':') eq 1 then sep2=':'
+	parse_num,st1,det_list,sep2=sep2
+	sep2='-'
+	if strcmp(st2,':') eq 1 then sep2=':'
+	parse_num,st2,slc_list,sep2=sep2
+	*rpt_state.det_list = det_list
+	*rpt_state.slc_list = slc_list
+	pick3d_asciiRpt,rpt_state
+      WIDGET_CONTROL,Event.top,/DESTROY
+      END
+  'pick3d_sliceRpt_done': BEGIN
+      WIDGET_CONTROL,Event.top,/DESTROY
+      END
+  ENDCASE
+END
+
+
+
+
+PRO pick3d_report, pick3d_state,GROUP=Group
+
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+
+  pick3d_reportB = WIDGET_BASE(GROUP_LEADER=Group, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='pick3d_reportB')
+
+  BASE2 = WIDGET_BASE(pick3d_reportB, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE2')
+
+  LABEL3 = WIDGET_LABEL( BASE2, $
+      UVALUE='LABEL3', $
+      VALUE='Pick3d Report Generation')
+
+  LABEL4 = WIDGET_LABEL( BASE2, $
+      UVALUE='LABEL4', $
+      VALUE='Filename: fullpathfilename')
+
+  FieldVal257 = [ $
+    pick3d_state.pickDet ]
+  FIELD5 = CW_FIELD( BASE2,VALUE=FieldVal257, $
+      ROW=1, $
+      STRING=1, $
+      TITLE='Detectors:', $
+      UVALUE='FIELD5')
+
+  FieldVal322 = [ $
+    '1, 3-5' ]
+  FIELD6 = CW_FIELD( BASE2,VALUE=FieldVal322, $
+      ROW=1, $
+      STRING=1, $
+      TITLE='Slices:', $
+      UVALUE='FIELD6')
+
+  BASE11 = WIDGET_BASE(BASE2, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE11')
+
+  BUTTON11 = WIDGET_BUTTON( BASE11, $
+      UVALUE='pick3d_sliceXdr_accept', $
+      VALUE='XDR')
+
+  BUTTON11 = WIDGET_BUTTON( BASE11, $
+      UVALUE='pick3d_sliceTiff_accept', $
+      VALUE='TIFF')
+
+  BUTTON12 = WIDGET_BUTTON( BASE11, $
+      UVALUE='pick3d_sliceRpt_accept', $
+      VALUE='Ascii')
+
+  BUTTON13 = WIDGET_BUTTON( BASE11, $
+      UVALUE='pick3d_sliceRpt_done', $
+      VALUE='Done')
+
+  rpt_state = { parent: Group, $
+	state: pick3d_state, $
+	det_WID: FIELD5, $
+	slc_WID: FIELD6,  $
+	det_list: ptr_new(/ALLOCATE_HEAP), $
+	slc_list: ptr_new(/ALLOCATE_HEAP) $
+	}
+
+  WIDGET_CONTROL, pick3d_reportB, /REALIZE
+  WIDGET_CONTROL,pick3d_reportB,SET_UVALUE=rpt_state
+  XMANAGER, 'pick3d_report', pick3d_reportB
+END
+
+
 
 PRO pick3d_writeConfig,state
         openw,unit,'pick3d.config',/get_lun
@@ -67,18 +437,18 @@ PRO scan3d_Readxdr,pick3d_state,xdrname,Event
 	npts = pick3d_state.npts
 	ndet = n_elements(det)
 
-	title='3D Pick '
+	title='3D_Pick_'
 	if pick3d_state.panAxis eq 0 then begin
 		 image_array = make_array(npts(1),npts(2),ndet)
-		 title = 'X Axis : '
+		 title = 'X_Axis_:_'
 		end
 	if pick3d_state.panAxis eq 1 then begin
 		image_array = make_array(npts(0),npts(2),ndet)
-		 title = 'Y Axis : '
+		 title = 'Y_Axis_:_'
 		end
 	if pick3d_state.panAxis eq 2 then begin
 		image_array = make_array(npts(0),npts(1),ndet)
-		 title = 'Z Axis : '
+		 title = 'Z_Axis_:_'
 		end
 	title = title+'Slice #'+string(pick3d_state.pickZind)
 
@@ -111,7 +481,7 @@ PRO scan3d_Readxdr,pick3d_state,xdrname,Event
 ;help,image_array
 
 	def = make_array(ndet,value=1,/int)
-	panimage,image_array,def,title= title+' (All Di)'
+	panimage,image_array,def,title= title+'_(All_Di)'
 
 	if pick3d_state.realaxis eq 0 then $
 	calibration_factor,image_array,def,dnames=dnames, $
@@ -243,7 +613,7 @@ PRO PICK3D_2DMENU_Event, Event,pick3d_state
 	da2d = *(pick3d_state.da2D)
 	x = *(pick3d_state.y)
 	y = *(pick3d_state.z)
-	title=pick3d_state.class+':'+pick3d_state.detname(pick3d_state.pickDet-1) + ' (3D_2D Result)'
+	title=pick3d_state.class+':'+pick3d_state.detname(pick3d_state.pickDet-1) + '_(3D_2D)'
 
   CASE Event.Value OF
   '3D_2D Menu.Pick 2D...': BEGIN
@@ -253,7 +623,7 @@ PRO PICK3D_2DMENU_Event, Event,pick3d_state
   '3D_2D Menu.PanImages...': BEGIN
 	sz = size(da2d)
 	def = pick3d_state.id_def(0:sz(3)-1,1)
-	panimage_sel,da2d,def,title= title+' (All Di)'
+	panimage_sel,da2d,def,title= title+'_(All_Di)'
 
 	id_def = pick3d_state.id_def
 	det_def = id_def(*,1)
@@ -273,7 +643,7 @@ PRO PICK3D_2DMENU_Event, Event,pick3d_state
   '3D_2D Menu.CALIB2D...': BEGIN
 	sz = size(da2d)
 	def = pick3d_state.id_def(0:sz(3)-1,1)
-	panimage,da2d,def,title= title+' (All Di)'
+	panimage,da2d,def,title= title+'_(All_Di)'
 	if pick3d_state.realaxis eq 0 then $
 	calibration_factor,da2d,def,   $ 
 		title=title,Group=Event.top else $
@@ -297,7 +667,7 @@ help,da1d,x,def
 ;	calibration_factor,da1d,def,   $ 
 ;		title=title,Group=Event.top else $
 	calibration_factor,da1d,def,   $ 
-		title='3D_2D (All 1D Di)',Group=Event.top, $
+		title='3D_2D_(All_1D_Di)',Group=Event.top, $
 		xv = x
        END
   ENDCASE
@@ -440,6 +810,15 @@ PRO PICK3D_Event, Event
 	view3d_2D,data,rank,xv,yv,zv, title=title, Group=Event.top
 	end
       END
+  'PICK3D_VIEWREPORT': BEGIN
+	file = dialog_pickfile(get_path=p,/read,/must_exist,path=pick3d_state.path, $
+		filter='*txt',title='Select Image Slicer Only')
+	if file eq '' then return
+	xdisplayfile,file,Group=Event.top
+      END
+  'PICK3D_REPORT': BEGIN
+	pick3d_report,pick3d_state,GROUP=Event.top
+      END
   'PICK3D_XDR': BEGIN
 	if pick3d_state.dim ne 3 then return
 	xdrname = pick3d_state.detname(pick3d_state.pickDet-1)+'.xdr'
@@ -497,7 +876,7 @@ PRO PICK3D_Event, Event
   ENDCASE
 
   resetuv:
-      WIDGET_CONTROL,Event.Top,SET_UVALUE=pick3d_state
+      WIDGET_CONTROL,Event.Top,SET_UVALUE=pick3d_state,bad_id=bad_id
 END
 
 PRO pick3d_panimage,pick3d_state,Event
@@ -523,14 +902,14 @@ PRO pick3d_panimage,pick3d_state,Event
 	end
 
 	sz = size(data)
-      title = pick3d_state.title + pick3d_state.detname(pick3d_state.pickDet-1)
+      title = pick3d_state.class+":" + pick3d_state.detname(pick3d_state.pickDet-1)
       CASE pick3d_state.panAxis OF
       0: begin
 	id_def = make_array(npts(0),value=1,/int)
 	  image_data = reform(data,npts(0),npts(1)*npts(2))
 	  image_data = transpose(image_data)
 	  image_data = reform(image_data,npts(1),npts(2),npts(0))
-	title = title+' (All X slices)'
+	title = title+'_(All_X_slices)'
 	xdescs = pv[1]
         ydescs = pv[2]
         zdescs = 'S#'+ strtrim(indgen(sz(1))+1,2)
@@ -548,7 +927,7 @@ PRO pick3d_panimage,pick3d_state,Event
 	da = reform(data(*,k,*))
 	image_data(*,*,k) = da(*,*)
 	end
-	title = title+' (All Y slices)'
+	title = title+'_(All_Y_slices)'
 	xdescs = pv[0]
         ydescs = pv[2]
         zdescs = 'S#'+ strtrim(indgen(sz(2))+1,2)
@@ -560,7 +939,7 @@ PRO pick3d_panimage,pick3d_state,Event
 	end
       2: begin
 	id_def = make_array(npts(2),value=1,/int)
-	title = title+' (All Z slices)'
+	title = title+'_(All_Z_slices)'
 	image_data = data
 	xdescs = pv[0]
         ydescs = pv[1]
@@ -743,7 +1122,7 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
     'Z' ]
   BGROUP17 = CW_BGROUP( BASE5_2, Btns1422, $
       ROW=1, EXCLUSIVE=1, FRAME=1, $
-      LABEL_LEFT='Pick 3D Axis', $
+      LABEL_LEFT='Pick_3D_Axis', $
       UVALUE='PICK3D_PANAXIS')
   WIDGET_CONTROL,BGROUP17,SET_VALUE=0
 
@@ -752,6 +1131,14 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
 	LABEL_LEFT='Axial Values', $
       UVALUE='PICK3D_REALAXIS')
   WIDGET_CONTROL,realaxis,SET_VALUE=0
+
+  BUTTON11 = WIDGET_BUTTON( BASE5_2, $
+      UVALUE='PICK3D_REPORT', $
+      VALUE='Generate Ascii Slicer Report...') 
+
+  BUTTON12 = WIDGET_BUTTON( BASE5_2, $
+      UVALUE='PICK3D_VIEWREPORT', $
+      VALUE='View Ascii Slicer Report...') 
 
 ;  BUTTON12 = WIDGET_BUTTON( BASE5_2, $
 ;      UVALUE='PICK3D_XDR', $
@@ -801,7 +1188,7 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
 	filename: '', $
 	path: p+!os.file_sep, $
 	outpath: p+!os.file_sep, $
-	title: '3D Pick Detector:', $
+	title: '3D_Pick_Detector:', $
 	xdrname: '3dimage.xdr', $
 	class: '', $
 	prefix: '', $
