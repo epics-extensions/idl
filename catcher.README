@@ -1,3 +1,54 @@
+                        CATCHER R2.2.2c6  RELEASE NOTE 
+                        ==========================
+
+The view1d and view2d programs are upgraded to R1.5d and R2.3f respectively. 
+In order to support the DEC ALPHA machine, the 1D/2D file is opened as 
+XDR format first. If wrong type of binary file is detected, it will be 
+closed and reopened as native binary format. Note that 2D image files saved
+prior to R2.2.2b release was in native binary format.
+
+<<Report ...>>
+
+The 'View Report' button in report dialog will automatically save the 
+report file if it was not found at the time it was pressed.
+
+<<X axis for 2D Image>>
+
+The X axis saved for 2D images sometimes is not correct for 'RELATIVE'
+mode. This problem occured if the operator prematurely aborted the 2D 
+scan and the acquired points in the last 1D scan is less than the 
+requested number of data points. This problem is fixed in this release.
+
+Be aware that for a meaningful 2D image X axis, if the scan mode is set 
+to 'RELATIVE' the after scan position should set to 'PRIOR POS'.
+
+<<ASCII...>>
+
+An option of entering the output format for 2D image ASCII report is added
+in VIEW2D R2.3f.
+
+
+
+                        CATCHER R2.2.2c5  RELEASE NOTE 
+                        ==========================
+
+<<Zoom>>
+
+The problem of PS plot does not agree with the zoom plot as shown in 
+the window's drawing area is fixed in this version. The menu item
+Zoom->Auto Scale(Refresh) has been renamed to 
+Zoom->Zoom Off(AutoScale). 
+ 
+<<2D Image>>
+
+In view2D a user sometines can access the image of the detector not 
+defined in the database. It is found that at the normal completion 
+of 2D scan (i.e. without depressing the abort button) an additional 
+set of 2D images was saved for the same SCAN since R2.2.2c1. 
+This problem of an additional set of 2D images been saved is fixed 
+in this version.
+
+
                         CATCHER R2.2.2c4  RELEASE NOTE 
                         ==========================
 
