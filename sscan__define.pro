@@ -78,7 +78,7 @@ PRO sscan::det,id_def,ip_def,rank=rank
 	ip_def = self.id_def(0:3,ID)
 END
 
-PRO sscan::get,da1d=da1d,da2d=da2d,da3d=da3d,pa1d=pa1d,pa2d=pa2d,pa3d=pa3d,labels=labels,id_def=id_def,rank=rank,xdesc=xdesc,ydesc=ydesc,zdesc=zdesc
+PRO sscan::get,da1d=da1d,da2d=da2d,da3d=da3d,pa1d=pa1d,pa2d=pa2d,pa3d=pa3d,labels=labels,id_def=id_def,rank=rank,xdesc=xdesc,ydesc=ydesc,zdesc=zdesc,idet=idet
 ;+
 ; NAME:
 ; 	sscan::get
@@ -96,7 +96,8 @@ PRO sscan::get,da1d=da1d,da2d=da2d,da3d=da3d,pa1d=pa1d,pa2d=pa2d,pa3d=pa3d,label
 ;  PA3D	    -	extract positioner vector array of inner most scan
 ;  DA1D	    -	extract detector 1D vector array
 ;  DA2D	    -	extract detector 2D image array
-;  DA3D	    -	extract detector 3D volume array
+;  DA3D	    -	extract detector 3D image array
+;  IDET     -	specify input seq # of 3D array defined  (1/2/3..)
 ;  LABELS   -	extract name,desc,units labels[89*3,3] of 4PIs+85DIs 
 ;  ID_DEF   -	extract indicator id_def[89,3] of defined 4PIs+85DIs 
 ;  RANK     -   return dimension or rank of scan
@@ -134,8 +135,6 @@ PRO sscan::get,da1d=da1d,da2d=da2d,da3d=da3d,pa1d=pa1d,pa2d=pa2d,pa3d=pa3d,label
 	ydesc = labels(is:ie,1)
 	end
 	if self.rank eq 3 then begin
-	da3d = *self.da(0)
-	pa3d = *self.pa(0)
 	da2d = *self.da(1)
 	pa2d = *self.pa(1)
 	da1d = *self.da(2)
@@ -143,6 +142,21 @@ PRO sscan::get,da1d=da1d,da2d=da2d,da3d=da3d,pa1d=pa1d,pa2d=pa2d,pa3d=pa3d,label
 	xdesc = labels(is:ie,0)
 	ydesc = labels(is:ie,1)
 	zdesc = labels(is:ie,2)
+	if n_elements(idet) eq 0 then return
+	nd = self.nb_det(self.rank-3)
+	if nd gt 0 then begin
+	  if idet lt 0 or idet ge nd then begin	
+	  str = ['Only  '+strtrim(nd,2) +' detectors defined.', $
+		'Valid value [0 - '+strtrim(nd-1,2)+ ' ]'] 
+	  r = dialog_message( str,/info)
+	  return
+	  end
+	  sscan_readHeader,SSD,file=self.file,pick3d=idet
+	  sscan_read3DPick,SSD,da2D,idet=idet
+	  da3d = *SSD.da(0)  ;*self.da(0)
+	  pa3d = *SSD.pa(0)  ;*self.pa(0)
+	  scanSee_free,SSD
+	end
 	end
 END
 
@@ -399,7 +413,7 @@ PRO sscan::print
 	print,'NB_TRG:',self.NB_TRG
 	print,'DETMAX:',self.DETMAX
 	print,'TS1:',self.TS1
-	print,'TS2:',self.TS2
+	print,'TS2:',*self.TS2
 help,*self.PA(0),*self.PA(1),*self.PA(2)
 help,*self.DA(0),*self.DA(1),*self.DA(2)
 END
@@ -464,7 +478,7 @@ FUNCTION sscan::Init,file=file,path=path,HD_Pos=HD_Pos,HD_Det=HD_Det,HD_Trg=HD_T
 	self.pa = SSD.pa 
 	self.labels = SSD.labels 
 
-	self->axis,SSD,HD_Pos,HD_Det,HD_Trg
+	self->Axis,SSD,HD_Pos,HD_Det,HD_Trg
 	return,1
 END
 
@@ -487,9 +501,10 @@ PRO sscan::Axis,SSD,H_P,H_D,H_T
     txpv:'', $
     txcd: 1.0 }
 
-HD_P = make_array(4,3,value=pos_info)
-HD_D = make_array(85,3,value=det_info)
-HD_T = make_array(4,3,value=trg_info)
+mdim = 5
+HD_P = make_array(4,mdim,value=pos_info)
+HD_D = make_array(85,mdim,value=det_info)
+HD_T = make_array(4,mdim,value=trg_info)
 
     H_P = SSD.HD_P
     H_D = SSD.HD_D
@@ -499,9 +514,10 @@ END
 PRO sscan__define
 
 ntot = 85+4
+mdim = 5
 
-  DetMax = [0,0,0]
-  id_def = intarr(ntot,3)
+  DetMax = [0,0,0,0,0]
+  id_def = intarr(ntot,mdim)
   cd,current=p
 
   struct = { sscan, $
@@ -510,27 +526,27 @@ ntot = 85+4
         lun : -1, $
         rank  : 0, $
         scanno : 0, $
-        npts    : [0,0,0], $
-        cpt     : [0,0,0], $
-        nb_pos  : [0,0,0],$
-        nb_det  : [0,0,0],$
-        nb_trg  : [0,0,0],$
+        npts    : [0,0,0,0,0], $
+        cpt     : [0,0,0,0,0], $
+        nb_pos  : [0,0,0,0,0],$
+        nb_det  : [0,0,0,0,0],$
+        nb_trg  : [0,0,0,0,0],$
         id_def : id_def, $
 ; HD_P:HD_P,;
 ; HD_D:HD_D,;
 ; HD_T:HD_T,;
-        labels  : strarr(3*ntot,3), $
-        detMax  : [0,0,0], $
-        pv      : ['','',''], $
+        labels  : strarr(3*ntot,mdim), $
+        detMax  : [0,0,0,0,0], $
+        pv      : ['','','','',''], $
         ts1     : '', $
-        ts2     : '', $
-        im_filled : [0,0,0], $
+        ts2     : ptr_new(/allocate_heap), $
+        im_filled : [0,0,0,0,0], $
         noenv  : 0, $
         envPtr : 0L, $
         EH      : ptr_new(/allocate_heap), $
-        da      : ptrarr(3,/allocate_heap), $
-        pa      : ptrarr(3,/allocate_heap), $
-        sub_scan_ptr : ptrarr(2,/aLLOCATE_HEAP) $
+        da      : ptrarr(mdim,/allocate_heap), $
+        pa      : ptrarr(mdim,/allocate_heap), $
+        sub_scan_ptr : ptrarr(mdim-1,/aLLOCATE_HEAP) $
         }
 
 END
