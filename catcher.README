@@ -1,3 +1,123 @@
+                        CATCHER R2.2.2  RELEASE NOTE 
+                        ==========================
+
+The complete on-line document about IDL data acquistion package maintained 
+at APS/XDF can be found by linking to:
+
+	http://www.aps.anl.gov/~bccha/Doc.html
+
+Data catcher has only been tested on the unix sun4 and solaris system.
+Porting data catcher to other platform depends on the porting of CA.
+
+Few additional IDL programs are available along with data catcher and 
+data viewer. The corresponding documents can be found from the above 
+mentioned web page.
+ 
+Referring to the above web page, only the data catcher and toImage 
+programs can access the channel access functions the remaining IDL 
+programs does not have any channel access call.
+
+The remaining IDL programs should be platform independent. Porting native
+binary data captured at APS to other IDL platforms the XDR binary format 
+should be used. Please refer the data viewer program in the above web 
+page for converting the native data to XDR data.
+
+BUG FIXED:
+
+- Fixed the realtime plot problem due to positioner vector been
+  read in from a positioner table array
+- Fixed the problem in 1D overlay plot program if the index file
+  is not found 
+- Fixed the problem of runtime version the user specified configuration 
+  file did not get updated but the default 'catch1d.config' got updated
+- Fixed the print button does not print problem in cw_term function
+
+<<catcher>> 
+
+The file 'go_catcher' will be removed automatically at the normal 
+termination of data catcher.
+
+<<viewer>> 
+
+The file 'go_viewer' will be removed automatically at the normal 
+termination of data viewer.
+
+<<view2d.pro>>
+
+Added the 2D image bad data check. If corrupted 2D image data detected 
+during the middle of loading 2D images, all the good images read in so 
+far will be accessible by the view2d.
+
+<<Printer ...>>
+
+The File->Printer ... button brings up the setup PS printer dialog. 
+View2d automatically uses the color PS device with 8 bit depth and 
+the default system printer setting for the user is used. This dialog 
+allows the user to override the default settings. If printer name is 
+not set the default printer is assumed.
+ 
+Starting view2d Version 2.3, the TV plot title and legend are using the
+first color from the color table. With this setting most IDL provided 
+color tables, the TV image plot should work fine.
+
+If the selected color table with first entry been white color, even 
+though the TV plot is shown fine on the user visual display, the white 
+plot title and legend will not show up in the PS image plot. If 
+this is the case detected by the view2d, the gv (ghostview) is used to
+show the PS plot generated. It the title and legend not show
+up, then the user has to select the reverse legend color to 'Y' 
+in the printer setup dialog and re-generate the PS plot in order to 
+make the title shown up on the PS plot.
+ 
+
+<<toImage>>
+
+In this release the toImage program is released. It consists of two
+files: toimage, and toImage.pro. The 'toimage' is a unix script file,
+it automatically starts the IDL program 'toImage.pro' for data catcher
+user. For a user entered range of 1D scans it can re-construct the 
+2D images for all defined detectors. It allows the user to preview
+images, and save a new or append an old image file.
+
+A user never need to run this program unless absolutely necessary to
+re-construct a new 2D image file due to system went down during 2D scan.
+A user should never use this program while the scan is going on.
+
+<<dc2hdf>>
+
+In this release the dc2hdf program is also released. It consists of two
+files: dc2hdf, and catcher2hdf.pro. The 'dc2hdf' is a unix script file,
+it automatically sets up the IDL and starts the catcher2hdf.pro. The
+purpose of this program is to demonstrate one way of converting data 
+catcher data into HDF format.  
+
+The HDF file saved by catcher2hdf.pro follows the guideline given by 
+the NEXUS. Currently only user interface for converting of native 
+binary of 1D scan is available. The only purpose here is to demonstrate 
+that the scan data can be stored in the NEXUS format if it is desired. 
+
+It is found that the time used for storing HDF data increases with the 
+number of sets of SDS data saved in a HDF file. Therefore, currently
+it is still not adequate to save the live scan data in a single HDF 
+file if many scans are to be saved.
+
+<<hdf_browser>>
+
+In this release the hdf browser program is also released. It consists of 
+three files: hdfb, hdfb_startup.pro, and hdfb.pro. The 'hdfb' 
+is a unix script file, it automatically sets up the IDL and starts the 
+IDL program hdfb.pro. The 'hdfb_startup.pro' is the IDL_STARTUP
+file used by the hdf browser. The 'hdfb.pro' is a complete mouse
+driven IDL widget application. It provides the IDL user with a flexible
+HDF browser to examine any HDF file. 
+
+It provides various summary reports. It supports HDF global and SDS 
+attributes, file ID and description, 8 bit / 24 bit raster images. 
+It is also able to pop up various windows for displaying the HDF SDS, 
+VDATA, VGROUP data textaully and graphically. 
+ 
+ 
+
                         CATCHER R2.2.0  RELEASE NOTE 
                         ==========================
 
