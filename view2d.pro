@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.35 2001/06/21 20:35:29 cha Exp $
+; $Id: view2d.pro,v 1.36 2001/07/02 21:02:10 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2823,38 +2823,6 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
     END
 
-  'File.Change X Axis.P2': BEGIN
-	if catch2d_file.maxno eq 0 then return
-	WIDGET_CONTROL,/HOURGLASS
-	file = catch2d_file.path + catch2d_file.name
-	v2 = obj_new('scan2d',file=file)
-	v2->newPos,2,outfile='tmp.image'
-	obj_destroy,v2
-        viewscanimage_init, 'tmp.image'
-    END
-  'File.Change X Axis.P3': BEGIN
-	if catch2d_file.maxno eq 0 then return
-	WIDGET_CONTROL,/HOURGLASS
-	file = catch2d_file.path + catch2d_file.name
-	v2 = obj_new('scan2d',file=file)
-	v2->newPos,3,outfile='tmp.image'
-	obj_destroy,v2
-        viewscanimage_init, 'tmp.image'
-    END
-  'File.Change X Axis.P4': BEGIN
-	if catch2d_file.maxno eq 0 then return
-	WIDGET_CONTROL,/HOURGLASS
-	file = catch2d_file.path + catch2d_file.name
-	v2 = obj_new('scan2d',file=file)
-	v2->newPos,4,outfile='tmp.image'
-	obj_destroy,v2
-        viewscanimage_init, 'tmp.image'
-    END
-  'File.Change X Axis.P1': BEGIN
-	if catch2d_file.maxno eq 0 then return
-	file = catch2d_file.path + catch2d_file.name
-        viewscanimage_init, file
-    END
 
   'File.Save Image for AIM': BEGIN
 	ncol = catch2d_file.width
@@ -3272,6 +3240,18 @@ COMMON w_warningtext_block,w_warningtext_ids
   'PICK_XDR': BEGIN
 	catch2d_file.XDR = Event.Index
 	END
+  'PICK_2DXAXIS': BEGIN
+	if catch2d_file.maxno eq 0 then return
+	view_option.pickx = Event.Index + 1
+	WIDGET_CONTROL,/HOURGLASS
+	file = catch2d_file.path + catch2d_file.name
+	if view_option.pickx gt 1 then begin
+	v2 = obj_new('scan2d',file=file)
+	v2->newPos,view_option.pickx,outfile='tmp.image'
+	obj_destroy,v2
+        viewscanimage_init, 'tmp.image'
+	endif else viewscanimage_init,file
+	END
   'IMAGE_PAN': BEGIN
 	view2d_pan_images_on
       END
@@ -3568,11 +3548,6 @@ if XRegistered('main13_2') ne 0  then return
   MenuDesc907 = [ $
       { CW_PDMENU_S,       3, 'File' }, $ ;        0
         { CW_PDMENU_S,       0, 'Open ...' }, $ ;        1
-        { CW_PDMENU_S,       1, 'Change X Axis' }, $ ;        2
-          { CW_PDMENU_S,       0, 'P2' }, $ ;        3
-          { CW_PDMENU_S,       0, 'P3' }, $ ;        4
-          { CW_PDMENU_S,       0, 'P4' }, $ ;        5
-          { CW_PDMENU_S,       2, 'P1' }, $  ;      6
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as R-TIFF' }, $ ;        2
@@ -3637,6 +3612,9 @@ if XRegistered('main13_2') ne 0  then return
   Btns918 = ['Step #', 'Values']
   plot_versus = WIDGET_DROPLIST(BASE177, VALUE=Btns918, $
 	UVALUE='PLOTVERSUS', TITLE='Plot vs')
+
+  pick_xaxis = WIDGET_DROPLIST(BASE177, VALUE=['P1','P2','P3','P4'], $
+        UVALUE='PICK_2DXAXIS',TITLE='')
 
 
 ; add the view mode widgets
