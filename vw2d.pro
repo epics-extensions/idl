@@ -570,7 +570,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.12 2001/07/02 21:19:28 cha Exp $
+; $Id: vw2d.pro,v 1.13 2001/07/10 15:36:50 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1223,7 +1223,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.12 2001/07/02 21:19:28 cha Exp $
+; $Id: vw2d.pro,v 1.13 2001/07/10 15:36:50 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -4685,6 +4685,14 @@ if XRegistered('VW2D_BASE') ne 0 then return
   detname = 'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
         '01','02','03','04','05','06','07','08','09', $
         strtrim(indgen(61)+10,2)]
+  found = findfile('.tmpName',count=ct)
+  if ct gt 0 then begin
+        xdr_open,unit,'.tmpName'
+        xdr_read,unit,dnames
+        xdr_close,unit
+	detname = dnames
+  end
+
   if keyword_set(dname) then detname = dname
   lis = [detname(15:84),detname(0:14)]
 
@@ -4707,33 +4715,10 @@ if XRegistered('VW2D_BASE') ne 0 then return
       MAP=1, $
       TITLE='Detector btns', /scroll, $
       UVALUE='BASE186')
-  Btns_detector = [ $
-    '1', $
-    '2', $
-    '3', $
-    '4', $
-    '5', $
-    '6', $
-    '7', $
-    '8', $
-    '9', $
-    'A', $
-    'B', $
-    'C', $
-    'D', $
-    'E', $
-    'F' $
-         ]
-  if keyword_set(dname) then begin
-    Btns_detector=dname(0:14)
-    IMAGE186 = CW_BGROUP( BASE186, Btns_detector, $
-      ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
-      UVALUE='IMAGE186') ;,/scroll,X_scroll_SIZE=700)
-  endif else begin
+  Btns_detector = detname(0:14)
   IMAGE186 = CW_BGROUP( BASE186, Btns_detector, $
       ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
       UVALUE='IMAGE186')
-  end
 
 
   BASE62 = WIDGET_BASE(VW2D_BASE, $
