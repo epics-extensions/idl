@@ -1,3 +1,6 @@
+
+
+
 PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discrete=discrete
 ;
 ;+
@@ -17,9 +20,9 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;       detector). So each composite area is composed of one data point
 ;       from each selected detectors and they are arranged in row order. 
 ;
-;       The resultant composite image with width of ColxWidth squares,
+;       The resultant composite image with width of ColxWidth,
 ;       and height of RowxHeight squares. (each Detector dimension is 
-;       Width x Height)
+;       Width x Height) 
 ;
 ;       In the basic element area all selected detectors are filled in row
 ;       order until the area is full then it re-starts from the first row 
@@ -29,8 +32,8 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;       Default 2x2 squares are used for basic element area which can hold 
 ;       4 detects without overlapping. Each square has width of 2 pixels.
 ;
-;       Each detector has a fixed color associated with it, it is linearly
-;       devided into 16 levels. The detector value is linearly interpreted 
+;       Each detector has a fixed color table associated with it, it is linearly
+;       divided into 16 levels. The detector value is linearly interpreted 
 ;       by 16 levels (see restriction).
 ;
 ; CATEGORY:
@@ -48,10 +51,13 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;  Col:      Specifies the number of squares in the composite area , default 2
 ;  Row:      Specifies the number of squares in the composite area , default 2
 ;  Pixels:   Specifies the number of pixels used for each square, default 2
-;  Selects:  Specifies the list of selected detectors, default 0,1 
+;  Selects:  Specifies the list of selected detectors, default 1,2 
 ;  Discrete: Plots selected detecor image seperately with info of min and max
 ;
 ; RESTRICTION:
+;  The postscript "Print" button read the TV sceen and generate the PS output.
+;  The PS output only good for the screen size within  750x750 pixels.
+;
 ;  The image array size may varies from the scan to scan. In order to 
 ;  make sure this method works properly, the scan2d::View method has to be 
 ;  called first to establish the proper image array size for the desired 
@@ -79,11 +85,11 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;  The 'Color ...' button let user access various color tables comes with IDL. 
 ;  The 'myColr' button let user switch back to overlay image color table.
 ; 
-; EXAMPLE:
+; EXAMPLES:
 ;    The 2D image file is '/home/oxygen/LEGNINI/data/root/plla.june97.image'
 ;    The scanno 29 consists of 10 detectors, with 2D image # 202 to 211.
 ;
-;    Example 1 gives the default overlay of detectors 1 and 2 image for 
+;    Example 1 - Use the default overlay of detectors 1 and 2 image for 
 ;    scanno 29 from this file. The panImage method shows all detectors
 ;    images for the 2D scan.
 ;    
@@ -95,17 +101,27 @@ PRO scan2d::Overlay,scanno,row=row,col=col,pixels=pixels,selects=selects,discret
 ;    v2->panimage
 ;    v2->overlay
 ;
-;    Example 2 uses 2x2 composite area with 4 detectors selected, number
+;    Example 2 - Use 2x2 composite area with 4 detectors selected, number
 ;    of pixels used for each square is 8.
 ;
-;    v2->overlay,row=2,col=2,pixels=8,selects=[0,1,8,9]
+;    v2->overlay,row=2,col=2,pixels=8,selects=[1,8,9,10]
 ;
 ;    Toggle the 'myColor' and 'Color ...' buttons from the Overlay window
 ;    to access various color map.
 ;
+;    Example 3 - Plot detector 9's discrete image (pixel scaled by 4) 
+;
+;	v2->overlay,pixels=4,selects=9,/discrete
+;
+;    Example 3 - Plot discrete images of detectors 8,9,10 (pixel scaled by 4) 
+;
+;	v2->overlay,pixels=4,selects=[8,9,10],/discrete
+;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Jan 19, 1998.
-;	xx-xx-xxxx      comment
+;	01-08-02      Add Print, Printer... button
+;                     Add slider control on myColor table used
+;                     Reset myColor will set myColor slider to bg=128, ratio=8
 ;-
 ; pixels   - no of pixels used for each data point, default 2 
 ; detectors overlay matrix  (col x row)
@@ -159,6 +175,8 @@ end
 
 update:
 	overlayInitState,overlay_state,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,selects=selects,discrete=discrete
+
+	panImage,image_array,def,detnm=overlay_state.dname
 
 	SCAN2D_OVERLAYIMAGE,overlay_state
 END
@@ -305,12 +323,43 @@ END
 
 PRO scan2d_saveOverlayColorTbl
 	tvlct,red,green,blue,/get
-	save,red,green,blue,file='overlay.tbl'
+;	save,red,green,blue,file='overlay.tbl'
+	xdr_open,unit,'overlay.tbl',/write
+	xdr_write,unit,red
+	xdr_write,unit,green
+	xdr_write,unit,blue
+	xdr_close,unit
 END
 
 PRO scan2d_getOverlayColorTbl
-	restore,'overlay.tbl'
+;	restore,'overlay.tbl'
+	xdr_open,unit,'overlay.tbl'
+	xdr_read,unit,red
+	xdr_read,unit,green
+	xdr_read,unit,blue
+	xdr_close,unit
 	tvlct,red,green,blue
+END
+
+PRO scan2d_overlay_help,Event
+  str = ["                 Help on Overlay 2D Image",'', $
+  'List of DIs  :   List of initially picked detector images', $
+  'Image seq #  :   Enter images sequence numbers seperated by comma', $
+  'Pixel        :   Number of pixels used for each value point, default 2', $
+  'Column       :   Columns used in overlay/splice selected image, default 2', $
+  'Row          :   Rows used in overlay/splice selected image, default 2', $
+  'Image Area   :   Drawing area for displaying overlaid/discrete images', $
+  'myColor Control:',$
+  '     "Slider1" - Control the Background Color level ', $
+  '     "Slider2" - Control the number of Foreground Color number', $
+  '     "Reset"   - Set slider1 to 128, and slider2 to 8', $
+  'Color ...    :   Access of default IDL color tables, default pepermint', $
+  'Print        :   Dump the Image area to PS printer', $
+  'Printer...   :   Override the default PS printer', $
+  'Help...      :   Display this help page', $
+  'Done         :   Exit 2D overlay program' $
+	]
+  xdisplayfile,text=str,GROUP=Event.top
 END
 
 PRO SCAN2D_OVERLAY_Event, Event
@@ -325,12 +374,45 @@ PRO SCAN2D_OVERLAY_Event, Event
       END
   'BUTTON6': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY
+	return
       END
   'BUTTON7': BEGIN
+	loadct,31   ;pepermint  waves=37
 	XLOADCT
       END
   'BUTTON8': BEGIN
+	widget_control,overlay_state.bg_sdr,SET_VALUE=128,bad=bad
+	if bad then return
+	widget_control,overlay_state.ratio_sdr,SET_VALUE=8
+	scan2d_setOverlayColorTbl,128,8
 	SCAN2D_GETOVERLAYCOLORTBL
+      END
+  'BUTTON9': BEGIN
+	arr = TVRD()
+        sz = size(arr)
+        xs = sz(1)
+        ys = sz(2)
+        width = float(xs)/40
+        height = float(ys)/40
+	scale = 1.1
+	
+	; if width or height exceed 18.3 gives problem
+
+        set_plot,'PS'
+        device,filename='idl.ps',/color,bits=8, $
+                /Courier,/Bold, scale_factor=scale, $
+                xsize=width,ysize=height
+        TV,arr
+        PS_close
+        PS_print, 'idl.ps'
+	if !d.name eq 'X' then spawn,"gv idl.ps" 
+;	WIDGET_CONTROL,Event.id,SENSITIVE=0
+      END
+  'BUTTON10': BEGIN
+	PS_printer
+      END
+  'BUTTON11': BEGIN
+	scan2d_overlay_help,Event
       END
 
   'OVERLAY_NX': BEGIN
@@ -341,6 +423,7 @@ PRO SCAN2D_OVERLAY_Event, Event
 	WIDGET_CONTROL,Event.ID,SET_VALUE=old_ncol
 
 	overlay_replot,overlay_state
+;	scan2d_overlayImage,overlay_state
 
       END
 
@@ -352,20 +435,21 @@ PRO SCAN2D_OVERLAY_Event, Event
 	WIDGET_CONTROL,Event.ID,SET_VALUE=old_nrow
 
 	overlay_replot,overlay_state
+;	scan2d_overlayImage,overlay_state
 
       END
   'OVERLAY_SELECTS': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=detectors
 	selects = str_sep(detectors(0),',')
-	selects = fix(selects)
+	selects = fix(selects) - 1
 	if max(selects) ge 15 then begin
-		res=dialog_message('0 based detector value can not exceed 14',/Error)
+		res=dialog_message('Image # value can not exceed 15',/Error)
 		return
 	end
 	pick = make_array(15,/int)
 	if n_elements(selects) gt 0 then begin
 		for i=0,n_elements(selects)-1 do begin
-		pick(selects(i)) = 1
+		if selects(i) ge 0 then pick(selects(i)) = 1
 		end
 	end
 	
@@ -373,13 +457,24 @@ PRO SCAN2D_OVERLAY_Event, Event
 	pick_string=strcompress(detectors(0),/remove_all)
 	overlay_state.pick_string = pick_string
 	overlay_state.pick = pick
-	overlay_state.selects = total(pick)
+	overlay_state.selects = fix(total(pick))
 	WIDGET_CONTROL,Event.ID,SET_VALUE=old_string
 
+  WIDGET_CONTROL,Event.Top,SET_UVALUE=overlay_state
 	overlay_replot,overlay_state
+;	scan2d_overlayImage,overlay_state
 
       END
-
+  'OVERLAYTABLE_BG': BEGIN
+	WIDGET_CONTROL,Event.ID,GET_VALUE=bg
+	overlay_state.tbl_bg = bg
+	scan2d_setOverlayColorTbl,overlay_state.tbl_bg,overlay_state.tbl_ratio
+      END
+  'OVERLAYTABLE_RATIO': BEGIN
+	WIDGET_CONTROL,Event.ID,GET_VALUE=v
+	overlay_state.tbl_ratio = v
+	scan2d_setOverlayColorTbl,overlay_state.tbl_bg,overlay_state.tbl_ratio
+      END
   'OVERLAY_PIXELS': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=pixels
 	old_pixels = overlay_state.pixels
@@ -387,23 +482,33 @@ PRO SCAN2D_OVERLAY_Event, Event
 	WIDGET_CONTROL,Event.ID,SET_VALUE=old_pixels
 
 	overlay_replot,overlay_state
+;	scan2d_overlayImage,overlay_state
 
       END
+  'OVERLAY_TYPE': BEGIN
+	overlay_state.discrete = Event.Value
+	if Event.Value eq 0 and overlay_state.ncol eq 1 then overlay_state.ncol=2
+      END
+
   ENDCASE
+
+  WIDGET_CONTROL,Event.Top,SET_UVALUE=overlay_state
+
 END
 
 PRO overlay_replot,overlay_state
 
-	overlay_state.width = overlay_state.pixels*overlay_state.ncol*overlay_state.xdim+250
+	overlay_state.width = overlay_state.pixels*overlay_state.ncol*overlay_state.xdim+250 
 	if overlay_state.discrete eq 0 then $
 	overlay_state.height = overlay_state.pixels*overlay_state.ydim*overlay_state.nrow else $
 	overlay_state.height = overlay_state.pixels*overlay_state.ydim*overlay_state.selects
 
 	scan2d_overlayimage,overlay_state
+
 END
 
 
-PRO overlayInitState,overlay_state,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,selects=selects,discrete=discrete
+PRO overlayInitState,overlay_state,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,selects=selects,discrete=discrete,fdname=fdname
 	
 s = size(image_array)
 xdim=s(1)
@@ -427,17 +532,18 @@ ydim=s(2)
 	ncol=2
 	if keyword_set(row) then nrow=row
 	if keyword_set(col) then ncol=col
+	if keyword_set(discrete) then ncol = 1
 	if nrow*ncol gt 16 then nrow = 16/ncol+1
 
 	pick_string=''
 	pick = make_array(15,/int)
 	if n_elements(selects) gt 0 then begin
 		for i=0,n_elements(selects)-1 do begin
-		pick(selects(i)) = 1
+		pick(selects(i) - 1) = 1
 		pick_string=pick_string+strtrim(selects(i),2)+','
 		end
 	endif else begin
-	pick_string='0,1'
+	pick_string='1,2'  ;'0,1'
 	pick(0:1)=1
 	end
 
@@ -445,11 +551,13 @@ ydim=s(2)
 
 overlay_state = { $
 	base : 0L, $
+	bg_sdr: 0L, $
+	ratio_sdr: 0L, $
 	win : 0, $
 	width: magnifyfactor*ncol*xdim +250,$
-	height: magnifyfactor*ydim*total(pick),$
-	xsize : 300, $
-	ysize : 400, $
+	height: magnifyfactor*nrow*ydim,$
+	xsize : 400, $
+	ysize : 600, $
 	xdim : xdim, $
 	ydim : ydim, $
 	def : def, $
@@ -464,11 +572,22 @@ overlay_state = { $
 	selects : total(pick), $
 	discrete : 0, $
 	dcol: dcol, $
-	vcol: vcol $
+	vcol: vcol, $
+	tbl_bg:128, $
+	tbl_ratio:8, $
+	dname: ['D1','D2','D3','D4','D5','D6','D7','D8','D9','DA','DB','DC','DD','DE','DF'] $
 	}
 
-if keyword_set(discrete) then overlay_state.discrete=1  ; plot discrete images
-if overlay_state.discrete eq 0 then overlay_state.height=magnifyfactor*ydim*nrow
+if keyword_set(discrete) then begin
+	overlay_state.discrete=1  ; plot discrete images
+	overlay_state.height=magnifyfactor*ydim*10 ; overlay_state.selects
+	end	
+if keyword_set(fdname) then begin
+	overlay_state.dname = '???'
+	for i=0,n_elements(fdname)-1 do begin
+		overlay_state.dname(i)=fdname(i)
+	end
+end
 
 END
 
@@ -488,6 +607,7 @@ PRO overlayImage,overlay_state
 	dcol = overlay_state.dcol
 	pick = overlay_state.pick
 	discrete = overlay_state.discrete
+
 
 	WSET,overlay_state.win	
 	erase
@@ -522,7 +642,7 @@ PRO overlayImage,overlay_state
 	  end
 	endif else begin
 ;
-; plot selected detectors with color scheme
+; plot discrete selected detectors with color scheme
 ;
 	numj=0 
 	ncol = 1
@@ -540,8 +660,7 @@ PRO overlayImage,overlay_state
 		factor = 0. ; 1.
 		if vmax(k) gt vmin(k) then $
 			factor = (image_array(i,j,k) - vmin(k)) / (vmax(k)-vmin(k)) 
-		kcolor = vcol(k) + dcol*factor
-	
+		kcolor = vcol(k) - dcol*factor
 		x0=(ii+ki)*magnifyfactor
 		x1=(ii+ki+1)*magnifyfactor
 		y0= kj0+jj*magnifyfactor
@@ -551,7 +670,7 @@ PRO overlayImage,overlay_state
 		end
 		numj = numj+1
 	;  write the detector info here min,max,detector
-		str =  ' D'+strtrim(k+1,2) + ', Max='+strtrim(vmax(k),2)+ $
+		str = overlay_state.dname(k) + ', Max='+strtrim(vmax(k),2)+ $
 			', Min='+strtrim(vmin(k),2)
 		xyouts,x1,kj0+ydim/2*magnifyfactor,str,/device
 		END
@@ -560,9 +679,6 @@ PRO overlayImage,overlay_state
 END
 
 
-
-; DO NOT REMOVE THIS COMMENT: END SCAN2D_OVERLAY
-; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
 
 
 
@@ -575,7 +691,7 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
   ysize =overlay_state.height
 
   SCAN2D_OVERLAY = WIDGET_BASE(GROUP_LEADER=Group, $
-      ROW=1, TITLE='Overlay 2D Image', $
+      COLUMN=1, TITLE='Overlay 2D Image', $
       MAP=1, $
       UVALUE='SCAN2D_OVERLAY')
 
@@ -585,9 +701,38 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
       UVALUE='BASE2')
 
   BASE2_2 = WIDGET_BASE(BASE2, $
-      ROW=1, $
+      COLUMN=1, /frame, $
       MAP=1, $
       UVALUE='BASE2_2')
+  str =''
+  for i=0,N_ELEMENTS(overlay_state.dname)-1 do begin
+  str = str + overlay_state.dname(i) 
+  if (i+1) lt N_ELEMENTS(overlay_state.dname) then str=str+','
+  end
+  label2 = WIDGET_LABEL(BASE2_2,VALUE=str)
+
+  BGROUP4 = CW_BGROUP( BASE2_2, ['Overlay','Discrete'], $
+      ROW=1, $
+      EXCLUSIVE=1, /NO_RELEASE, $
+      LABEL_LEFT='Composite Type: ', $
+      UVALUE='OVERLAY_TYPE')
+  WIDGET_CONTROL,BGROUP4,SET_VALUE=overlay_state.discrete
+
+  selects_FIELD3 = CW_FIELD( BASE2_2,VALUE=overlay_state.pick_string, $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='Image Seq #', $
+      UVALUE='OVERLAY_SELECTS', $
+      XSIZE=25)
+
+  pick = where(overlay_state.pick gt 0)
+  str ='SELECTED:   '
+  for i=0,N_ELEMENTS(pick)-1 do begin
+  str = str + overlay_state.dname(pick(i)) 
+  if (i+1) lt N_ELEMENTS(pick) then str=str+','
+  end
+  label3 = WIDGET_LABEL(BASE2_2,VALUE=str,/align_left)
 
   BASE2_1 = WIDGET_BASE(BASE2, $
       ROW=1, $
@@ -598,26 +743,51 @@ PRO SCAN2D_OVERLAYIMAGE,overlay_state, GROUP=Group
       RETAIN=1, $
       UVALUE='scan2d_overlay', $
       XSIZE=xsize, $
-      X_SCROLL_SIZE=300, $
+      X_SCROLL_SIZE=400, $
       YSIZE=ysize, $
       Y_SCROLL_SIZE=400)
+
+  BASE4 = WIDGET_BASE(BASE2, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE4')
+
+  label1 = WIDGET_LABEL(BASE4,VALUE='myColor:')
+  mycolor_bg = WIDGET_SLIDER( BASE4, $
+      MINIMUM=0,MAXIMUM=256,UVALUE='OVERLAYTABLE_BG', $
+      VALUE=overlay_state.tbl_bg)
+  mycolor_ratio = WIDGET_SLIDER( BASE4, $
+      MINIMUM=2,MAXIMUM=64,UVALUE='OVERLAYTABLE_RATIO', $
+      VALUE=overlay_state.tbl_ratio)
+  BUTTON8 = WIDGET_BUTTON( BASE4, $
+      UVALUE='BUTTON8', $
+      VALUE='Reset')
+  overlay_state.bg_sdr = mycolor_bg
+  overlay_state.ratio_sdr = mycolor_ratio
 
   BASE5 = WIDGET_BASE(BASE2, $
       ROW=1, $
       MAP=1, $
       UVALUE='BASE5')
 
-  BUTTON6 = WIDGET_BUTTON( BASE5, $
-      UVALUE='BUTTON6', $
-      VALUE='Done')
-
   BUTTON7 = WIDGET_BUTTON( BASE5, $
       UVALUE='BUTTON7', $
       VALUE='Color ...')
 
-  BUTTON8 = WIDGET_BUTTON( BASE5, $
-      UVALUE='BUTTON8', $
-      VALUE='myColor')
+  BUTTON9 = WIDGET_BUTTON( BASE5, $
+      UVALUE='BUTTON9', $
+      VALUE='Print')
+  BUTTON10 = WIDGET_BUTTON( BASE5, $
+      UVALUE='BUTTON10', $
+      VALUE='Printer...')
+  BUTTON11 = WIDGET_BUTTON( BASE5, $
+      UVALUE='BUTTON11', $
+      VALUE='Help...')
+
+  BUTTON6 = WIDGET_BUTTON( BASE5, $
+      UVALUE='BUTTON6', $
+      VALUE='Done')
+
 
   pixels_FIELD2 = CW_FIELD( BASE2_1,VALUE=overlay_state.pixels, $
       ROW=1, $
@@ -644,13 +814,6 @@ if overlay_state.discrete eq 0 then begin
       UVALUE='OVERLAY_NY', $
       XSIZE=2)
 end
-  selects_FIELD3 = CW_FIELD( BASE2_2,VALUE=overlay_state.pick_string, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Select Detectors', $
-      UVALUE='OVERLAY_SELECTS', $
-      XSIZE=25)
 
   g_tlb = WIDGET_INFO(SCAN2D_OVERLAY,/geometry)
 
@@ -671,4 +834,388 @@ end
 
 
   XMANAGER, 'SCAN2D_OVERLAY', SCAN2D_OVERLAY,/NO_BLOCK
+END
+
+
+PRO scanSee::Overlay2D,scanno,row=row,col=col,pixels=pixels,selects=selects,discrete=discrete
+;+
+; NAME:
+;	scanSee::Overlay2D
+;
+; PURPOSE:
+;       Using an overlay composite image reveals information about the 
+;       superposition of the selected images of detectors. It provides 
+;       another way of data displaying.
+;
+;       This method constructs a composite image based on user selected
+;       detectors for a given 2D scanno. The composite image is composed
+;       of the basic composite element area. Each composite element area 
+;       consists of ColxRow of small squares. Each colored filled small 
+;       square area represents a data point from the selected image (or 
+;       detector). So each composite area is composed of one data point
+;       from each selected detectors and they are arranged in row order. 
+;
+;       The resultant composite image with width of ColxWidth squares,
+;       and height of RowxHeight squares. (each Detector dimension is 
+;       Width x Height)
+;
+;       In the basic element area all selected detectors are filled in row
+;       order until the area is full then it re-starts from the first row 
+;       again, i.e. if more detectors than the available squares are 
+;       available then the overlay of colored squares may be resulted.
+;
+;       Default 2x2 squares are used for basic element area which can hold 
+;       4 detects without overlapping. Each square has width of 2 pixels.
+;
+;       Each detector has a fixed color table associated with it, it is linearly
+;       divided into 16 levels. The detector value is linearly interpreted 
+;       by 16 levels (see restriction).
+;
+; CATEGORY:
+;       Widgets.
+;
+; CALLING SEQUENCE:
+;       Obj->[scan2d::]Overlay [,Scanno] [,Row=row] [,Col=col] [,Pixels=pixels]
+;                 [,Selects=selects] [,Discrete=discrete]
+;
+; ARGUMENTS:
+;  Scanno:   Optional, specifies the corresponding 2D scan seq #, normally
+;            it is internally determined by the [scan2d::View] method.
+;
+; KEYWORDS:
+;  COL:      Specifies the number of squares in the composite area , default 2
+;  ROW:      Specifies the number of squares in the composite area , default 2
+;  PIXELS:   Specifies the number of pixels used for each square, default 2
+;  SELECTS:  Specifies the list of selected detectors, default [1,2]
+;  DISCRETE: Draw each selected image seperately with min and max info
+;
+; RESTRICTION:
+;  The postscript "Print" button read the TV sceen and generate the PS output.
+;  The PS output only good for the screen size within  750x750 pixels.
+;
+;  Color table is devided into 15 sub color table schemes. 
+;
+;  Only 15 images can be passed into the scan2d_overlayImage program, a user
+;  has to select the desired sub-list images from the 85 detector list first.
+;  
+;  16 colors are used and they are shaded with gray
+;
+;       Detector 1            Red 
+;       Detector 2            Green 
+;       Detector 3            Blue 
+;       Detector 4            Yellow 
+;       Detector 5            Cyne 
+;       Detector 6            Magenta 
+;       Detector 7            Gray 
+;       Detector 8            Orange 
+;       Detector 9            Light Green 
+;       Detector 10           Purple 
+;       Detector 11           Gold 
+;       Detector 12           Light Orange 
+;       Detector 13           Light Cyne 
+;       Detector 14           Light purple 
+;       Detector 15           Dark Gray 
+;       Detector 16           Dark Yellow 
+;
+;  The 'Color ...' button let user access various color tables comes with IDL. 
+;  The 'Reset' button let user switch back to default overlay image color table.
+;  There are two sliders which allows the user to control the myColor table.
+;  The saved 'overlay.tbl' file is used for storing the current myColor table.
+; 
+; EXAMPLES:
+;    The 2D image file is '/home/beams/CHA/data/xxx/cha_0001.mda'
+;
+;    Example 1 - Read in the MDA 2D files generated by the IOC, and call
+;    the 2D overlay2D method for the file. Initailly user has to select
+;    the interested detectors (among the 85 detectors) at most 15 detectors 
+;    can be picked from the scroll list. 
+;    Then the 2D image overlay program pops up. 
+;    The panImage method shows all detectors images for the 2D scan.
+;    
+;    The object v2 need to be defined only if it is not yet defined.
+;
+;       filename='/home/beams/CHA/data/xxx/cha_0001.mda' 
+;       v2 = obj_new('scanSee',file=filename)
+;       v2->panimage,/sel
+;       v2->overlay2d
+;
+;    Example 2 - Instead of overlaying the image discrete images are
+;    displaied.
+;
+;       v2->overlay2d,/discrete
+;
+;    Toggle the 'myColor' and 'Color ...' buttons from the Overlay window
+;    to access various color map.
+;
+;    Example 3 - Plot detector 9's discrete image (pixel scaled by 4) 
+;
+;	v2->overlay2d,pixels=4,selects=9,/discrete
+;
+;    Example 4 - Plot discrete images of detectors 8,9,10 (pixel scaled by 4) 
+;
+;	v2->overlay2d,pixels=4,selects=[8,9,10],/discrete
+;
+; MODIFICATION HISTORY:
+; 	Written by:	Ben-chin Cha, Jan 19, 1998.
+;	01-08-02      Add Print, Printer... button
+;                     Add slider control on myColor table used
+;                     Reset myColor will set myColor slider to bg=128, ratio=8
+;-
+
+seq = self.scanno
+if n_elements(scanno) then seq = scanno 
+
+if self.dim le 1 then begin
+	res=WIDGET_MESSAGE('Error: no image file loaded in')
+	return
+end
+	; extract read mda data in
+
+        da2d = *(*self.gD).da2D
+        id_def= *(*self.gD).id_def
+	if self.dim eq 3 then def = id_def(4:88,1) else $
+		def = id_def(4:88,0)	
+
+	self->images,/panimage
+;	panimage,da2d,def,detnm=self.detname
+
+  	dname = self.detname
+	overlayInitSelect,dname
+
+	found = findfile('selects.dat',count=ct)
+	if ct then begin
+	xdr_open,unit,'selects.dat'
+	xdr_read,unit,init_selects
+ 	xdr_close,unit
+	if n_elements(init_selects) gt 15 then init_selects = init_selects(0:14)
+	endif else begin
+		init_selects = indgen(15)+15
+	end
+
+fdname = self.detname(init_selects)
+;print,'init_selects=',init_selects
+;print,fdname
+;print,init_selects
+;help,id_def,da2d
+xdim = 60 
+ydim = 60 
+
+	image_array  = make_array(xdim,ydim,15,/float)
+	def = make_array(15,value=0)
+
+	vmin = make_array(15,/float)
+	vmax = make_array(15,/float)
+	for i=0,n_elements(init_selects)-1 do begin
+		def(i) = 1
+		if self.dim eq 3 then di = id_def(init_selects(i)+4,1) else $
+		di = id_def(init_selects(i)+4,0)
+		if di gt 0 then begin
+		t_image = da2d(*,*,init_selects(i))
+		image_array(*,*,i) = congrid(t_image,xdim,ydim)
+		rmax = max(t_image,min=rmin)
+		vmax(i) = rmax
+		vmin(i) = rmin
+		end
+	end
+
+;print,'def:', def
+;print,'vmin:',vmin
+;print,'vmax:',vmax
+	
+update:
+	
+	overlayInitState,overlay_state,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,selects=selects,discrete=discrete  ,fdname=fdname
+
+	SCAN2D_OVERLAYIMAGE,overlay_state
+END
+
+PRO scanSee::Dnames,detname
+	detname = self.detname
+END
+
+PRO overlay2DImages,image_array,def,vmax,vmin,col=col,row=row,pixels=pixels,selects=selects,detnm=detnm,discrete=discrete
+;+
+; NAME:
+;	OVERLAY2DIMAGES	
+;
+; PURPOSE:
+;       This program overlays a selected list of images from an 
+;       input image_array and displays them as an expanded composite image 
+;       representation. At most 15 images can be selected from the 
+;       input image_array. 
+;
+; CALLING SEQUENCE:
+;       Overlay2DImages,Image_array [,Def] [,Vmax,Vmin] [,COL=col] [,Row=row] $
+;		[,Pixels=pixels] [,Selects=selects] [,Detnm=detnm] $
+;		[,Discrete=discrete]
+;
+; INPUT: 
+; 	IMAGE_ARRAY(width,height,nd)  
+;                -  'nd' the number of images (>15) 
+;                    Initial 2D image array up to 85 2D images
+;                    Each image contains 'widthxheight' pixels
+; 	DEF(nd)  -  Initial Image presence indicators for image_array 
+;                    0 not defined, 1 defined, default all defined
+;
+; OUTPUT:
+;	VMAX(15)  -  Maximum value of selected detector images
+;	VMIN(15)  -  Minimum value of selected detector images
+;
+; KEYWORD:
+; 	COL         -  Columns of dectors in overlay image composition
+; 	ROW         -  Rows of detectors in overlay image compositon
+; 	PIXELS      -  Pixel width and height in a unit element of image 
+; 	SELECTS(15) -  List of sequence number of selected detectors
+;                      At most 15 detectors can be selected
+;		       defaults [16,17,...,31]
+;	DETNM(15)   -  List of selected Detector names assigned
+;                      At most 15 detectors can be selected
+;                      defaults ['D01,'D02',...,'D15']
+; 	DISCRETE    -  Discrete images instead of overlaying images
+; 
+; RESTRICTIONS
+;   The resultant composite image with new pixel dimension width and height
+;   as given  
+;              (60 x pixels x col , 60 x pixels x row)
+;
+; EXAMPLE:
+;     file='/home/spare/sector2/vx2id/2xfm/data01Q4/MarineBio/mda/2xfm_0249.mda'
+;     v1 = obj_new('scanSee',file=file)
+;     v1->images,image_array,def
+;	overlay2DImages,image_array,def,selects=[16,17,18,19,20]
+;-
+
+	sz = size(image_array)
+	if sz(0) ne 3 then return
+	if n_elements(def) eq 0 then def=make_array(sz(3),value=1)
+
+	detname =  'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+                '01','02','03','04','05','06','07','08','09', $
+                strtrim(indgen(61)+10,2)]
+	if keyword_set(selects) eq 0 then selects=indgen(15)+16 
+	t_detnm = detname(selects-1)
+
+	if keyword_set(detnm) then begin
+		for i=0,n_elements(detnm)-1 do begin
+		t_detnm(i) = detnm(i)
+		end
+	end
+	detnm = t_detnm
+
+	; at most 15 detectors will be selected
+	xwid=60
+	ywid=60
+	t_image = make_array(xwid,ywid,15)
+	id_def = make_array(15,/int)
+	vmax = make_array(15)
+	vmin = make_array(15)
+	dname = make_array(15,value='???')
+	ip=0
+
+	for k=0,n_elements(selects)-1 do begin
+ 	i = selects(k) - 1 
+	  if def(i) gt 0 then begin
+		image = image_array(*,*,i)
+		vmax(ip) = max(image)
+		vmin(ip) = min(image)
+		t_image(*,*,ip) = congrid(image,xwid,ywid)
+		id_def(ip) = 1
+		dname(ip) = detnm(ip)
+		ip = ip+1
+		if ip ge 15 then goto,overlay2
+	  end
+	;if k eq 0 then n_selects=1 else n_selects=[n_selects,k+1]
+	end
+
+overlay2:
+
+	overlayInitState,overlay_state,t_image,id_def,vmax,vmin,col=col,row=row,pixels=pixels,discrete=discrete,fdname=dname
+
+	panImage,t_image,id_def,detnm=dname
+
+	SCAN2D_OVERLAYIMAGE,overlay_state
+
+END
+
+
+PRO overlayInitSelect_Event, Event
+
+
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+  'INIT_CLOSE': BEGIN
+        WIDGET_CONTROL, Event.top, GET_UVALUE= overlayInitSelect_state
+	res = WIDGET_INFO(overlayInitSelect_state.listWID,/LIST_SELECT)
+	xdr_open,unit,'selects.dat',/write
+	xdr_write,unit,res
+	xdr_close,unit
+	WIDGET_CONTROL,Event.top,/destroy
+      END
+
+  'INIT_HELP': BEGIN
+  str = ['All selected items are highlighted. Pick items from the scroll list by ', $
+	'locate the desired item and click the left mouse button (LMB).', $
+	'Only the first 15 items from the user selected list will be accepted', $
+	'by the 2D images overlay program.', '', $
+	'CNTL + LMB    - Add/remove the item from the selected list', $
+	'SHIFT + LMB   - Select items between the previous and current clicks', $
+	'Accept Button - Accept all selections and call Image Overlay program']
+	res = dialog_message(str,/info)
+      END
+
+  'OVERLAY_INITLIST': BEGIN
+      END
+  ENDCASE
+END
+
+
+
+
+
+PRO overlayInitSelect,dname
+if n_elements(dname) eq 0 then begin
+	r = dialog_message('The initial detector name list is required!!',/error)
+	return
+end
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+	found = findfile('selects.dat',count=ct)
+	if ct then begin
+	xdr_open,unit,'selects.dat'
+	xdr_read,unit,init_selects
+ 	xdr_close,unit
+	if n_elements(init_selects) gt 15 then init_selects = init_selects(0:14)
+	endif else begin
+		init_selects = indgen(15)+15
+	end
+
+  overlayInitSelect = WIDGET_BASE(GROUP_LEADER=Group, $
+      COLUMN=1,   $
+      TITLE='Overlay2D ', $
+      UVALUE='overlayInitSelect')
+
+  LABEL2 = WIDGET_LABEL( overlayInitSelect, $
+      UVALUE='LABEL2', $
+      VALUE='Image Selections ')
+
+  LIST3 = WIDGET_LIST( overlayInitSelect,VALUE=dname, $
+      UVALUE='OVERLAY_INITLIST', /multiple, $
+      YSIZE=10)
+  WIDGET_CONTROL,LIST3,SET_LIST_TOP=15
+  WIDGET_CONTROL,LIST3,SET_LIST_SELECT=init_selects 
+
+  BASE2 = WIDGET_BASE(overlayInitSelect,/ROW)
+  button = WIDGET_BUTTON(BASE2,value="Help...",UVALUE='INIT_HELP')
+  button = WIDGET_BUTTON(BASE2,value="Accept",UVALUE='INIT_CLOSE')
+
+  overlayInitSelect_state = {  listWID: LIST3 }
+
+  WIDGET_CONTROL, overlayInitSelect, SET_UVALUE= overlayInitSelect_state
+  WIDGET_CONTROL, overlayInitSelect, /REALIZE
+
+  XMANAGER, 'overlayInitSelect', overlayInitSelect
 END
