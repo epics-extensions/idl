@@ -22,20 +22,16 @@ set xf=""; set yf=""; set zf=""; set wf=""; set vf=""
 source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
 source $PVT_LOC/ezcaidl_setup
 
+# echo $exe
+
 if -e catch1d.config then
 	cp catch1d.config catch1d.config.tmp
 endif
 
-if $HOST_ARCH == "solaris-sparc" then
-	set exe = "-rt=$PVT_LOC/../../idllib/catcher.sav"
-	else
 	set exe = "-rt=$PVT_LOC/catcher.sav"
-endif
 	if -e catcher.sav then
 	set exe = "-rt=catcher.sav"
 	endif
-
-echo $exe
 
 while ( "$1" !=  "" )
 if ( "$1" == "-n" | "$1" == "-N" | "$1" == "-Nosave" ) then 
@@ -118,18 +114,13 @@ if ("$v" != "") then
 	echo $vf >>! go_catcher
 endif
 
-echo ".run catcher_v1" >! go_catcher
-echo ".run scan2d_overlay" >! go_catcher
+echo ".run catcher_v1.pro" >! go_catcher
+echo ".run scan2d_overlay" >>! go_catcher
 echo ".run catch1d_user" >>! go_catcher
 echo $xyz >>! go_catcher
 
-#if `isainfo -b` == 64 then
 	source /usr/local/rsi/idl_6.0/bin/idl_setup
 	idl -32 $exe go_catcher
-#else
-#	source /usr/local/rsi/idl_5.3/bin/idl_setup
-#	idl $exe go_catcher
-#endif
 	rm go_catcher
 exit
 help::
