@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: view2d.pro,v 1.42 2002/08/02 15:39:04 jba Exp $
+; $Id: view2d.pro,v 1.43 2004/04/12 21:02:24 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1907,11 +1907,11 @@ END
 @scan2d_roi.pro
 @scan2d_overlay.pro
 
-PRO view2d_pan_images_on,Event,tiff=tiff,xdr=xdr,rtiff=rtiff,def=def,image_array=image_array
+PRO view2d_pan_images_on,Event,tiff=tiff,xdr=xdr,png=png,def=def,image_array=image_array
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 
-if !d.name eq 'WIN' then device,decomposed=0
+if !d.n_colors gt !d.table_size then device,decomposed=0
 
 unit = catch2d_file.opened
 seq = catch2d_file.scanno_current
@@ -1983,20 +1983,24 @@ update:
 	plots,[0,8*width],[height,height],/device
 	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
 
-	if keyword_set(TIFF) then begin
+	if keyword_set(PNG) then begin
 	tvlct,R,G,B,/get
-	WRITE_TIFF,'view2d.tiff',TVRD(),red=R,green=G,blue=B
+	if !d.n_colors gt !d.table_size then $
+	WRITE_PNG,'view2d.png',TVRD(/true) else $
+	WRITE_PNG,'view2d.png',TVRD(),R,G,B
 	fileSeqString,catch2d_file.scanno_current,suf0
-	outname=catch2d_file.name+'.pan'+suf0+'.tiff'
-	dir = catch2d_file.outpath+'TIFF'+!os.file_sep
-	rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
+	outname=catch2d_file.name+'.pan'+suf0+'.png'
+	dir = catch2d_file.outpath+'PNG'+!os.file_sep
+	rename_dialog,dir,'view2d.png',outname,GROUP=Event.Top
 	end
 
-	if keyword_set(RTIFF) then begin
+	if keyword_set(TIFF) then begin
 	tvlct,R,G,B,/get
+	if !d.n_colors gt !d.table_size then $
+	WRITE_TIFF,'view2d.tiff',reverse(TVRD(/true),3) else $
 	WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
 	fileSeqString,catch2d_file.scanno_current,suf0
-	outname=catch2d_file.name+'.pan'+suf0+'.rtiff'
+	outname=catch2d_file.name+'.pan'+suf0+'.tiff'
 	dir = catch2d_file.outpath+'TIFF'+!os.file_sep
 	rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
 	end
@@ -2152,7 +2156,7 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 if catch2d_file.scanno_current lt 0 then return
 
-if !d.name eq 'WIN' then device,decomposed=0
+if !d.n_colors gt !d.table_size then device,decomposed=0
 ; update the info block
 
 xtitle='2D SCAN # '+strtrim(catch2d_file.scanno_current,2)+ $
@@ -2293,7 +2297,6 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			newim = image(x_min:ix-1,y_min:iy-1)
 			nc = view_option.ncolors
 			labels=[1,1,1,1,1,1,1,1,1,1,1]
-;			colors = [31,28,25,22,19,16,13,10]
 			zmax = max(newim)
 			zmin = min(newim)
 			dz= (zmax-zmin)/ 9.
@@ -2304,7 +2307,7 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			levels = [levels, zmin + dz*i]
 			colors = [colors, nc - dc*i ]
 			end
-			if !d.n_colors eq 16777216 then begin
+			if !d.n_colors gt !d.table_size then begin
 				catch1d_get_pvtcolor,colors(0),lcolor
 				for i=1,9 do begin
 				catch1d_get_pvtcolor,colors(i),tcolor
@@ -2322,11 +2325,13 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			temp = indgen(iy)
 			ny=temp(y_min:iy-1)
 		end
+		if !d.n_colors gt !d.table_size then device,decomposed=1
 		CONTOUR, newim,nx,ny, $
 			background=view_option.bg, color=t_color, $
 			levels = levels, $
 			c_colors=reverse(colors), c_labels=labels, $
 			 c_charsize=1.5,/follow
+		if !d.n_colors gt !d.table_size then device,decomposed=0
 	   end
 	4: begin
 		if view_option.versus then begin
@@ -2609,6 +2614,17 @@ w = colorbar_data.width*10
 			title=title, xtitle=xtitle, ytitle=ytitle, $
 			xstyle = xstyle, ystyle=ystyle, color=t_color
 
+x = !d.x_size * (.02+view_option.ps_r)
+y = !d.y_size * view_option.ps_b
+h = colorbar_data.height*30 
+w = colorbar_data.width*10
+		colorbar,[v_min,v_max], $
+                        w,h,x=x,y=y, $
+                        horizontal=colorbar_data.horiz, $
+                        reverse=printer_info.reverse, $
+                        format=colorbar_data.format, $
+                        ncap=colorbar_data.nlabel
+
 		endif else begin
 		    TV,newimage2, view_option.margin_l, view_option.margin_b
 
@@ -2622,7 +2638,6 @@ w = colorbar_data.width*10
 			xrange=xrange, yrange=yrange,title=title, $
 			xtitle=xtitle, ytitle=ytitle, $
 			xstyle = xstyle, ystyle=ystyle,color=t_color
-		end
 		
 	colorbar_data.min = v_min
 	colorbar_data.max = v_max
@@ -2635,6 +2650,7 @@ w = colorbar_data.width*10
 			x=colorbar_data.x, y=posy, $
 			reverse=printer_info.reverse, $
 			ncap=colorbar_data.nlabel, format=colorbar_data.format
+		end
 
 	   end
 	ELSE: print,'Unknow case entered'
@@ -2937,21 +2953,25 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	rename_dialog,dir,'view2d.xdr',outname,GROUP=Event.Top
     END
 
-  'File.Save as R-TIFF': BEGIN
-	tvlct,R,G,B,/get
-	WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
-	fileSeqString,catch2d_file.seqno,suf0
-	outname=catch2d_file.name+'.'+suf0+'.rtiff'
-	dir = catch2d_file.outpath+'TIFF'+!os.file_sep
-	rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
-    END
   'File.Save as TIFF': BEGIN
 	tvlct,R,G,B,/get
-	WRITE_TIFF,'view2d.tiff',TVRD(),red=R,green=G,blue=B
+	if !d.n_colors gt !d.table_size then $
+	WRITE_TIFF,'view2d.tiff',reverse(TVRD(/true),3) else $
+	WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
 	fileSeqString,catch2d_file.seqno,suf0
 	outname=catch2d_file.name+'.'+suf0+'.tiff'
 	dir = catch2d_file.outpath+'TIFF'+!os.file_sep
 	rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
+    END
+  'File.Save as PNG': BEGIN
+	tvlct,R,G,B,/get
+	if !d.n_colors gt !d.table_size then $
+	WRITE_PNG,'view2d.png',TVRD(/true) else $
+	WRITE_PNG,'view2d.png',TVRD(),R,G,B
+	fileSeqString,catch2d_file.seqno,suf0
+	outname=catch2d_file.name+'.'+suf0+'.png'
+	dir = catch2d_file.outpath+'PNG'+!os.file_sep
+	rename_dialog,dir,'view2d.png',outname,GROUP=Event.Top
     END
 
   'File.Printer ...': BEGIN
@@ -3088,8 +3108,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
   'PanImage.PanImages.PanImages+TIFF': begin
 	view2d_pan_images_on,Event,/tiff
 	end
-  'PanImage.PanImages.PanImages+RTIFF': begin
-	view2d_pan_images_on,Event,/rtiff
+  'PanImage.PanImages.PanImages+PNG': begin
+	view2d_pan_images_on,Event,/png
 	end
   'PanImage.PanImages.PanImages+XDR': begin
 	view2d_pan_images_on,Event,/xdr
@@ -3684,6 +3704,7 @@ PRO view2d, GROUP=Group, file=file, XDR=XDR,CA=CA
 ;                     Add set new 2D scan start and end position
 ;       05-07-02 bkc  Add ranges to XDR image save
 ;                     Modify the user interface of Image Color Scheme
+;       04-07-04 bkc  Add replace TIFF by PNG 
 ;-
 ;
 @os.init
@@ -3722,7 +3743,7 @@ if XRegistered('main13_2') ne 0  then return
         { CW_PDMENU_S,       0, 'Open ...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        2
-        { CW_PDMENU_S,       0, 'Save as R-TIFF' }, $ ;        2
+        { CW_PDMENU_S,       0, 'Save as PNG' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as XDR' }, $ ;        2
         { CW_PDMENU_S,       0, 'Printer ...' }, $ ;        2
         { CW_PDMENU_S,       0, 'Print' }, $ ;        2
@@ -4050,7 +4071,7 @@ if keyword_set(CA) then $
       { CW_PDMENU_S,       1, 'PanImages' }, $ ;        0
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages+RTIFF' }, $ ;        1
+        { CW_PDMENU_S,       0, 'PanImages+PNG' }, $ ;        1
         { CW_PDMENU_S,       2, 'PanImages+XDR' }, $ ;        1
       { CW_PDMENU_S,       0, 'Overlay...' } , $ ;        0
       { CW_PDMENU_S,       2, 'Calibration...' } $ ;        0
