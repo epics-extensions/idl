@@ -1330,10 +1330,9 @@ PRO plot2d_asciiReport,plot2d_state,Event
 	y = plot2d_state.yarr
 	nx = n_elements(x)
 	ny = n_elements(y)
-
-	f1 = '('+plot2d_state.format+',I4,'+ strtrim(nx,2)+plot2d_state.format+')'
-	f0 = '('+strtrim(nx+1,2)+plot2d_state.format+')'
-	f0_0 = '('+strtrim(nx,2)+plot2d_state.format+')'
+	f1 = '('+plot2d_state.format+',I4,'+ strtrim(ny,2)+plot2d_state.format+')'
+	f0 = '('+strtrim(ny+1,2)+plot2d_state.format+')'
+	f0_0 = '('+strtrim(ny,2)+plot2d_state.format+')'
 	openw,1,'plot2d.txt'
 	if plot2d_state.ascii eq 2 then begin
 	ip = strpos(plot2d_state.format,'.')
@@ -1382,11 +1381,47 @@ ENDIF
 
   CASE Ev OF 
 
-  'plot2d_XValue': BEGIN
+  'plot2d_Xindex': BEGIN
+	widget_control,plot2d_state.i_xpixel,get_value=i
+	if i ge 0 and i lt n_elements(plot2d_state.xarr) then begin
+	widget_control,plot2d_state.i_ypixel,get_value=j
+	x = plot2d_state.xarr(i)
+	y = plot2d_state.yarr(j)
+	val = plot2d_state.data(i,j)
+	WIDGET_CONTROL,plot2d_state.xpixel,SET_VALUE=x
+	WIDGET_CONTROL,plot2d_state.ypixel,SET_VALUE=y
+	WIDGET_CONTROL,plot2d_state.zpixel,SET_VALUE=val
+	endif else begin
+	r = dialog_message('Error: index must be less than ' +strtrim(n_elements(plot2d_state.xarr),2),/Error)
+	end
         END
-  'plot2d_YValue': BEGIN
+  'plot2d_Yindex': BEGIN
+	widget_control,plot2d_state.i_ypixel,get_value=j
+	if j ge 0 and j lt n_elements(plot2d_state.yarr) then begin
+	widget_control,plot2d_state.i_xpixel,get_value=i
+	x = plot2d_state.xarr(i)
+	y = plot2d_state.yarr(j)
+	val = plot2d_state.data(i,j)
+	WIDGET_CONTROL,plot2d_state.xpixel,SET_VALUE=x
+	WIDGET_CONTROL,plot2d_state.ypixel,SET_VALUE=y
+	WIDGET_CONTROL,plot2d_state.zpixel,SET_VALUE=val
+	endif else begin
+	r = dialog_message('Error: index must be less than ' +strtrim(n_elements(plot2d_state.yarr),2),/Error)
+	end
         END
   'plot2d_ZValue': BEGIN
+	widget_control,plot2d_state.zpixel,get_value=val
+	widget_control,plot2d_state.i_xpixel,get_value=i
+	widget_control,plot2d_state.i_ypixel,get_value=j
+	st = ['It is about modifying image data at :', $
+		'        X='+strtrim(plot2d_state.xarr(i)), $
+		'        Y='+strtrim(plot2d_state.yarr(j)), $
+		'  New Val='+strtrim(val), $
+		'Are you sure ?' $
+		]
+	r = dialog_message(st,/question)
+	if strpos('Yes',r) eq -1 then return
+	plot2d_state.data(i,j) = val
         END
   'DRAW3': BEGIN
 	WSET,plot2d_state.win
@@ -1925,7 +1960,7 @@ if keyword_set(comment) then begin
 		BUTTON_EVENTS=1,UVALUE='DRAW3')
   BASE1_2 = WIDGET_BASE(BASE1_1, /COLUMN)
   zpixel = CW_FIELD( BASE1_2,VALUE='        ', $
-      ROW=1, TITLE='Val', $
+      ROW=1, TITLE='Val', /return_events, $
       UVALUE='plot2d_ZValue')
   xpixel = CW_FIELD( BASE1_2,VALUE='        ', $
       ROW=1, TITLE='X', $
@@ -1934,10 +1969,10 @@ if keyword_set(comment) then begin
       ROW=1, TITLE='Y', $
       UVALUE='plot2d_YValue')
   i_xpixel = CW_FIELD( BASE1_2,VALUE='        ', $
-      ROW=1, TITLE='X-index',xsize=5, $
+      ROW=1, TITLE='X-index',xsize=5, /return_events, $
       UVALUE='plot2d_Xindex')
   i_ypixel = CW_FIELD( BASE1_2,VALUE='        ', $
-      ROW=1, TITLE='Y-index',xsize=5, $
+      ROW=1, TITLE='Y-index',xsize=5, /return_events, $
       UVALUE='plot2d_Yindex')
 
   BASE2 = WIDGET_BASE(Plot2dMAIN13, /ROW)
