@@ -191,7 +191,7 @@ PRO PANIMAGE_SEL_Event, Event
     		PS_open,'idl.ps',/TV,yoffset=1.
 		TV,arr
 		PS_close
-;		PS_print,'idl.ps'
+		PS_print,'idl.ps'
 		wset,old_win
 		end
 		return
