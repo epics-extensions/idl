@@ -502,7 +502,7 @@ PRO panImage,image_array,id_def,factor,title=title,new_win=new_win,xpos=xpos,ypo
 ;	05-05-2003 bkc  Use slide_image window, add di/row button,
 ;			add ascii report button etc..
 ;-
-
+device,decomposed=0
 widget_control,/hourglass
 error=0
 	if n_elements(image_array) eq 0 then begin
