@@ -2,7 +2,7 @@ FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
 
 PRO rix2DC,Scan,gData
-ON_ERROR,1
+ON_ERROR,0 ;,1
  
         *gData.scanno  = *Scan.scanno
         *gData.dim     = *Scan.dim
@@ -17,13 +17,25 @@ ON_ERROR,1
           *gData.da1D  = *(*Scan.da)[0]
 	  *gData.pa2D  = ptr_new(/ALLOCATE_HEAP)
 	  *gData.da2D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
 	end
 	if *Scan.dim eq 2 then begin
           *gData.pa1D    = *(*Scan.pa)[1]
           *gData.da1D    = *(*Scan.da)[1]
           *gData.pa2D  = *(*Scan.pa)[0]
           *gData.da2D  = *(*Scan.da)[0]
+	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
         end
+	if *Scan.dim eq 3 then begin
+          *gData.pa1D    = *(*Scan.pa)[2]
+          *gData.da1D    = *(*Scan.da)[2]
+          *gData.pa2D  = *(*Scan.pa)[1]
+          *gData.da2D  = *(*Scan.da)[1]
+          *gData.pa3D  = *(*Scan.pa)[0]
+          *gData.da3D  = *(*Scan.da)[0]
+	end
  
   ptr_free,Scan.scanno
   ptr_free,Scan.dim
@@ -129,13 +141,14 @@ ON_IOERROR, BAD
      readu,lun,tmp
      if(cpt NE 0) then $
        (*(*Scan.da)[rank-1])[offset:offset+cpt-1,det_num[i]]=tmp[0:cpt-1]
+;print,'READ_SCAN_REST: rank=',rank,'   Nelem=',n_elements(tmp),'   Detector=',i+1
   end
 
   if(rank GT 1) then begin
     sub_offset=offset
     nb_sub= cpt
     if(cpt NE npts) then nb_sub=nb_sub+1
-    for i=0,nb_sub do begin
+    for i=1,nb_sub do begin
       res= read_scan_rest(lun,Scan,dim+1,sub_offset)
       if(res NE 1) then goto,BAD
     end
@@ -276,7 +289,7 @@ end
 
 FUNCTION read_scan,filename, Scan
 
-  ON_ERROR,1
+  ON_ERROR,0 ;,1
   ON_IOERROR,BAD
 
   res=0
@@ -339,7 +352,7 @@ DONE:
   return, res
 END
 
-; $Id: DC.pro,v 1.9 2000/03/03 20:37:04 cha Exp $
+; $Id: DC.pro,v 1.10 2000/04/19 20:09:16 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2541,17 +2554,9 @@ COMMON field_block, field_max, field_name, field_name_array, field_value, field_
 
 ; demo mode error -128
 
-        if error_status eq -128 then begin
-	w_warningtext,['Error: Demo mode no write on config file allowed !', $
-		'       You can exit the IDL now.']
-	stop
-	exit
-	end
-
-; write permission  error -171  
-
         if error_status lt 0 then begin
-	res = dialog_message([!err_string +  string(error_status), 'Failed to update the configuration file'],/Error)
+	res = dialog_message([!error_state.name +  string(error_status), $
+		!error_state.msg,'Failed to update the configuration file'],/Error)
 	return    ;  exit
         end
 
@@ -4178,6 +4183,8 @@ CASE eventval OF
 		w_viewscan_calcFilename,no
 		END
 	"VIEWSPEC_SEQNO" : BEGIN
+		close_plotspec
+		w_warningtext_close
 		WIDGET_CONTROL,w_viewscan_ids.seqno,GET_VALUE=seqno
 		i1 = fix(seqno(0))
 	if i1 lt 1  or i1 gt w_viewscan_id.maxno then begin
@@ -4188,6 +4195,7 @@ CASE eventval OF
 		i2 = i1 + 1
 		scan_read,w_viewscan_id.unit, i1, i2
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
+		WIDGET_CONTROL,w_viewscan_ids.slider,SET_VALUE=i1
 		end
                 END
 	"VIEWSPEC_FORMAT" : BEGIN
@@ -4251,20 +4259,7 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		seqno = strtrim(string(i1),2)
 		WIDGET_CONTROL,w_viewscan_ids.seqno,SET_VALUE=seqno
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
-                END
-	"VIEWSPEC_OK" : BEGIN
-		close_plotspec
-		w_warningtext_close
-		WIDGET_CONTROL,w_viewscan_ids.seqno,GET_VALUE=seqno
-		i1 = fix(seqno(0))
-	if i1 lt 1  or i1 gt w_viewscan_id.maxno then begin
-	w_warningtext,'Input out of range !!'
-	return
-	end
-
-		i2 = i1 + 1
-		scan_read,w_viewscan_id.unit, i1, i2
-		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
+		WIDGET_CONTROL,w_viewscan_ids.slider,SET_VALUE=i1
                 END
 	"VIEWSPEC_NEXT" : BEGIN
 		close_plotspec
@@ -4279,7 +4274,7 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		seqno = strtrim(string(i1),2)
 		WIDGET_CONTROL,w_viewscan_ids.seqno,SET_VALUE=seqno
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
-
+		WIDGET_CONTROL,w_viewscan_ids.slider,SET_VALUE=i1
                 END
 	"VIEWSPEC_LAST" : BEGIN
 		close_plotspec
@@ -4293,6 +4288,7 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		scan_read,w_viewscan_id.unit, i2, i2+1
 		WIDGET_CONTROL,w_viewscan_ids.seqno,SET_VALUE=strtrim(i2,2)
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
+		WIDGET_CONTROL,w_viewscan_ids.slider,SET_VALUE=i2
                 END
 	"VIEWSPEC_FIRST" : BEGIN
 		close_plotspec
@@ -4304,6 +4300,7 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		scan_read,w_viewscan_id.unit, 1, 2
 		WIDGET_CONTROL,w_viewscan_ids.seqno,SET_VALUE='1'
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
+		WIDGET_CONTROL,w_viewscan_ids.slider,SET_VALUE=1
                 END
 	"VIEWSPEC_SLIDER" : BEGIN
 		close_plotspec
@@ -4418,6 +4415,7 @@ WIDGET_CONTROL, /HOURGLASS
 
 w_viewscan_id.unit = unit
 scan_read,unit,-1,-1,maxno ; scan_read_all,w_viewscan_id.unit,maxno
+if n_elements(maxno) eq 0 then return
 
 w_viewscan_topbase=WIDGET_BASE(GROUP_LEADER=Group, $
 	TLB_FRAME_ATTR = 8, $
@@ -4671,12 +4669,16 @@ PRO scanimage_print,gD,test=test
 	print,'id_def  : ',*gData.id_def
 	print,'pvname  : ',*gData.pv
 	print,'labels  : ',*gData.labels
-	help,*gData.pa1D
-	help,*gData.da1D
+	if *gData.dim eq 3 then begin
+	help,*gData.pa3D
+	help,*gData.da3D
+	end
 	if *gData.dim eq 2 then begin
 	help,*gData.pa2D
 	help,*gData.da2D
 	end
+	help,*gData.pa1D
+	help,*gData.da1D
 	
 	if keyword_set(test) then begin
 	num_pts = *gData.num_pts
@@ -4704,6 +4706,8 @@ PRO scanimage_free,gD
 	if ptr_valid(gData.da1D) then	ptr_free,gData.da1D
 	if ptr_valid(gData.pa2D) then	ptr_free,gData.pa2D
 	if ptr_valid(gData.da2D) then	ptr_free,gData.da2D
+	if ptr_valid(gData.pa3D) then	ptr_free,gData.pa3D
+	if ptr_valid(gData.da3D) then	ptr_free,gData.da3D
 	if ptr_valid(gD) then ptr_free,gD
 END
 
@@ -4725,7 +4729,9 @@ gData = { $
 	pa1D	: ptr_new(/allocate_heap), $
 	da1D	: ptr_new(/allocate_heap), $
 	pa2D	: ptr_new(/allocate_heap), $
-	da2D	: ptr_new(/allocate_heap) $
+	da2D	: ptr_new(/allocate_heap), $
+	pa3D	: ptr_new(/allocate_heap), $
+	da3D	: ptr_new(/allocate_heap) $
 	}
 	gD = ptr_new(/allocate_heap)
 	*gD = gData
@@ -5098,7 +5104,7 @@ if id lt 0 then begin
 	if n_elements(gD) then begin
 
 ;	scanno = read_scan(scanData.trashcan,dim,num_pts,cpt,pv,labels,id_def,pa1D,da1D,pa2D,da2D) 
-
+	scanno = -1
 	scanno = read_scan(scanData.trashcan,Scan)
 
 	if scanno lt 0 then begin   ; a new file is picked
@@ -5122,6 +5128,8 @@ if id lt 0 then begin
 	da1D = *(*gD).da1D
 	pa2D = *(*gD).pa2D
 	da2D = *(*gD).da2D
+	pa3D = *(*gD).pa3D
+	da3D = *(*gD).da3D
 
 ;print,'READ AGAIN'
 	goto, populate
@@ -5141,14 +5149,24 @@ end ; seq_no > 0
 	pv = *(*gD).pv
 	labels = *(*gD).labels
 	id_def = *(*gD).id_def
-	pa1D = *(*gD).pa1D
-	da1D = *(*gD).da1D
-	if dim eq 2 then begin
+	if dim gt 2 then begin
+	pa3D = *(*gD).pa3D
+	da3D = *(*gD).da3D
+	end
+	if dim gt 1 then begin
 	pa2D = *(*gD).pa2D
 	da2D = *(*gD).da2D
 	end
+	pa1D = *(*gD).pa1D
+	da1D = *(*gD).da1D
 
 populate:
+
+	if dim eq 3 then begin
+		r=dialog_message([scanData.trashcan,'is a 3D scan file.', $
+			'Use the ViewData->3D Slicer to view it'],/info)
+		return
+	end
 
 ; check the header for the file if the the seq_no is set to le 0
 	if seq_no le 0 then begin
@@ -5210,6 +5228,7 @@ next_seq_no = seq_no + 1
 
 scanData.pv = pv[0]
 act_npts = cpt[0]
+if dim eq 2 and act_npts eq 0 then act_npts = num_pts[1]
 scanData.act_npts = act_npts 
 
 	scanData.pa = make_array(4000,4,/double)
@@ -5218,8 +5237,10 @@ scanData.act_npts = act_npts
 for i=0,3 do begin
         if id_def[i,0] gt 0 then begin
 ;	scanData.pa(0:act_npts-1,i) = pa2D[*,seq_no-1,i]  else $  
+
 	if dim eq 2 then $
-	scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,0,i]  else $  
+	scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,0,i]   
+	if dim eq 1 then $
 	scanData.pa(0:act_npts-1,i) = pa1D[0:act_npts-1,i] 
         end
 end
@@ -5264,6 +5285,11 @@ end
 
 	scanData.readin_npts=scanData.act_npts
  
+	if dim eq 3 then begin
+		help,pa1d,pa2d,pa3d
+		help,da1d,da2d,da3d
+		return
+	end
 END
 
 
@@ -5938,17 +5964,9 @@ if y_seqno lt 0 then return
 ; WSET: Window is closed and unavailable.        -367  R5.0
 ; WSET: Window is closed and unavailable.        -386  R5.1
 CATCH,error_status
-if error_status eq -97 then begin
-	str= [!err_string+string(!err), 'Run only with IDL 5.1 or higher']
-	res = widget_message(str,/INFO)
-	return
-end
-if error_status eq -367 or error_status eq -386  or error_status eq -324 then begin
 
-;print,'name: ',!error_state.name
-;print,'code: ',!error_state.code
-;print,'msg:  ',!error_state.msg
-;print,'sys_msg:  ',!error_state.sys_msg
+if !error_state.name eq 'IDL_M_WINDOW_CLOSED' then begin
+; help,!error_state,/st
 
 	window,new_win, xsize = 8*width, ysize=2*height, title='2D_Images'
 		for i=0,14 do begin
@@ -6004,11 +6022,10 @@ if y_seqno lt 0 then return
 		xsize = 200, ysize=200, $
 		title='2D_Image'
 
-; -386 window not round in 5.1
+; -386 window not found in 5.1
 CATCH,error_status
 if error_status lt 0 then begin
-;	print,!err_string,!err
-	if error_status eq -367 or error_status eq -386 or error_status eq -324  then begin
+	if !error_state.name eq 'IDL_M_WINDOW_CLOSED' then begin
 	window,new_win, $
 		xsize = 200, ysize=200, $
                 title='2D_Image'
@@ -6040,7 +6057,7 @@ if n_params() lt 4 then begin
 	return
 	end
 CATCH,error_status
-if error_status eq -324 then begin
+if !error_state.name eq 'IDL_M_WINDOW_CLOSED' then begin
 	print,!err_string
 	print,'Invalid window id : ', s_id
 	return
@@ -6066,7 +6083,7 @@ if n_params() lt 4 then begin
 	return
 	end
 CATCH,error_status
-if error_status eq -324 then begin
+if !error_state.name eq 'IDL_M_WINDOW_CLOSED' then begin
 	print,!err_string
 	print,'Invalid window id : ', s_id
 	return
@@ -6519,7 +6536,6 @@ COMMON w_warningtext_block,w_warningtext_ids
 !y = widget_ids.y2
 CATCH,error_status
 if error_status ne 0 then begin
-;if error_status eq -324 then begin
 	st = ['Click MMB in the 2D image area first!','Before press the YZ button.']
 	w_warningtext,st,60,5,'VW2D Messages',xloc=500
 	return
@@ -6742,6 +6758,8 @@ END
 ;  DC.pro
 ;
 
+@scanSee.pro
+
 PRO catch1d_append
   COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
@@ -6753,17 +6771,19 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	close_plotspec
 
 	WIDGET_CONTROL,widget_ids.summary_base,/DESTROY,BAD_ID=bad
+	if n_elements(w_viewscan_ids) then $
+	WIDGET_CONTROL,w_viewscan_ids.base,/DESTROY,BAD_ID=bad
 
 	filenamepath,scanData.trashcan,old_file,old_path
 
-        FNAME = ''
+        FNAME = '*scan*'
 
 
 ; check for bad directory -296
 
         CATCH, error_status
 
-        if error_status ne 0 then begin     ; eq -296 then begin
+        if error_status ne 0 then begin   
         w_warningtext,[!err_string + string(!err) ,'       Bad data directory !!!', $
 		'       Please try to fix the problem first.']
         retall
@@ -6816,6 +6836,40 @@ if strlen(P) gt 1 then begin
 	if string(D) ne string(old_path) then  pventry_event
 	w_viewscan_calcFilename     ; reset current fileno
 
+	catch1d_findLast
+END
+
+PRO catch1d_findLast
+  COMMON CATCH1D_COM, widget_ids, scanData
+COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
+COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
+
+	suffix = '.scan'
+
+	r = strpos(scanData.trashcan,'_')
+	user = strmid(scanData.trashcan,0,r+1)
+
+        found = findfile(scanData.path,count=ct)
+        len = strlen(user)
+        sp = rstrpos(user,!os.file_sep)
+        if sp gt -1 then sp=sp+1
+        prefix = strmid(user,sp,len-sp)
+        num = 0
+        for i=0,n_elements(found)-1 do begin
+        len1 = strlen(prefix)
+        rp = strpos(found(i),prefix)
+        rp1 = rstrpos(found(i),suffix)
+        if rp eq 0 and rp1 gt len1 then begin
+                ar = strmid(found(i),len1,rp1-len1)
+                if fix(ar) gt num then begin
+                        num= fix(ar)
+                        ip = i
+                        end
+                end
+        end
+
+	scanData.filemax = num
+	w_viewscan_id.maxno = num
 END
 
 PRO catch1d_viewdataSetup
@@ -6869,14 +6923,24 @@ END
 PRO PDMENU_VDATA_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
 
-  CASE Event.Value OF 
-  'ViewData.1D ...': BEGIN
-	catch1d_viewmode, Event
- 	END
-  'ViewData.2D ...': BEGIN
-	vw2d, GROUP=event.top, file=scanData.trashcan
- 	END
+  CASE Event.Value OF
+  'ViewData.1D/2D...': BEGIN
+	if scanData.realtime eq 0 then catch1d_viewmode, Event else $
+	scanSee,filename=scanData.trashcan, fileno=scanData.fileno, Group=Event.top
+	END
+  'ViewData.3D Slicer...': BEGIN
+	view3d_slicer,file=scanData.trashcan,Group=Event.top
+	END
   ENDCASE
+
+;  CASE Event.Value OF 
+;  'ViewData.1D ...': BEGIN
+;	catch1d_viewmode, Event
+; 	END
+;  'ViewData.2D ...': BEGIN
+;	vw2d, GROUP=event.top, file=scanData.trashcan
+; 	END
+;  ENDCASE
 END
 
 PRO HELPMENU_Event, Event
@@ -6908,6 +6972,7 @@ END
 
 PRO PRINTMENU_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
+COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 
   CASE Event.Value OF 
 
@@ -6924,11 +6989,16 @@ PRO PRINTMENU_Event, Event
 
  	END
   ENDCASE
+
+if realtime_id.ind eq 1 then realtime_id.axis = 1
+
 END
+
 
 PRO ZOOMMENU_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
 COMMON user_scale_block,user_scale_ids
+COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 
 if scanData.lastPlot ge 0 then begin 
 
@@ -6960,6 +7030,13 @@ scanData.act_npts = scanData.readin_npts
  	END
   ENDCASE
 end
+
+	if realtime_id.ind eq 1 then begin
+                        realtime_id.ymin =0.
+                        realtime_id.ymax =0.
+                        realtime_id.axis = 1
+		end
+
 END
 
 PRO STATISTICMENU_Event, Event
@@ -7069,6 +7146,8 @@ COMMON w_statistic_block,w_statistic_ids
 
   ENDCASE
 
+if realtime_id.ind eq 1 then realtime_id.axis = 1
+
 END
 
 PRO FITTINGMENU_Event, Event
@@ -7133,6 +7212,9 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
 	EXIT
     END
   ENDCASE
+
+;if realtime_id.ind eq 1 then realtime_id.axis = 1
+
 END
 
 PRO catcher_close,wid
@@ -7479,6 +7561,8 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 ;print,'terminate by y_req_npts'
 		end
 
+      if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 and $
+		scanData.realtime eq 1 then scanData.realtime = 0
 	
       ENDELSE
 ENDIF else begin
@@ -7503,8 +7587,10 @@ end ;     end of if scanData.option = 1
 
   'PDMENU_VDATA': PDMENU_VDATA_Event, Event
   'VIEWDATA_BTN': BEGIN
-	catch1d_viewmode, Event
-;	scanSee,filename=scanData.trashcan, fileno=scanData.fileno, Group=Event.top
+	; if scan is going on use scanBrowser to view data
+	; if no-scan is going on use w_viewscan mode to view data
+	if scanData.realtime eq 0 then catch1d_viewmode, Event else $
+	scanSee,filename=scanData.trashcan, fileno=scanData.fileno, Group=Event.top
  	END
 
  ; Event for SETUP_MENU
@@ -7870,11 +7956,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 ; check for demo mode
 
 	if demo_mode() eq 1 then begin
-	str = ['Sorry: Not able to obtain the license (Demo mode)', $
-		'      Try:', $
-		'           catcher -D       ( for developer license) ', $
-		'', $
-		'           catcher          ( for runtime license) ' $
+	str = ['Sorry: Not able to obtain the license (Demo mode)', ''$
 	]
 	w_warningtext,str,75,6
 	exit
@@ -7910,15 +7992,35 @@ print,scanData.path
 end
 
 outpath = scanData.path
-catch,error_status
+tpath1 = scanData.home+!os.file_sep
+CATCH,error_status
 if error_status ne 0 then begin
+	if !error_state.name eq 'IDL_M_BADARRSUB' then return
+	if outpath eq tpath1 then return else $
         outpath = scanData.home+!os.file_sep
+;	r = dialog_message(!err_string + string(error_status),/error)
+        found = findfile(outpath+'ASCII'+!os.file_sep+'.tmp',count=ct)
+        if ct eq 0 then $
+        spawn, !os.mkdir + ' ' + outpath+'ASCII' + ' ' + $
+                outpath+'TIFF' + ' ' +$
+                outpath+'GIF' + ' ' +$
+                outpath+'PICT' + ' ' +$
+                outpath+'ROI' + ' ' +$
+                outpath+'CALIB'
+	openw,1,outpath+'ASCII'+!os.file_sep+'.tmp'
+	close,1
 end
-openw,unit,outpath+'.tmp',/get_lun
-close,unit
+openw,1,outpath+'.tmp'
+close,1
+stopcheck:
 outpath = outpath+'ASCII'+!os.file_sep
-found = findfile(outpath,count=ct)
-if ct eq 0 then spawn,!os.mkdir+' '+outpath
+found = findfile(outpath+'.tmp',count=ct)
+if ct eq 0 then begin
+	spawn,!os.mkdir+' '+outpath
+	str = ['Check existence for the directory:',outpath,$
+		'If not found, you may have to manually create it first']
+	r = dialog_message(str,/info)
+end
 
 scanData.outpath = outpath
 
@@ -8028,6 +8130,19 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;       10-15-1999      Automatically load the first selected curve to ezfit
 ;       02-15-2000      ASCII files saved under ASCII subdirectory
 ;       02-25-2000      Add submenu FWHM on Y and FWHM on DY/DX 
+;       03-08-2000      R1.2d+
+;                       Automatically close viewscan window if File->Open menu
+;                       is called
+;                       Slider bar reflects the current 1D seqno
+;                       Recalculate the last fileno if File->Open is called
+;       03-17-2000 bkc  R1.2e
+;   			During scanning mode allows statistis button write on
+;                       the drawing area
+;                       ViewData->1D/2D... either calls W_VIEWSCAN or SCANSEE 
+;                       routines which depends on whether without or with 
+;                       active scanning going on
+;                       ViewData->3D Slicer... for viewing 3D scan data
+;                       
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8051,7 +8166,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R1.2d )', $
+      TITLE='scanSee ( R1.2e )', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -8079,16 +8194,16 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
 ; add the 1D/2D view memu
 
-   VIEWDATA_BTN = WIDGET_BUTTON(BASE68,VALUE='ViewData...',UVALUE='VIEWDATA_BTN')
+;   VIEWDATA_BTN = WIDGET_BUTTON(BASE68,VALUE='ViewData...',UVALUE='VIEWDATA_BTN')
 
-;  MenuVData = [ $
-;      { CW_PDMENU_S,       3, 'ViewData' }, $ ;        0
-;        { CW_PDMENU_S,       0, 'R1 ...' }, $ ;        1
-;        { CW_PDMENU_S,       0, 'R2 ...' } $ ;        1
-;	]
+  MenuVData = [ $
+      { CW_PDMENU_S,       3, 'ViewData' }, $ ;        0
+        { CW_PDMENU_S,       0, '1D/2D...' }, $ ;        1
+        { CW_PDMENU_S,       0, '3D Slicer...' } $ ;        1
+	]
 
-;  PDMENU_VDATA = CW_PDMENU( BASE68, MenuVData, /RETURN_FULL_NAME, $
-;      UVALUE='PDMENU_VDATA')
+  PDMENU_VDATA = CW_PDMENU( BASE68, MenuVData, /RETURN_FULL_NAME, $
+      UVALUE='PDMENU_VDATA')
 
   MenuPrint = [ $
       { CW_PDMENU_S,       3, 'Print' }, $ ;        0
