@@ -474,7 +474,7 @@ class=class,outpath=outpath
 	pv = *(*self.gD).pv
 	labels = *(*self.gD).labels
 	id_def = *(*self.gD).id_def
-
+if dim gt 3 then return
 	ndim = n_elements(id_def)/dim
 	nd = ndim - 4
 	for i=4,ndim-1 do begin

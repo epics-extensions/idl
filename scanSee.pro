@@ -74,7 +74,11 @@ if n_elements(dim) eq 0 then begin
 	r=dialog_message(/error,st)
 	return
 end
-
+if dim gt 3 then begin
+st = ['File: '+filename+' is a '+strtrim(dim,2)+'D scan','Sorry! '+strtrim(dim,2)+'D scan not supported']
+r = dialog_message(st ,/info)
+return
+end
 	DC_view_ids.toobig = 0
 	if dim eq 3 then begin
 	if cpt(0) ge 1000 or cpt(1) ge 500 or cpt(2) ge 500 then begin
