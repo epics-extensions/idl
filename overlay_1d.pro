@@ -142,10 +142,11 @@ PRO overlay_1d_onHelp, Event
 	'File->Open       - dialog for multiple mda files selection', $
 	'File->Debug(On/Off)  - display on/off of picked X,Y vectors', $
 	'File->Close      - close the 1D_OVERAY dialog', $
-	'Help->Hep...     - pop up this help dialog', $
+	'Help->Help...    - pop up this help dialog', $
 	'Help->mdaFile... - help on multiple file selection', $
-	'Curve Seq #      - enter valid curve seq # from 1D data array',$
-	'                   at the <CR> invokes the 1D overlay plot', $
+	'Curve/Di Seq #   - enter valid curve seq # from 1D data array',$
+	'                   e.g. 15 picks the 16th detector from files', $
+	'                   At the <CR> invokes the 1D overlay plot', $
 	'Mda List Area    - display the selected mda files', $	
 	'']
 	r = dialog_message(str,/info)
@@ -279,7 +280,7 @@ pro OVERLAY_1D,path=path, GROUP=wGroup, _EXTRA=_VWBExtra_
       ROW=1, $
       INTEGER=1, xsize=6, $
       RETURN_EVENTS=1, $
-      TITLE='Curve Seq # (0 based) :', $
+      TITLE='Curve/Di Seq # (0 based) :', $
 	UNAME='W_PICK_13')
   W_RUN_1 = Widget_Button(BASE3, UNAME='W_RUN_1',  $
       VALUE='Run...')
