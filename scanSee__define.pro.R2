@@ -564,12 +564,14 @@ PRO scanSee::panImage,SEL=SEL,TIFF=TIFF,XDR=XDR,PICT=PICT,REVERSE=REVERSE
 	title=self.name+' SCAN # '+strtrim(seq,2)
 
 catch,error_status
-if error_status ne 0 and !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
+if error_status ne 0 then begin
+	if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
 	r = dialog_message([!error_state.msg,!error_state.sys_msg,$
 		string(!error_state.code)],/error)
 	return	
+	end
+	self.win = -1
 end
-if error_status then self.win = -1 
 if self.win ne -1 then wdelete,self.win
 self.win = -1
 
