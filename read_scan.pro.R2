@@ -116,7 +116,7 @@ end
   if(nb_trg NE 0) then trg_num=intarr(nb_trg)
   trg_info= { $
      txpv:'', $
-     txcd:'' }
+     txcd: 1.0 } 
 
   num=0
   for i=0,nb_pos-1 do begin
@@ -244,7 +244,7 @@ end
   if(nb_trg NE 0) then trg_num=intarr(nb_trg)
   trg_info= { $
      txpv:'', $
-     txcd:'' }
+     txcd: 1.0 }
 
 if dump then print,"====>rank,npts,cpt:",rank,npts,cpt
 if dump then print,"====>nb_pos,nb_det,nb_trg:",nb_pos,nb_det,nb_trg
@@ -285,7 +285,7 @@ if dump then help,det_info,/st
      trg_num[i]=num
      readu,lun,trg_info
   end
-  
+
   tmp=dblarr(npts)
   for i=0,nb_pos-1 do begin
      readu,lun,tmp
