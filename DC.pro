@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.41 2005/03/31 17:08:22 cha Exp $
+; $Id: DC.pro,v 1.42 2005/04/04 22:29:09 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2729,9 +2729,12 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
         ln = cagetArray(prefix[0]+':saveData_fullPathName',pd)
 	if ln eq 0 then begin
 	if total(pd) gt 0 then begin
+		if !d.name eq 'X' then begin
 		path = strtrim(pd,2)
 		sp = strpos(path,!os.file_sep,2)
 		scanData.path = string(pd(sp:99))
+		end
+		; need code for win file system
 	end
 	end
 	end
@@ -3628,7 +3631,7 @@ COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 
-npd = scanData.num_det ;scanData.npd
+npd = scanData.num_det;
 
 if n_elements(x_names) eq 0 then begin
         x_names=make_array(4,/string,value=string(replicate(32b,30)))
@@ -4063,7 +4066,7 @@ if n_elements(x_names) lt 4 then begin
 	x_names = make_array(4,/string,value=string(replicate(32b,30)))
 	x_descs = x_names
 	x_engus = x_names
-	y_names = make_array(scanData.nd,/string,value=string(replicate(32b,30)))
+	y_names = make_array(scanData.num_det,/string,value=string(replicate(32b,30)))
 	y_descs = y_names
 	y_engus = y_names
 	end
@@ -9033,7 +9036,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 count=1
 while (count lt 5)  do begin
 	if n_elements(st) eq 0 or keyword_set(get) then begin
-	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_message', $
+	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_fileName', $
 		':saveData_fileSystem',':saveData_subDir']
 	callno = scanData.fileno 
 	ln = cagetArray(nm,pd,/string)
@@ -9046,22 +9049,23 @@ while (count lt 5)  do begin
 
 		; check for path change
 		
-   ps=0
-		path = pd(2)+!os.file_sep+pd(3)+!os.file_sep
+		file_sep = !os.file_sep
+		if !d.name eq 'WIN' then file_sep = '/'
+
+   		ps=0
+		path = pd(2)+file_sep+pd(3)+file_sep
 		ps = strpos(path,scanData.path)
 		if ps lt 0 then begin
-		lp = strpos(path,'home')
+		tn = str_sep(path,file_sep)
+		lp = strlen(tn(2))+3
 		if lp gt 0 then begin
 			npath=strmid(path,lp-1,strlen(path)-lp+1)
 			scanData.path = npath
 			end
 		end
 
-;	tn = str_sep(pd(1),": ")       ; works only if ': ' is true
-	tn = str_sep(pd(1)," ")
-	nst = n_elements(tn)
-	if nst gt 1 then begin
-	  filename = tn(nst-1) 
+	filename = pd(1) 
+	if filename ne '' then begin
 
 	  	; calculate new suffix
 
@@ -9073,6 +9077,7 @@ while (count lt 5)  do begin
 		l1 = strpos(filename,'_')
 		l2 = strpos(filename,'.')
 		seq = fix(strmid(filename,l1+1,l2-l1-1))
+		scanData.filemax = seq
 
 if scanData.debug then begin
 print,pd,tn,' filename=',filename,', w_plotspec_array(3)=',w_plotspec_array(3)
@@ -9082,8 +9087,9 @@ end
 	scanData.trashcan = scanData.path + filename
 	w_plotspec_array(3) = filename
 	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
+print,'calc_new: ',scanData.trashcan
 	wait,0.005 ; fly scan
-;	if scanData.dim gt 1 then $
+;	if scanData.y_scan then $
 ;	if scanData.bypass3d then scan_read,1,-1,-1,maxno,dim,pickDet=-1 else $
 ;	scan_read,unit,-1,-1,maxno,dim
 	return
@@ -9098,12 +9104,6 @@ end
 count=count+1
 end
 
-	scanData.trashcan = scanData.path + filename
-	w_plotspec_array(3) = filename
-	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
-	if scanData.dim gt 1 then scanData.scanno_2d = scanData.fileno - 1
-
-print,'calc_new',scanData.trashcan
 END
 
 
@@ -9204,7 +9204,6 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
 ; set init fileno
 	w_viewscan_calcFilename
-
 
 scanData.pvconfig(0) = scanData.pv
 scanData.pvconfig(1) = scanData.y_pv
