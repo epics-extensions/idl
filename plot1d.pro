@@ -1,3 +1,4 @@
+@PS_open.pro
 
 PRO plot1d_replot,state
 
@@ -34,7 +35,7 @@ if s(0) eq 1 then $
 ; two dim array - multiple curves
 
 if s(0) eq 2 and s(2) gt 1 then begin
-in_color = make_array(s(2),/int)
+in_color = make_array(s(2),/int,value=cl)
 in_line = make_array(s(2),/int)
 in_symbol = make_array(s(2),/int)
 in_color(0)= cl
@@ -49,8 +50,10 @@ in_symbol(0)=psym
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
 	for i= 1 ,s(2) - 1 do begin
 		if state.autocolor eq 1 then begin
-		cl = cl - 16 
-		if cl le 1 then cl = state.color - 8
+		cl = cl - 4 
+		if cl le 1 then cl = state.color - 2
+;		cl = cl - 16 
+;		if cl le 1 then cl = state.color - 8
 		in_color(i) = cl
 		end
 		if psym gt 0 then psym = psym+1
@@ -148,15 +151,15 @@ ENDIF
 WIDGET_CONTROL,ev.Id,GET_UVALUE=B_ev
 CASE B_ev OF
 'PLOT1D_PRINT': Begin
-	set_plot,'PS'
-	!P.FONT=0
-	device,/Courier,/Bold
-	plot1d_replot, state	
-	!P.FONT=1
-	device,/close
-	spawn,'lpr idl.ps'
-	print,'Print idl.ps'
-	set_plot,'X'
+	PS_open, 'idl.ps'
+	linestyle = state.linestyle
+	state.autocolor = 0
+	state.linestyle = 1
+	plot1d_replot, state
+	PS_close
+	PS_print, 'idl.ps'
+	state.autocolor = 1
+	state.linestyle = linestyle 
 	end
 'PLOT1D_CLOSE': begin
 	WIDGET_CONTROL,ev.top,BAD=bad,/DESTROY
@@ -361,7 +364,7 @@ xl = ''
 yl =''
 ti = ''
 wti='Plot1d'
-cl = !d.n_colors 
+cl = !d.n_colors
 leg =['']
 footnote = ''
 add_line=0
@@ -454,7 +457,7 @@ id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS, TLB_FRAME_ATTR=8) $
 else $
 id_tlb=WIDGET_BASE(Title=wti,/COLUMN, /TLB_SIZE_EVENTS)
 ;WIDGET_CONTROL,id_tlb,default_font='-*-Helvetica-Bold-R-Normal--*-120-*75-*'
-id_draw=WIDGET_DRAW(id_tlb,xsize=xsize,ysize=ysize)
+id_draw=WIDGET_DRAW(id_tlb,xsize=xsize,ysize=ysize, RETAIN=2)
 
 if keyword_set(button) eq 0 then begin
 id_tlb_row=WIDGET_BASE(id_tlb,/ROW)
