@@ -26,7 +26,10 @@ res = strpos(instring,keysepar)
 if res ne -1 then begin
         str = str_sep(instring,keysepar,/trim)
         no = fix(str(1)) - fix(str(0)) + 1
-        ids = indgen(no) + fix(str(0))
+	if no gt 0 then ids = indgen(no) + fix(str(0)) else begin
+		no = fix(str(0)) - fix(str(1)) + 1
+		ids = indgen(no)+fix(str(1))
+	end
 endif else begin
         com = strpos(instring,',')
         if com ne -1 then begin
