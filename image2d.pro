@@ -8,6 +8,7 @@
 ;*************************************************************************
 
 @colorbar.pro
+@saveImage.pro
 @PS_open.pro
 
 PRO image2d_normalize_accept,pick_i,image2d_state
@@ -388,6 +389,7 @@ st = ['IMAGE2D -  An image array viewing program which allows the user to load 2
   '','                       *Help*', '',$
   'Help...    - gives this help info page', $
   '','                       *View as Menu*', '',$
+  'Log Off/On       - color scale in linear of logarithm', $
   'TV               - display 2D data as scaled TV iamge', $
   'Eq.TV.AspRt      - display 2D data with equal X,Y axis aspect ratio', $
   'LIGHT_SHADE_SURF - display 2D data as light shade surface plot', $
@@ -1181,8 +1183,8 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		image2d_state.y_mag = 1
 		newimage2 = newimage
 
-	v_max = max(newimage2)
-	v_min = min(newimage2)
+	v_max = max(newimage)
+	v_min = min(newimage)
 	ncolors = image2d_state.view_option.ncolors
 
 	
@@ -1344,7 +1346,6 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		newimage2 = bytscl(newimage2,top=ncolors,min=v_min,max=v_max) 
 		if image2d_state.view_option.fullcolor eq 2 then $
 		newimage2 = bytscl(newimage2,top=ncolors,min=v_min,max=v_max)
-;		newimage2 = bytscl(newimage2,top=fact,min=v_min,max=v_max)
 		end
 
 		xrange = [x_min,x_max]
@@ -1356,6 +1357,28 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		title = ' vs X,Y Values'
 		end
 
+log = 0
+off = 0.
+if v_max gt v_min then begin
+if image2d_state.LOG then begin
+	if v_min lt 0 then begin
+	; log scale is not good for v_man < 0
+	newimage2 = newimage-v_min
+	off = v_min
+	v_max = v_max-v_min
+	v_min= 0.;.01*v_max
+	end
+	log = 1
+	newimage2 = alog10(newimage2)
+	if v_min ge 0 then begin
+	v_max = alog10(v_max)
+	if v_min eq 0 then begin
+		if v_max gt 1. then v_min = .01*v_max else $
+		v_min = -2
+	endif else v_min = alog10(v_min)
+	end
+end
+end
 
 		; for PS  get aspect ratio, outward tick marks 
 
@@ -1397,7 +1420,10 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		    pos = [image2d_state.view_option.ps_l, image2d_state.view_option.ps_b, $
 			image2d_state.view_option.ps_r, image2d_state.view_option.ps_t]
 
-		    TV,newimage2,xo,yo,xsize=xw,ysize=yw
+		    if v_max eq v_min then $
+		    TV,newimage2,xo,yo,xsize=xw,ysize=yw,/nan else $
+		    TVSCL,newimage2,xo,yo,xsize=xw,ysize=yw,/nan
+
 
 		    plot,/noerase,/nodata, pos=pos, [-1,-1], $
 			xrange=xrange, yrange=yrange, $
@@ -1407,8 +1433,9 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			xstyle = 1, ystyle=1 ,color=t_color
 
 		endif else begin
-
-		    TV,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b
+		if v_max eq v_min then $
+		    TV,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan else $
+		    TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan
 
 		    p1 = [float(image2d_state.view_option.margin_l)/ !d.x_size, $
 			float(image2d_state.view_option.margin_b)/!d.y_size, $
@@ -1425,14 +1452,14 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 
 		end
 
-		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=50,x=390 else $
+		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=50,x=390,LOG=LOG,off=off  else $
 		colorbar,[v_min,v_max],colorbar_data.width, $
 			colorbar_data.height, $
 			horizontal=colorbar_data.horiz, $
 			x=colorbar_data.x, y=10, $
 			reverse=printer_info.reverse, $
+			LOG=LOG,off=off, $
 			ncap=colorbar_data.nlabel,format=colorbar_data.format
-;		colorbar,[v_min,v_max], y=10
 
                 ; save pixmap
                 if !d.name ne OS_SYSTEM.device then return
@@ -1496,6 +1523,28 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		end
 
 
+log = 0
+off = 0.
+if v_max gt v_min then begin
+if image2d_state.LOG then begin
+	if v_min lt 0 then begin
+	; log scale is not good for v_man < 0
+	newimage2 = newimage-v_min
+	off = v_min
+	v_max = v_max-v_min
+	v_min= 0.;.01*v_max
+	end
+	log = 1
+	newimage2 = alog10(newimage2)
+	if v_min ge 0 then begin
+	v_max = alog10(v_max)
+	if v_min eq 0 then begin
+		if v_max gt 1. then v_min = .01*v_max else $
+		v_min = -2
+	endif else v_min = alog10(v_min)
+	end
+end
+end
 		; for PS  get aspect ratio, outward tick marks 
 
 	; draw headers
@@ -1534,7 +1583,9 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 		    xw = !d.x_size * xratio *(image2d_state.view_option.ps_r - image2d_state.view_option.ps_l)
 		    yw = !d.y_size * yratio *(image2d_state.view_option.ps_t - image2d_state.view_option.ps_b)
 
-		    TV,newimage2,xo,yo,xsize=xw,ysize=yw
+		    if v_max eq v_min then $
+		    TV,newimage2,xo,yo,xsize=xw,ysize=yw,/nan else $
+		    TVSCL,newimage2,xo,yo,xsize=xw,ysize=yw,/nan
 
 		    pos = [image2d_state.view_option.ps_l, image2d_state.view_option.ps_b, $
 			xw / !d.x_size + image2d_state.view_option.ps_l,  $
@@ -1547,8 +1598,10 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			xstyle = 1, ystyle=1, color=t_color
 
 		endif else begin
-		    TV,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b
 
+		if v_max eq v_min then $
+		    TV,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan else $
+		    TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan
 		    p1 = [float(image2d_state.view_option.margin_l)/ !d.x_size, $
 			float(image2d_state.view_option.margin_b)/!d.y_size, $
 			(float(image2d_state.view_option.margin_l)+width)/!d.x_size, $
@@ -1560,14 +1613,14 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			xtitle=xtitle, ytitle=ytitle, $
 			xstyle = 1, ystyle=1
 		end
-		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=100 else $
+		if !d.name eq 'PS' then colorbar,[v_min,v_max],y=100,LOG=LOG,off=off else $
 		colorbar,[v_min,v_max],colorbar_data.width, $
 			colorbar_data.height, $
 			horizontal=colorbar_data.horiz, $
 			x=colorbar_data.x, y=10, $
 			reverse=printer_info.reverse, $
+			LOG=LOG,off=off, $
 			ncap=colorbar_data.nlabel,format=colorbar_data.format
-;		colorbar,[v_min,v_max], y=10
 
 	   end
 	ELSE: print,'Unknow case entered'
@@ -1702,6 +1755,7 @@ image2d_state = { $
 	x_mag : 1., $
 	y_mag : 1., $
 	ID1   : '', $   	; ITOOL identifier
+	LOG   : 0, $ 		; LOG scale off/on
 	xarr : ptr_new(/allocate_heap), $
 	yarr : ptr_new(/allocate_heap), $
 	image : ptr_new(/allocate_heap), $    ; ref image
@@ -1830,31 +1884,28 @@ COMMON COLORBAR, colorbar_data
 	save,filename='dc2aim.sav',/XDR,ncol,nrow,xarr,yarr,imarr
     END
   'File.Save as JPEG': BEGIN
-	tvlct,r,g,b,/get
-        if !d.n_colors gt !d.table_size then $
-	write_jpeg,'image2d.jpg',tvrd(/true),/true else $
-	write_jpeg,'image2d.jpg',tvrd(),red=r,green=g,blue=b
-	outname = image2d_state.name+'_'+image2d_state.DPVS(image2d_state.detector-1)+'.jpg'
-	outpath = image2d_state.outpath+'JPG'+!os.file_sep
-	rename_dialog,outpath,'image2d.jpg',outname,Group=Event.top
+        win = image2d_state.widget_ids.plot2d_area
+	outpath = image2d_state.outpath+'JPEG'+!os.file_sep
+	st = strtrim(image2d_state.detector,2)
+	if image2d_state.name ne '' then $
+	file = image2d_state.name+'_'+st+'.jpg' 
+	save_jpg,win=win,file=file,path=outpath
     END
   'File.Save as PNG': BEGIN
-	tvlct,r,g,b,/get
-        if !d.n_colors gt !d.table_size then $
-	write_png,'image2d.png',tvrd(/true) else $
-	write_png,'image2d.png',tvrd(),r,g,b
-	outname = image2d_state.name+'_'+image2d_state.DPVS(image2d_state.detector-1)+'.png'
+        win = image2d_state.widget_ids.plot2d_area
 	outpath = image2d_state.outpath+'PNG'+!os.file_sep
-	rename_dialog,outpath,'image2d.png',outname,Group=Event.top
+	st = strtrim(image2d_state.detector,2)
+	if image2d_state.name ne '' then $
+	file = image2d_state.name+'_'+st+'.png' 
+	save_png,win=win,file=file,path=outpath
     END
   'File.Save as TIFF': BEGIN
-	tvlct,r,g,b,/get
-	if !d.n_colors gt !d.table_size then $
-	write_tiff,'image2d.tiff',reverse(tvrd(/true),3) else $
-	write_tiff,'image2d.tiff',reverse(tvrd(),2),1,red=r,green=g,blue=b
-	outname = image2d_state.name+'_'+image2d_state.DPVS(image2d_state.detector-1)+'.rtiff'
+        win = image2d_state.widget_ids.plot2d_area
 	outpath = image2d_state.outpath+'TIFF'+!os.file_sep
-	rename_dialog,outpath,'image2d.tiff',outname,Group=Event.top
+	st = strtrim(image2d_state.detector,2)
+	if image2d_state.name ne '' then $
+	file = image2d_state.name+'_'+st+'.tiff' 
+	save_tiff,win=win,file=file,path=outpath
     END
   'File.Save as XDR': BEGIN
         xmin = xarr(0)
@@ -1916,6 +1967,11 @@ COMMON COLORBAR, colorbar_data
   'Color.ColorBar Config...': BEGIN
         WSET,image2d_state.widget_ids.plot2d_area
         colorbar_config,GROUP=Event.top
+    END
+  'Color.Color in Log Scale': BEGIN
+	image2d_state.LOG = 1
+	image2d_REPLOT,image2d_state
+	image2d_state.LOG=0
     END
   'Color.Change Color Table...': BEGIN
 	XLOADCT,Group=Event.Top
@@ -2191,6 +2247,10 @@ close,1
       END
   ; Event for PDMENU4
   'PDMENU4': PDMENU4_Event, Event, image2d_state
+  'IMAGE2D_LOGCOLOR': BEGIN
+	image2d_state.LOG = Event.Index
+	image2d_REPLOT,image2d_state
+      END
   'IMAGE2D_VIEW': BEGIN
 	image2d_state.view_option.surface = Event.Index
 	image2d_REPLOT,image2d_state
@@ -2578,6 +2638,9 @@ PS_init
   PDMENU4 = CW_PDMENU( BASE3, MenuDesc267, /RETURN_FULL_NAME, $
       UVALUE='PDMENU4')
 
+  LOGCOLOR = widget_droplist(BASE3,value=['Off','On'],title='Log', $
+	UVALUE='IMAGE2D_LOGCOLOR')
+
   vlist = ['TV','Eq.TV.AspRt','LIGHT_SHADE_SURF','CONTOUR','SHOW3','PLOT2D...','SHADE_SURF']
   viewas = widget_droplist(BASE3,value=vlist, $
 	TITLE='View as',UVALUE='IMAGE2D_VIEW')
@@ -2639,9 +2702,11 @@ PS_init
     'DD', $
     'DE', $
     'DF' ]
-  LIST20 = WIDGET_LIST( BASE8,VALUE=ListVal1099+'          ', $
+
+  if keyword_set(zdescs) then ListVal1099=zdescs
+  LIST20 = WIDGET_LIST( BASE8,VALUE=ListVal1099, $
       UVALUE='IMAGE2D_LIST2', $
-      YSIZE=3)
+      XSIZE=20,YSIZE=3)
 
   LABEL15 = WIDGET_LABEL( BASE8, $
       UVALUE='LABEL15', $
@@ -2651,9 +2716,13 @@ PS_init
     'D01  ', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08', 'D09', 'D10' ]
 	vlist = 'D'+strtrim(indgen(60)+11,2)
 	ListVal949 = [ListVal949,vlist] +'          '
+  if  keyword_set(zdescs) then begin
+	no = n_elements(zdescs) 
+	if no  gt 15 then ListVal949=zdescs(15:no-1)
+  end
   LIST17 = WIDGET_LIST( BASE8,VALUE=ListVal949, $
       UVALUE='IMAGE2D_LIST1', $
-      YSIZE=3)
+      XSIZE=20,YSIZE=3)
 
   BUTTON18 = WIDGET_DROPLIST( BASE8, value=['iImage','iSurface','iContour'], $
       UVALUE='IMAGE2D_ITOOL', $
