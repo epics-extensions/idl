@@ -3,9 +3,36 @@
 ;
 @u_read.pro
 @fit_statistic.pro
-@readScan.pro
+; @readScan.pro
 @colorbar.pro
 @scan2d_roi.pro
+@view3d_2d.pro
+
+PRO scanSee_pick3d,file,image_array,pickDet=pickDet,Dump=dump,Group=group
+; pickDet - specifies the desired detector # for big 3D scan file
+; dump    - dump read info
+; file    - input 3D scan file name
+; image_array - return image_array
+
+	pick = 1
+	if keyword_set(pickDet) then pick = pickDet
+	t1 = systime(1)
+	r = read_scan(file,Scan,pickDet=pick,dump=dump)
+	print,'Time used in read detector # ',strtrim(pick,2),'  ',systime(1)-t1
+
+	if r eq -1 then return
+	detname =  'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+        	'01','02','03','04','05','06','07','08','09', $
+        	strtrim(indgen(61)+10,2)]
+
+	title = strmid(file,rstrpos(file,!os.file_sep)+1,strlen(file))
+
+	image_array = *(*Scan.da)[0]
+;	sz = size(image_array)
+;	panimage,image_array,indgen(sz(3))+1
+	view3d_2d,image_array,title=title+'('+detname(pick-1)+')',Group=group
+END
+
 
 PRO scanSee::Ezfit,detno=detno,row=row,column=column,group=group
 view=0
@@ -18,19 +45,18 @@ if keyword_set(row) then lineno = row-1
 		view=view,x=xa,y=ya,im=im
 
 	if self.dim eq 2 then begin
-
+	wd = n_elements(xa)
+	ht = n_elements(ya)
+	im2 = im(*,0:ht-1)
 	if keyword_set(column) then $
-        ez_fit,xarray=xa,yarray=ya,im=im,group=group,inpath=self.path, $
+        ez_fit,xarray=xa,yarray=ya,im=im2,group=group,inpath=self.path, $
                 ipick=column-1 else $
-        ez_fit,xarray=xa,yarray=ya,im=im,group=group,inpath=self.path, $
+        ez_fit,xarray=xa,yarray=ya,im=im2,group=group,inpath=self.path, $
                 jpick=lineno
         end
 
         if dim eq 1 then begin
-	VX = pa(*,0)
-	VY = da(*,0)
-	if keyword_set(detno) then VY=da(*,detno-1)
-	ez_fit,xarray=vx,yarray=vy,group=group,inpath=self.path
+	ez_fit,xarray=xa,yarray=ya,im=da,group=group,inpath=self.path
 	return
                 xa = pa(*,0)
                 def = id_def(*,0)
@@ -221,7 +247,6 @@ class=class,outpath=outpath
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       03-02-2000      PA1D, DA1D returns actual number of points saved
-;       07-20-2000      Set scanno to -1 for the case of read error
 ;-
 
 	errcode = -1
@@ -237,6 +262,13 @@ class=class,outpath=outpath
 	labels = *(*self.gD).labels
 	id_def = *(*self.gD).id_def
 
+	ndim = n_elements(id_def)/dim
+	nd = ndim - 4
+	for i=4,ndim-1 do begin
+	 if id_def(i) gt 0 then nd=i-4
+	end
+	self.nd = nd 
+
 	pa1 = *(*self.gD).pa1D
 	da1 = *(*self.gD).da1D
 	pa3d = *(*self.gD).pa3D
@@ -251,7 +283,7 @@ class=class,outpath=outpath
 	if cpt(0) eq 0 then w = num_pts(0)
 	pa1D = pa1(0:w-1,*)
 	da1D = da1(0:w-1,*)
-	x = pa1D(0:w-1,0)
+	x = pa1D(*,0)   ;pa1D(0:w-1,0)
 	end
 
 	if dim eq 2 then begin
@@ -259,32 +291,35 @@ class=class,outpath=outpath
 	if h eq 0 then h = num_pts(DIM-1)
 	pa1D = pa1(0:h-1,*)   
 	da1D = da1(0:h-1,*)  
-	x = pa2D(*,0,0)
+	x = pa2d(*,0)   ;pa2D(*,0,0)
 	y = pa1D(*,0)
 
 	detector=1
 	im = da2d(*,*,0)
 	if keyword_set(view) then begin
 	if view gt 1 then detector = view 
+	sz = size(da2d)
+	if sz(3) lt detector then detector = sz(3)
 	im = da2d(*,*,detector-1)
-	scan2Ddata,self.gD,detector,/view,xarr=xarr,yarr=yarr,im=im
+	dname = self.detname(detector-1)
+	scan2Ddata,self.gD,detector,/view,xarr=xarr,yarr=yarr,im=im,dname=dname
 	end
 	end
 
 	if dim eq 3 then begin
 	w = cpt(DIM-3)
 	if w eq 0 then w = num_pts(DIM-3)
-	x = pa3D(0:w-1,0,0,0)
+	x = pa3D(*,0)  ;pa3D(0:w-1,0,0,0)
 
 	h = cpt(DIM-2)
 	if h eq 0 then h = num_pts(DIM-2)
-	y = pa2D(0:h-1,0,0)
+	y = pa2D(*,0)  ;pa2D(0:h-1,0,0)
 
 	d = cpt(DIM-1)
 	if d eq 0 then d = num_pts(DIM-1)
-	pa1D = pa1(0:d-1,*) 
-	da1D = da1(0:d-1,*) 
-	z = pa1D(0:d-1,0)
+;	pa1D = pa1(0:d-1,*) 
+;	da1D = da1(0:d-1,*) 
+	z = pa1D(*,0)  ;pa1D(0:d-1,0)
 
 	self.width = num_pts(0)
 	self.height = num_pts(1)
@@ -298,7 +333,7 @@ class=class,outpath=outpath
 
 END
 
-PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,pict=pict,group=group
+PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,pict=pict,xdr=xdr,group=group,SEL=SEL
 ;+
 ; NAME:
 ;       scanSee::VIEW3D_PANIMAGE
@@ -310,7 +345,7 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,p
 ;
 ; CALLING SEQUENCE:
 ;      Obj->[scanSee::]VIEW3D_PANIMAGE, Slice [,Rank] [,Data] [,/TIFF] 
-;                  [,/REVERSE] [,/GIF] [,/PICT] [,GROUP=group]
+;                  [,/REVERSE] [,/XDR] [,/PICT] [,GROUP=group]
 ;
 ; ARGUMENTS:
 ;      Slice     - Specifies the slice # in the viewing direction 
@@ -319,11 +354,12 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,p
 ;      DATA      - returns the panimage data array
 ;
 ; KEYWORDS:
-;       GIF      - specifies the output gif filename
 ;       TIFF     - specifies the output tiff filename
 ;       REVERSE  - indicates the reverse tiff is desired
 ;       PICT     - specifies the output pict filename
+;       XDR      - specifies the output XDR filename
 ;       GROUP    - specifies the parent widget ID
+;       SEL      - provides selection dialog for panimage
 ;
 ; RESTRICTION:
 ;   The scanSee object must be a 3D scan object.
@@ -337,7 +373,9 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,p
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, April 7, 2000.
-;       xx-xx-xxxx      comment
+;       11-03-2000      Remove GIF file generation
+;                       Add panimage_sel support
+;                       Add u_read,u_write,u_open XDR data format
 ;
 ;-
 
@@ -367,21 +405,25 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,p
 	scanno = scanno + '_'+strtrim(kindex,2)
 	title = '3D Scan #'+strtrim(self.scanno,2)+scanno
 
+	class = self.name
+
 	if keyword_set(TIFF) then $
-	tiff = self.outpath+'TIFF'+!os.file_sep+self.class+ $
+	tiff = self.outpath+'TIFF'+!os.file_sep+class+ $
 		scanno+'.tiff'
 	if keyword_set(REVERSE) then $
-	tiff = self.outpath+'TIFF'+!os.file_sep+self.class+ $
+	tiff = self.outpath+'TIFF'+!os.file_sep+class+ $
 		scanno+'.rtiff'
-	if keyword_set(GIF) then $
-	gif = self.outpath+'GIF'+!os.file_sep+self.class+ $
-		scanno+'.gif'
+	if keyword_set(XDR) then $
+	xdr = self.outpath+'XDR'+!os.file_sep+class+ $
+		scanno+'.xdr'
 	if keyword_set(PICT) then $
-	pict = self.outpath+'PICT'+!os.file_sep+self.class+ $
+	pict = self.outpath+'PICT'+!os.file_sep+class+ $
 		scanno+'.pict'
 
 	nw = self.win
-	panImage,data,id_def,new_win=nw,tiff=tiff,reverse=reverse,gif=gif,pict=pict,title=title
+	if keyword_set(SEL) then $
+	panImage_sel,data,id_def,new_win=nw,title=title else $
+	panImage,data,id_def,new_win=nw,tiff=tiff,reverse=reverse,pict=pict,xdr=xdr,title=title
 	self.win = nw
 
 END
@@ -425,7 +467,7 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, April 4, 2000.
-;       xx-xx-xxxx      comment
+;       12-01-2000      Add scan # to title
 ;
 ;-
 
@@ -436,11 +478,19 @@ PRO scanSee::view3d_2d,det,group=group,title=title,slicer3=slicer3
 
 	detector = 1
 	if n_elements(det) then detector = det 
-	if detector le 0 or detector gt 15 then detector = 1
+	if detector le 0 or detector gt 85 then detector = 1
 	da3d = *(*self.gD).da3D
-	data = da3d(*,*,*,detector-1)
+	cpt = *(*self.gD).cpt
+	npts = *(*self.gD).num_pts
 
-	if keyword_set(title) eq 0 then title='scan3D_2D Slicer: Detector '+strtrim(detector,2)
+	sz = size(da3d)
+	if sz(0) eq 4 then begin
+	if cpt(2) lt npts(2) then $
+	data = da3d(*,*,0:cpt[2],detector-1) else $
+	data = da3d(*,*,*,detector-1)
+	endif else data = da3d
+
+	if keyword_set(title) eq 0 then title='3D Scan# '+strtrim(self.scanno,2)+', Detector '+self.detname(detector-1)       ;strtrim(detector,2)
 	view3d_2d,data,group=group,title=title,slicer3=slicer3
 END
 
@@ -492,10 +542,12 @@ PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
 	y = pa1D(*,0)
 
 	def = self.def
-	vmin = make_array(15,/float)
-	vmax = make_array(15,/float)
+	nd = self.nd
 
-	for i=0,14 do begin
+	vmin = make_array(nd+1,/float)
+	vmax = make_array(nd+1,/float)
+
+	for i=0,nd do begin
 	if def(i) gt 0 then begin
 	vmax(i) = max(image_array(*,*,i))
 	vmin(i) = min(image_array(*,*,i))
@@ -505,7 +557,7 @@ PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
 	if keyword_set(panimage) then self->panImage 
 END
 
-PRO scanSee::panImage,GIF=GIF,TIFF=TIFF,PICT=PICT,REVERSE=REVERSE
+PRO scanSee::panImage,SEL=SEL,TIFF=TIFF,XDR=XDR,PICT=PICT,REVERSE=REVERSE
 ;+
 ; NAME:
 ;       scanSee::PanImage
@@ -514,18 +566,19 @@ PRO scanSee::panImage,GIF=GIF,TIFF=TIFF,PICT=PICT,REVERSE=REVERSE
 ;       This method allows the user to view detector images in a pop up window.
 ;
 ; CALLING SEQUENCE:
-;       Obj->[scanSee::]PanImage] [,GIF=GIF] [,TIFF=TIFF] [,REVERSE=REVERSE]
-;                  [,PICT=PICT]
+;       Obj->[scanSee::]PanImage] [,SEL=SEL] [,TIFF=TIFF] [,REVERSE=REVERSE]
+;                  [,PICT=PICT] [,XDR=XDR]
 ;
 ; ARGUMENTS:
 ;     None.
 ;
 ; KEYWORDS:
-;       GIF      - specifies the output gif filename
 ;       TIFF     - specifies the output tiff filename
 ;       REVERSE  - indicates the reverse tiff is desired 
 ;       PICT     - specifies the output pict filename
+;       XDR      - specifies the output xdr filename
 ;       GROUP    - specifies the parent widget ID 
+;       SEL      - specifies the selection dialog
 ;
 ; EXAMPLE:
 ;    Following example pops up the panimage window for the input scanSee file
@@ -538,13 +591,36 @@ PRO scanSee::panImage,GIF=GIF,TIFF=TIFF,PICT=PICT,REVERSE=REVERSE
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       xx-xx-xxxx      comment
+;       11-03-2000      Add the panImage selection option
 ;-
 
 ; pops up pan images
 
-	def = self.def
-	seq = self.scanno
 	image_array = *(*self.gD).da2D
+	sz = size(image_array)
+
+	seq = self.scanno
+	def = self.def(0:sz(3)-1)
+	title=self.name+' SCAN # '+strtrim(seq,2)
+
+catch,error_status
+if error_status ne 0 then begin
+	if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
+	r = dialog_message([!error_state.msg,!error_state.sys_msg,$
+		string(!error_state.code)],/error)
+	return	
+	end
+	self.win = -1
+end
+if self.win ne -1 then wdelete,self.win
+self.win = -1
+
+	if keyword_set(SEL) then begin
+	nw = self.win 
+	panImage_sel,image_array,def,new_win=nw,title=title 
+	self.win = !d.window
+	return
+	end
 
 update:
 
@@ -558,22 +634,19 @@ update:
 		height = height * factor
 	end
 
-catch,error_status
-if error_status ne 0 and !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
-	r = dialog_message([!error_state.msg,!error_state.sys_msg,$
-		string(!error_state.code)],/error)
-	return	
-end
-if error_status then self.win = -1 
-if self.win ne -1 then wdelete,self.win
-self.win = -1
+	ND = sz(3) ; 85
+	NC = 8
+	NR = ND/8 + 1
+	NL = NR*NC - 1
+
 	if self.win lt 0 then begin
-		window,/free, xsize = 8*width, ysize=2*height, $
-			title=self.name+' SCAN # '+strtrim(seq,2)
-		for i=0,14 do begin
-		xi=(i mod 8)*width+width/2 - 5 
-		yi=height/2+(15-i)/8*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+		window,/free, xsize = NC*width, ysize=NR*height, $
+			title=title,retain=2
+		for i=0,ND-1 do begin
+		ii = NL-i
+		xi=(i mod NC)*width+width/2 - 5 
+		yi=height/2+ii/NC*height
+		xyouts, xi,yi,self.detname(i),/device
 		end
 	end
 
@@ -581,7 +654,7 @@ new_win = !D.window
 self.win = new_win
 
 	wset,new_win
-	for sel=0,14 do begin
+	for sel=0,ND-1 do begin
 	if def(sel) gt 0 then begin
 	v_max = max(image_array(*,*,sel),min=v_min)
 	if v_max eq v_min then begin
@@ -595,8 +668,8 @@ self.win = new_win
 	end
 
 
-	plots,[0,8*width],[height,height],/device
-	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+	for i=1,NR-1 do plots,[0,NC*width],[i*height,i*height],/device
+	for i=1,NC-1 do plots,[i*width,i*width],[0,NR*height],/device
 
 	if keyword_set(TIFF) then begin
 		tvlct,r,g,b,/get
@@ -606,11 +679,11 @@ self.win = new_win
 		else write_tiff,tiffname,TVRD(),red=r,green=g,blue=b
 	end
 
-	if keyword_set(GIF) then begin
-		tvlct,r,g,b,/get
-		gifname = strtrim(gif,2)
-		write_gif,gifname,TVRD(),r,g,b
-		write_gif,gifname,/close
+	if keyword_set(XDR) then begin
+		xdrname = strtrim(xdr,2)
+		u_openw,unit,xdrname,/XDR,error=error
+		u_write,unit,image_array
+		u_close,unit
 	end
 
 	if keyword_set(PICT) then begin
@@ -760,13 +833,20 @@ PRO scanSee::First,seqno,filename
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
-;       xx-xx-xxxx      comment
+;       03-15-01    bkc Accommondate for W95 use wild search for *.scan
 ;-
 
-	seqno = 0
-	str = '0000'
+	seqno = 1
+	str = '0001'
+ 	filename = self.prefix+str + self.suffix
+	found = findfile(filename,count=ct)
+	if ct gt 0 then begin
+	self->delete
+	self = obj_new('scanSee',file=filename)
+	return
+	end
 
-	list = findfile(self.path,count=ct)
+	list = findfile(self.path+'*.scan',count=ct)
 	if ct gt 0 then begin
 
 	ip = rstrpos(self.prefix,!os.file_sep)+1
@@ -775,33 +855,21 @@ PRO scanSee::First,seqno,filename
 	; find the first scan # then goto step1
 
 	is = strlen(prefix)	
-	nf = 0
-	for i=0,n_elements(list) -1 do begin
-	l2 = rstrpos(list(i),self.suffix)
-	if l2 ne -1 then begin
-		l1 = rstrpos(list(i),prefix)
-		if l1 ne -1 then begin
-			if nf eq 0 then str = strmid(list(i),is,l2-is) else $
-			str = [str, strmid(list(i),is,l2-is)]
-			seqno = fix(str)
-			goto, step1
-		end
-	end
-	end
+	nf = strpos(self.prefix,prefix)
+	l2 = rstrpos(list(0),self.suffix)
+	str = strmid(list,nf+is,l2-nf-is)
+	scanno = fix(str)
+	ind = sort(scanno)
+	seqno = scanno(ind(0))
 
 step1:
- 	filename = self.prefix+str + self.suffix
+ 	filename = list(ind(0)) ; self.prefix+str + self.suffix
 print,filename
 
 	; if seqno found then replace the current
 
-	found = findfile(filename,count=ct)
-	if ct gt 0 then begin
 	self->delete
 	self = obj_new('scanSee',file=filename)
-	endif else begin
-	  res = dialog_message(filename+' not found!',/Error)
-	end
 	end
 END
 
@@ -828,19 +896,21 @@ PRO scanSee::Last,seqno,filename
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
+;       03-15-01    bkc Accommondate for W95 use wild search for *.scan
 ;-
-	found = findfile(self.path,count=ct)
+	found = findfile(self.path+'*.scan',count=ct)
 	len = strlen(self.prefix)
 	sp = rstrpos(self.prefix,!os.file_sep)
 	if sp gt -1 then sp=sp+1
 	prefix = strmid(self.prefix,sp,len-sp)
+
+	len1 = strlen(prefix)
+	rp = strpos(found(0),prefix)
+	rp1 = rstrpos(found(0),self.suffix)
 	num = 0
 	for i=0,n_elements(found)-1 do begin
-	len1 = strlen(prefix)
-	rp = strpos(found(i),prefix)
-	rp1 = rstrpos(found(i),self.suffix)
-	if rp eq 0 and rp1 gt len1 then begin
-		ar = strmid(found(i),len1,rp1-len1)
+	if rp ge 0 and rp1 gt len1 then begin
+		ar = strmid(found(i),rp+len1,rp1-rp-len1)
 		if fix(ar) gt num then begin
 			num= fix(ar)
 			ip = i
@@ -848,7 +918,7 @@ PRO scanSee::Last,seqno,filename
 		end
 	end
 
-	filename = self.path+found(ip)
+	filename = found(ip)
 print,filename
 
 	seqno = num
@@ -930,9 +1000,10 @@ PRO scanSee::View2D,detno,xarr=xarr,yarr=yarr,im=im,plot=plot,group=group,_extra
 ;-
 	detector = 1
 	if keyword_set(detno) then detector=detno 
+	dname = self.detname(detector-1)
 	if keyword_set(plot) then $
-	scan2Ddata,self.gD,detector,/plot,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e else $
-	scan2Ddata,self.gD,detector,/view,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e
+	scan2Ddata,self.gD,detector,/plot,dname=dname,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e else $
+	scan2Ddata,self.gD,detector,/view,dname=dname,xarr=xarr,yarr=yarr,im=im,group=group,_extra=e
 END
 
 PRO scanSee::ASCII2D,detno,nowin=nowin,view=view,outfile=outfile,plot=plot,format=format,group=group
@@ -970,11 +1041,12 @@ PRO scanSee::ASCII2D,detno,nowin=nowin,view=view,outfile=outfile,plot=plot,forma
 ;-
 	detector = 1
 	if keyword_set(detno) then detector=detno 
+	dname = self.detname(detector-1)
 
 	if keyword_set(view) then $
-	scan2Ddata,self.gD,detector,/view,xarr=px,yarr=py,im=data 
+	scan2Ddata,self.gD,detector,/view,dname=dname,xarr=px,yarr=py,im=data 
 	if keyword_set(plot) then $
-	scan2Ddata,self.gD,detector,/plot,xarr=px,yarr=py,im=data ,group=group
+	scan2Ddata,self.gD,detector,/plot,dname=dname,xarr=px,yarr=py,im=data ,group=group
 	if keyword_set(view) or keyword_set(plot) eq 0 then $
 	scan2Ddata,self.gD,detector,xarr=px,yarr=py,im=data,group=group
 
@@ -1063,12 +1135,16 @@ PRO scanSee::Plot1D,no,xarr=xarr,yarr=yarr,xsel=xsel,ysel=ysel,title=title,group
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
-;       xx-xx-xxxx      comment
+;       11-27-2000      Trap for zero detector case
 ;-
 ; ysel - string list
 	scanno = 1
 	if keyword_set(no) then scanno = no
 	self.xaxis = 0
+	if total(self.def) lt 1. then begin
+		r = dialog_message('No detector found for scan file: '+self.file,/error)
+	return
+	end
 	if keyword_set(xsel) then self.xaxis = xsel
 	if keyword_set(ysel) then $
 	scan1Ddata,self.gD,scanno,/plot, xarr=xarr,yarr=yarr, title=title,$
@@ -1143,8 +1219,8 @@ title=title,group=group,all=all,_extra=e
 	num_pts = *(*self.gD).num_pts
 	seqno = 1
 
-	self.width = cpt(0)
-	if cpt(0) eq 0 then self.width = num_pts(0)
+	self_width = cpt(0)
+	if cpt(0) eq 0 then self_width = num_pts(0)
 
 	if dim eq 1 then begin
 	def = *(*self.gD).id_def
@@ -1152,8 +1228,8 @@ title=title,group=group,all=all,_extra=e
 	pa1d = *(*self.gD).pa1d
 	da1d = *(*self.gD).da1d
 
-	pa = pa1d(0:self.width-1,*)
-	da = da1d(0:self.width-1,*)
+	pa = pa1d(0:self_width-1,*)
+	da = da1d(0:self_width-1,*)
 	labels = *(*self.gD).labels
 	end
 	if dim eq 2 then begin
@@ -1164,41 +1240,50 @@ title=title,group=group,all=all,_extra=e
 	end
 	id_def = *(*self.gD).id_def
 	ndim = n_elements(id_def)/self.dim
-	def = id_def(0:ndim-1)
 	labels = *(*self.gD).labels(*,0)
 	pa2d = *(*self.gD).pa2D
 	da2d = *(*self.gD).da2d
+	sz = size(da2d)
+	nd = sz(3)
+	ndim = nd + 4
+	def = id_def(0:ndim-1)
+
 	pa = make_array(self.width,4,/double)
-	da = make_array(self.width,ndim-4)
-	pa[*,*] = pa2d(*,seqno-1,*)
+	da = make_array(self.width,nd)
+;	pa[*,*] = pa2d(*,seqno-1,*)   only last vector returned in R2 
+	pa = pa2d
 	da[*,*] = da2d(*,seqno-1,*)
 	end
 
 	pts = self.width ; *(*self.gD).cpt(0)
 	np = fix(total(def(0:3)))
-	nd = fix(total(def(4:ndim-1)))
-	x_names = make_array(np,/string,value=string(replicate(32b,30)))
+	for i=4,ndim-1 do begin
+	 if def(i) gt 0 then begin
+	   nd = i-4
+	   if n_elements(d_list) eq 0 then d_list = nd else d_list=[d_list,nd]
+	 end
+	end
+
+	x_names = make_array(4,/string,value=string(replicate(32b,30)))
 	x_engus = x_names
 	x_descs = x_names
-	y_names = make_array(nd,/string,value=string(replicate(32b,30)))
+	y_names = make_array(n_elements(d_list),/string,value=string(replicate(32b,30)))
 	y_engus = y_names
 	y_descs = y_names
 	num=0
 	for i=0,3 do begin
 		if def(i) gt 0 then begin
 		x_names(num) = labels(i)
-		x_descs(num) = labels(i+19)
-		x_engus(num) = labels(i+38)
+		x_descs(num) = labels(i+ndim)
+		x_engus(num) = labels(i+ndim*2)
 		num = num +1
 		end
 	end
-	num=0
-	for i=0,14 do begin
+	for i=0,n_elements(d_list)-1 do begin
 		if def(i+4) gt 0 then begin
-		y_names(num) = labels(i+4)
-		y_descs(num) = labels(i+4+19)
-		y_engus(num) = labels(i+4+38)
-		num = num +1
+		y_names(i) = labels(i+4)
+		y_descs(i) = labels(i+4+ndim)
+		y_engus(i) = labels(i+4+ndim*2)
 		end
 	end
 
@@ -1220,7 +1305,7 @@ title=title,group=group,all=all,_extra=e
 		if self.xaxis lt np then xtitle = x_names(self.xaxis) else $
 		xtitle = 'P'+strtrim(self.xaxis+1,2)
 	end
-	y = da(*,0:nd-1)
+	y = da(*,0:nd)
 	plot1d,x,y,title=title,comment=comment, $
 		xtitle=xtitle,ytitle=ytitle,group=group,_extra=e
 	return
@@ -1243,17 +1328,26 @@ title=title,group=group,all=all,_extra=e
 
 	if keyword_set(outfile) then report = strtrim(outfile,2)
 
-	st0=string(replicate(32b,ind_width+(nd+np)*fwidth))
+	st0=string(replicate(32b,ind_width+fwidth*fix(total(def))))
 
 	openw,3,dir+report
 
 	printf,3,'; Source File: '+self.file
 	printf,3,'; ASCII  File: '+dir+report
-	printf,3,'; ',seqstr
+	printf,3,'; ',strtrim(seqstr,1)
 
-	st1 = '; '
-	for i=0,np-1 do st1 = st1 + x_names(i) + " "
-	for i=0,nd-1 do st1 = st1 + y_names(i) + " "
+st1='; Defined PI: '
+for i=0,3 do st1 = st1 + strtrim(def(i),2) + '  '
+st1 = st1 + '  DI: '
+for i=4,nd+4 do begin
+	if (i-4) mod 8 eq 7 then sep = ',  ' else sep='  '
+	st1 = st1 + strtrim(def(i),2) + sep
+end
+printf,3,st1
+
+	st1 = '; Index #   '
+	for i=0,np-1 do st1 = st1 + strtrim(x_names(i),2) + "  "
+	for i=0,n_elements(d_list)-1 do st1 = st1 + strtrim(y_names(i),2) + "  "
 	printf,3,st1
 
 	for k=0,pts(0)-1 do begin
@@ -1270,7 +1364,8 @@ title=title,group=group,all=all,_extra=e
 		strput,st,st1,ip+fwidth-len1-1
 		ip = ip + fwidth
 		end
-	for i=0,nd-1 do begin
+	for ii=0,n_elements(d_list)-1 do begin
+		i = d_list(ii)
 		st1 = string(da(k,i),format=temp_format)
 ;		st1 = strtrim(da(k,i),2)
 		len1 = strlen(st1)
@@ -1284,6 +1379,13 @@ title=title,group=group,all=all,_extra=e
 	if n_elements(nowin) eq 0 then $
 	xdisplayfile,dir+report,group=group,_extra=e
 
+END
+
+PRO scanSee::Pick1d,detno,GROUP=group
+	
+	title='SCAN # '+ strtrim(scanno,2)+', D'+strtrim(pick1d,2)
+	im = image_array(*,*,detno-1)
+	calibra_pick1d,im,xa=x,ya=y,title=title,GROUP=group
 END
 
 PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
@@ -1314,6 +1416,8 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 ;       xx-xx-xxxx      comment
 ;-
 	
+	scanno = self.scanno
+
 	if self.dim eq 1 then begin
 	pa = *(*self.gD).pa1D
 	da = *(*self.gD).da1D
@@ -1321,7 +1425,6 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 
 	x = pa(*,0)
 	y = da(*,0)
-	scanno = self.scanno
 	nd = ceil(total(self.def))
 	sz = size(da)
 	im = make_array(sz(1),nd)
@@ -1339,22 +1442,23 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
                 title=':  SCAN # '+strtrim(scanno,2),GROUP=group,_extra=e
 
 	end
+
 	if self.dim eq 2 then begin
 	pa1D = *(*self.gD).pa1D
 	pa2D = *(*self.gD).pa2D
 	x = pa2D(*,0,0)
 	y = pa1D(*,0)
-	self->images,image_array,def,/PANIMAGE
-	scanno = self.scanno
 
 	if keyword_set(pick1d) then begin
-		if pick1d lt 16 and def(pick1d-1) eq 0 then return
+		self->images,image_array,def
+		if pick1d lt 1 or def(pick1d-1) eq 0 then return
 		title='SCAN # '+ strtrim(scanno,2)+', D'+strtrim(pick1d,2)
 		im = image_array(*,*,pick1d-1)
 		calibra_pick1d,im,xa=x,ya=y,title=title,GROUP=group
 		return
 	end
 
+	self->images,image_array,def,/PANIMAGE
         calibration_factor,image_array,def,xv=x,yv=y, $
                 classname=self.name,inpath=self.path, $ 
                 title=':  SCAN # '+strtrim(scanno,2),GROUP=group,_extra=e
@@ -1451,12 +1555,14 @@ PRO scanSee::Delete
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       xx-xx-xxxx      comment
 ;-
-catch,error_status
-if error_status then goto,delstep
-	if self.win ne -1 then wdelete,self.win
-delstep:
+
+
 	scanimage_free,self.gD
 	obj_destroy,self
+
+	catch,error_status
+	if error_status ne 0 then return
+	wdelete,0
 END
 
 PRO scanSee::Cleanup
@@ -1535,24 +1641,25 @@ FUNCTION scanSee::Init,file=file,help=help
 ;	if error_status ne 0 then begin
 ;	str = ['Error!  Error!','Wrong type of file entered!']
 ;	res = dialog_message(str,/Error)
-;	return,1
+;	return,0
 ;	end
 
+	if ptr_valid(self.gD) then scanimage_free,self.gD
+heap_gc
 	scanimage_alloc,filename,gD,scanno
-
 	self.gD = gD
 	
 	self.scanno = *(*gD).scanno 
 	if self.scanno lt 0 then return,1
-
+	
 	self.dim = *(*gD).dim 
 	num_pts = *(*gD).num_pts
 	self.width = num_pts(0)
 	if self.dim eq 2 then self.height = num_pts(1)
 
 	id_def = *(*gD).id_def
-	ndim = n_elements(id_def)/self.dim
-	self.def = id_def(4:ndim-1,0)
+	ndet = n_elements(id_def(*,0))
+	self.def = id_def(4:ndet-1,0)
 
 	cd,current=home
 	self.home = home
@@ -1577,6 +1684,9 @@ FUNCTION scanSee::Init,file=file,help=help
         close,1
         self.outpath = dir
 
+	self.detname =  'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+        	'01','02','03','04','05','06','07','08','09', $
+        	strtrim(indgen(61)+10,2)]
 	return,1
 END
 
@@ -1593,7 +1703,9 @@ struct = {scanSee, $
 	scanno  : -1, $
 	dim     : -1, $
 	xaxis   : 0, $
-	def     : make_array(15,/int), $
+	def     : make_array(85,/int), $
+	detname : make_array(85,/string), $
+	nd      : 0, $   ; index of last detector, 0 based
 	width   : 0, $
 	height  : 0, $
 	win     : -1, $
