@@ -9,7 +9,7 @@ endif
 
 setenv IDL_DEVICE X
 
-#source /usr/local/rsi/idl_5.1/bin/idl_setup
+# source /usr/local/rsi/idl_5.3/bin/idl_setup
 
 setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
 
@@ -24,6 +24,12 @@ echo ".run readScan.pro.R2" >>! go_viewer
 echo ".run scanSee__define.pro.R2" >>! go_viewer
 echo ".run scanSee.pro" >>! go_viewer
 echo "scanSee $PRM" >>! go_viewer
-idl go_viewer
+if `isainfo -b` == 64 then
+	source /usr/local/rsi/idl_5.4/bin/idl_setup
+	idl -32 go_viewer
+else
+	source /usr/local/rsi/idl_5.3/bin/idl_setup
+	idl go_viewer
+endif
 rm go_viewer
 
