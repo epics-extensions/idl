@@ -119,11 +119,7 @@ echo ".run scan2d_overlay" >>! go_catcher
 echo ".run catch1d_user" >>! go_catcher
 echo $xyz >>! go_catcher
 
-	if "$exe" != "" then
 	source /usr/local/rsi/idl_6.0/bin/idl_setup
-	else
-	source /usr/local/rsi/idl/bin/idl_setup
-	endif
 	idl -32 $exe go_catcher
 	rm go_catcher
 exit
