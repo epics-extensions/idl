@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.3 1999/03/15 23:30:36 cha Exp $
+; $Id: DC.pro,v 1.4 1999/03/25 20:19:02 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -379,7 +379,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
 
-; $Id: DC.pro,v 1.3 1999/03/15 23:30:36 cha Exp $
+; $Id: DC.pro,v 1.4 1999/03/25 20:19:02 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -534,8 +534,10 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 state = { $
 	 base: filebase, $
 	 text_area: filetext, $
-	 file: filename $
+	 file: '' $
 	 }
+if n_elements(filename) then state.file = filename
+
 WIDGET_CONTROL,filebase,SET_UVALUE=state
 
 WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
@@ -1121,7 +1123,7 @@ endif else $
 	WIDGET_CONTROL, w_warningtext_base,/REALIZE
 
 
-XMANAGER,'w_warningtext',w_warningtext_base, GROUP_LEADER = GROUP
+XMANAGER,'w_warningtext',w_warningtext_base, GROUP_LEADER = GROUP,/NO_BLOCK
 
 
 END
@@ -1987,36 +1989,13 @@ if newpv eq '' then scanData.y_pv = newpv
 		w_warningtext,'Error: invalid SCAN 2D Pvname',40,2
 	end
       END
-  'SCAN1D_START': BEGIN
-	catch1d_Start_xScan
-	WIDGET_CONTROL,catcher_setup_ids.stop,SENSITIVE=1
-      END
-  'SCAN1D_STOP': BEGIN
-	catch1d_Stop_xScan
-      END
-  'SCAN2D_START': BEGIN
-	catch1d_Start_yScan
-;  	WIDGET_CONTROL,catcher_setup_ids.y_handshake_proc,SENSITIVE=1
-      END
-  'SCAN2D_STOP': BEGIN
-	catch1d_Stop_yScan
-;  	WIDGET_CONTROL,catcher_setup_ids.y_handshake_proc,SENSITIVE=0
-      END
-  'SCAN2D_HANDSHAKE': BEGIN
-      WIDGET_CONTROL,catcher_setup_ids.y_handshake,GET_VALUE=pv
-	if caSearch(pv(0)) eq 0 or pv(0) eq '' then scanData.y_handshake = pv(0)
-      END
-  'SCAN2D_HANDSHAKE_V': BEGIN
-      WIDGET_CONTROL,catcher_setup_ids.y_handshake_v,GET_VALUE=v
-	if strlen(v(0)) gt 0 then catcher_setup_scan.y_handshake_v = v(0)
-      END
-  'SCAN2D_HANDSHAKE_PROC': BEGIN
-	ln = caputArray(scanData.y_handshake, catcher_setup_scan.y_handshake_v) 
-      END
   'CATCHER_SETUP_CANCEL': BEGIN
       WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
       END
   'CATCHER_SETUP_DONE': BEGIN
+       prefix = str_sep(scanData.pv,':')
+        ln = caget(prefix[0]+':saveData_fullPathName',pd)
+        if ln eq 0 then scanData.path = string(pd(1:99))
 	write_config
       WIDGET_CONTROL,catcher_setup_ids.pv,GET_VALUE=pv
 	if caSearch(pv(0)) eq 0 then begin
@@ -2026,14 +2005,6 @@ if newpv eq '' then scanData.y_pv = newpv
 	if caSearch(pv1(0)) eq 0 then begin
 	pventry2_event
 	end
-        WIDGET_CONTROL,catcher_setup_ids.y_handshake,GET_VALUE=pv2
-	  if caSearch(pv2(0)) eq 0 then begin
-	  scanData.y_handshake = pv2(0)
-          WIDGET_CONTROL,catcher_setup_ids.y_handshake_v,GET_VALUE=v
-	  if strlen(v(0)) gt 0 then catcher_setup_scan.y_handshake_v = v(0)
-	  ln = caputArray(pv2(0),v(0))
-	  end
-;     WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
       END
   ENDCASE
 END
@@ -2047,29 +2018,15 @@ PRO catcher_setup_init
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
-;if n_elements(catcher_setup_scan) eq 0 then begin
-;	scanData = {$
-;		pv : 'cha:scanRec3SC', $
-;		y_pv : 'cha:scanRec4SC', $
-;		y_handshake : 'cha:scanRec4SC.PROC' $
-;		} 
-;	end
-
 if n_elements(catcher_setup_scan) eq 0 then begin
 	catcher_setup_scan = { $
 		pv : '', $
-		y_pv : '', $
-		y_handshake : '', $
-		y_handshake_v : '' $
+		y_pv : '' $
 		}
 	end
 
-;if strlen(scanData.pv) gt 0   then $
 	catcher_setup_scan.pv = scanData.pv
-;if strlen(scanData.y_pv) gt 0 then $
 	catcher_setup_scan.y_pv = scanData.y_pv
-;if strlen(scanData.y_handshake) gt 0  then  $
-	catcher_setup_scan.y_handshake = scanData.y_handshake
 END
 
 
@@ -2106,15 +2063,6 @@ WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY
       UVALUE='SCAN1D_PVNAME', $
       XSIZE=30)
 
-  SCAN1D_START = WIDGET_BUTTON( BASE2, $
-      UVALUE='SCAN1D_START', $
-      VALUE='Start')
-
-  SCAN1D_STOP = WIDGET_BUTTON( BASE2, $
-      UVALUE='SCAN1D_STOP', $
-      VALUE='Stop')
-
-
   BASE3 = WIDGET_BASE(catcher_setup_base, $
       ROW=1, $
       MAP=1, $
@@ -2129,46 +2077,11 @@ WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY
       UVALUE='SCAN2D_PVNAME', $
       XSIZE=30)
 
-  SCAN2D_START = WIDGET_BUTTON( BASE3, $
-      UVALUE='SCAN2D_START', $
-      VALUE='Start')
-
-  SCAN2D_STOP = WIDGET_BUTTON( BASE3, $
-      UVALUE='SCAN2D_STOP', $
-      VALUE='Stop')
-
-
   BASE4 = WIDGET_BASE(catcher_setup_base, $
       ROW=1, $
       MAP=1, $
       TITLE='2d_handshake', $
       UVALUE='BASE4')
-
-  SCAN2D_HANDSHAKE = CW_FIELD( BASE4,VALUE=catcher_setup_scan.y_handshake, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='2D Handshake PV:', $
-      UVALUE='SCAN2D_HANDSHAKE', $
-      XSIZE=30)
-
-  fld='1'
-  if strlen(catcher_setup_scan.y_handshake) gt 1 then begin
-  ln = cagetArray(catcher_setup_scan.y_handshake,pd,/string)
-  if ln eq 0 then fld = pd(0)
-  end
-  SCAN2D_HANDSHAKE_V = CW_FIELD( BASE4,VALUE=fld, $
-      ROW=1, $
-      STRING=1, $
-      RETURN_EVENTS=1, $
-      TITLE='Value:', $
-      UVALUE='SCAN2D_HANDSHAKE_V', $
-      XSIZE=10)
-
-;  SCAN2D_HANDSHAKE_PROC = WIDGET_BUTTON( BASE4, $
-;      UVALUE='SCAN2D_HANDSHAKE_PROC', $
-;      VALUE='Proc')
-;  WIDGET_CONTROL,SCAN2D_HANDSHAKE_PROC,SENSITIVE=0
 
   BASE5 = WIDGET_BASE(catcher_setup_base, $
       ROW=1, $
@@ -2186,14 +2099,7 @@ WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY
 
 catcher_setup_ids = { base : catcher_setup_base, $
 	pv : SCAN1D_PVNAME, $
-	y_pv : SCAN2D_PVNAME, $
-	y_handshake: SCAN2D_HANDSHAKE, $
-	y_handshake_v: SCAN2D_HANDSHAKE_V, $
-;	y_handshake_proc: SCAN2D_HANDSHAKE_PROC, $
-	start : SCAN1D_START, $
-	stop : SCAN1D_STOP, $
-	start2 : SCAN2D_START, $
-	stop2 : SCAN2D_STOP $
+	y_pv : SCAN2D_PVNAME $
 	}
 
   WIDGET_CONTROL, catcher_setup_base, /REALIZE
@@ -3177,10 +3083,9 @@ WSET, widget_ids.plot_area
 
 ;    ind = 0 plot the x axis and get monitor queue
 
-
 if realtime_id.ind eq 0 then begin 
-;	tempTitle=strtrim(w_plotspec_array(0))+' (1D SCAN # '+strtrim(w_plotspec_id.seqno+1,2) +')'
-	tempTitle=strtrim(w_plotspec_array(0))+' (1D SCAN # '+strtrim(scanData.scanno,2) +')'
+	if scanData.y_scan then tempTitle=strtrim(w_plotspec_array(0),2) else $
+	tempTitle=strtrim(w_plotspec_array(0),2)+' (1D SCAN # '+strtrim(scanData.scanno,2) +')'
 
 	xrange = [0,100]
 	realtime_xrange,1,xmin,xmax
@@ -3271,7 +3176,6 @@ realtime_retval = transpose(retval)
 	is = i*cpts
 	scanData.da(n1:n2,i) = realtime_retval(n1:n2,i+scanData.num_pos)
 	end
-
 
 ;realtime_retval = 0 
 
@@ -3707,7 +3611,6 @@ end
 realtime_id.xmin = xmin
 realtime_id.xmax = xmax
 
-
 END
 
 PRO close_plotspec
@@ -3779,13 +3682,6 @@ if XRegistered('w_plotspec') ne 0 then return
 	st = scanData.pv
 	title = string(replicate(32b,60))
         title = st +' ('+ scanData.pv +')'
-        if scanData.y_scan then begin
-		y_seqno = scanData.y_seqno
-		if y_seqno gt 0 and y_seqno eq scanData.y_req_npts then $
-			 y_seqno = y_seqno-1
-		title = st + ' @ y('+strtrim(y_seqno,2) + ')=' + $
-			strtrim(scanData.y_value,2) 
-	end
 
 ; get xlabel
 	xlabel = string(replicate(32b,60))
@@ -5397,7 +5293,8 @@ populate:
 if dim eq 2 then begin
 	if seq_no le 0 then seq_no = cpt[1]
 	scanData.y_seqno = seq_no - 1
-	yvalue = pa1D(seq_no-1,0)
+	if scanData.y_seqno lt 0 then  scanData.y_seqno=0
+	yvalue = pa1D(scanData.y_seqno,0)
 end
 if dim eq 1 and seq_no lt 0 then seq_no = 1
 next_seq_no = seq_no + 1
@@ -5421,7 +5318,7 @@ end
 for i=0,14 do begin
         if id_def[4+i,0] gt 0 then begin
 	if dim eq 2 then $
-	scanData.da(0:act_npts-1,i) = da2D[*,seq_no-1,i] else $
+	scanData.da(0:act_npts-1,i) = da2D[*,scanData.y_seqno,i] else $
 	scanData.da(0:act_npts-1,i) = da1D[*,i]
         end
 end
@@ -5437,8 +5334,8 @@ w_viewscan_id.seqno = seq_no
 	print,'Scan # ',seq_no, ' accessed.'
 	scanData.scanno = seq_no 
 ;	setPlotLabels
-	w_plotspec_array(0) = scanData.pv+' @ y('+strtrim(seq_no-1,2)+')'
-	if dim eq 2 then w_plotspec_array(0) = w_plotspec_array(0) +'='+strtrim(yvalue,2)
+	w_plotspec_array(0) = scanData.pv
+	if dim eq 2 then w_plotspec_array(0) = w_plotspec_array(0) +' @ y('+strtrim(scanData.y_seqno,2)+')' +'='+strtrim(yvalue,2)
 	ix = w_plotspec_id.xcord
 	w_plotspec_array(1) = x_descs(ix)
 	if w_plotspec_array(1) eq '' then w_plotspec_array(1) = x_names(ix) 
@@ -6267,18 +6164,10 @@ PRO PDMENU_VDATA_Event, Event
  	END
   'ViewData.2D ...': BEGIN
 	vw2d, GROUP=event.top, file=scanData.trashcan
-;	if scanData.trashcan eq '' then begin
-;		w_warningtext,'You have to load in scan data first!'
-;		return
-;	end
-;	scan_read,1,-1,-1,maxno
-;	if maxno gt 1 then $
-;	scan_mode_write_image
-;	DCV2D, GROUP=event.top, file= scanData.imgfile
  	END
-  'ViewData.1D Overlay ...': BEGIN
+;  'ViewData.1D Overlay ...': BEGIN
 ;        view1d_overlay, scanData.trashcan, GROUP=event.top 
- 	END
+; 	END
   ENDCASE
 END
 
@@ -6288,7 +6177,7 @@ PRO HELPMENU_Event, Event
   CASE Event.Value OF 
   'Help.Version ...': BEGIN
 	st = caVersion()
-	st = [st,'','scanSee Version :  R1.2a']
+	st = [st,'','scanSee Version :  R1.2b']
 	w_warningtext,st
  	END
   'Help.Release Note ...': BEGIN
@@ -6562,8 +6451,11 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
+	ln = caget(scanData.pv+'.EXSC',pd)
+	if ln eq 0 and pd eq 0 then begin
 	x = caput(scanData.pv+'.EXSC',1)
 	if x eq -1 then w_warningtext,'Error encounted in START_1D_SCAN'
+	end
 
         if XRegistered('w_viewscan') ne 0 then begin
                 WIDGET_CONTROL,w_viewscan_ids.base,/DESTROY
@@ -6629,9 +6521,6 @@ if scanData.pvfound eq -1 then return
         x = caput(scanData.y_pv+'.EXSC',0)
         if x eq -1 then w_warningtext,'Error encounted in STOP_2D_SCAN'
         end
-
-	; save the 2D-image file
-;	scan_mode_write_image
 
 	; reset y-scan parameters
 
@@ -6699,123 +6588,8 @@ if scanData.pvfound eq -1 then return
 ;  find new filename based on prefix and scan #
 
 	calc_newfilename
-	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
 	
 END
-
-
-;
-;  getPositionDetectorData1    
-;
-PRO getPositionDetectorData1
-
-COMMON CATCH1D_COM, widget_ids, scanData
-COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
-
-	scanData.pa = make_array(4000,4,/double)
-	scanData.da = FLTARR(4000,15)
-
-		
-	if scanData.y_scan then seq_no = scanData.y_seqno+1
-	status = get_1Dscan(scanData.trashcan,seq_no,pa1D,da1D)
-	
-if status eq 0 then begin
-	print,'Error: in getPositionDetectorData1'
-	return
-end
-
-act_npts = scanData.act_npts
-for i=0,3 do begin
-        if realtime_id.def[i,0] gt 0 then begin
-	scanData.pa(0:act_npts-1,i) = pa1D[0:act_npts-1,i] 
-        end
-end
-
-for i=0,14 do begin
-        if realtime_id.def[4+i,0] gt 0 then begin
-	scanData.da(0:act_npts-1,i) = da1D[0:act_npts-1,i]
-        end
-end
-
-
-END
-
-PRO getPositionDetectorData
-COMMON CATCH1D_COM, widget_ids, scanData
-COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
-
-if n_elements(realtime_pvnames) gt 0 then begin
-
-	p_name = [ scanData.pv+'.P1RA', + scanData.pv+'.P2RA', $
-		scanData.pv+'.P3RA', + scanData.pv+'.P4RA']
-
-	d_name = [ scanData.pv+'.D1DA', + scanData.pv+'.D2DA', $
-		scanData.pv+'.D3DA', + scanData.pv+'.D4DA', $
-		scanData.pv+'.D5DA', + scanData.pv+'.D6DA', $
-		scanData.pv+'.D7DA', + scanData.pv+'.D8DA', $
-		scanData.pv+'.D9DA', + scanData.pv+'.DADA', $
-		scanData.pv+'.DBDA', + scanData.pv+'.DCDA', $
-		scanData.pv+'.DDDA', + scanData.pv+'.DEDA', $
-		scanData.pv+'.DFDA'   $
-		]
-
-	scanData.pa = make_array(1000,4,/double)
-	scanData.da = make_array(1000,15,/float)
-
-	; get type and count for  positioner & detector
-
-	ln = caGetTypeCount(realtime_pvnames,types,counts,wave_types)
-	scanData.x_dpt(0:14) = counts(4:18)
-	scanData.x_dtype(0:14) = wave_types(4:18)
-
-	; fill position array
-
-px_name = [ scanData.pv+'.P1PV', scanData.pv+'.P2PV', $
-		scanData.pv+'.P3PV', scanData.pv+'.P4PV' ]
-ln = cagetArray(px_name,pname,/string)
-
-px_name = [ scanData.pv+'.R1PV', scanData.pv+'.R2PV', $
-		scanData.pv+'.R3PV', scanData.pv+'.R4PV' ]
-ln = cagetArray(px_name,tname,/string)
-
-	for i=0,3 do begin
-		if strlen(pname(i)) gt 1 or strlen(tname(i)) gt 1 then begin
-		npts = scanData.act_npts + 1
-		type = wave_types(i)
-		ln = cagetArray(p_name(i), pd, max=npts,/double)
-		if ln eq 0 then $
-		scanData.pa(0:scanData.act_npts,i) = pd(0:scanData.act_npts)
-		end
-	end
-
-	; fill detector array
-
-px_name = [ scanData.pv+'.D1PV', scanData.pv+'.D2PV', $
-		scanData.pv+'.D3PV', scanData.pv+'.D4PV', $
-		scanData.pv+'.D5PV', scanData.pv+'.D6PV', $
-		scanData.pv+'.D7PV', scanData.pv+'.D8PV', $
-		scanData.pv+'.D9PV', scanData.pv+'.DAPV', $
-		scanData.pv+'.DBPV', scanData.pv+'.DCPV', $
-		scanData.pv+'.DDPV', scanData.pv+'.DEPV', $
-		scanData.pv+'.DFPV' $
-	]
-
-ln = cagetArray(px_name,pname,/string)
-
-	for i=0,14 do begin
-	if strlen(pname(i)) gt 1 then begin
-		npts = counts(i+4) * scanData.act_npts + 1
-		type = wave_types(i+4)
-		ln = cagetArray(d_name(i), pd, max=npts,type=type)
-		if ln eq 0 then $
-		scanData.da(0:scanData.act_npts,i) = pd(0:scanData.act_npts)
-	   end
-	end
-
-end
-
-END 
-
 
 
 PRO catch1dReadScanRecordAppendFile
@@ -6855,13 +6629,6 @@ w_plotspec_array(4) = x(0) + '. User Name: ' + y
 	end
 
 ; get position and data array from the scan record
-
-;	if scanData.y_scan eq 1 then $
-;	getPositionDetectorData1 else $
-;	getPositionDetectorData
-;	UPDATE_PLOT,scanData.lastPlot
-;	if scanData.y_seqno lt scanData.y_req_npts then $
-;	catch1d_fill_2D_data
 
 	scan_read,1,-1,-1,maxno
 
@@ -6944,8 +6711,8 @@ end
       IF (scanFlag EQ 1) THEN BEGIN
 	;  find new filename based on prefix and scan #
 	if scanData.y_scan eq 0 and valchange(0) then begin
+	scanData.scanno=1
 	calc_newfilename
-	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
 	end
 
 
@@ -7335,18 +7102,15 @@ COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
  
 	prefix = str_sep(scanData.pv,':')
-	nm = [prefix[0]+':saveData_scanNumber', $
-		scanData.pv+'.EXSC', prefix[0]+'.scanPause.VAL']
-	ln = cagetArray(nm,pd,/short)
+
+	nm = prefix[0]+':saveData_scanNumber'
+	ln = caget(nm,pd)
+
+	st = strtrim(pd-1,2)
 
 	str = '0000'
 	len0 = strlen(str)
 	sss = str
-
-	if pd[1] eq 0 then st = strtrim(pd(0),2) else $
-		st = strtrim(pd(0)-1,2)
-
-	if pd[2] eq 1 then st = strtrim(pd(0)-1,2); pause is true
 
 	len = strlen(st)
 	strput,sss,st,len0-len
@@ -7354,6 +7118,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	filename = prefix[0]+':_'+sss+'.scan'
 	scanData.trashcan = scanData.path + filename
 	w_plotspec_array(3) = filename
+	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
 END
 
 
@@ -7469,15 +7234,15 @@ end
 
 	found = findfile(scanData.trashcan)
 	if found(0) eq '' then begin
-		st = ['Filename will be created','',scanData.trashcan, $
-		'','Otherwise use the "File" menu to set up the catcher file.', $
+		st = ['Filename not found :','',scanData.trashcan, '']
+		calc_newfilename
+		st = [st,'been reset to :',scanData.trashcan, '', $
+		'Otherwise use the "File" menu to set up the read file.', $
 		'Then use the "Setup" menu to set up the scan PV names.']
 		mes = widget_message(st,/Error)
-		return
 		end
 	
-
-WIDGET_CONTROL,/HOURGLASS
+;WIDGET_CONTROL,/HOURGLASS
 
 ;	scan_read_all ,unit, maxno
 	scan_read,unit,-1,-1,maxno
@@ -7566,7 +7331,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee (R1.2a)', $
+      TITLE='scanSee (R1.2b)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
