@@ -42,7 +42,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	XDR     : 0, $  ; default pure binary
 	version : '', $
 	home    : h, $
-	path    : h+'/', $
+	path    : h+ !os.file_sep, $
         name    : 'catch1d.trashcan.image',           $
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
@@ -96,6 +96,8 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 if !d.name eq 'X' then device,bypass_translation=0,retain=2
 
   view_option = { $
+	roifile : '', $
+	rptfile : '', $
 	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
         ncolors : !d.table_size-1, $   max color index 
 	pick_ref : 1, $   ; normalized against detector # 1
