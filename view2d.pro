@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.38 2001/07/10 16:50:11 cha Exp $
+; $Id: view2d.pro,v 1.39 2002/03/18 21:24:36 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -93,9 +93,28 @@ if keyword_set(init) eq 0 then begin  ;Supply default values for box:
 	y0 = !d.y_size/2 - ny/2
 	endif
 
-button = 0
-goto, middle
+	if nx lt 0 then begin
+		x0 = x0 + nx
+		nx = -nx
+	endif
+	if ny lt 0 then begin
+		y0 = y0 + ny
+		ny = -ny
+	endif
 
+	x0 = x0 > 0
+	y0 = y0 > 0
+	x0 = x0 < (!d.x_size-1 - nx)	;Never outside window
+	y0 = y0 < (!d.y_size-1 - ny)
+
+	px = [x0, x0 + nx, x0 + nx, x0, x0] ;X points
+	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
+
+	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
+	cursor, x, y, 2, /dev	;Wait for a button
+
+button = 0
 while 1 do begin
 	old_button = button
 	cursor, x, y, 2, /dev	;Wait for a button
@@ -142,7 +161,6 @@ while 1 do begin
 		return
 		endif
 middle:
-
 	if nx lt 0 then begin
 		x0 = x0 + nx
 		nx = -nx
@@ -161,6 +179,7 @@ middle:
 	py = [y0, y0, y0 + ny, y0 + ny, y0] ;Y values
 
 	plots,px, py, col=col, /dev, thick=3, lines=0  ;Draw the box
+
 	wait, .1		;Dont hog it all
 	endwhile
 end
@@ -1099,7 +1118,7 @@ show_cross,x,y,view_option.d_wid,view_option.s_wid
 	WIDGET_CONTROL,widget_ids.x_min,GET_VALUE=x_min
 	WIDGET_CONTROL,widget_ids.x_max,GET_VALUE=x_max
 	x_min = fix(x_min) 
-	x_max = fix(x_max) - 1
+	x_max = fix(x_max); - 1
 	if x_min lt 0 then x_min = 0
 	if x_max ge x_size then x_max = x_size - 1
 
@@ -1108,7 +1127,7 @@ show_cross,x,y,view_option.d_wid,view_option.s_wid
 	WIDGET_CONTROL,widget_ids.y_min,GET_VALUE=y_min
 	WIDGET_CONTROL,widget_ids.y_max,GET_VALUE=y_max
 	y_min = fix(y_min)  
-	y_max = fix(y_max) - 1 
+	y_max = fix(y_max); - 1 
 	if y_min lt 0 then y_min = 0
 	if y_max ge y_size then y_max = y_size - 1
 
@@ -1117,10 +1136,11 @@ show_cross,x,y,view_option.d_wid,view_option.s_wid
 	rx_mag = catch2d_file.x_mag
 	ry_mag = catch2d_file.y_mag
 
-	x = fix( float(x-view_option.margin_l) / rx_mag)
+	x = fix( float(x-view_option.margin_l) / rx_mag) 
 	y = fix( float(y-view_option.margin_b) / ry_mag)
 
-if x ge catch2d_file.width or y ge catch2d_file.height then begin
+	catch,error_status
+	if error_status ne 0 then begin
 	w_warningtext,'Cursor outside the image range',60,5,'VIEW2D Messages'
 	return
 	end
@@ -1833,6 +1853,89 @@ end
   ENDCASE
 
 END
+@ezcaIDL.pro
+
+
+PRO CURSOR62_CAPUT, id
+COMMON CATCH2D_FILE_BLOCK,catch2d_file
+COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
+
+  IF id EQ 1 THEN BEGIN         ;  'CURSOR62_CAPUT0': BEGIN
+        if view_option.versus eq 1 then begin
+        y = [catch2d_file.x_pv+'.P1PV',catch2d_file.y_pv+'.P1PV']
+        r = cagetArray(y,nm,/string)
+        WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
+        WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
+        vl = make_array(1,2,/double)
+        vl(0) = double(x)
+        vl(0,1)= double(y)
+        str = ['To Set New Positions:','', $
+		nm(0)+'  (x)'+string(vl(0)),nm(1)+'  (y)'+string(vl(1))]
+        res = dialog_message(str,/question,title='Set New P1PV...')
+        if res eq 'No' then return
+        r = caputArray(nm,vl)
+        endif else begin
+                str = ['Only available for Plot vs Values Option!', $
+                        'But Plot vs Step # is set.']
+                res = dialog_message(str,/error)
+        end
+	END
+
+; put new center position
+  IF id EQ 2 THEN BEGIN         ;  'CURSOR62_CAPUT': BEGIN
+	if view_option.versus eq 1 then begin
+	nm = [catch2d_file.x_pv+'.P1CP',catch2d_file.y_pv+'.P1CP']
+	WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
+	WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
+	vl = make_array(1,2,/double)
+	vl(0) = double(x)
+	vl(0,1)= double(y)
+	str = ['To Set New Center Positions:','' $
+		,nm(0)+'  (x)'+string(vl(0)),nm(1)+'  (y)'+string(vl(1))]
+	res = dialog_message(str,/question,title='Set New P1CP...')
+	if res eq 'No' then return
+	r = caputArray(nm,vl)
+	endif else begin
+		str = ['Only available for Plot vs Values Option!', $
+			'But Plot vs Step # is set.']
+		res = dialog_message(str,/error)
+	end
+	END
+
+; put new start P1SP and end P1EP positions
+  IF id EQ 3 THEN BEGIN         ;  'DRAW62 RMB box.txt event'
+	if view_option.versus eq 1 then begin
+	nm = [catch2d_file.x_pv+'.P1SP', $
+	        catch2d_file.x_pv+'.P1EP', $
+		catch2d_file.y_pv+'.P1SP', $
+		catch2d_file.y_pv+'.P1EP' $
+		]
+
+	WIDGET_CONTROL,widget_ids.x1WID,GET_VALUE=x1
+	WIDGET_CONTROL,widget_ids.x2WID,GET_VALUE=x2
+	WIDGET_CONTROL,widget_ids.y1WID,GET_VALUE=y1
+	WIDGET_CONTROL,widget_ids.y2WID,GET_VALUE=y2
+
+	vl = make_array(1,4,/double)
+	vl(0) = double(x1)
+	vl(0,1) = double(x2)
+	vl(0,2)= double(y1)
+	vl(0,3)= double(y2)
+	str = ['To Set New Start and End Positions:','', $
+		nm(0)+'  (XL)'+string(vl(0)), $
+		nm(1)+'  (XR)'+string(vl(1)), $
+		nm(2)+'  (YL)'+string(vl(2)), $
+		nm(3)+'  (YR)'+string(vl(3))]
+	res = dialog_message(str,/question,title='Set New 2D Scan Ranges...')
+	if res eq 'No' then return
+	r = caputArray(nm,vl)
+	endif else begin
+		str = ['Only available for Plot vs Values Option!', $
+			'But Plot vs Step # is set.']
+		res = dialog_message(str,/error)
+	end
+	END
+END
 ;
 ; catch2d.pro
 ;
@@ -2157,10 +2260,15 @@ end
 		
 
 	if view_option.user eq 1 then begin
-		if view_option.x_min gt x_min and view_option.x_min lt x_max then x_min = view_option.x_min
-		if view_option.x_max lt x_max and view_option.x_max gt x_min then x_max = view_option.x_max
-		if view_option.y_min gt y_min and view_option.y_min lt y_max then y_min = view_option.y_min
-		if view_option.y_max lt y_max and view_option.y_max gt y_min then y_max = view_option.y_max
+	if view_option.x_min gt x_min and view_option.x_min lt x_max then $
+	x_min = view_option.x_min
+	if view_option.x_max lt x_max and view_option.x_max gt x_min then  $
+	x_max = view_option.x_max
+	if view_option.y_min gt y_min and view_option.y_min le y_max then  $
+	y_min = view_option.y_min
+	if view_option.y_max lt y_max and view_option.y_max gt y_min then  $
+	y_max = view_option.y_max
+	if y_max gt 0 and y_max eq y_min then y_min = y_min - 1
 
 		newimage = image(x_min:x_max,y_min:y_max)
 	endif else begin
@@ -2372,6 +2480,11 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 	title = catch2d_file.z_desc + ' - ' + title else $
 	title = 'D'+strtrim(catch2d_file.detector,2) + ' - '+title
 
+	colorbar_data.min = v_min
+	colorbar_data.max = v_max
+	colorbar_data.wid = !d.window 
+	posy = colorbar_data.y
+
 		if !d.name eq 'PS' then begin
 		    t_color = 0
 		    xo = !d.x_size * view_option.ps_l
@@ -2391,6 +2504,17 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			ytitle=ytitle, $
 			xstyle = xstyle, ystyle=ystyle ,color=t_color
 
+x = !d.x_size * (.02+view_option.ps_r)
+y = !d.y_size * view_option.ps_b
+h = colorbar_data.height*30 
+w = colorbar_data.width*10
+		colorbar,[v_min,v_max], $
+                        w,h,x=x,y=y, $
+                        horizontal=colorbar_data.horiz, $
+                        reverse=printer_info.reverse, $
+                        format=colorbar_data.format, $
+                        ncap=colorbar_data.nlabel
+
 		endif else begin
 
 		    TV,newimage2, view_option.margin_l, view_option.margin_b
@@ -2407,18 +2531,13 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			ytitle=ytitle, $
 			title=title, xstyle = xstyle, ystyle=ystyle,color=t_color
 
-		end
-
-	colorbar_data.min = v_min
-	colorbar_data.max = v_max
-	colorbar_data.wid = !d.window 
-	posy = colorbar_data.y
 		colorbar,[v_min,v_max],colorbar_data.width, $
 			colorbar_data.height, $
 			horizontal=colorbar_data.horiz, $
 			x=colorbar_data.x, y=posy, $
 			reverse=printer_info.reverse, $
 			ncap=colorbar_data.nlabel, format=colorbar_data.format
+		end
 			
 
                 ; save pixmap
@@ -2651,6 +2770,11 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
 	if view_option.pickx gt 1 then view2d_changeXaxis
 	if keyword_set(view) then REPLOT
+
+        WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE= catch2d_file.xarr(0)
+        WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE= catch2d_file.xarr(catch2d_file.width-1)
+        WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE= catch2d_file.yarr(0)
+        WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE= catch2d_file.yarr(catch2d_file.height-1)
 END
 
 PRO viewscanimage_current
@@ -2792,7 +2916,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
         FNAME = '*image*'
 ;	if catch2d_file.XDR eq 1 then FNAME = '*image.xdr'
-        F = PICKFILE(/READ,FILE='catch1d.trashcan.image',GET_PATH=P,PATH=catch2d_file.path,FILTER=FNAME)
+        F = DIALOG_PICKFILE(/READ,FILE='catch1d.trashcan.image',GET_PATH=P,PATH=catch2d_file.path,FILTER=FNAME)
         IF F eq '' THEN begin
                 F = ''
 		return
@@ -3002,6 +3126,14 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
   'PanImage.PanImages.PanImages+XDR': begin
 	view2d_pan_images_on,Event,/xdr
 	end
+  'PanImage.Overlay...': begin
+	title=':  SCAN # '+ strtrim(catch2d_file.scanno_current,2)
+	view2d_pan_images_on,Event,image_array=image_array,def=def
+	xv = catch2d_file.xarr(0:catch2d_file.width-1)
+	yv = catch2d_file.yarr(0:catch2d_file.height-1)
+	im_array=image_array(0:catch2d_file.width-1,0:catch2d_file.height-1,*)
+	overlay2DImages,im_array,def,selects=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]
+	end
   'PanImage.Calibration...': begin
 	title=':  SCAN # '+ strtrim(catch2d_file.scanno_current,2)
 	view2d_pan_images_on,Event,image_array=image_array,def=def
@@ -3027,7 +3159,7 @@ if n_elements(image) eq 0  then begin
 end
 x = catch2d_file.xarr(0:catch2d_file.width-1)
 y = catch2d_file.yarr(0:catch2d_file.height-1)
-im = image(0:catch2d_file.width-1,0:catch2d_file.height-1)
+im = image(0:catch2d_file.width-1, 0:catch2d_file.height-1)
 
   CASE Event.Value OF
 
@@ -3138,18 +3270,21 @@ COMMON w_warningtext_block,w_warningtext_ids
   'DRAW62': BEGIN
 	if catch2d_file.maxno le 0 then return
 
-	view = view_option.surface
+	WSET,view_option.d_wid
 
-      IF ((Event.PRESS EQ 1) AND (view EQ 0)) THEN BEGIN
+	view = view_option.surface
+	if (view eq 0 ) then begin
+
+
+      IF ((Event.PRESS EQ 1)) THEN BEGIN
 	catch2d_xycoord_TV, x, y, Event
 	END
 
-      IF ((Event.PRESS EQ 2) AND (view EQ 0)) THEN BEGIN
+      IF ((Event.PRESS EQ 2)) THEN BEGIN
 	catch2d_xydist2, Event
-	return
 	END
 
-      IF ((Event.PRESS EQ 4) AND (view EQ 0)) THEN BEGIN
+      IF (Event.PRESS EQ 4) THEN BEGIN
 	hide_cross,view_option.x,view_option.y,view_option.d_wid,view_option.s_wid
 	nx = 50 
 	ny = 50 
@@ -3159,14 +3294,39 @@ COMMON w_warningtext_block,w_warningtext_ids
 	my_box_cursor, x0, y0, nx,ny, /INIT
 
 	if view_option.user eq 1 then begin
-		x_min = (x0-view_option.margin_b) / $
+		x_min = float(x0-view_option.margin_l) / $
 			catch2d_file.x_mag + view_option.x_min
-		x_max = (x0+nx-view_option.margin_b) / $
+	x_min = fix(x_min)
+		x_max = float(x0+nx-view_option.margin_l) / $
 			catch2d_file.x_mag + view_option.x_min
-		y_min = (y0-view_option.margin_l) / $
+	x_max = ceil(x_max)
+		y_min = float(y0-view_option.margin_b) / $
 			catch2d_file.y_mag + view_option.y_min
-		y_max = (y0+ny-view_option.margin_l) / $
+	y_min = fix(y_min)
+		y_max = float(y0+ny-view_option.margin_b) / $
 			catch2d_file.y_mag + view_option.y_min
+	y_max = ceil(y_max)
+
+	if x_min lt 0 then x_min = 0
+	if y_min lt 0 then y_min = 0
+	if x_max ge catch2d_file.width then x_max = catch2d_file.width - 1
+	if y_max ge catch2d_file.height then y_max = catch2d_file.height - 1
+	if x_max gt 0 and x_min ge x_max then x_min = x_max - 1
+	if y_max gt 0 and y_min ge y_max then y_min = y_max - 1
+	if x_max le 0 then x_max = 1
+	if y_max le 0 then y_max = 1
+
+close,1
+openw,1,'box.txt'
+printf,1,'lower_left',catch2d_file.xarr(x_min),catch2d_file.yarr(y_min)
+printf,1,'upper_right',catch2d_file.xarr(x_max),catch2d_file.yarr(y_max)
+close,1
+
+; update start/end range
+        WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE= catch2d_file.xarr(x_min)
+        WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE= catch2d_file.xarr(x_max)
+        WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE= catch2d_file.yarr(y_min)
+        WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE= catch2d_file.yarr(y_max)
 
 	WIDGET_CONTROL,widget_ids.plot_wid,/CLEAR_EVENTS
 		WIDGET_CONTROL,widget_ids.x_min, $
@@ -3186,6 +3346,8 @@ COMMON w_warningtext_block,w_warningtext_ids
 	end
 	return
 	END
+
+      end
       END
 
   'REFRESH_DATA': BEGIN
@@ -3315,48 +3477,61 @@ COMMON w_warningtext_block,w_warningtext_ids
 	end
 	END
   'CURSOR62_X': BEGIN
-	if view_option.versus eq 1 then begin
-		r=dialog_message(["Not available for 'Plot vs Values'","Must change to 'Plot vs Step#' first"],/error)
-		return
-	end
-	WIDGET_CONTROL,Event.id,GET_VALUE=x
-	WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
-	catch2d_zcursor,fix(x(0)),fix(y(0)),z
+;	if view_option.versus eq 1 then begin
+;		r=dialog_message(["Not available for 'Plot vs Values'","Must change to 'Plot vs Step#' first"],/error)
+;		return
+;	end
+;	WIDGET_CONTROL,Event.id,GET_VALUE=x
+;	WIDGET_CONTROL,widget_ids.y_cursor,GET_VALUE=y
+;	catch2d_zcursor,fix(x(0)),fix(y(0)),z
 ;	if z ne '' then  catch2d_ydist,fix(x(0)), Event
 	END
   'CURSOR62_Y': BEGIN
-	if view_option.versus eq 1 then begin
-		r=dialog_message(["Not available for 'Plot vs Values'","Must change to 'Plot vs Step#' first"],/error)
-		return
-	end
-	WIDGET_CONTROL,Event.id,GET_VALUE=y
-	WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
-	catch2d_zcursor,fix(x(0)),fix(y(0)),z
-;	if z ne '' then  catch2d_xdist,fix(y(0)), Event
+;	if view_option.versus eq 1 then begin
+;		r=dialog_message(["Not available for 'Plot vs Values'","Must change to 'Plot vs Step#' first"],/error)
+;		return
+;	end
+;	WIDGET_CONTROL,Event.id,GET_VALUE=y
+;	WIDGET_CONTROL,widget_ids.x_cursor,GET_VALUE=x
+;	catch2d_zcursor,fix(x(0)),fix(y(0)),z
+;;	if z ne '' then  catch2d_xdist,fix(y(0)), Event
 	END
-  'CURSOR62_XZ': BEGIN
-	if catch2d_file.xzdraw eq 0 then begin
-        st = ['Click MMB in the 2D image area first!','Before press the XZ button.']
-	w_warningtext, st,60,5,title='VIEW2D Messages',xloc=500
-        return
-        end
 
-	w_warningtext,['Query XZ Profile Cursor: Left Mouse Button', $
-                       '     Stop Query : Other Buttons'],60,5, $
-			title='VIEW2D Messages',xloc=500
-	catch2d_xycoord1,st
+  'CURSOR62_X1': BEGIN
+        END
+  'CURSOR62_X2': BEGIN
+        END
+  'CURSOR62_Y1': BEGIN
+        END
+  'CURSOR62_Y2': BEGIN
+        END
+  'CURSOR62_XYRANGE': BEGIN
+	if view_option.CA then cursor62_caput,3
+        END
+
+  'CURSOR62_XZ': BEGIN
+;	if catch2d_file.xzdraw eq 0 then begin
+;        st = ['Click MMB in the 2D image area first!','Before press the XZ button.']
+;	w_warningtext, st,60,5,title='VIEW2D Messages',xloc=500
+;        return
+;        end
+;
+;	w_warningtext,['Query XZ Profile Cursor: Left Mouse Button', $
+;                       '     Stop Query : Other Buttons'],60,5, $
+;			title='VIEW2D Messages',xloc=500
+;	catch2d_xycoord1,st
 	END
   'CURSOR62_YZ': BEGIN
-	if catch2d_file.yzdraw eq 0 then begin
-        st = ['Click MMB in the 2D image area first!','Before press the YZ button.']
-	w_warningtext, st,60,5,title='VIEW2D Messages',xloc=500
-        return
-        end
-
-	w_warningtext,['Query YZ Profile Cursor: Left Mouse Button', $
-                       '     Stop Query : Other Buttons'],60,5, $
-			title='VIEW2D Messages',xloc=500
-	catch2d_xycoord2,st
+;	if catch2d_file.yzdraw eq 0 then begin
+;        st = ['Click MMB in the 2D image area first!','Before press the YZ button.']
+;	w_warningtext, st,60,5,title='VIEW2D Messages',xloc=500
+;        return
+;        end
+;
+;	w_warningtext,['Query YZ Profile Cursor: Left Mouse Button', $
+;                       '     Stop Query : Other Buttons'],60,5, $
+;			title='VIEW2D Messages',xloc=500
+;	catch2d_xycoord2,st
 	END
   'ASCII_FORMAT': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=f
@@ -3728,7 +3903,7 @@ if XRegistered('main13_2') ne 0  then return
   PLOT62 = WIDGET_BASE( BASE62, /COLUMN)
   LABEL60 = WIDGET_LABEL( PLOT62, $
       UVALUE='LABEL60', $
-      VALUE='3 Mouse Buttons:  LMB -Values, MMB - Line plots, RMB - Zoom_In')
+      VALUE='3 Buttons: LMB -Values, MMB - Line plots, RMB - Zoom_In')
  
   DRAW62 = WIDGET_DRAW( PLOT62, $
       BUTTON_EVENTS=1, $
@@ -3759,9 +3934,9 @@ if XRegistered('main13_2') ne 0  then return
 
 if keyword_set(CA) then begin
 CURSOR62_B2 = WIDGET_BASE( CURSOR62_B1, /ROW)
-putp1pvbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1PV', $
+putp1pvbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1PV...', $
 		UVALUE='CURSOR62_CAPUT0')
-putp1cpbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1CP', $
+putp1cpbutton = WIDGET_BUTTON(CURSOR62_B2,VALUE='Set New P1CP...', $
 		UVALUE='CURSOR62_CAPUT')
 end
 
@@ -3785,15 +3960,32 @@ end
   CURSOR62_Z = WIDGET_LABEL( CURSOR62_B3, VALUE=' ', XSIZE=150, $
       UVALUE='CURSOR62_Z')
 
-  CURSOR62_B4 = WIDGET_BASE( IMAGE62, /COLUMN)
-  CURSOR62_PL = WIDGET_LABEL( CURSOR62_B4, $
-      VALUE='PROBE:')
-  CURSOR62_XZ = WIDGET_BUTTON( CURSOR62_B4, $
-      UVALUE='CURSOR62_XZ', VALUE='XZ')
-  CURSOR62_XZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
-  CURSOR62_YZ = WIDGET_BUTTON( CURSOR62_B4, $
-      UVALUE='CURSOR62_YZ', VALUE='YZ')
-  CURSOR62_YZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
+  CURSOR62_B4 = WIDGET_BASE( IMAGE62, /COLUMN,frame=2)
+  CURSOR62_B41 = WIDGET_BASE( CURSOR62_B4, /ROW,/frame)
+  CURSOR62_X1 = CW_FIELD( CURSOR62_B41, VALUE='', title='XL',/float, $
+        /RETURN_EVENTS, UVALUE='CURSOR62_X1', XSIZE=10, YSIZE=1)
+  CURSOR62_X2 = CW_FIELD( CURSOR62_B41, VALUE='', title='XR',/float, $
+        /RETURN_EVENTS, UVALUE='CURSOR62_X2', XSIZE=10, YSIZE=1)
+
+  CURSOR62_B42 = WIDGET_BASE( CURSOR62_B4, /ROW,/frame)
+  CURSOR62_Y1 = CW_FIELD( CURSOR62_B42, VALUE='',title='YL', /float, $
+        /RETURN_EVENTS, UVALUE='CURSOR62_Y1', XSIZE=10, YSIZE=1)
+  CURSOR62_Y2 = CW_FIELD( CURSOR62_B42, VALUE='', title='YR',/float, $
+        /RETURN_EVENTS, UVALUE='CURSOR62_Y2', XSIZE=10, YSIZE=1)
+
+if keyword_set(CA) then $
+  CURSOR62_B5 = WIDGET_BUTTON( CURSOR62_B4, $
+      VALUE='Set New 2D Scan Ranges...',UVALUE='CURSOR62_XYRANGE')
+
+
+;  CURSOR62_PL = WIDGET_LABEL( CURSOR62_B4, $
+;      VALUE='PROBE:')
+;  CURSOR62_XZ = WIDGET_BUTTON( CURSOR62_B4, $
+;      UVALUE='CURSOR62_XZ', VALUE='XZ')
+;  CURSOR62_XZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
+;  CURSOR62_YZ = WIDGET_BUTTON( CURSOR62_B4, $
+;      UVALUE='CURSOR62_YZ', VALUE='YZ')
+;  CURSOR62_YZL = WIDGET_LABEL( CURSOR62_B4, VALUE=' ', XSIZE=250)
 
 
   BASE151 = WIDGET_BASE(main13_2, $
@@ -3887,6 +4079,7 @@ end
         { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+RTIFF' }, $ ;        1
         { CW_PDMENU_S,       2, 'PanImages+XDR' }, $ ;        1
+      { CW_PDMENU_S,       0, 'Overlay...' } , $ ;        0
       { CW_PDMENU_S,       2, 'Calibration...' } $ ;        0
 	]
   PDMENU2D_panimage = CW_PDMENU( BASE129_1, MenuPANImage, /RETURN_FULL_NAME, $
