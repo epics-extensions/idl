@@ -1,4 +1,111 @@
 
+                        CATCHER 1.5.1 RELEASE NOTE 
+                        ==========================
+
+The IDL program 'catcher_v1.pro' has been modified. User interface has been
+further improved and more informational popup windows are implemented. New
+calculation and statistic features are implemented. New features added are 
+briefly listed below.
+
+<<Standard Deviation Calculations>>
+
+A new feature of statistic calculation (avearage/deviation on plot) is 
+available on the "Statistic" pull down menu. For each scan, this feature 
+calculates the mean, standard deviation, mean absolute deviation, variance, 
+skewness, Kurtosis for each selected detectors. It pops up the statistic 
+window and displays all the statistic values for selected detectors and also 
+plots the standard deviation, average deviation, and mean on the plot.
+ 
+<<Slope Calculations>>
+
+A new feature of calculating the slope of any two data points from the
+graph is implemented. A new item "Calc Slopes" is added to the "Zoom" pull
+down menu. At the end of picking the start and end points, the new slope 
+is calculated and a window titled "Catch1d Slope Calc" pops up to show the 
+coordinates of two points and the slope value.
+
+<<Startup Change>>
+
+At the initialization time, the data catcher will check whether there is
+scan data held in the scan record. If the scan record is empty, it proceeds 
+to listening for new scan data. 
+
+If the scan record is not empty, and the timestamp of the old data set saved
+in file is not the same as the timestamp of the current scan record, then the 
+following message window 
+
+	Notice:   At TimeStamp = Sep 16, 1996 13:35:55        
+	    Scan record  "xxx:scan1"  holds scanned data.
+	    If you desired, you may enter Y to save this data
+	    before you do any new scan.
+
+	Get Scan Data and Save (Y/N) ?  Y 
+
+pops up, a user has the choice whether to save the data in his file. 
+
+
+<<File Menu Change>>
+
+A new entry "GetScanData + Save ..." is added to the File menu. This option
+allows the user to capture the very last set of scan data from the scan
+record which was obtained before the data catcher was brought up. If this 
+option is selected, The following message window pops up and the user has 
+the choice of whether accepting the save of scan data to the data file.
+
+	Enter Y with a carriage return, the scan data from the scan record
+	    will be obtained and saved at the end of the data file.
+	Be aware of that the scan number will be increased by 1 and the plot
+	    will be updated accordingly.
+
+	Get Scan Data and Save (Y/N) ?  Y 
+
+
+<<Data File Path>>
+
+Starting from this release that the newly created temporary output file, 
+postscript files, and report files will be saved in the directory where 
+the data catcher was invoked. The user should have the write permission 
+in the startup directory. This changes allows the user to view and obtained 
+printed output from any scan data file as long as he has the read permission 
+on that accessed data file. 
+
+The default file path for the file menu will be the same as the initial 
+data directory specified in the configuration file. If no configuration
+file exists yet the data catcher startup directory will be used.
+
+Now the data catcher provides the error handling for write permission error.
+If the user does not have the write permission on the selected data file, a 
+message window pops up to show the write permission error. The user can save
+the captured data in a new file by using the File->Save as ... menu to 
+enter a new data file name.  This newly created file will become the default
+data file for storing future acquired data. 
+
+<<Output Format>>
+
+In this version the user has the option of change the output format for
+the positioner and detector data. The default format used is 'G18.8'.
+The user can ajust the significant digit used, or any scientific format
+used. It will applied to all the positioner and detector columns in the
+final report.
+
+<<Environment Desc>>
+
+If the PV field description is not given in the environment file, 
+the PV '.DESC' value will be used in output file.
+
+<<Plot Options>>
+
+The Plot Options menu has been modified. It now supports "Colors", "Lines",
+"Symbols", "Grid", "Err Bars", "Y Scale", "Ranges/Labels ...".  The default
+plot options are auto scaled, colored line, solid line texture, no grid, 
+no err bars, Y in linear scale. The "Ranges/Labels ..." dialog allows the 
+user to modify the labels and user specified plot ranges.
+ 
+The X axis selection is dropped from this menu and it is now grouped with 
+the detector buttons (Y selections). The drop list is used for the X axis
+selection.
+
+
                         CATCHER 1.5 RELEASE NOTE 
                         ========================
 
