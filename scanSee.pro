@@ -28,10 +28,12 @@ PRO DC_view_init, filename , DC_view_ids, print=print
 
 	v->read,dim=dim,num_pts=num_pts,cpt=cpt,pv=pv,labels=labels,$
 		scanno=scanno,id_def=id_def, $
-		pa1d=pa1d,da1d=da1d,pa2d=pa2d,da2d=da2d
+		pa1d=pa1d,da1d=da1d,pa2d=pa2d,da2d=da2d,pa3d=pa3d,da3d=da3d, $
+		x=x,y=y,z=z,class=class,outpath=outpath
 
 	if keyword_set(print) then $
-	help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,da1d,pa2d,da2d
+	help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,da1d,pa2d,da2d, $
+		pa3d,da3d,x,y,z
 
 ;	DC_view_ids.startno = 1
 ;	DC_view_ids.detno = 1
@@ -43,11 +45,18 @@ PRO DC_view_init, filename , DC_view_ids, print=print
         DC_view_ids.maxno = 1
 	id_def = id_def(*,0)
         DC_view_ids.def = id_def
+        DC_view_ids.outpath = outpath
+        DC_view_ids.class = class
 
 	if dim eq 2 then begin
         DC_view_ids.height = num_pts(1)
-        DC_view_ids.maxno = cpt(1)
-	str1 = DC_view_ids.list(1:cpt(1))
+	h = cpt(1)
+	if h eq 0 then h = 1
+        DC_view_ids.maxno = h
+	if h eq 0 then begin
+		r=dialog_message('Error in read file: '+ DC_view_ids.filename,/Error)
+	end
+	str1 = DC_view_ids.list(1:h)  ; ???+1
   	WIDGET_CONTROL, DC_view_ids.base2DWID,SENSITIVE=1
 	WIDGET_CONTROL,DC_view_ids.list1dWID,SET_VALUE=str1
 	endif else WIDGET_CONTROL, DC_view_ids.base2DWID,SENSITIVE=0
@@ -55,9 +64,30 @@ PRO DC_view_init, filename , DC_view_ids, print=print
 	ndet = n_elements(id_def)-4
 	str2 = DC_view_ids.list(1:ndet)
 	WIDGET_CONTROL,DC_view_ids.list2DWID,SET_VALUE=str2
+	WIDGET_CONTROL,DC_view_ids.list2DWID,SET_LIST_SELECT=DC_view_ids.detno-1
+	WIDGET_CONTROL,DC_view_ids.list1dWID,SET_LIST_SELECT=DC_view_ids.list_sel(0:DC_view_ids.sel_no-1)
+
+	if dim eq 3 then begin
+        DC_view_ids.height = cpt(1)
+	if cpt(1) le 0 then DC_view_ids.height = num_pts(1)
+        DC_view_ids.depth = cpt(2)
+	if cpt(2) le 0 then DC_view_ids.depth = num_pts(2)
+	num = DC_view_ids.depth
+	if DC_view_ids.rank eq 0 then num = DC_view_ids.width
+	if DC_view_ids.rank eq 1 then num = DC_view_ids.height
+	
+	str2= strtrim(indgen(num),2)
+	WIDGET_CONTROL,DC_view_ids.list3dWID,SET_VALUE=str2
+	DC_view_ids.slice = 0
+	WIDGET_CONTROL,DC_view_ids.list3dWID,SET_LIST_SELECT=DC_view_ids.slice
+	end
 
 	if dim eq 1 then v->plot1d,group=DC_view_ids.base
-	if dim eq 2 then v->view2d,group=DC_view_ids.base
+	if dim eq 2 then v->view2d,DC_view_ids.detno,group=DC_view_ids.base
+;	if dim eq 3 then v->view3d_2d,DC_view_ids.detno,group=DC_view_ids.base
+	if dim eq 3 then WIDGET_CONTROL,DC_view_ids.base3dWID,SENSITIVE=1 else $
+		WIDGET_CONTROL,DC_view_ids.base3dWID,SENSITIVE=0
+
 END
 
 PRO DC_view_cleanup,state
@@ -71,13 +101,14 @@ PRO DC_viewOutputFilename,state,subclass,type,filename
 ; type is a string can be 'TIFF','GIF','PICT'
 ; subclass is a subclass string, e.g. '.pan.'
 
-	lp = rstrpos(state.filename,!os.file_sep)+1
-	classname = strmid(state.filename,lp,strlen(state.filename)-lp)
-	outpath = state.path+type+!os.file_sep
+;	lp = rstrpos(state.filename,!os.file_sep)+1
+;	classname = strmid(state.filename,lp,strlen(state.filename)-lp)
+	classname = state.class
+	outpath = state.outpath+type+!os.file_sep
 	found = findfile(outpath,count=ct)
 	if ct lt 1 then spawn,!os.mkdir + ' '+outpath
 	filename = outpath+classname+subclass+ strlowcase(type)
-;print,filename
+;print,'DC_viewOutputFilename:',filename
 END
 
 
@@ -209,7 +240,7 @@ PRO PDMENU_ASCII1D_Event,state,Event
 END
 
 
-PRO PDMENU2D_PanImage_Event,state,Event
+PRO scanSee_PDMENU2D_PanImage_Event,state,Event
 
 v = state.v
 
@@ -232,8 +263,33 @@ v = state.v
   ENDCASE
 END
 
+PRO scanSee_PDMENU3D_PanImage_Event,state,Event
 
-PRO DC_VIEWSPEC_Event, Event
+v = state.v
+rank = state.rank 
+slice = state.slice
+
+  CASE Event.Value OF
+  '3D PanImage.PanImages+TIFF': begin
+	DC_viewOutputFilename,state,'.pan.','TIFF',filename
+        v->view3d_panImage,slice,rank,tiff=filename,/reverse
+        end
+  '3D PanImage.PanImages+PICT': begin
+	DC_viewOutputFilename,state,'.pan.','PICT',filename
+        v->view3d_panImage,slice,rank,pict=filename
+        end
+  '3D PanImage.PanImages+GIF': begin
+	DC_viewOutputFilename,state,'.pan.','GIF',filename
+        v->view3d_panImage,slice,rank,gif=filename
+        end
+  '3D PanImage.PanImages...': begin
+        v->view3d_panImage,slice,rank
+        end
+  ENDCASE
+END
+
+
+PRO SS_VIEWSPEC_Event, Event
 
   WIDGET_CONTROL,Event.top,GET_UVALUE=state
   v = state.v
@@ -264,16 +320,17 @@ PRO DC_VIEWSPEC_Event, Event
 	xloadct,GROUP=Event.top
     END
   'VIEWSPEC_HELP': BEGIN
-    str = ['The scanSee data file are automatically created by the IOC scan',$
-	'software.  The file name is automatically created from the scan ',$
-	'saveData file system.  The "scanSee.config" file is used for re-start.',$
-	'At the normal completion of scanSee the configuration file is updated.',$
+    str = [ $
+	'This program can display and extract scan data for 1D/2D/3D scan file.','', $
+	'The file name is automatically created by the scan saveData file', $
+	'system.  The "scanSee.config" file is used for re-start configuration.',$
+	'At the normal completion of scanBrowser this configuration file is updated.',$
 	'', $
-	'File...     - uses the file selection dialog for pick the initial file',$
+	'File...     - uses the file selection dialog picking the initial file',$
 	'Color...    - calls the xloadct routine', $
 	'Help...     - show this help page', $
-	'DONE        - close the scanSee program',$
-	'                      WORKED ON FILENAME',$
+	'DONE        - close the scanBrowser program',$
+	'','                      WORKED ON FILENAME',$
 	'File Seq #: - enters the desired scan number saved by IOC', $
 	'First       - opens the first scan file', $
 	'Next        - opens the next scan file', $
@@ -281,24 +338,33 @@ PRO DC_VIEWSPEC_Event, Event
 	'Last        - opens the last scan file', $
 	'Slider      - picks the desired scan file number', $
 	'Filename    - reflects the name of the opened scan file ', $
-	'                      WORKED ON 1D/2D SCAN DATA',$
+	'','                      WORKED ON 1D/2D SCAN DATA',$
 	'Format      - specifies the column format used in ASCII reports', $
 	'PLOT1D...   - calls plot1d to access all detectors of a scan line #', $
 	'vs P1       - plots versus the selected positioner #', $
-	'ASCII1D...  - 1D ASCII report with option of setup multi-line # ',$
+	'ASCII1D...  - generates 1D ASCII report for single/multiple 1D line #',$
 	'Ez_fit...   - runs ez_fit for the selected detector # and 1D line # ',$
 	'Statistic...- calculates FWHM for selected detector # and 1D line # ',$
 	'Run Calibra...  - run calibration program for all detectors ', $
+	'','                      WORKED ON 3D SCAN DATA ONLY',$
+	'View3d_2d...- runs view3d_2d program to get 2D slice from the 3D data', $
+	'3D PanImage - panImage for 3D scan with option of save as TIFF/GIFF/PICT', $
+	'X/Y/Z GBTN  - pick the 3D panImage view axis of the 2D slice plane', $
+	'Index #     - pick the 3D panImage slice # of the picked axis', $
+	'','                      VALID ON 1D/2D/3D SCAN DATA',$
 	'Detector # List - selects the detector number, defaults to 1', $
-	'                      WORKED ON 2D SCAN DATA ONLY',$
+	'','                      WORKED ON 2D SCAN DATA ONLY',$
 	'PLOT2D...       - access various plot2d features of 2D image', $
 	'ASCII2D...      - saves and displays the ASCII report of 2D image', $
 	'PanImage        - panImage with option of save TIFF/GIFF/PICT file', $
-	'Overlay Plot... - overlays plot of multiple 1D scan lines ',$ 
-	'Help 1D Line #...- hints on selecting multiple lines of a detector, defaults to line 1 ' $
+;	'Overlay Plot... - overlays plot of multiple 1D scan lines ',$ 
+;	'Help 1D Line #...- hints on selecting multiple lines of a detector', $
+;	'                   defaults to line 1 ', $
+;	'1D Line # List  - multiple slections of 2D line list' $
+	'Pick1D...       - picks columns or rows from a widget table' $
 
 	]
-	res = dialog_message(str,/info)
+	xdisplayfile,text=str,title='Help on scanBrowser'
 	return
     END
   'VIEWSPEC_CANCEL': BEGIN
@@ -426,6 +492,9 @@ PRO DC_VIEWSPEC_Event, Event
   'VIEWSPEC_ASCII1D': BEGIN
 	v->ascii1d,state.lineno,format=state.format,group=Event.top
       END
+  'VIEWSPEC_VIEW3D_2D': BEGIN
+	v->view3d_2d,state.detno,group=Event.top
+      END
   'VIEWSPEC_STARTNO': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=no
 	state.lineno = no
@@ -491,14 +560,34 @@ PRO DC_VIEWSPEC_Event, Event
         state.detno = res + 1
 	if state.dim eq 2 then $
 	v->view2d,state.detno,group=Event.top
+	if state.dim eq 3 then $
+	v->view3d_2d,state.detno,group=Event.top
+      END
+  'VIEWSPEC_3DIMAXIS': BEGIN
+	state.rank = Event.Value
+	num = state.depth
+	if state.rank eq 1 then num = state.height
+	if state.rank eq 0 then num = state.width
+	str2= strtrim(indgen(num),2)
+	WIDGET_CONTROL,state.list3dWID,SET_VALUE=str2
+	state.slice = 0
+	WIDGET_CONTROL,state.list3dWID,SET_LIST_SELECT=state.slice
+      END
+  'VIEWSPEC_3DSELECT': BEGIN
+        res = widget_info(Event.ID,/LIST_SELECT)
+        state.slice = res(0) 
       END
   'VIEWSPEC_CALIB2D': BEGIN
 	v->calibration,GROUP=Event.top
       END
+  'VIEWSPEC_PICK1D': BEGIN
+	v->calibration,pick1d=state.detno,GROUP=Event.top
+      END
   'VIEWSPEC_ROI2D': BEGIN
 	v->ROI,state.detno,GROUP=Event.top
       END
-  'PDMENU2D_PANIMAGE': PDMENU2D_PanImage_Event,state,Event
+  'PDMENU2D_PANIMAGE_SCANSEE': scanSee_PDMENU2D_PanImage_Event,state,Event
+  'PDMENU3D_PANIMAGE_SCANSEE': scanSee_PDMENU3D_PanImage_Event,state,Event
   'PDMENU_ASCII1D': PDMENU_ASCII1D_Event,state,Event
   ENDCASE
 
@@ -506,12 +595,14 @@ PRO DC_VIEWSPEC_Event, Event
 END
 
 
-; DO NOT REMOVE THIS COMMENT: END DC_VIEWSPEC
+; DO NOT REMOVE THIS COMMENT: END SS_VIEWSPEC
 ; CODE MODIFICATIONS MADE BELOW THIS COMMENT WILL BE LOST.
 
 
 
 PRO scanSee, GROUP=Group, fileno=fileno, format=format, filename=filename 
+
+if XRegistered('SS_VIEWSPEC') then return
 
 loadct,39
 
@@ -530,6 +621,10 @@ loadct,39
 	rangeWID : 0L, $
 	list1dWID: 0L, $
 	list2dWID: 0L, $
+	list3dWID: 0L, $
+	base3dWID: 0L, $
+	slice: 0, $     ; axial slice #
+	rank: 2, $      ; z axis
 	filename : '/home/sricat/CHA/data/rix/cha:_0001.scan', $
 	format : 'G18.8', $
 	fileno : 0, $
@@ -544,9 +639,12 @@ loadct,39
 	maxno : 1, $
 	home : '', $
 	path : '', $
+	outpath : '', $
+	class : '', $
 	dim: 0, $
 	width: 0, $
 	height: 0, $
+	depth: 0, $
 	list : strtrim(indgen(100),2), $
 	v : obj_new('scanSee') $
 	}
@@ -555,13 +653,13 @@ loadct,39
   if keyword_set(format) then DC_view_ids.format = format
   if keyword_set(filename) then DC_view_ids.filename = filename
 
-  DC_VIEWSPEC = WIDGET_BASE(GROUP_LEADER=Group, $
-      COLUMN=1, title='scanSee R2.0', $
+  SS_VIEWSPEC = WIDGET_BASE(GROUP_LEADER=Group, $
+      COLUMN=1, title='scanBrowser R1.0', $
       MAP=1, $
-      UVALUE='DC_VIEWSPEC')
-  DC_view_ids.base = DC_VIEWSPEC
+      UVALUE='SS_VIEWSPEC')
+  DC_view_ids.base = SS_VIEWSPEC
 
-  BASE1 = WIDGET_BASE(DC_VIEWSPEC, $
+  BASE1 = WIDGET_BASE(SS_VIEWSPEC, $
       ROW=1, $
       MAP=1, $
       UVALUE='BASE1')
@@ -581,7 +679,7 @@ loadct,39
       UVALUE='VIEWSPEC_CANCEL', $
       VALUE='DONE')
 
-  BASE2 = WIDGET_BASE(DC_VIEWSPEC, $
+  BASE2 = WIDGET_BASE(SS_VIEWSPEC, $
       COLUMN=1, $
       MAP=1, $
       UVALUE='BASE2')
@@ -695,6 +793,40 @@ loadct,39
       ROW=1, $
       UVALUE='BASE28')
 
+  BASE28_6 = WIDGET_BASE(BASE28, /FRAME, $
+      COLUMN=1, UVALUE='BASE28_6')
+
+  BUTTON25 = WIDGET_BUTTON( BASE28_6, $
+      UVALUE='VIEWSPEC_VIEW3D_2D', $
+      VALUE='View3d_2d...')
+
+  BASE28_61 = WIDGET_BASE(BASE28_6, /FRAME, $
+      COLUMN=1, UVALUE='BASE28_61')
+
+  Menu3DPANImage = [ $
+      { CW_PDMENU_S,       1, '3D PanImage' }, $ ;        0
+        { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
+        { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
+        { CW_PDMENU_S,       0, 'PanImages+PICT' }, $ ;        1
+        { CW_PDMENU_S,       2, 'PanImages+GIF' } $ ;        1
+        ]
+  PDMENU3D_panimage = CW_PDMENU( BASE28_61, Menu3DPANImage, /RETURN_FULL_NAME, $
+      UVALUE='PDMENU3D_PANIMAGE_SCANSEE')
+  DC_view_ids.base3dWID = BASE28_6  
+
+  BGROUP15 = CW_BGROUP( BASE28_61,['X','Y','Z'],/ROW,/NO_RELEASE, $
+		EXCLUSIVE=1, UVALUE='VIEWSPEC_3DIMAXIS')
+  WIDGET_CONTROL,BGROUP15,SET_VALUE = DC_view_ids.rank
+
+  LABEL90 = WIDGET_LABEL( BASE28_61, $
+      UVALUE='LABEL90', /align_left, $
+      VALUE='Index #')
+  LIST15 = WIDGET_LIST( BASE28_61,VALUE=DC_view_ids.list(1:15), $
+      UVALUE='VIEWSPEC_3DSELECT', $
+      YSIZE=3)
+  DC_view_ids.list3dWID = LIST15  
+  WIDGET_CONTROL,LIST15,SET_LIST_SELECT= DC_view_ids.slice
+
   BASE28_2 = WIDGET_BASE(BASE28, /FRAME, $
       COLUMN=1, UVALUE='BASE28_2')
   LABEL9 = WIDGET_LABEL( BASE28_2, $
@@ -720,9 +852,9 @@ loadct,39
       UVALUE='VIEWSPEC_ASCII2D', $
       VALUE='ASCII2D...')
 
-;  BUTTON36 = WIDGET_BUTTON( BASE28_1, $
-;      UVALUE='VIEWSPEC_ROI2D', $
-;      VALUE='Run ROI2D... ')
+  BUTTON36 = WIDGET_BUTTON( BASE28_1, $
+      UVALUE='VIEWSPEC_PICK1D', $
+      VALUE='2D_PICK1D... ')
   MenuPANImage = [ $
       { CW_PDMENU_S,       1, 'PanImage' }, $ ;        0
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
@@ -731,7 +863,7 @@ loadct,39
         { CW_PDMENU_S,       2, 'PanImages+GIF' } $ ;        1
         ]
   PDMENU2D_panimage = CW_PDMENU( BASE28_1, MenuPANImage, /RETURN_FULL_NAME, $
-      UVALUE='PDMENU2D_PANIMAGE')
+      UVALUE='PDMENU2D_PANIMAGE_SCANSEE')
 
 ; overlay plot
   BUTTON35 = WIDGET_BUTTON( BASE28_1, $
@@ -740,9 +872,6 @@ loadct,39
 
   BASE28_3 = WIDGET_BASE(BASE28_0, /FRAME, $
       COLUMN=1, UVALUE='BASE28_3')
-;  LABEL8 = WIDGET_LABEL( BASE28_3, $
-;      UVALUE='LABEL8', $
-;      VALUE='1D Line # of 2D')
   BUTTON33 = WIDGET_BUTTON( BASE28_3, $
       UVALUE='VIEWSPEC_HELPMULTI', $
       VALUE='Help 1D Line #...')
@@ -752,12 +881,24 @@ loadct,39
       YSIZE=5)
   DC_view_ids.list1dWID = LIST4
 
+if keyword_set(filename) eq 0 then begin
   found = findfile('scanSee.config',count=ct)
   if ct gt 0 then begin
-
   DC_view_readConfig,filename,path
   if filename ne '' then DC_view_ids.filename = filename
   if path ne '' then DC_view_ids.path = path
+  end
+endif else begin
+  lp = rstrpos(filename,!os.file_sep)+1
+  if lp gt 1 then begin
+  classname = strmid(filename,lp,strlen(filename)-lp)
+	DC_view_ids.path=strmid(filename,0,lp)
+	print,DC_view_ids.path
+	print,DC_view_ids.filename
+  end
+end
+  found = findfile(filename,count=ct)
+  if ct gt 0 then begin 
   DC_view_init,filename,DC_view_ids
   DC_view_ids.v->last,seqno
   DC_view_ids.lastno = seqno
@@ -773,9 +914,9 @@ loadct,39
   WIDGET_CONTROL, DC_view_ids.basefileWID,SENSITIVE=0 else $
   WIDGET_CONTROL,DC_view_ids.filenameWID,SET_VALUE=filename
 
-  WIDGET_CONTROL,DC_VIEWSPEC,SET_UVALUE=DC_view_ids
+  WIDGET_CONTROL,SS_VIEWSPEC,SET_UVALUE=DC_view_ids
 
-  WIDGET_CONTROL, DC_VIEWSPEC, /REALIZE
+  WIDGET_CONTROL, SS_VIEWSPEC, /REALIZE
 
-  XMANAGER, 'DC_VIEWSPEC', DC_VIEWSPEC
+  XMANAGER, 'SS_VIEWSPEC', SS_VIEWSPEC
 END
