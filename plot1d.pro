@@ -21,6 +21,75 @@ PRO plot1d_help
    res = dialog_message(str,title='plot1d_help',/info)
 END
 
+PRO PLOT1D_PDMENU3_Event, Event
+WIDGET_CONTROL,Event.top,GET_UVALUE=state
+
+  CASE Event.Value OF
+  'Create.TIFF': BEGIN
+	tvlct,R,G,B,/get
+	cd,current=p
+	p = p + !os.file_sep +'TIFF'+!os.file_sep
+	found = findfile(p,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +p
+	file = 'plot1d.tiff'
+	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
+	title='Save plot1d TIFF Image')
+	if fn ne '' then begin
+	old_win = !d.window
+	WSET,state.winDraw
+	if !d.n_colors gt !d.table_size then $
+	WRITE_TIFF,fn,reverse(TVRD(/true),3) else $
+	WRITE_TIFF,fn,reverse(TVRD(),2),1,red=R,green=G,blue=B
+	WSET,old_win
+	end
+    END
+  'Create.PNG': BEGIN
+	tvlct,R,G,B,/get
+	cd,current=p
+	p = p + !os.file_sep +'PNG'+!os.file_sep
+	found = findfile(p,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +p
+	file = 'plot1d.png'
+	fn = dialog_pickfile(filter='*png',path=p,file=file,/WRITE, $
+	title='Save plot1D PNG Image')
+	if fn ne '' then begin
+	old_win = !d.window
+	WSET,state.winDraw
+	if !d.n_colors gt !d.table_size then $
+	WRITE_PNG,fn,TVRD(/true) else $
+	WRITE_PNG,fn,TVRD(),R,G,B
+	WSET,old_win
+	end
+    END
+  'Create.PICT': BEGIN
+       tvlct,R,G,B,/get
+	cd,current=p
+	p = p + !os.file_sep +'PICT' +!os.file_sep
+	found = findfile(p,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +p
+	file = 'plot1d.pict'
+	fn = dialog_pickfile(filter='*pict',path=p,file=file,/WRITE, $
+		title='Save plot1d PICT Image')
+	if fn ne '' then begin
+	old_win = !d.window
+	if !d.n_colors gt !d.table_size then begin
+		t_arr = TVRD(/true)
+		arr = color_quan(t_arr,1,red,green,blue)
+		tvlct,red,green,blue
+		WSET,state.winDraw
+		WRITE_PICT,fn,arr,Red,Green,Blue
+		WSET,old_win
+		tvlct,R,G,B	
+	endif else begin
+	WSET,state.winDraw
+	WRITE_PICT,fn,TVRD(),R,G,B
+	WSET,old_win
+	end
+	end
+    END
+  ENDCASE
+END
+
 PRO plot1d_dialogs_Event, Event
 
   WIDGET_CONTROL,Event.top,get_uvalue=state
@@ -659,7 +728,8 @@ END
 
 
 PRO plot1d_replot,state
-COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
+;COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
+;if n_elements(r_orig) eq 0 then loadct,39
  
 ; if 24 bits use color table need set deomposed=0
 if !d.n_colors gt !d.table_size  then device,decomposed=1 
@@ -670,6 +740,8 @@ if !d.n_colors gt !d.table_size  then device,decomposed=1
 	psym = state.symbol
 	thick = state.thick
 	line = state.linestyle
+	colorI = state.colorI
+	if !d.name eq 'PS'  then getLineColors,colorI
 
 	y = state.y
 	s = size(y)
@@ -741,7 +813,11 @@ endif else begin
 end
 erase,122  ;,state.bgcolor
 
-if !d.name eq 'PS' then cl = 0
+if !d.name eq 'PS' then begin
+	state.tcolor=0
+	thick = thick*3
+	cl = 0
+end
 
 if state.yrange(0) eq state.yrange(1) then begin
 	dy =  state.yrange(0)/5
@@ -774,17 +850,15 @@ z = y(*,0)
 		xmargin=xmgin, ymargin=ymgin, $
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
 
-if s(0) eq 1 then $
-	OPLOT,x,z, COLOR=color-16, thick=thick, psym=psym, linestyle=line
+if s(0) eq 1 then begin 
+	OPLOT,x,z, COLOR=colorI(0), thick=thick, psym=psym, linestyle=line
+end
 
 ; two dim array - multiple curves
 
 if s(0) eq 2 and s(2) gt 1 then begin
-in_color = make_array(s(2),/long,value=cl)
-	if state.autocolor eq 1 then getLineColors,in_color
 in_line = make_array(s(2),/int)
 in_symbol = make_array(s(2),/int)
-in_color(0)= cl
 in_line(0)= line
 in_symbol(0)=psym
 ;x = state.x
@@ -792,11 +866,8 @@ in_symbol(0)=psym
 xt = x
 if state.scatter then xt = x(*,0)
 	; plot 1st line
-	OPLOT,xt,z,COLOR=in_color(0), thick=thick, linestyle=line, psym=psym, $
+	OPLOT,xt,z,COLOR=colorI(0), thick=thick, linestyle=line, psym=psym, $
 		symsize=state.charsize 
-	dcl = state.table_size-2
-	ncv = 4  ;7
-	colorlevel = dcl / ncv
 	for i= 1 ,s(2) - 1 do begin
 		if psym gt 0 then psym = psym+1
 		if psym lt 0 then psym = psym-1
@@ -806,7 +877,7 @@ if i eq 2 and psym lt 0 then psym=psym-1
 if i eq 2 and psym gt 0 then psym=psym+1
 
 		if line gt 0 then line = line+1
-		in_line(i) = line
+		in_line(i) = line mod 6
 		in_symbol(i) = psym 
 		z = y(0:s(1)-1,i)
 		if state.scatter then xt = x(*,i)
@@ -814,7 +885,8 @@ if i eq 2 and psym gt 0 then psym=psym+1
 		if state.curvfit then begin
 			psym=7      ; if curve fitting is true use line plot
 		end
-		OPLOT,xt,z,COLOR=in_color(i),linestyle=line, psym=psym mod 7, $
+		ii = i mod 16
+		OPLOT,xt,z,COLOR=colorI(ii),linestyle=line mod 6, psym=psym mod 7, $
 			thick=thick 
 		psym = in_symbol(i)
 ; print,i,psym,cl,line
@@ -862,7 +934,7 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	real_yl = real_y1 - 0.5*real_dy
 
 	xyouts,real_x1,real_y1,'LEGEND', color=state.tcolor
-	oplot,[real_x1,real_xl],[real_yl,real_yl],thick=2
+	oplot,[real_x1,real_xl],[real_yl,real_yl],thick=thick
 
 	real_xl = real_x1 + 0.075*(!x.crange(1)-!x.crange(0))
 	real_xr = real_x1 + 0.1*(!x.crange(1)-!x.crange(0))
@@ -872,15 +944,17 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 
 	x=[real_x1,real_xl]
 	y=[real_yl,real_yl]
-	color = in_color(i)
+	ii = i mod 16
+	color = state.colorI(ii)
 
 	if psym ne 0 then $
-	oplot,x,y,linestyle=in_line(i),color=color,thick=2
-	oplot,x,y,linestyle=in_line(i),color=color,psym=in_symbol(i),thick=2
+	oplot,x,y,linestyle=line mod 6,color=color,thick=thick
+	oplot,x,y,linestyle=line mod 6,color=color,psym=in_symbol(i),thick=thick
 
 	xyouts,real_xr,real_yl, state.legend(pick(i)), color=state.tcolor
 	end
 end
+
 if !d.n_colors gt !d.table_size then device,decomposed=0
 
 END
@@ -905,7 +979,9 @@ IF (ev.id EQ ev.top) then begin
 ENDIF
 
 WIDGET_CONTROL,ev.Id,GET_UVALUE=B_ev
+
 CASE B_ev OF
+'PLOT1D_SAVEMENU': PLOT1D_PDMENU3_Event,ev
 'PLOT1D_DATA': begin
 	sz = size(state.y)
 ;	nel = sz(1)
@@ -966,21 +1042,20 @@ CASE B_ev OF
 'PLOT1D_PSPLOT': begin
 	PS_open, 'idl.ps'
 	linestyle = state.linestyle
-	state.autocolor = 0
+	bgrevs = state.bgrevs
+	autocolor = state.autocolor
+;	state.autocolor = 0
 	state.linestyle = 1
+	state.bgrevs = 1
 	plot1d_replot, state
 	PS_close
-	PS_print, 'idl.ps'
-	state.autocolor = 1
 	state.linestyle = linestyle 
+	state.bgrevs = bgrevs 
+	state.autocolor = autocolor 
+	PS_print, 'idl.ps'
 	end
 'PLOT1D_PRINT': begin
-	WSET,state.winDraw
-	arr = TVRD()
-	PS_open, 'idl.ps',/TV
-	TV,arr
-	PS_close
-	PS_print, 'idl.ps'
+	PS_TVRD,wid=state.winDraw
 	end
 'PLOT1D_OPTIONS': begin
 	plot1d_dialogs, state, Group=ev.top
@@ -1210,7 +1285,8 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;                      Add ITOOL... dialog for falling iplot
 ;-
 
-;LOADCT,39
+COMMON Colors,r_orig,g_orig,b_orig,r_curr,g_curr,b_curr
+if n_elements(r_orig) eq 0 then LOADCT,39
 
 ; check any data provided
 
@@ -1255,6 +1331,9 @@ if keyword_set(factor) then rfactor = factor
         table_size = 256 - n_elements(t_size)+1
 	end
 
+	colorI = lonarr(19)
+	getLineColors,colorI
+
 ; check for input labels
 xsize=350
 ysize=350
@@ -1290,7 +1369,7 @@ state = { $
 	report:'',$
 	table_size : table_size, $   ; actual table size
 	autocolor: 1, $ 	; automatic use different color for each curve
-	bgrevs : 0, $ ;1, $          ; 1-reverse background 
+	bgrevs : 1, $          ; 1-reverse background 
 	tcolor : 0, $
 	bgcolor : table_size-1, $
 	color:cl-2, $ 
@@ -1338,6 +1417,7 @@ state = { $
 	CPT0: 1, $
 	CPT_WID0:0L, $
 	CPT_WID:0L, $
+	colorI: colorI, $
 	x: xa, $
 	y: ya $
 	}
@@ -1425,6 +1505,17 @@ id_tlb_options = WIDGET_BUTTON(id_tlb_row,VALUE='Options...',UVALUE='PLOT1D_OPTI
 id_tlb_printer = WIDGET_BUTTON(id_tlb_row,VALUE='Printer...',UVALUE='PLOT1D_PRINTER')
 id_tlb_print = WIDGET_BUTTON(id_tlb_row,VALUE='Print',UVALUE='PLOT1D_PRINT')
 id_tlb_psplot = WIDGET_BUTTON(id_tlb_row,VALUE='PS Plot',UVALUE='PLOT1D_PSPLOT')
+
+junk   = { CW_PDMENU_S, flags:0, name:'' }
+  MenuDesc256 = [ $
+      { CW_PDMENU_S,       3, 'Create' }, $ ;        0
+        { CW_PDMENU_S,       0, 'TIFF' }, $ ;        1
+        { CW_PDMENU_S,       0, 'PNG' }, $ ;        2
+        { CW_PDMENU_S,       2, 'PICT' } $  ;      3
+  ]
+  PLOT1D_PDMENU3 = CW_PDMENU( id_tlb_row, MenuDesc256, /RETURN_FULL_NAME, $
+      UVALUE='PLOT1D_SAVEMENU')
+
 id_tlb_iplot = WIDGET_BUTTON(id_tlb_row,VALUE='IPLOT',UVALUE='PLOT1D_IPLOT')
 id_tlb_close = WIDGET_BUTTON(id_tlb_row,VALUE='Close',UVALUE='PLOT1D_CLOSE')
 end
