@@ -868,6 +868,19 @@ color = cl
 
 z = y(*,0)
 
+	if !d.name eq 'PS' then begin
+	POS=[.15,.20,.80,.85]
+	PLOT,x,z,/nodata, COLOR=state.tcolor, $
+		background=state.bgcolor, $
+		xrange=state.xrange, yrange = yrange, $
+		ylog=state.ylog, xlog=state.xlog, psym=psym, $
+		xgridstyle=state.grid, $
+		ygridstyle=state.grid, $
+		thick=thick,  xthick=2, ythick=2,$
+		linestyle=line, POS=pos, $
+		xmargin=xmgin, ymargin=ymgin, $
+		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
+	endif else begin
 	PLOT,x,z,/nodata, COLOR=state.tcolor, $
 		background=state.bgcolor, $
 		xrange=state.xrange, yrange = yrange, $
@@ -878,6 +891,7 @@ z = y(*,0)
 		linestyle=line, $
 		xmargin=xmgin, ymargin=ymgin, $
 		title=state.title, xtitle=state.xtitle, ytitle=state.ytitle
+	end
 
 if s(0) eq 1 then begin 
 	color = colorI(0)
