@@ -1,3 +1,11 @@
+                        CATCHER R2.2.2c1  RELEASE NOTE 
+                        ==========================
+
+This version of catcher requires that the scan record updates
+to VERS 4.09. There is a new database scan record field '.DATA' 
+is used by data catcher. At the end of 1D scan this field is checked
+for varifying whether the scan data is ready for acquistion.
+
                         CATCHER R2.2.2c+  RELEASE NOTE 
                         ==========================
 
