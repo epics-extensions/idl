@@ -1,3 +1,19 @@
+			Release Note for scanSee R2.4
+			==============================
+
+The realtime has been modified such that up to the last detector defined
+in the scan1 record are monitored instead of all 85 detectors.
+
+1D overlay plot is implemented.
+
+The runtime version is supported by scanSee. IDL 5.4 and IDL 5.3 share
+the same version of executable scanSee.exe2.idl53.
+
+A frontend program scansee_browser is created for scanSee. A user can
+re-define the detectors name for vw2d program.
+
+
+
 			Release Note for scanSee R2.3
 			==============================
 
