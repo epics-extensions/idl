@@ -243,6 +243,12 @@ PRO plot2d_tvprocess_Event, Event
 	plot2d_state.tvoption = 8
 	plot2d_replot,plot2d_state
       END
+  'FIELDTOP': BEGIN
+	WIDGET_CONTROL,Event.id,GET_VALUE=max
+	plot2d_state.pixel_max = max
+	plot2d_state.tvoption = 9
+	plot2d_replot,plot2d_state
+      END
   'FIELD127': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=pts
 	npts = pts(0)
@@ -320,6 +326,7 @@ PRO plot2d_tvprocess_Event, Event
 	plot2d_state.tvoption = 0
 	plot2d_state = plot2d_stateInit
 	plot2d_replot,plot2d_state
+	widget_control,plot2d_state.TOPVID,set_value=plot2d_state.max
 	END
   'BUTTON_REALV': BEGIN
 	plot2d_state.versus = 0 
@@ -434,17 +441,23 @@ if XRegistered('plot2d_tvprocess') then return
       MAP=1, $
       UVALUE='BASE94')
 
+  FIELDTOP = CW_FIELD( BASE94,VALUE=plot2d_state.max, $
+      ROW=1, /FLOAT, $
+      RETURN_EVENTS=1, $
+      TITLE='Top Value:', $
+      UVALUE='FIELDTOP', $
+      XSIZE=10)
   SLIDER5 = CW_FSLIDER( BASE94, $
       MAXIMUM=plot2d_state.max, $
       MINIMUM=plot2d_state.min, /EDIT, $
-      TITLE='Scaling Pixels < ',$ 
+      TITLE='Max Scaling Pixels < ',$ 
       UVALUE='SLIDER5', $
       VALUE=plot2d_state.max)
 
   SLIDER3 = CW_FSLIDER( BASE94, $
       MAXIMUM=plot2d_state.max, $
       MINIMUM=plot2d_state.min, /EDIT, $
-      TITLE='Scaling Pixels > ', $
+      TITLE='Min Scaling Pixels > ', $
       UVALUE='SLIDER3', $
       VALUE=plot2d_state.min)
 
@@ -519,6 +532,7 @@ if XRegistered('plot2d_tvprocess') then return
   plot2d_state.tvprocess = plot2d_tvprocess
   plot2d_state.threshID = SLIDER7
   plot2d_state.threshVID = threshVID
+  plot2d_state.TOPVID = FIELDTOP 
 
 ;  plot2d_stateInit = plot2d_state
 
@@ -693,6 +707,7 @@ COMMON COLORBAR,colorbar_data
       5: plot2d_state.bar = Event.Select 
       6: plot2d_state.stamp = Event.Select 
       7: plot2d_state.bgrevs = Event.Select 
+      8: plot2d_state.eqaspr = Event.Select 
       ELSE: Message,'Unknown button pressed'
       ENDCASE
       END
@@ -821,8 +836,11 @@ COMMON COLORBAR,colorbar_data
 	file = plot2d_state.class+'.rtiff'
 	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
 		title='Save R-TIFF Image')
-	if fn ne '' then $
+	if fn ne '' then begin
+	WSET,plot2d_state.win
         WRITE_TIFF,fn,reverse(TVRD(),2),1,red=R,green=G,blue=B
+	WSET,plot2d_state.old_win
+	end
       END
   'PLOT2D_TIFF': BEGIN
        tvlct,R,G,B,/get
@@ -833,8 +851,11 @@ COMMON COLORBAR,colorbar_data
 	file = plot2d_state.class+'.tiff'
 	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
 		title='Save TIFF Image')
-	if fn ne '' then $
+	if fn ne '' then begin
+	WSET,plot2d_state.win
         WRITE_TIFF,fn,TVRD(),red=R,green=G,blue=B
+	WSET,plot2d_state.old_win
+	end
       END
   'PLOT2D_PICT': BEGIN
        tvlct,R,G,B,/get
@@ -845,8 +866,11 @@ COMMON COLORBAR,colorbar_data
 	file = plot2d_state.class+'.pict'
 	fn = dialog_pickfile(filter='*pict',path=p,file=file,/WRITE, $
 		title='Save PICT Image')
-	if fn ne '' then $
-        WRITE_PICT,fn,TVRD(),R,G,B
+	if fn ne '' then begin
+	WSET,plot2d_state.win
+	WRITE_PICT,fn,TVRD(),R,G,B
+	WSET,plot2d_state.old_win
+	end
       END
   'PLOT2D_XDR': BEGIN
 	cd,current=p
@@ -907,7 +931,8 @@ COMMON COLORBAR, colorbar_data
     'Shade', $
     'ColorBar', $
     'Stamp', $
-    'Bg Reverse' $
+    'Bg Reverse', $
+    'Eq Asp Rt' $
      ]
   BGROUP19 = CW_BGROUP( BASE20, Btns4929, $
       ROW=1, $
@@ -917,7 +942,7 @@ COMMON COLORBAR, colorbar_data
 
 vals = [plot2d_state.xlog, plot2d_state.ylog, plot2d_state.zlog, $
 	plot2d_state.lego, plot2d_state.shade, plot2d_state.bar, $
-	plot2d_state.stamp, plot2d_state.bgrevs]
+	plot2d_state.stamp, plot2d_state.bgrevs, plot2d_state.eqaspr ]
 WIDGET_CONTROL,BGROUP19,set_value=vals
 
   BASE21 = WIDGET_BASE(plot2d_setupMain13, $
@@ -1119,14 +1144,28 @@ if top gt 0.4*!d.y_size then top = !d.y_size *.4
 	width=!d.x_size-left-right
 	height=!d.y_size-top-bottom
 
-CASE plot2d_state.plottype OF
-    0: begin
-
 ;        xrange=[plot2d_state.xarr(0), plot2d_state.xarr(dim(0)-1)]
 ;        yrange=[plot2d_state.yarr(0), plot2d_state.yarr(dim(1)-1)]
 	xrange = [min(plot2d_state.xarr),max(plot2d_state.xarr)]
 	yrange = [min(plot2d_state.yarr),max(plot2d_state.yarr)]
+	
+	; check for equal aspect ratio
+	if plot2d_state.eqaspr then begin
+	dx = xrange(1)-xrange(0)
+	dy = yrange(1)-yrange(0)
+	if dx gt dy then begin
+		height = dy*height / dx
+		top = !d.y_size-height-bottom
+	end
+	if dx lt dy then begin
+		width = dx*width / dy
+		right = !d.x_size-width-left
+	end
+	end
  
+CASE plot2d_state.plottype OF
+    0: begin
+
 	if plot2d_state.versus eq 1 then begin
         xrange=[0, dim(0)]
         yrange=[0, dim(1)]
@@ -1137,7 +1176,7 @@ CASE plot2d_state.plottype OF
 	data = plot2d_state.data
 	if !d.name ne 'PS' then data = CONGRID(plot2d_state.data,width,height)
 
-	newdata = (data - plot2d_state.min)/(plot2d_state.max - plot2d_state.min)*plot2d_state.table_size
+	newdata = float(data - plot2d_state.min)/(plot2d_state.pixel_max - plot2d_state.min)*plot2d_state.table_size
 newdata = fix(newdata)
 
 if plot2d_state.tvoption gt 0 then begin
@@ -1172,6 +1211,9 @@ case plot2d_state.tvoption of
    end
 8: begin
    TVSCL, data>plot2d_state.pixel_min<plot2d_state.pixel_max,left,bottom,xsize=width,ysize=height
+   end
+9: begin 	; based on new Top Value:
+   TV,newdata,left,bottom,xsize=width,ysize=height
    end
 endcase
 endif else begin
@@ -1423,6 +1465,47 @@ ENDIF
 	if strpos('Yes',r) eq -1 then return
 	plot2d_state.data(i,j) = val
         END
+  'plot2d_refresh': BEGIN
+	s = size(plot2d_state.data)
+	widget_control,plot2d_state.xpixel,set_value= ' '
+	widget_control,plot2d_state.ypixel,set_value= ' '
+	widget_control,plot2d_state.zpixel,set_value= ' '
+	widget_control,plot2d_state.i_xpixel,set_value= ' '
+	widget_control,plot2d_state.i_ypixel,set_value= ' '
+	widget_control,plot2d_state.i_min,set_value=0
+	widget_control,plot2d_state.j_min,set_value=0
+	widget_control,plot2d_state.i_max,set_value=s(1)-1
+	widget_control,plot2d_state.j_max,set_value=s(2)-1
+	plot2d_replot, plot2d_state
+	END
+  'plot2d_subregion': BEGIN
+	xdim = n_elements(plot2d_state.xarr)
+	ydim = n_elements(plot2d_state.yarr)
+	widget_control,plot2d_state.i_min,get_value=imin
+	widget_control,plot2d_state.i_max,get_value=imax
+	widget_control,plot2d_state.j_min,get_value=jmin
+	widget_control,plot2d_state.j_max,get_value=jmax
+	i1 = imin
+	i2 = imax
+	j1 = jmin
+	j2 = jmax
+	if i1 gt i2 then begin
+		imax = i1
+		imin = i2
+		if imin lt 0 then imin = 0
+		if imax ge xdim then imax = xdim-1
+	end
+	if j1 gt j2 then begin
+		jmax = j1
+		jmin = j2
+		if jmin lt 0 then jmin = 0
+		if jmax ge ydim then jmax = ydim-1
+	end
+	newdata = plot2d_state.data(imin:imax,jmin:jmax)
+	xarr = plot2d_state.xarr(imin:imax)
+	yarr = plot2d_state.yarr(jmin:jmax)
+	plot2d,newdata,xarr=xarr,yarr=yarr,wTitle='ZOOM-BOXED-ROI',IJOFFSET=[imin,jmin]
+	END
   'DRAW3': BEGIN
 	WSET,plot2d_state.win
 if event.PRESS eq 1 then begin
@@ -1498,6 +1581,30 @@ if event.PRESS eq 2 then begin
 	plot1d,xarr,data(*,yn),/data,title='Profile @ Y='+strtrim(y,2), $
 		ytitle='Data Values',/color, /bgrevs,  $
 		xtitle='X Values',Group=Event.top
+end
+if event.PRESS eq 4 then begin
+	nx = 50
+        ny = 50
+        x0 = Event.x - 25
+        y0 = Event.y - 25
+
+        my_box_cursor, x0, y0, nx,ny, /INIT
+	
+	xs = x0-plot2d_state.region(0)
+	ys = y0-plot2d_state.region(1)
+	if xs lt 0 then xs = 0
+	if ys lt 0 then ys = 0
+	xe = x0+nx-plot2d_state.region(0)
+	ye = y0+ny-plot2d_state.region(1)
+	xf=float(plot2d_state.region(2)-plot2d_state.region(0))/n_elements(plot2d_state.xarr)
+	yf=float(plot2d_state.region(3)-plot2d_state.region(1))/n_elements(plot2d_state.yarr)
+
+	ij = [xs/xf,ys/yf,xe/xf,ye/yf]
+	ij = fix(ij)
+	widget_control,plot2d_state.i_min,set_value=ij(0)
+	widget_control,plot2d_state.j_min,set_value=ij(1)
+	widget_control,plot2d_state.i_max,set_value=ij(2)
+	widget_control,plot2d_state.j_max,set_value=ij(3)
 end
       END
   'ITOOL_MENU': BEGIN
@@ -1613,6 +1720,7 @@ END
 PRO plot2d,data,tlb,win, width=width, height=height, $
 	charsize=charsize, lego=lego, ax=ax, az=az, shade=shade, $
 	title=title, xtitle=xtitle, ytitle=ytitle, ztitle=ztitle, $
+	IJOFFSET=IJOFFSET, $
 	xarr=xarr,yarr=yarr, NCOLORS=NCOLORS, $
 	rxloc=rxloc, ryloc=ryloc, comment=comment, classname=classname, $
 	stamp=stamp, wTitle=wTitle, GROUP=Group,itools=itools
@@ -1698,6 +1806,9 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;
 ;	ITOOLS:  If specified the iTools menu is added
 ;
+;	IJOFFSET: [Ix,Iy] specifies offset indices of data array extracted 
+;		  from the original data array (used for Query Sub ROI...)
+;
 ; OPTIONAL_OUTPUTS:
 ;       TLB: The widget ID of the top level base returned by the PLOT2D.
 ;
@@ -1752,6 +1863,12 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;       01-18-2002      Add the PICK1D button to access plot1d, and ezfit
 ;       03-26-2002      Add drawing normalized X,Y profile event
 ;       05-01-2002      Add ncolors keyword, MMB event, check for max colors
+;       03-01-2004      Add extraction of ROI dialog, RMB events (zoom) in 
+;                       drawing area
+;			Add query of value for i,j index event
+;			Add set z-value at the i,j index event
+;			Add top value color value event
+;			Add equal aspect ratio option to Plot Options dialog
 ;-
 COMMON COLORBAR, colorbar_data
 
@@ -1817,6 +1934,7 @@ if keyword_set(classname) then class = classname
 	class: class, $
 	versus: 0, $  ; real-value or 1 for step #
 	plottype:0, $     	; 0 - TV 1-surface
+	eqaspr: 0, $   ; plot as equal aspect ratio 
 	charsize:1, $
 	c_charsize:1, $
 	xlog:0, $
@@ -1859,11 +1977,20 @@ if keyword_set(classname) then class = classname
 	xpixel: 0L, $
 	ypixel: 0L, $
 	zpixel: 0L, $
+	i_min: 0L, $
+	i_max: 0L, $
+	j_min: 0L, $
+	j_max: 0L, $
+	i1 : 0, $
+	i2 : xdim-1, $
+	j1 : 0, $
+	j2 : ydim-1, $
 	marginBase: 0L, $
 	labelBase: 0L, $
 	tvprocess: 0L, $         ; tvprocess base widget
 	threshID: 0L, $   ; threshold slider
 	threshVID: 0L, $  ; threshold value
+	TOPVID: 0L, $ 	 ; top value field
 	tvoption: 0, $         ; tvprocess
 	thresh: 140, $          ; threshold index value
 	threshValue: 140., $      ; threshold value
@@ -1884,9 +2011,11 @@ plot2d_state.pixel_max = plot2d_state.max
 
 	if n_elements(footnote) gt 0 then plot2d_state.comment = footnote
 
-	maxvl = max(data,min=minvl)
+	maxvl = max(data,sub_max,min=minvl,subscript_min=sub_min)
 	plot2d_state.max = maxvl
 	plot2d_state.min = minvl
+	sub_max = [sub_max mod sz(1),sub_max/sz(1)]
+	sub_min = [sub_min mod sz(1),sub_min/sz(1)]
 
 ; 12 number of curves allowed
 	nlevels = plot2d_state.nlevels
@@ -1916,7 +2045,10 @@ if keyword_set(comment) then begin
         plot2d_state.footnote= add_line
         end
         plot2d_state.comment(0) = plot2d_state.comment(0)+ $
-		' (Max='+strtrim(maxvl,2) + ', Min='+strtrim(minvl,2)+')'
+		' [Max='+strtrim(maxvl,2) +' @ ('+strtrim(sub_max(0),2)+ $
+		','+ strtrim(sub_max(1),2)+') '+ $
+	       ', Min='+strtrim(minvl,2) +' @ ('+strtrim(sub_min(0),2) + $
+		','+ strtrim(sub_min(1),2)+') ]'
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
@@ -1959,21 +2091,49 @@ if keyword_set(comment) then begin
   DRAW3 = WIDGET_DRAW( BASE1_1, XSIZE=xsize, YSIZE=ysize, RETAIN=2, $
 		BUTTON_EVENTS=1,UVALUE='DRAW3')
   BASE1_2 = WIDGET_BASE(BASE1_1, /COLUMN)
-  zpixel = CW_FIELD( BASE1_2,VALUE='        ', $
-      ROW=1, TITLE='Val', /return_events, $
+  refresh = WIDGET_BUTTON( BASE1_2,VALUE='Refresh Screen', $
+	UVALUE='plot2d_refresh')
+  BASE1_20 = WIDGET_BASE(BASE1_2,/column, /frame)
+  zpixel = CW_FIELD( BASE1_20,VALUE='        ', $
+      ROW=1, TITLE='Val', /return_events, /float, $
       UVALUE='plot2d_ZValue')
-  xpixel = CW_FIELD( BASE1_2,VALUE='        ', $
+  xpixel = CW_FIELD( BASE1_20,VALUE='        ', $
       ROW=1, TITLE='X', $
       UVALUE='plot2d_XValue')
-  ypixel = CW_FIELD( BASE1_2,VALUE='        ', $
+  ypixel = CW_FIELD( BASE1_20,VALUE='        ', $
       ROW=1, TITLE='Y', $
       UVALUE='plot2d_YValue')
-  i_xpixel = CW_FIELD( BASE1_2,VALUE='        ', $
-      ROW=1, TITLE='X-index',xsize=5, /return_events, $
+  st1=''
+  st2=''
+  if keyword_set(IJOFFSET) then begin
+  st1 = strtrim(IJOFFSET(0),2) + ' +'
+  st2 = strtrim(IJOFFSET(1),2) + ' +'
+  end
+  i_xpixel = CW_FIELD( BASE1_20,VALUE='        ', $
+      ROW=1, TITLE='X-index: '+st1,xsize=4, /return_events, $
       UVALUE='plot2d_Xindex')
-  i_ypixel = CW_FIELD( BASE1_2,VALUE='        ', $
-      ROW=1, TITLE='Y-index',xsize=5, /return_events, $
+  i_ypixel = CW_FIELD( BASE1_20,VALUE='        ', $
+      ROW=1, TITLE='Y-index: '+st2,xsize=4, /return_events, $
       UVALUE='plot2d_Yindex')
+
+  BASE1_21 = WIDGET_BASE(BASE1_2, /COLUMN,frame=2)
+  lb1 = widget_label(BASE1_21,value='ZOOM BOXED ROI')
+  lb1 = widget_label(BASE1_21,value='Btn 3 - invoke/done box')
+  lb1 = widget_label(BASE1_21,value='Btn 1 - move box')
+  lb1 = widget_label(BASE1_21,value='Btn 2 - resize box')
+  BASE1_3 = WIDGET_BASE(BASE1_21, /ROW)
+  i_min = CW_FIELD( BASE1_3,VALUE=0,/integer, $
+      ROW=1, TITLE='Imin',xsize=4)
+  i_max = CW_FIELD( BASE1_3,VALUE=xdim-1,/integer, $
+      ROW=1, TITLE='Imax',xsize=4)
+
+  BASE1_4 = WIDGET_BASE(BASE1_21, /ROW)
+  j_min = CW_FIELD( BASE1_4,VALUE=0,/integer, $
+      ROW=1, TITLE='Jmin',xsize=4)
+  j_max = CW_FIELD( BASE1_4,VALUE=ydim-1,/integer, $
+      ROW=1, TITLE='Jmax',xsize=4)
+  accept_ij = WIDGET_BUTTON( BASE1_21,VALUE='Query Sub ROI...', $
+	UVALUE='plot2d_subregion')
 
   BASE2 = WIDGET_BASE(Plot2dMAIN13, /ROW)
 
@@ -2010,6 +2170,10 @@ if keyword_set(comment) then begin
 	plot2d_state.zpixel = zpixel 
 	plot2d_state.i_xpixel = i_xpixel 
 	plot2d_state.i_ypixel = i_ypixel 
+	plot2d_state.i_min = i_min 
+	plot2d_state.i_max = i_max 
+	plot2d_state.j_min = j_min 
+	plot2d_state.j_max = j_max 
 	plot2d_state.xsize = g_tlb.scr_xsize
 	plot2d_state.ysize = g_tlb.scr_ysize
 
