@@ -1,3 +1,16 @@
+PRO CALIBRAHELPPDMENU3_Event, Event
+  WIDGET_CONTROL,Event.Top,GET_UVALUE=info
+
+  CASE Event.Value OF
+  'Help.Help...': begin
+	calibration_help1
+   end
+  'Help.Arithmetic...': begin
+	calibration_help2
+   end
+  ENDCASE
+
+END
 
 PRO CALIBRAPDMENU3_Event, Event
   WIDGET_CONTROL,Event.Top,GET_UVALUE=info
@@ -82,6 +95,7 @@ PRO CALIBRA_deleteEqu,Event
 	info.oper_ids = 0L
 	info.meth_ids = 0L
 	info.base3 = 0L
+	info.end_ids = 0L
   	WIDGET_CONTROL, info.base, SET_UVALUE=info
 END
 
@@ -95,18 +109,22 @@ PRO CALIBRA_createEqu,Event
       UVALUE='BASE3')
   info.oper_ids(0) = WIDGET_LIST(BASE3,value=info.factors,YSIZE=4, $
 		UVALUE='CALIBRA_OPER0')
-WIDGET_CONTROL,info.oper_ids(0),SET_LIST_SELECT=0
+WIDGET_CONTROL,info.oper_ids(0),SET_LIST_SELECT=0,SET_LIST_TOP=0
 
 	for i=1,info.no do begin
   info.meth_ids(i) = WIDGET_LIST(BASE3,value=info.methods,YSIZE=4, $
-		UVALUE=info.meth_uvalue(i))
+		/MULTIPLE,UVALUE=info.meth_uvalue(i))
   info.oper_ids(i) = WIDGET_LIST(BASE3,value=info.values,YSIZE=4, $
 		UVALUE=info.oper_uvalue(i))
+  info.end_ids = WIDGET_LIST(BASE3,value=[' ',')'],YSIZE=2, $
+		UVALUE='CLOSEPATENTHESIS')
+
+WIDGET_CONTROL,info.end_ids,SET_LIST_SELECT=0
 WIDGET_CONTROL,info.meth_ids(i),SET_LIST_SELECT=0
-WIDGET_CONTROL,info.oper_ids(i),SET_LIST_SELECT=0
+WIDGET_CONTROL,info.oper_ids(i),SET_LIST_SELECT=0,SET_LIST_TOP=0
 	end
 	info.base3 = BASE3
-	info.oper = 0
+	info.oper =  0
 	info.method = 0
   	WIDGET_CONTROL, info.base, SET_UVALUE=info
 
@@ -119,8 +137,13 @@ WIDGET_CONTROL,Event.Top,GET_UVALUE=info
 	; print operator method ids
 	str = info.factors(info.oper(0))
 	for i=1,info.no do begin
-		str = str + info.methods(info.method(i)) + info.values(info.oper(i))
+		calibration_operator,i,info,op_str
+		str = str + op_str + info.values(info.oper(i))
 	end
+
+	r = WIDGET_INFO(info.end_ids,/LIST_SELECT)
+	if r then str = str + ')'
+;	str = str + info.end_str
 
 	info.equa_str = str
 	WIDGET_CONTROL,info.equation,SET_VALUE=str
@@ -138,7 +161,7 @@ sz = size(info.image_final)
 
 xdim = sz(1)
 xa = indgen(xdim)
-if keyword_set(xvector) then xa = xvector
+if keyword_set(xvector) then xa(0:n_elements(xvector)-1) = xvector
 
 format = info.format 
 
@@ -164,7 +187,7 @@ if sz(0) eq 2 then begin
 	ydim = sz(2)
 
 	ya = indgen(ydim)
-	if keyword_set(yvector) then ya = yvector
+	if keyword_set(yvector) then ya(0:n_elements(yvector)-1) = yvector
 
 	format_1 = '('+format+',I5,'+strtrim(ydim,2)+'('+format+'))'
 	openw,unit, filename ,/get_lun
@@ -176,6 +199,7 @@ if sz(0) eq 2 then begin
 	format_0 = '(";               \ Y",'+strtrim(ydim,2)+'('+f2+'),/,";              X \" )'	
 	printf,unit,format=format_0,indgen(ydim)
 	printf,unit,';     (xvalues)'
+
 	for i=0,xdim-1 do begin	
 	printf,unit,format=format_1,xa(i),i,info.image_final(i,0:ydim-1)
 	end
@@ -192,6 +216,24 @@ end
 	
 END
 
+PRO calibration_operator,i,info,equ_str
+
+	r = widget_info(info.meth_ids(i),/list_select)
+	equ_str = info.methods(info.method(i))
+	if n_elements(r) eq 1 then return
+
+	if n_elements(r) eq 2 and r(1) eq 5 then begin ; ')' + '*'
+		equ_str = info.methods(r(1)) + info.methods(r(0))  
+	end
+	if n_elements(r) eq 2 and r(1) eq 4 then begin ;'*'+ '('
+		equ_str = info.methods(r(0)) + info.methods(r(1))
+	end
+	if n_elements(r) eq 3 and r(1) eq 4 then begin ;')'+'*'+ '('
+		equ_str = info.methods(r(2)) + $
+			info.methods(r(0)) + info.methods(r(1))
+	end
+END
+
 
 PRO CALIBRA_Event, Event
   WIDGET_CONTROL,Event.Top,GET_UVALUE=info
@@ -201,6 +243,7 @@ PRO CALIBRA_Event, Event
 
   ; Event for CALIBRAPDMENU3
   'CALIBRAPDMENU3': CALIBRAPDMENU3_Event, Event
+  'CALIBRAHELPPDMENU3': CALIBRAHELPPDMENU3_Event, Event
 
   'CALIBRA_FIELD3': BEGIN
   	WIDGET_CONTROL, info.accept, SENSITIVE=1
@@ -247,26 +290,20 @@ PRO CALIBRA_Event, Event
 	return
 	end
 
-	factor = info.vector(info.oper(0))
+	factor = 'info.vector(info.oper(0))'
 	if info.dim eq 2 then $
-	temp = info.image_array(*,*,info.oper(1))
+	temp = 'info.image_array(*,*,info.oper(1))'
 
 	if info.dim eq 1 then $ 
-	temp = info.image_array(*,info.oper(1))
+	temp = 'info.image_array(*,info.oper(1))'
 
 	; 1st operation
 
-	if info.method(1) eq 0 then $ 		;'*'
-	temp = factor * temp 
+	calibration_operator,1,info,op_str
+
+	equ_str = factor + op_str + temp
 		
-	if info.method(1) eq 1 then $ 		;'/'
-	temp = factor / temp 
-
-	if info.method(1) eq 2 then $ 		;'+'
-	temp = factor + temp 
-
-	if info.method(1) eq 3 then $ 		;'-'
-	temp = factor - temp 
+  ; remaining terms
 
 	if info.no gt 1 then begin
 	for i=2,info.no do begin
@@ -274,35 +311,32 @@ PRO CALIBRA_Event, Event
 	r = dialog_message('Error: no data defined for D'+strtrim(info.oper(i)+1,2),/error)
 	return
 	end
+
+	calibration_operator,i,info,op_str
+	
 		if info.dim eq 1 then begin
-		if info.method(i) eq 0 then $	 	;'*'
-		temp = temp * info.image_array(*,info.oper(i)) 
-		
-		if info.method(i) eq 1 then $	 	;'/'
-		temp = temp / info.image_array(*,info.oper(i)) 
-		
-		if info.method(i) eq 2 then $	 	;'+'
-		temp = temp + info.image_array(*,info.oper(i)) 
-		
-		if info.method(i) eq 3 then $	 	;'-'
-		temp = temp - info.image_array(*,info.oper(i)) 
+		temp = 'info.image_array(*,info.oper('+strtrim(i,2)+'))'
+		equ_str = equ_str + op_str + temp
 		end
+
 		if info.dim eq 2 then begin
-		if info.method(i) eq 0 then $	 	;'*'
-		temp = temp * info.image_array(*,*,info.oper(i)) 
-		
-		if info.method(i) eq 1 then $	 	;'/'
-		temp = temp / info.image_array(*,*,info.oper(i)) 
-		
-		if info.method(i) eq 2 then $	 	;'+'
-		temp = temp + info.image_array(*,*,info.oper(i)) 
-		
-		if info.method(i) eq 3 then $	 	;'-'
-		temp = temp - info.image_array(*,*,info.oper(i)) 
+		temp = 'info.image_array(*,*,info.oper('+strtrim(i,2)+'))'
+		equ_str = equ_str + op_str +temp
 		end
 	end
 	end
 	
+	r = widget_info(info.end_ids,/LIST_SELECT)
+	if r then equ_str = equ_str + ')'
+;	equ_str = equ_str + info.end_str
+
+	catch,err_status
+	r = Execute('temp='+equ_str)
+	if err_status ne 0 then begin
+		r= dialog_message('Incomplete calibration function defined',/error)
+		return
+	end
+
 	if info.dim eq 1 then begin
 	xarr = info.xv
 	plot1d,xarr,temp,title=info.equa_str
@@ -325,9 +359,6 @@ PRO CALIBRA_Event, Event
   'CALIBRA_CLOSE': BEGIN
 	WIDGET_CONTROL,Event.top,/DESTROY
       END
-  'CALIBRA_HELP': BEGIN
-	calibration_help1
-      END
   'CALIBRA_ASCII': BEGIN
 	CALIBRA_asciiReport,Event,xvector=info.xv,yvector=info.yv
       END
@@ -341,11 +372,16 @@ PRO CALIBRA_Event, Event
 		strtrim(info.vector[info.oper(0)],2)]
 		  
 	scan2d_roi,info.image_final,info.xv,info.yv,rptfile=rptfile,roifile=roifile, $
-		header=h_annote,group=Event.top,_extra=e	
+		header=h_annote(1),group=Event.top,_extra=e	
       END
   'CALIBRA_PICK1D': BEGIN
 	CALIBRA_pick1d,info.image_final,xa=info.xv,ya=info.yv, $
 		TITLE=info.equa_str, GROUP=Event.top
+      END
+  'CLOSEPATENTHESIS': BEGIN
+	r = widget_info(Event.id,/LIST_SELECT)
+	if r then info.end_str = ')' else info.end_str= ' '
+	CALIBRA_printEqu,Event
       END
 
   ELSE: BEGIN
@@ -368,6 +404,20 @@ PRO CALIBRA_Event, Event
 	end
 	END
   ENDCASE
+
+END
+
+PRO calibration_help2
+	str=[ $
+	'The arithmetic operator widgets are multiple selection scroll list.', $
+	'', $
+	"A simple combination of '(' and ')' with the arithmetic operator are ", $
+	'allowed. At most one pair of parenthesis with any arithmetic operator can', $
+	"be selected. Possible example  '('  ')+'   '+('   ')+('   ')'",'' , $
+	"Multiple selection accomlished by holding down the 'Control' key", $
+	'while picking the selection. A user has to make sure the displayed', $
+	'function is correctly defined with balanced open/close parenthesis.' ]
+	res = dialog_message(str,/info,title='Multiple selection')
 
 END
 
@@ -418,7 +468,7 @@ PRO CALIBRA_findID,EV,substring,id
 END
 
 
-PRO calibration_factor,image_array,id_def,dvalues=dvalues, no_field=no_field, GROUP=Group,title=title,xv=xv,yv=yv,inpath=inpath,classname=classname,format=format 
+PRO calibration_factor,image_array,id_def,dnames=dnames,dvalues=dvalues, no_field=no_field, GROUP=Group,title=title,xv=xv,yv=yv,inpath=inpath,classname=classname,format=format 
 ;+
 ;
 ; NAME:
@@ -431,7 +481,7 @@ PRO calibration_factor,image_array,id_def,dvalues=dvalues, no_field=no_field, GR
 ;
 ; CALLING SEQUENCE:
 ;       CALIBRATION_FACTOR,Image_array,Id_def [,Xv=xv] [,Yv=yv] 
-;		[,Dvalues=dvalues] [, No_field=no_field] 
+;		[,Dnames=dnames] [,Dvalues=dvalues] [, No_field=no_field] 
 ;                [,Inpath=inpath] [,Classname=classname] 
 ;                [,Title=title] [, GROUP=Group] 
 ;
@@ -442,6 +492,7 @@ PRO calibration_factor,image_array,id_def,dvalues=dvalues, no_field=no_field, GR
 ;                   0 not defined, 1 defined
 ;
 ; KEYWORD:
+;   DNAMES       - Specify the list for detector names
 ;   DVALUES[85]  - Specify the vector of multiplication factors for detectors
 ;                  default to 1.
 ;   XV[WIDTH]    - Specify the vector of real X position values
@@ -469,7 +520,8 @@ PRO calibration_factor,image_array,id_def,dvalues=dvalues, no_field=no_field, GR
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 1999.
-;       xx-xx-xxxx      comment
+;       01-11-2001      Add the keyword DNAME to override the default detname 
+;       01-25-2001      Set default selection to F01*D01
 ;-
 
 if XRegistered('CALIBRA') then return 
@@ -532,7 +584,7 @@ end
   if sz(0) eq 2 then begin
 	image_final = 0*image_array(*,0)
 	dim=1
-	ndet = 85
+	ndet = sz(2)
 	end
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
@@ -565,7 +617,16 @@ end
   ]
   CALIBRAPDMENU3 = CW_PDMENU( BASE2_0, MenuDesc829, /RETURN_FULL_NAME, $
       UVALUE='CALIBRAPDMENU3')
-  help = WIDGET_BUTTON(BASE2_0,value='Help...',UVALUE='CALIBRA_HELP')
+
+  MenuDescHelp = [ $
+      { CW_PDMENU_S,       3, 'Help' }, $ ;        0
+        { CW_PDMENU_S,       0, 'Help...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'Arithmetic...' } $ ;        2
+	]
+  HELPMENU3 = CW_PDMENU( BASE2_0, MenuDescHelp, /RETURN_FULL_NAME, $
+      UVALUE='CALIBRAHELPPDMENU3')
+
+
   close = WIDGET_BUTTON(BASE2_0,value='Done',UVALUE='CALIBRA_CLOSE')
 
   LABEL3 = WIDGET_LABEL( BASE2, $
@@ -580,6 +641,8 @@ end
   detname = [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
         '01','02','03','04','05','06','07','08','09', $
         strtrim(indgen(61)+10,2)]
+
+  if keyword_set(DNAMES) then detname=dnames
 
   rlabels = '  F'+ detname(0:ndet-1)
   table3 = widget_table(BASE2,value=transpose(rvalues), $
@@ -614,7 +677,7 @@ end
  equation = WIDGET_LABEL(BASE5,value=' .... ', /dynamic_resize, $
 	 UVALUE='CALIBRA_EQU')
 
-  methods=['*','/','+','-']
+  methods=['*','/','+','-','(',')']
   
   values = 'D'+ detname(0:ndet-1)
   factors = 'F'+ detname(0:ndet-1)
@@ -650,13 +713,15 @@ end
 	   oper_uvalue : make_array(ndet,/string), $
 	   oper_ids : make_array(ndet,value=0L), $   ; oper_ids, $
 	   meth_ids : make_array(ndet,value=0L), $   ; meth_ids, $
+	   end_ids : 0L, $  ; end with closing parenthesis 
+	   end_str : ' ', $  ; or ')'
 	   oper: make_array(ndet,/int,value=0), $
 	   method: make_array(ndet,/int,value=0), $
 	   vector: rvalues, $
 	   id_def: id_def, $
 	   xv: xv, $
 	   yv: yv, $
-	   ldet: 0, $     ; last detector defined
+	   ldet: sz(3), $     ; last detector defined
 	   dim:dim, $
 	   width: sz(1), $
 	   height: sz(2), $
@@ -665,8 +730,8 @@ end
 	   image_array: image_array $
 	}
 
+  info.ndet = ndet
   for i=0,ndet-1 do begin
-	if id_def(i) gt 0 then info.ldet = i
 	info.meth_uvalue(i) = 'CALIBRA_METHOD'+ strtrim(i,2)
 	info.oper_uvalue(i) = 'CALIBRA_OPER'+ strtrim(i,2)
   end
@@ -682,12 +747,16 @@ end
 WIDGET_CONTROL,info.oper_ids(0),SET_LIST_SELECT=0
   for i=1,no do begin
 	info.meth_ids(i) = WIDGET_LIST(BASE3,value=methods,YSIZE=4, $
-			UVALUE=info.meth_uvalue(i))
+			/MULTIPLE,UVALUE=info.meth_uvalue(i))
 	info.oper_ids(i) = WIDGET_LIST(BASE3,value=values,YSIZE=4, $
 			UVALUE=info.oper_uvalue(i))
 WIDGET_CONTROL,info.meth_ids(i),SET_LIST_SELECT=0
 WIDGET_CONTROL,info.oper_ids(i),SET_LIST_SELECT=0
   end
+
+info.end_ids = WIDGET_LIST(BASE3,value=[' ',')'],YSIZE=2, $
+	UVALUE='CLOSEPARENTHESIS')
+WIDGET_CONTROL,info.end_ids,SET_LIST_SELECT=0
 
   WIDGET_CONTROL, info.accept, SENSITIVE=0
   WIDGET_CONTROL, info.text, SENSITIVE=0
