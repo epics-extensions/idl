@@ -1,0 +1,20 @@
+#!/bin/csh -f
+set HOST_ARCH = `/usr/local/epics/startup/HostArch`
+
+if ${?EPICS_EXTENSIONS_PVT} == 1 then
+        source $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/setup_ezcaIDL
+else
+        source $EPICS_EXTENSIONS/bin/$HOST_ARCH/setup_ezcaIDL
+endif
+
+# source /usr/local/rsi/idl_5/bin/idl_setup
+
+set xdr = "toImage"
+if ( "$1" !=  "" ) then
+        set xdr = $xdr 
+endif
+
+echo ".run toImage" >! go_toImage
+echo "$xdr" >>! go_toImage
+idl go_toImage
+rm go_toImage
