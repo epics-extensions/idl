@@ -275,15 +275,72 @@ PRO scanSee_writeConfig,SSD
 	close,1
 END
 
-PRO scanSee_image2d,SSD,axis
+PRO scanSee_image2d,SSD,axis1,axis2
 	if SSD.rank eq 1 then return
         da2d = *SSD.da(SSD.rank-2)
 	xarr = *SSD.pa(SSD.rank-2)
 	yarr = *SSD.pa(SSD.rank-1)
+
+	sscan_getDescs,SSD,xdescs,ydescs,zdescs
+
+;help,xarr,yarr
+;print,axis1,axis2
+sz = size(xarr)
+if axis1 lt 4 then xd = xdescs(axis1) else xd = 'step #'
+if sz(0) eq 2 then begin
+  if axis1 lt sz(2) then xarr = xarr(*,axis1) $
+  else xarr = indgen(sz(1))
+end
+if sz(0) eq 1 and axis1 gt 0 then xarr = indgen(sz(1))
+
+sz = size(yarr)
+if axis2 lt 4 then yd = ydescs(axis2) else yd = 'step #'
+if sz(0) eq 2 then begin
+  if axis2 lt sz(2) then yarr = yarr(*,axis2) $
+  else yarr = indgen(sz(1))
+end
+if sz(0) eq 1 and axis2 gt 0 then yarr = indgen(sz(1))
+
 	id_def = SSD.id_def(*,SSD.rank-2)
 	id_def = id_def(4:4+SSD.detMax(SSD.rank-2)-1)
-	if axis ne 0 then image2d,da2d,id_def=id_def else $
-        image2d,da2d,xarr,yarr,id_def=id_def
+
+;	if axis2 ge 4 or axis1 ge 4 then image2d,da2d,id_def=id_def else $
+        image2d,da2d,xarr,yarr,id_def=id_def, $
+	xdescs=xd,ydescs=yd,zdescs=zdescs
+END
+
+PRO sscan_getDescs,SSD,xdescs,ydescs,zdescs
+; for rank 1 only xdescs,ydescs returned
+	if SSD.rank eq 1 then begin
+	HD_P = SSD.HD_P
+	xd = HD_P(*,0)
+	xdescs = xd.RXDS
+	for i=0,3 do begin
+	if strtrim(xd(i).RXEU,2) ne ''  then xdescs(i) = xdescs(i) + ' ('+xd(i).RXEU+')'
+	end
+	HD_D = SSD.HD_D
+	yd = HD_D(0:SSD.detMax(0)-1,0)
+	ydescs = yd.DXDS
+	return
+	end
+; for rank 2 or 3
+; x desc
+	HD_P = SSD.HD_P
+	xd = HD_P(*,SSD.rank-2)
+	xdescs = xd.RXDS
+	for i=0,3 do begin
+	if strtrim(xd(i).RXEU,2) ne ''  then xdescs(i) = xdescs(i) + ' ('+xd(i).RXEU+')'
+	end
+; y desc
+	yd = HD_P(*,SSD.rank-1)
+	ydescs = yd.RXDS
+	for i=0,3 do begin
+	if strtrim(yd(i).RXEU,2) ne ''  then ydescs(i) = ydescs(i) + ' ('+yd(i).RXEU+')'
+	end
+; detector desc
+	HD_D = SSD.HD_D
+	zd = HD_D(0:SSD.detMax(SSD.rank-2)-1,SSD.rank-2)
+	zdescs = zd.DXDS
 END
 
 PRO scanSee_plot1d,SSD,xaxis
@@ -311,10 +368,11 @@ PRO scanSee_pickYaxis,Event
 	axis = widget_info(Event.id,/droplist_select)
   	widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
 	scanSee_data.pick2d = axis
+	axis1 = scanSee_data.pick1d
 	SSD = *scanSee_data.SSD
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 
-	scanSee_image2d,SSD,axis
+	scanSee_image2d,SSD,axis1,axis
 END
 
 PRO scanSee_pick3d_det,Event
@@ -1268,6 +1326,10 @@ PRO PDMENU2_Event, Event
 
   widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
   if n_elements(*scanSee_data.SSD) then SSD = *scanSee_data.SSD
+  if n_elements(SSD) eq 0 then begin
+  widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
+  return
+  end
 
   CASE Event.Value OF 
 
@@ -1305,11 +1367,12 @@ print,SSD.path
 	scanSee_plot1d,SSD,xaxis
     END
   'ViewData.2D Array...': BEGIN
-	axis = scanSee_data.pick2d
+	axis1 = scanSee_data.pick1d
+	axis2 = scanSee_data.pick2d
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 	if SSD.detMax(SSD.rank-2) eq 0 then return
 	if n_elements(*SSD.da(SSD.rank-2)) eq 0 then return
-	scanSee_image2d,SSD,axis
+	scanSee_image2d,SSD,axis1,axis2
     END
   'ViewData.3D Array...': BEGIN
 	if SSD.pick3d then begin
@@ -1605,6 +1668,12 @@ if XRegistered('SSCAN_MAIN13') then return
 	sscan_read,SSD,file=file,/echo,error=error
 	if error eq 0 then begin
 		*scanSee_data.SSD = SSD
+	endif else begin
+		st = [ 'Invalid file in  scanSee.config file:', $
+		'You have to either enter a valid file in the text field first,', $
+		'or','You have to remove the configuration file first,', $
+		'then restart the sscan again']
+		r = dialog_message(st,/error)
 	end
   end
   widget_control,SSCAN_MAIN13,set_uvalue=scanSee_data,/no_copy
