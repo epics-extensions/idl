@@ -35,10 +35,13 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	y2	: !y $
 	}
 
+  cd,current=h
+
   catch2d_file = {                $
 	XDR     : 0, $  ; default pure binary
 	version : '', $
-	path    : '', $
+	home    : h, $
+	path    : h+'/', $
         name    : 'catch1d.trashcan.image',           $
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
@@ -81,9 +84,12 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	yzline_yo : [0.,0.],$
 	yzline_zo : [0.,0.],$
 	s_wid   : -1, $       ; window id for saved pixmap
-	xarr	: make_array(512), $
-	yarr	: make_array(512), $
-	image	: make_array(512,512,/float) $
+	xarr	: make_array(1000), $
+	yarr	: make_array(1000), $
+	image	: make_array(1000,1000,/float) $
+;	xarr	: make_array(512), $
+;	yarr	: make_array(512), $
+;	image	: make_array(512,512,/float) $
         }
   
   device,bypass_translation=0,retain=2
@@ -106,9 +112,9 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	ps_r : 0.95, $		; PS right 
 	ps_t : 0.875, $		; PS top 
 	x_min	: 0, $		; user set xmin
-	x_max	: 100, $	; user set xmax
+	x_max	: 1000, $	; user set xmax
 	y_min	: 0, $		; user set ymin
-	y_max	: 100, $	; user set ymax
+	y_max	: 1000, $	; user set ymax
 	d_wid   : -1, $         ; image window id
 	s_wid   : -1, $         ; pixmap window id
 	x	: 0, $		; device cursor x
