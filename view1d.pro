@@ -981,8 +981,7 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 			res=dialog_message(temp,/info,title='PS legend problem')
 			PS_printer
 			spawn,'gv '+psfile + ' &'
-		endif else print,'spawn',str 
-  		spawn,str
+		endif else spawn,str
 	endif else begin
 		str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
 	        spawn,str
@@ -1164,7 +1163,7 @@ if XRegistered('PS_printer') then return
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.7 1998/05/14 22:29:14 cha Exp $
+; $Id: view1d.pro,v 1.8 1998/05/15 22:40:49 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1292,12 +1291,11 @@ ENDIF ELSE BEGIN
 ENDELSE
 
 filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
-		/COLUMN, $
-		SPACE = 5, XPAD = 5, YPAD = 5)
+		/COLUMN ) 
 
 label=WIDGET_LABEL(filebase,value=TITLE)
 rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
-fileprint = WIDGET_BUTTON(rowbtn, $			;create a Done Button
+fileprint = WIDGET_BUTTON(rowbtn, $			;create a Print Button
 		VALUE = "Print", $
 		UVALUE = "FILE_PRINT")
 
@@ -1333,7 +1331,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.7 1998/05/14 22:29:14 cha Exp $
+; $Id: view1d.pro,v 1.8 1998/05/15 22:40:49 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1722,7 +1720,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		; Retrieve the structure from the child that contains the sub ids.
   stash = WIDGET_INFO(parent, /CHILD)
   WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY,  BAD_ID=bad_id
-		  fileName = state.win_file
+  fileName = state.win_file
 
   CASE Ev OF 
 
@@ -1928,6 +1926,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 	  IF  WIDGET_INFO(parent, /VALID_ID) THEN BEGIN
 	      stash = WIDGET_INFO(parent, /CHILD)
 	      WIDGET_CONTROL, stash, GET_UVALUE=state, /NO_COPY, BAD_ID=bad_id
+              state.win_file= winFile
 
 	      IF (N_ELEMENTS(value) eq 0) 	then value = ''	  
 
