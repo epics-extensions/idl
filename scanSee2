@@ -23,11 +23,11 @@ echo ".run readScan.pro.R2" >>! go_viewer
 echo ".run DC.pro.R2.1" >>! go_viewer
 echo ".run vw2d.pro.R2.1" >>! go_viewer
 echo "$xdr" >>! go_viewer
-#if `isainfo -b` == 64 then
-#	source /usr/local/rsi/idl_5.4/bin/idl_setup
-#	idl -32  go_viewer
-#else
+if `isainfo -b` == 64 then
+	source /usr/local/rsi/idl_5.4/bin/idl_setup
+	idl -32  go_viewer
+else
 	source /usr/local/rsi/idl_5.3/bin/idl_setup
 	idl go_viewer
-#endif
+endif
 rm go_viewer
