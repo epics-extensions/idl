@@ -392,7 +392,7 @@ DONE:
   return, res
 END
 
-; $Id: vw2d.pro,v 1.5 2000/02/28 20:36:31 cha Exp $
+; $Id: vw2d.pro,v 1.6 2000/03/03 21:04:39 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1045,7 +1045,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.5 2000/02/28 20:36:31 cha Exp $
+; $Id: vw2d.pro,v 1.6 2000/03/03 21:04:39 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1554,7 +1554,7 @@ close,fw
         suf = strtrim(ino,2)
         ln = strlen(suf)
         strput,suf0,suf,4-ln
-        rename = catch2d_file.name+'.'+suf0
+        rename = catch2d_file.name+'.im'+suf0
 
         WIDGET_CONTROL,widget_ids.textdata,BAD_ID=bad ,/DESTROY
 ;        if widget_ids.textdata eq 0 or bad ne 0 then $
