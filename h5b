@@ -1,0 +1,16 @@
+#!/bin/csh -f
+#*************************************************************************
+# Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+# National Laboratory.
+# Copyright (c) 2002 The Regents of the University of California, as
+# Operator of Los Alamos National Laboratory.
+# This file is distributed subject to a Software License Agreement found
+# in the file LICENSE that is included with this distribution. 
+#*************************************************************************
+source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
+
+echo ".run h5b" >! go_h5b
+echo "h5b" >>! go_h5b
+echo "resolve_all" >>! go_h5b
+idl go_h5b
+rm go_h5b
