@@ -126,19 +126,24 @@ PRO	view3d_pickDet,pick3d_state, data, Event    ;file,det,data
 
 WIDGET_CONTROL,/HOURGLASS
 
-if n_elements(Scan3D) ne 0 then begin
-  ptr_free,Scan3D.scanno
-  ptr_free,Scan3D.dim
-  ptr_free,Scan3D.npts
-  ptr_free,Scan3D.cpt
-  ptr_free,Scan3D.id_def
-  ptr_free,Scan3D.pv
-  ptr_free,Scan3D.labels
-  ptr_free,Scan3D.pa
-  ptr_free,Scan3D.da
-  ptr_free,Scan3D
-	heap_gc
-end
+;if n_elements(Scan3D) ne 0 then begin
+;  rank = *Scan3D.dim
+;  ptr_free,Scan3D.scanno
+;  ptr_free,Scan3D.dim
+;  ptr_free,Scan3D.npts
+;  ptr_free,Scan3D.cpt
+;  ptr_free,Scan3D.id_def
+;  ptr_free,Scan3D.pv
+;  ptr_free,Scan3D.labels
+;  for i=0,rank-1 do begin
+;    ptr_free,(*Scan3D.pa)[i]
+;    ptr_free,(*Scan3D.da)[i]
+;  end
+;  ptr_free,Scan3D.pa
+;  ptr_free,Scan3D.da
+;  ptr_free,Scan3D
+;	heap_gc
+;end
 
 	file = pick3d_state.filename
 	det = pick3d_state.pickDet
@@ -161,9 +166,11 @@ print,'Time used in read_scan = ',systime(1)-t1,'  Detector',det
 
 	def = *Scan3D.id_def
 	pick3d_state.id_def =  def(4:89-1,*)
+	pick3d_state.labels =  *Scan3D.labels
+	pick3d_state.pv = *Scan3D.pv
 	pick3d_state.npts = *Scan3D.npts
 	pick3d_state.pickDet = det
-	pick3d_state.scanno = r 
+	pick3d_state.scanno = *Scan3D.scanno ;r 
 
 	data = *(*Scan3D.da)[0]
 
@@ -180,8 +187,8 @@ print,'Time used in read_scan = ',systime(1)-t1,'  Detector',det
 	x= *(*Scan3D.pa)[0]
 	*(pick3d_state.x) = x(0:pick3d_state.npts(0)-1)
 
-
-;	help,/memory
+	free_scanAlloc,Scan3D
+	if ptr_valid(Scan3D) then ptr_free,Scan3D
 
 	pick3d_sensitive_on,pick3d_state
 
@@ -232,9 +239,8 @@ PRO pick3d_sensitive_on,pick3d_state
 END
 
 PRO PICK3D_2DMENU_Event, Event,pick3d_state
-
+	if n_elements(*(pick3d_state.da2D)) eq 0 then return
 	da2d = *(pick3d_state.da2D)
-;	data = da2d[*,*,pick3d_state.pickDet-1]
 	x = *(pick3d_state.y)
 	y = *(pick3d_state.z)
 	title=pick3d_state.class+':'+pick3d_state.detname(pick3d_state.pickDet-1) + ' (3D_2D Result)'
@@ -248,6 +254,20 @@ PRO PICK3D_2DMENU_Event, Event,pick3d_state
 	sz = size(da2d)
 	def = pick3d_state.id_def(0:sz(3)-1,1)
 	panimage_sel,da2d,def,title= title+' (All Di)'
+
+	id_def = pick3d_state.id_def
+	det_def = id_def(*,1)
+	nd = max(where(det_def > 0))
+	labels = pick3d_state.labels
+	x_lbl =  reform(labels(*,1),89,3)
+	y_lbl =  reform(labels(*,2),89,3)
+	xdescs = x_lbl(0,0)
+        zdescs = x_lbl(4:4+sz(3)-1,1)
+	if x_lbl(0,1) ne '' then xdescs = xdescs+ ' '+ x_lbl(0,1)
+	ydescs = y_lbl(0,0)
+	if y_lbl(0,1) ne '' then ydescs = ydescs+ ' '+ y_lbl(0,1)
+	image2d,da2d,x,y,title=title,xdescs=xdescs,ydescs=ydescs, $
+		zdescs=zdescs,group=Event.top
 	END
 
   '3D_2D Menu.CALIB2D...': BEGIN
@@ -403,6 +423,7 @@ PRO PICK3D_Event, Event
 	WIDGET_CONTROL,pick3d_state.dataWID,SENSITIVE= 1 
       END
   'PICK3D_2D': BEGIN
+	if n_elements(*(pick3d_state.data)) gt 3 then begin
 	data = *(pick3d_state.data)
 	rank = pick3d_state.panAxis
 	xv = *(pick3d_state.x)
@@ -417,6 +438,7 @@ PRO PICK3D_Event, Event
 	end
 	title=pick3d_state.class+':'+pick3d_state.detname(pick3d_state.pickDet-1) + str
 	view3d_2D,data,rank,xv,yv,zv, title=title, Group=Event.top
+	end
       END
   'PICK3D_XDR': BEGIN
 	if pick3d_state.dim ne 3 then return
@@ -437,8 +459,14 @@ PRO PICK3D_Event, Event
   'PICK3D_DONE': BEGIN
 	pick3d_writeConfig,pick3d_state
 	WIDGET_CONTROL,Event.Top,/DESTROY
+	ptr_free,pick3d_state.x
+	ptr_free,pick3d_state.y
+	ptr_free,pick3d_state.z
+	ptr_free,pick3d_state.da1d
+	ptr_free,pick3d_state.da2d
 	ptr_free,pick3d_state.data
-	return
+	heap_gc
+	exit
       END
   'PICK3D_REALAXIS': BEGIN
 	pick3d_state.realaxis = Event.Value
@@ -453,9 +481,10 @@ PRO PICK3D_Event, Event
 	goto,resetuv
 	END
   'PICK3D_PANIMAGE': BEGIN
-	if pick3d_state.dim eq 3 then $
-	pick3d_panimage,pick3d_state
+	if pick3d_state.dim eq 3 then begin
+	pick3d_panimage,pick3d_state,Event
 	return
+	end
       END
   'PICK3D_HELP': BEGIN
 	str = getenv('EPICS_EXTENSIONS')
@@ -471,9 +500,29 @@ PRO PICK3D_Event, Event
       WIDGET_CONTROL,Event.Top,SET_UVALUE=pick3d_state
 END
 
-PRO pick3d_panimage,pick3d_state
+PRO pick3d_panimage,pick3d_state,Event
       data = *pick3d_state.data
-      npts = pick3d_state.npts
+	x = *pick3d_state.x
+	y = *pick3d_state.y
+	z = *pick3d_state.z
+        npts = pick3d_state.npts
+	scanno = pick3d_state.scanno
+	pv = pick3d_state.pv
+	labels = pick3d_state.labels
+	id_def = pick3d_state.id_def
+	xv = indgen(npts(0))
+	yv = indgen(npts(1))
+	zv = indgen(npts(2))
+	if pick3d_state.realaxis then begin
+		xv = x
+		yv = y
+		zv = z
+		if max(xv) eq min(xv) then xv = indgen(npts(0))
+		if max(yv) eq min(yv) then yv = indgen(npts(1))
+		if max(zv) eq min(zv) then zv = indgen(npts(2))
+	end
+
+	sz = size(data)
       title = pick3d_state.title + pick3d_state.detname(pick3d_state.pickDet-1)
       CASE pick3d_state.panAxis OF
       0: begin
@@ -482,9 +531,14 @@ PRO pick3d_panimage,pick3d_state
 	  image_data = transpose(image_data)
 	  image_data = reform(image_data,npts(1),npts(2),npts(0))
 	title = title+' (All X slices)'
-	wid = pick3d_state.panwin(0)
-	panimage,image_data,id_def,title=title,new_win=wid
-	pick3d_state.panwin(0) = wid
+	xdescs = pv[1]
+        ydescs = pv[2]
+        zdescs = 'S#'+ strtrim(indgen(sz(1))+1,2)
+	image2d,image_data,yv,zv,title=title,scanno=scanno,Group=Event.top, $
+		xdescs=xdescs,ydescs=ydescs,zdescs=zdescs,/seqnm
+;	wid = pick3d_state.panwin(0)
+;	panimage,image_data,id_def,title=title,new_win=wid
+;	pick3d_state.panwin(0) = wid
 	end
       1: begin
 	id_def = make_array(npts(1),value=1,/int)
@@ -492,20 +546,30 @@ PRO pick3d_panimage,pick3d_state
 	
 	for k=0,npts(1)-1 do begin
 	da = reform(data(*,k,*))
-	image_data(0,0,k) = da
+	image_data(*,*,k) = da(*,*)
 	end
 	title = title+' (All Y slices)'
-	wid = pick3d_state.panwin(1)
-	panimage,image_data,id_def,title=title,new_win=wid
-	pick3d_state.panwin(1) = wid
+	xdescs = pv[0]
+        ydescs = pv[2]
+        zdescs = 'S#'+ strtrim(indgen(sz(2))+1,2)
+	image2d,image_data,xv,zv,title=title,scanno=scanno,Group=Event.top, $
+		xdescs=xdescs,ydescs=ydescs,zdescs=zdescs,/seqnm
+;	wid = pick3d_state.panwin(1)
+;	panimage,image_data,id_def,title=title,new_win=wid
+;	pick3d_state.panwin(1) = wid
 	end
       2: begin
 	id_def = make_array(npts(2),value=1,/int)
 	title = title+' (All Z slices)'
 	image_data = data
-	wid = pick3d_state.panwin(2)
-	panimage,image_data,id_def,title=title,new_win=wid
-	pick3d_state.panwin(2) = wid
+	xdescs = pv[0]
+        ydescs = pv[1]
+        zdescs = 'S#'+ strtrim(indgen(sz(3))+1,2)
+	image2d,image_data,xv,yv,title=title,scanno=scanno,Group=Event.top, $
+		xdescs=xdescs,ydescs=ydescs,zdescs=zdescs,/seqnm
+;	wid = pick3d_state.panwin(2)
+;	panimage,image_data,id_def,title=title,new_win=wid
+;	pick3d_state.panwin(2) = wid
 	end
       ELSE: Message,'Unknown button pressed'
       ENDCASE
@@ -669,23 +733,23 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
       MAP=1, $
       UVALUE='BASE5_2')
 
+  panImage_3d = WIDGET_BUTTON( BASE5_2, $
+      UVALUE='PICK3D_PANIMAGE', $
+      VALUE='3D PanImages...')
+
   Btns1422 = [ $
     'X', $
     'Y', $
     'Z' ]
   BGROUP17 = CW_BGROUP( BASE5_2, Btns1422, $
       ROW=1, EXCLUSIVE=1, FRAME=1, $
-      LABEL_TOP='Pick 3D Axis', $
+      LABEL_LEFT='Pick 3D Axis', $
       UVALUE='PICK3D_PANAXIS')
   WIDGET_CONTROL,BGROUP17,SET_VALUE=0
 
-  panImage_3d = WIDGET_BUTTON( BASE5_2, $
-      UVALUE='PICK3D_PANIMAGE', $
-      VALUE='All Slices (2D Images)')
-
   realaxis = CW_BGROUP( BASE5_2, ['Index','Value'], $
 	ROW=1, EXCLUSIVE=1, FRAME=1, $
-	LABEL_TOP='Axial Values', $
+	LABEL_LEFT='Axial Values', $
       UVALUE='PICK3D_REALAXIS')
   WIDGET_CONTROL,realaxis,SET_VALUE=0
 
@@ -718,6 +782,8 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
   cd,current=p
   if keyword_set(path) then p=path
 
+  LOADCT,39
+
   pick3d_state = { $
 	parent: Group, $
 	fileWID: TEXT5, $
@@ -743,7 +809,9 @@ PRO pick3d,file=file,path=path,debug=debug,pickDet=pickDet,Group=group
 	scanno: -1, $
 	last: -1, $
 	dim: -1, $
+	pv: strarr(3), $	
 	npts: intarr(3), $
+	labels: strarr(267,3), $
 	id_def: intarr(85,3), $
 	x: ptr_new(/ALLOCATE_HEAP), $
 	y: ptr_new(/ALLOCATE_HEAP), $
