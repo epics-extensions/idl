@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.59 2004/12/10 23:40:50 cha Exp $
+; $Id: catcher_v1.pro,v 1.60 2005/03/31 17:23:52 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -289,18 +289,18 @@ END
 
 
 
-PRO rename_dialog, pathdir,oldname,newname, GROUP=Group
+PRO rename_dialog, pathdir,oldname,newname, GROUP=Group,title=title
 COMMON RENAME_BLOCK,rename_ids
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-
+  if keyword_set(title) eq 0 then title='Rename File ...'
   RENAME_DIALOG = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
       MAP=1, $
-	TITLE='Rename File ...', $
+	TITLE=title, $
       UVALUE='RENAME_DIALOG')
 
   BASE2 = WIDGET_BASE(RENAME_DIALOG, $
@@ -484,7 +484,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.59 2004/12/10 23:40:50 cha Exp $
+; $Id: catcher_v1.pro,v 1.60 2005/03/31 17:23:52 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -4531,6 +4531,7 @@ if scanData.y_scan then begin
 end
 
 if realtime_id.ind eq 0 then begin 
+	setPlotLabels
 	tempTitle=strtrim(w_plotspec_array(0))+' (1D SCAN # '+strtrim(w_plotspec_id.seqno+1,2) +')'
 
 	xrange = [0,100]
@@ -4542,12 +4543,6 @@ if realtime_id.ind eq 0 then begin
 ; Y>0
 	if w_plotspec_id.log eq 2 then y_range=[0.,w_plotspec_limits(3)] 
 	if w_plotspec_id.log eq 1 then y_range=[0.1,w_plotspec_limits(3)] 
-
-if !d.n_colors le !d.table_size then begin
-TVLCT,o_red,o_green,o_blue,/get
-restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
-TVLCT,red,green,blue
-endif else device,decomposed=1
 
 	plot,xrange=xrange, $
 		yrange=y_range, $
@@ -4701,6 +4696,12 @@ end
 
 realtime_yrange,scanData.lastPlot,ymin,ymax,plotXTitle,pos_ymin
 ;print,'axis',realtime_id.axis,xmin,xmax,ymin,ymax,plotXTitle
+
+if !d.n_colors le !d.table_size then begin
+TVLCT,o_red,o_green,o_blue,/get
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+TVLCT,red,green,blue
+endif else device,decomposed=1
 
 WSET, widget_ids.plot_area
 
@@ -5020,8 +5021,9 @@ ENDCASE
 		end
 	endif else begin
     ;   absolute mode
-	xmin = x_dv(0)
-	xmax = x_dv(1)
+	xmin = min([x_dv(0),x_dv(1)])
+	xmax = max([x_dv(0),x_dv(1)])
+
 	end
 	end
 
@@ -5921,6 +5923,10 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
       17: begin
 	xloadct, GROUP= event.top
 	end
+      18: begin
+	add_caPendEvent,timer=.1
+	print,'add_caPendEvent,timer=.1'
+	end
    ELSE:
    ENDCASE
 END
@@ -5950,7 +5956,8 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
           { CW_PDMENU_S,       0, '* Off' }, $ ;        2
           { CW_PDMENU_S,       2, '  On' }, $ ;        3
         { CW_PDMENU_S,       0, 'Scan ...' }, $ ;        2
-        { CW_PDMENU_S,       0, 'Color ...' } $ ;        2
+        { CW_PDMENU_S,       0, 'Color ...' }, $ ;        2
+        { CW_PDMENU_S,       0, 'CaPE Timer' } $ ;        2
   ]
 
 ;  PDMENU_setup = CW_PDMENU( BASE68, MenuSetup, /RETURN_FULL_NAME, $
@@ -7820,12 +7827,20 @@ COMMON CATCH1D_COM, widget_ids, scanData
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
   COMMON CATCH1D_2D_COM, data_2d
 
+catch,error_status
+if error_status ne 0 then begin
+	print,!err_string,!err
+	help,data_2d.d1
+	print,npts,y_seqno
+	return
+end
 ; assign 2D data array
 
 ip = 0
-npts = scanData.act_npts-1
+npts = scanData.req_npts-1
 y_seqno = scanData.y_seqno
-px = make_array(npts,/float)
+px = make_array(npts+1,/float)
+
 for i=0,14 do begin
 	if realtime_id.def(4+i) gt 0 then begin
 	px = scanData.da(0:npts,i)
@@ -9752,7 +9767,7 @@ scanData.pv = scanData.pvconfig
 IF chkid eq 0 then BEGIN
 
 ;   ret = caCheckMonitor(scanData.pv+'.EXSC')
-    ret = caMonitor(scanData.pv+'.EXSC',/check) 
+    ret = caMonitor(scanData.pv+'.EXSC',valchange,/check) 
 if ret eq -1 then begin                 ; ****may be error in caCheckMonitor	
 	pventry_event
 	end
@@ -9766,7 +9781,6 @@ if ret eq -1 then begin                 ; ****may be error in caCheckMonitor
 		id = cagetArray(scanData.y_pv+'.EXSC',pd) 
 		if pd(0) eq 1 then  catch1d_Start_yScan
 	end
-
 	end
 
 ; scan mode check the following
@@ -9783,7 +9797,7 @@ end
 
 scanFlag=0
 if caSearch(scanData.pv+'.EXSC') eq 0 then begin
-	ln = cagetArray([scanData.pv+'.EXSC',scanData.pv+'.DATA'],pd)
+	ln = cagetArray([scanData.pv+'.EXSC',scanData.pv+'.DATA'],pd,/short)
 	if ln eq 0 then scanFlag = pd(0) else scanFlag=0 ;======= 8/15/96
 	scanDataReady = pd(1)
 end
@@ -9802,8 +9816,9 @@ end
 ;
 ; if realtime_init has not been called, must call it here
 ;
-if w_plotspec_id.realtime eq 1 then begin
-	if  n_elements(realtime_pvnames) lt 1 then realtime_init
+	if  scanDataReady eq 0 and valchange(0) then begin
+	if w_plotspec_id.realtime eq 1 and realtime_id.ind eq -1 then $ 
+		realtime_init
 	realtime_xrange,1
 	realtime_id.axis = 1
 	  end
@@ -9823,7 +9838,7 @@ if w_plotspec_id.realtime eq 1 then begin
 
 ; if view window is opened close it while scan is going on
 
-        if XRegistered('w_viewscan') ne 0 then begin
+        	if XRegistered('w_viewscan') ne 0 then begin
                 WIDGET_CONTROL,w_viewscan_ids.base,/DESTROY
                 end
 
@@ -9832,17 +9847,23 @@ set_sensitive_off   ; when realtime is going on don't let user change
                     ; this will guard the outside client invoked scan
 		    ; only stop can terminate this
 		realtime_init
-		end
+	end
 	if realtime_id.ind ne 2 then begin
 		realtime_read,scanData.req_npts
 		WIDGET_CONTROL,widget_ids.base, timer=w_plotspec_id.dtime
-		endif else begin
+	endif else begin
 ;		WIDGET_CONTROL,widget_ids.base, /clear_events
 		empty
-
-		end
+	end
 end
-
+	if scanDataReady then begin
+	if scanData.act_npts ge scanData.req_npts then begin
+	 catch1dReadScanRecordAppendFile	
+if scanData.debug then $
+print,'A:',scanData.act_npts,scanData.req_npts,scanData.y_seqno,valchange,scanDataReady
+	goto, check2Dend
+	end
+	end
 
       ENDIF ELSE BEGIN
 ;
@@ -9850,8 +9871,14 @@ end
 ;
 	if w_plotspec_id.scan eq 1 then begin
 	if scanData.y_scan eq 0 and scanDataReady eq 0 then return
-
+	if scanData.act_npts gt 1 then begin
 	catch1dReadScanRecordAppendFile	
+if scanData.debug then $
+print,'B:',scanData.act_npts,scanData.req_npts,scanData.y_seqno,valchange,scanDataReady
+	end
+	end
+	
+check2Dend:
 ;
 ; update the cw_term with the final scan result
 ;
@@ -9862,8 +9889,6 @@ end
 
 	w_plotspec_id.scan = 0
 	after_scan
-	end
-	
 ;
 ; check whether 2D scan stopped by outside CA clients
 ;
@@ -10078,11 +10103,12 @@ end
 
       IF res EQ 0 THEN BEGIN
         WIDGET_CONTROL, widget_ids.pv_stat, SET_VALUE = '>> PV2 Valid <<'
-	res=caWidgetSetMonitor(new_pv_name+'.EXSC',widget_ids.base)
+	res=caWidgetSetMonitor(new_pv_name+'.EXSC',widget_ids.base,time=1.)
 	u = caMonitor(new_pv_name+'.EXSC',/add)
 	u = caMonitor(new_pv_name+'.NPTS',/add)
 	pd=0
 	ln = cagetArray(scanData.y_pv+'.NPTS',pd)
+	if pd(0) lt 2 then pd(0) = 2
 	if ln eq 0 then scanData.y_req_npts = pd(0)
 	realtime_id.ind = -1
 
@@ -10152,7 +10178,7 @@ scanData.pvfound = res
 
       IF res EQ 0 THEN BEGIN
         WIDGET_CONTROL, widget_ids.pv_stat, SET_VALUE = '>> PV Valid <<'
-	res=caWidgetSetMonitor(new_pv_name+'.EXSC',widget_ids.base)
+	res=caWidgetSetMonitor(new_pv_name+'.EXSC',widget_ids.base,time=1.)
 	u = caMonitor(new_pv_name+'.EXSC',/add)
 	u = caMonitor(new_pv_name+'.NPTS',/add)
 	pd=0
