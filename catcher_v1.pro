@@ -1,4 +1,4 @@
-; $Id: catcher_v1.pro,v 1.45 2000/11/30 20:03:35 cha Exp $
+; $Id: catcher_v1.pro,v 1.46 2000/12/06 18:11:35 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -801,7 +801,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
-; $Id: catcher_v1.pro,v 1.45 2000/11/30 20:03:35 cha Exp $
+; $Id: catcher_v1.pro,v 1.46 2000/12/06 18:11:35 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -7465,18 +7465,10 @@ if y_seqno lt 0 then return
 
 	end
 
-; WSET: Window is closed and unavailable.        -324  R4.0.1
-; WSET: Window is closed and unavailable.        -367  R5.0
-; WSET: Window is closed and unavailable.        -386  R5.1
 CATCH,error_status
 if error_status lt 0 then begin
-;	print,!err_string,!err
-	if error_status eq -367 or error_status eq -386 or error_status eq -324 then begin
-
-;print,'name: ',!error_state.name
-;print,'code: ',!error_state.code
-;print,'msg:  ',!error_state.msg
-;print,'sys_msg:  ',!error_state.sys_msg
+	print,!err_string,!err
+	if error_status ne 0 then begin
 
 	window,new_win, xsize = 8*width, ysize=2*height, title='2D_Images'
 		for i=0,14 do begin
@@ -7715,11 +7707,10 @@ if y_seqno lt 0 then return
 		xsize = 200, ysize=200, $
 		title='2D_Image'
 
-; -386 window not round in 5.1
+; -481 window not round in 5.4
 CATCH,error_status
 if error_status lt 0 then begin
-;	print,!err_string,!err
-	if error_status eq -367 or error_status eq -386 or error_status eq -324  then begin
+	if error_status ne 0 then begin
 	window,new_win, $
 		xsize = 200, ysize=200, $
                 title='2D_Image'
@@ -7749,14 +7740,6 @@ end
 	ENDCASE
 	
 	TVSCL,congrid(data_2d.image, 200, 200)
-;	temp = congrid(data_2d.image, 200, 200)
-;	TVSCL,temp
-
-;v_max = max(temp)
-;v_min = min(temp)
-;dv = v_max - v_min
-;if dv eq 0 then fact = !d.n_colors else fact = !d.n_colors / dv
-;	TV, temp*fact
 
 	wset,old_win
 END
@@ -9515,8 +9498,10 @@ end ;     end of if scanData.option = 1
 	ez_fit,x=x,y=y,GROUP=Event.Top
 	END
   'PICK_IMAGE': BEGIN
-	wdelete,!D.window - 1		; 2D image window
 	scanData.image = Event.Index + 1
+	catch,status_error
+	if status_error ne 0 then return
+	wdelete,!D.window - 1		; 2D image window
 	END
   'BINARY_TYPE': BEGIN
 	scanData.XDR = Event.Index
@@ -10240,6 +10225,9 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;                        Change the dialog info if configuration error is
 ;                        detected, it allows the user re-enter the File menu.
 ;       08-31-00 bkc   - Add the error handling for null file entered 
+;       12-06-00 bkc   - R2.2.2c8+
+;                        Fix realtime panimage window problem
+;                        Replace GIF by XDR saving options in view2d, plot2d
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10269,7 +10257,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R2.2.2c8)', $
+      TITLE='Scan Data Catcher (R2.2.2c8+)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10519,7 +10507,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R2.2.2c8)'
+scanData.release = '(R2.2.2c8+)'
 
 ; get start home work directory
 
