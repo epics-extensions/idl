@@ -14,9 +14,11 @@ if private ne '' then $
 print,!path
 ;
 !QUIET=1
+
 ;  assign color
-window,colors=16
+window,colors=32
 wdelete
+
 print,'Run ezcaIDL ...'
 .run ezcaIDL
 print,'Run ezcaIDLWidgets ...'
