@@ -99,9 +99,6 @@ PRO scanSee_pick3d,file,image_array,pickDet=pickDet,Dump=dump,Group=group
         	'01','02','03','04','05','06','07','08','09', $
         	strtrim(indgen(61)+10,2)]
 
-	title = strmid(file,rstrpos(file,!os.file_sep)+1,strlen(file)) + $
-		'('+detname(pick-1)+')'
-
 	labels = *Scan.labels
 	id_def = *Scan.id_def
 	scansee_getLabels,labels,id_def,rank=2,label_state,def=def
@@ -113,6 +110,9 @@ if label_state.p_desc(0) ne '' then ydesc = ydesc + '('+label_state.p_desc(0)+')
 	scansee_getLabels,labels,id_def,rank=0,label_state,def=def
 xdesc = label_state.d_name(pick-1)
 if label_state.p_desc(0) ne '' then xdesc = xdesc + '('+label_state.d_desc(pick-1)+')'
+	title = strmid(file,rstrpos(file,!os.file_sep)+1,strlen(file)) + $
+		'('+detname(pick-1)+')'
+
 
 	pa1d= *(*Scan.pa)[2]
 	pa2d= *(*Scan.pa)[1]
@@ -121,6 +121,7 @@ if label_state.p_desc(0) ne '' then xdesc = xdesc + '('+label_state.d_desc(pick-
 	yv = pa2d(*,0)
 	xv = pa3d(*,0)
 	image_array = *(*Scan.da)[0]
+
 	view3d_2d,image_array,0,xv,yv,zv,title=title,Group=group,descs=[xdesc,ydesc,zdesc]
 END
 
@@ -599,6 +600,7 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,pict=pict
 	filename = self.file
 	
 	xyz = *(*self.gD).da3D
+	if n_elements(xyz) lt 3 then return
 	id_def = self.def
 
 	if rank eq 2 then data = reform(xyz(*,*,kindex,*))
@@ -929,7 +931,7 @@ self.win = new_win
 	if old_win eq 0 then wdelete,0
 END
 
-PRO scanSee::Next,seqno,filename,error=error
+PRO scanSee::Next,seqno,filename,error=error,pickDet=pickDet
 ;+
 ; NAME:
 ;       scanSee::Next
@@ -946,6 +948,8 @@ PRO scanSee::Next,seqno,filename,error=error
 ;
 ; KEYWORD:
 ;     ERROR     - returns the error code, non-zero if not found
+;     PICKDET   - control the 3D data array returned
+;                 pickdet=-1 no 3D data will be returned
 ;
 ; EXAMPLE:
 ;    Following examples replace the current object by next scan number.
@@ -979,7 +983,7 @@ PRO scanSee::Next,seqno,filename,error=error
 	found = findfile(filename,count=ct)
 	if ct gt 0 then begin
 	self->delete
-	self = obj_new('scanSee',file=filename)
+	self = obj_new('scanSee',file=filename,pickDet=pickDet)
 	endif else begin
 	  res = dialog_message(filename+' not found!',/Error)
 	  error=-1
@@ -987,7 +991,7 @@ PRO scanSee::Next,seqno,filename,error=error
 	if n_elements(seqno) then seqno = seqno + 1
 END
 
-PRO scanSee::Prev,seqno,filename,error=error
+PRO scanSee::Prev,seqno,filename,error=error,pickDet=pickDet
 ;+
 ; NAME:
 ;       scanSee::Prev
@@ -1004,6 +1008,8 @@ PRO scanSee::Prev,seqno,filename,error=error
 ;
 ; KEYWORD:
 ;     ERROR     - returns the error code, non-zero if not found
+;     PICKDET   - control the 3D data array returned
+;                 pickdet=-1 no 3D data will be returned
 ;
 ; EXAMPLE:
 ;    Following example replace the current object by previous scan number.
@@ -1037,7 +1043,7 @@ PRO scanSee::Prev,seqno,filename,error=error
 	found = findfile(filename,count=ct)
 	if ct gt 0 then begin
 	self->delete
-	self = obj_new('scanSee',file=filename)
+	self = obj_new('scanSee',file=filename,pickDet=pickDet)
 	endif else begin
 	  res = dialog_message(filename+' not found!',/Error)
 	  error = -1
@@ -1045,7 +1051,7 @@ PRO scanSee::Prev,seqno,filename,error=error
 	if n_elements(seqno) then seqno = seqno - 1
 END
 
-PRO scanSee::First,seqno,filename
+PRO scanSee::First,seqno,filename,pickDet=pickDet
 ;+
 ; NAME:
 ;       scanSee::First
@@ -1058,6 +1064,10 @@ PRO scanSee::First,seqno,filename
 ;
 ; ARGUMENTS:
 ;      None.
+;
+; KEYWORDS:
+;     PICKDET   - control the 3D data array returned
+;                 pickdet=-1 no 3D data will be returned
 ;
 ; EXAMPLE:
 ;    Following example replace the current object by first scan number.
@@ -1075,7 +1085,7 @@ PRO scanSee::First,seqno,filename
 	found = findfile(filename,count=ct)
 	if ct gt 0 then begin
 	self->delete
-	self = obj_new('scanSee',file=filename)
+	self = obj_new('scanSee',file=filename,pickDet=pickDet)
 	return
 	end
 
@@ -1102,11 +1112,11 @@ print,filename
 	; if seqno found then replace the current
 
 	self->delete
-	self = obj_new('scanSee',file=filename)
+	self = obj_new('scanSee',file=filename,pickDet=pickDet)
 	end
 END
 
-PRO scanSee::Last,seqno,filename
+PRO scanSee::Last,seqno,filename,pickDet=pickDet
 ;+
 ; NAME:
 ;       scanSee::Last
@@ -1120,6 +1130,10 @@ PRO scanSee::Last,seqno,filename
 ; ARGUMENTS:
 ;      SEQNO      -  returns the last scan seqno found
 ;      Filename   - returns the filename of the last scan
+;
+; KEYWORDS:
+;     PICKDET   - control the 3D data array returned
+;                 pickdet=-1 no 3D data will be returned
 ;
 ; EXAMPLE:
 ;    Following example replace the current object by the most recent scan 
@@ -1161,7 +1175,7 @@ print,filename
 	if n_params() lt 2 then return
 
 	self->delete
-	self = obj_new('scanSee',file=filename)
+	self = obj_new('scanSee',file=filename,pickDet=pickDet)
 END
 
 PRO scanSee::Print,debug=debug
@@ -1916,7 +1930,7 @@ PRO scanSee::Cleanup
 	heap_gc	
 END
 
-FUNCTION scanSee::Init,file=file,help=help
+FUNCTION scanSee::Init,file=file,help=help,pickDet=pickDet
 ;+
 ; NAME:
 ;       scanSee::Init
@@ -1934,6 +1948,11 @@ FUNCTION scanSee::Init,file=file,help=help
 ; KEYWORD:
 ;     FILE   - specifies the input scanSee filename
 ;     HELP   - prints the usage syntax 
+;    PICKDET - specifies the desired 3D detector number 
+;              If specified instead of returning all 3D detectors, only the
+;              specified detector 3D array is returned
+;              If pickDet=-1 is specified bypass the returning of large
+;              3D detector array 
 ;
 ; EXAMPLE:
 ;    Following example creates a scanSee object.
@@ -1944,6 +1963,8 @@ FUNCTION scanSee::Init,file=file,help=help
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       xx-xx-xxxx      comment
 ;-
+
+widget_control,/hourglass
 
 	if keyword_set(file) then filename = strtrim(file,2) else begin
 		return,0
@@ -1970,7 +1991,7 @@ FUNCTION scanSee::Init,file=file,help=help
 
 	if ptr_valid(self.gD) then scanimage_free,self.gD
 heap_gc
-	scanimage_alloc,filename,gD,scanno
+	scanimage_alloc,filename,gD,scanno,pickDet=pickDet
 	self.gD = gD
 	
 	self.scanno = *(*gD).scanno 
