@@ -93,7 +93,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 ;	image	: make_array(512,512,/float) $
         }
   
-  device,bypass_translation=0,retain=2
+if !d.name eq 'X' then device,bypass_translation=0,retain=2
 
   view_option = { $
 	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
