@@ -13,12 +13,17 @@ setenv IDL_DEVICE X
 
 setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
 
+set PRM=""
+if $1 != "" then 
+	set PRM=",filename='$1'"
+endif
+
 echo ".run ez_fit" >! go_viewer
 echo ".run read_scan.pro.R2" >>! go_viewer
 echo ".run readScan.pro.R2" >>! go_viewer
 echo ".run scanSee__define.pro.R2" >>! go_viewer
 echo ".run scanSee.pro" >>! go_viewer
-echo "scanSee" >>! go_viewer
+echo "scanSee $PRM" >>! go_viewer
 idl go_viewer
 rm go_viewer
 
