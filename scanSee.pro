@@ -223,7 +223,7 @@ PRO VIEWSPEC_3D_2DMENU_event, Event, state
   v = state.v
 	v->read,view=state.detno,dim=dim,cpt=cpt, $
 		da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
-		da3d=da3d,pa3d=pa3d,pv=pv, $
+		da3d=da3d,pa3d=pa3d,pv=pv, outpath=outpath, $
 		x=xa,y=ya,im=im,labels=labels,id_def=id_def
 	x = pa2d(*,0) 
 	y = pa1d(*,0)
@@ -734,6 +734,27 @@ PRO SS_VIEWSPEC_Event, Event
 	if state.dim eq 1 then $
 	v->ascii1d,state.lineno,format=state.format,group=Event.top
       END
+  'VIEWSPEC_VIEW3D_VW2D': BEGIN
+	v->read,view=state.detno,dim=dim,cpt=cpt, $
+		da1d=da1d,pa1d=pa1d,da2d=da2d,pa2d=pa2d, $
+		da3d=da3d,pa3d=pa3d,pv=pv, outpath=outpath,$
+		x=xa,y=ya,im=im,labels=labels,id_def=id_def
+
+	x = pa2d(*,0) 
+	y = pa1d(*,0)
+	sz = size(da2d)
+
+        scansee_getLabels,labels,id_def,rank=2,label_state,def=def
+        ydescs = label_state.p_desc
+        scansee_getLabels,labels,id_def,rank=1,label_state,def=def
+        xdescs = label_state.p_desc
+        zdescs = label_state.d_desc(0:sz(3)-1) 
+
+	def = id_def(4:4+sz(3)-1,1)
+	image2d,da2d,x,y,GROUP=Event.top,title=state.filename,pv=pv(1:2), $
+		outpath=outpath,id_def=def, $
+		xdescs=xdescs,ydescs=ydescs,zdescs=zdescs
+     END
   'VIEWSPEC_VIEW3D_2D': BEGIN
 	v->view3d_2d,state.detno,group=Event.top
       END
@@ -812,7 +833,7 @@ PRO SS_VIEWSPEC_Event, Event
 	WIDGET_CONTROL,/HOURGLASS
 	  if state.toobig eq 0 then $
 		v->view3d_2d,state.detno,group=Event.top else $
-	  scanSee_pick3d,state.filename,pickDet=state.detno
+	  	scanSee_pick3d,state.filename,pickDet=state.detno
 	end
 	return
       END
@@ -872,7 +893,8 @@ PRO scanSee, GROUP=Group, fileno=fileno, format=format, filename=filename
 ;                     If 3D data is too big the 3D data can be read by selection;                     only
 ;   06-18-2002   bkc  R2.3 
 ;                     Add Info Record, Color table menus
-;                     Add Plop/pick 1D data in 3D_2D and 2D_1D menu
+;                     Add Plot/pick 1D data in 3D_2D and 2D_1D menu
+;   07-15-2002   bkc  Add call Image2d... buttons for 2D and 3D file 
 ;-
 
 if XRegistered('SS_VIEWSPEC') then return
@@ -1104,14 +1126,54 @@ filetype = WIDGET_LABEL( BASE4, $
   MenuDesc496 = [ $
       { CW_PDMENU_S,       3, '3D_2D Menu' }, $ ;        0
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
-;        { CW_PDMENU_S,       0, 'VW2D...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Pick 2D...' }, $ ;        1
+;        { CW_PDMENU_S,       0, 'View 2D...' }, $ ;        1
+;        { CW_PDMENU_S,       0, 'VW2D...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Calibration...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Plot/Pick 1D...' }, $ ;        2
         { CW_PDMENU_S,       2, 'CALIB1D...' } $ ;        2
   ]
   DC_view3d_2dmenu = CW_PDMENU( BASE28_6, MenuDesc496, /RETURN_FULL_NAME, $
       UVALUE='VIEWSPEC_3D_2DMENU')
+
+ ; @vw2d.bm
+  BMP749 = [ $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 23b, 228b, 56b, 111b ], $
+    [ 18b, 164b, 108b, 247b ], $
+    [ 50b, 166b, 68b, 145b ], $
+    [ 82b, 165b, 4b, 17b ], $
+    [ 82b, 181b, 5b, 49b ], $
+    [ 82b, 21b, 245b, 47b ], $
+    [ 210b, 245b, 37b, 193b ], $
+    [ 146b, 20b, 53b, 129b ], $
+    [ 146b, 20b, 61b, 145b ], $
+    [ 18b, 20b, 33b, 247b ], $
+    [ 23b, 20b, 33b, 111b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 30b, 31b, 0b, 0b ], $
+    [ 62b, 63b, 0b, 0b ], $
+    [ 48b, 99b, 0b, 0b ], $
+    [ 48b, 99b, 0b, 0b ], $
+    [ 48b, 99b, 0b, 0b ], $
+    [ 24b, 99b, 0b, 0b ], $
+    [ 12b, 99b, 102b, 6b ], $
+    [ 6b, 115b, 102b, 6b ], $
+    [ 62b, 63b, 0b, 0b ], $
+    [ 62b, 31b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ], $
+    [ 0b, 0b, 0b, 0b ]  $
+  ]
+  BUTTON38_1 = WIDGET_BUTTON( BASE28_6, $
+      UVALUE='VIEWSPEC_VIEW3D_VW2D', $
+      VALUE=BMP749,/BITMAP)
 
   BUTTON25 = WIDGET_BUTTON( BASE28_6, $
       UVALUE='VIEWSPEC_VIEW3D_2D', $
@@ -1188,14 +1250,16 @@ filetype = WIDGET_LABEL( BASE4, $
   PDMENU2D_panimage = CW_PDMENU( BASE28_1, MenuPANImage, /RETURN_FULL_NAME, $
       UVALUE='PDMENU2D_PANIMAGE_SCANSEE')
 
-  @vw2d.bm
-  BUTTON38 = WIDGET_BUTTON( BASE28_1, $
-      UVALUE='VIEWSPEC_VW2D', $
-      VALUE=BMP167,/BITMAP)
-
   BUTTON38 = WIDGET_BUTTON( BASE28_1, $
       UVALUE='VIEWSPEC_2D_1DOUTER', $
       VALUE='2D_1D Data... ')
+
+  BUTTON38 = WIDGET_BUTTON( BASE28_1, $
+      UVALUE='VIEWSPEC_VW2D', $
+      VALUE=BMP749,/BITMAP)
+;  @vw2d.bm
+;  BUTTON38 = WIDGET_BUTTON( BASE28_1, value='VIEW2D...',$
+;      UVALUE='VIEWSPEC_VW2D') 
 
   BASE28_3 = WIDGET_BASE(BASE28_0, /FRAME, $
       COLUMN=1, UVALUE='BASE28_3')
