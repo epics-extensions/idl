@@ -835,9 +835,12 @@ unit = self.unit
         self.scanno_2d = 0
         self.scanno_2d_last = 0
 	WHILE NOT  EOF(unit) DO BEGIN
-	id = id + 1
 		u_read,unit,pvs
 		u_read,unit,nos
+;  the EOF(unit) will not work on XDR data, following is add for terminate
+;  the read
+;        if self.scanno_2d_last gt nos(4) then goto,readfail   
+	id = id + 1
 		u_read,unit,x
 		u_read,unit,y
 		u_read,unit,image
@@ -863,9 +866,9 @@ unit = self.unit
 		self.seqno = self.seqno + 1 
 
 	if detector gt 1 then self.image_no(self.scanno_2d_last) = self.seqno
-
 	END
 
+readfail:
 	maxno = id
 	self.maxno = maxno
 	self.seqno = maxno-1
@@ -924,10 +927,11 @@ PRO scan2d::panImage,scanno,factor
 ;       calculated from the current 2D image sequence number.
 ;
 ; CALLING SEQUENCE:
-;       Obj->[scan2d::]panImage [,Scanno]
+;       Obj->[scan2d::]panImage [,Scanno] [,Factor]
 ;
 ; ARGUMENTS:
 ;  Scanno:  Specifies the 2D scan # 
+;  Factor:  Optional input, to specify the panImage window ratio factor 
 ;
 ; KEYWORDS:
 ;     None.   
@@ -980,7 +984,7 @@ end
 		if EOF(unit) eq 1 then goto,update
 		u_read, unit, pvs
 		u_read, unit, nos
-		if nos(4) gt seq then goto,update
+		if nos(4) ne seq then goto,update
 		u_read, unit, x
 		u_read, unit, y
 		u_read, unit, t_image
@@ -1021,7 +1025,7 @@ self.win = new_win
 	if def(sel) gt 0 then begin
 	v_max = max(image_array(*,*,sel),min=v_min)
 	if v_max eq v_min then begin
-		temp = view_option.ncolors * image_array(*,*,sel) 
+		temp = !d.table_size * image_array(*,*,sel) 
 		TV,congrid(temp,width,height),sel
 	endif else begin
 		temp = congrid(image_array(*,*,sel), width, height)
@@ -1067,7 +1071,6 @@ struct = { scan2d, $
         name    : 'catch1d.trashcan.image',           $
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
-	pan     : 0, $ ; seqno at pan all detectors
         win     : -1, $; pan window # $
 ;       mode    : 0,            $   ; 0 - scan, 1 - view
         seqno   : 0, $		; image seq #
