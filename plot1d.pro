@@ -709,10 +709,9 @@ if !d.n_colors gt !d.table_size  then device,decomposed=1
 	x = x(cpt0:cpt,*)   
 
 	if state.userscale eq 0 then begin
-		state.xrange = [min(x),max(x)]
+;		state.xrange = [min(x),max(x)]
+		state.xrange = [x(cpt0),x(cpt)]
 		state.yrange = [min(y),max(y)]
-;		state.xrange = [min(state.x),max(state.x)]
-;		state.yrange = [min(y),max(y)]
 	endif else begin
 		state.xrange = [state.xmin,state.xmax]
 		state.yrange = [state.ymin,state.ymax]
@@ -882,7 +881,7 @@ if s(0) eq 2 and state.legendon gt 0 then begin
 	xyouts,real_xr,real_yl, state.legend(pick(i)), color=state.tcolor
 	end
 end
-device,decomposed=0
+if !d.n_colors gt !d.table_size then device,decomposed=0
 
 END
 
