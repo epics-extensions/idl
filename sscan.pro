@@ -23,8 +23,7 @@ PRO rix2DC,Scan,gData
   *gData.id_def  = Scan.id_def
   *gData.pv      = Scan.pv
   *gData.labels  = Scan.labels
-  if Scan.rank gt 1 then *gData.ts = *Scan.ts2 else *gData.ts = Scan.ts1
-
+  if Scan.rank gt 1 then *gData.ts = *Scan.ts2 else *gData.ts = Scan.ts1 
 	rank = Scan.rank
 	IF rank EQ 1 THEN BEGIN
     *gData.pa1D  = *Scan.pa[0]
@@ -36,7 +35,7 @@ PRO rix2DC,Scan,gData
 	ENDIF
 	IF rank EQ 2 THEN BEGIN
     *gData.pa1D  = *Scan.pa[1]
-    *gData.da1D  = *Scan.da[1]
+    *gData.da1D  = *Scan.da[1] 
     *gData.pa2D  = *Scan.pa[0] 
     *gData.da2D  = *Scan.da[0] 
 	  *gData.pa3D  = 0
@@ -156,7 +155,7 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 
 ; SSD->Scan
 reread:
-  sscan_read,Scan,file=filename,/header,error=error
+  sscan_read,Scan,file=filename,/header,error=error,pick3d=pickDet
    if n_elements(Scan) eq 0 then goto,BAD
    if error eq -1 then begin
    scanSee_free,Scan
@@ -169,35 +168,30 @@ reread:
         if Scan.rank lt 3 then pickDet=0
   end
 
-  IF Scan.rank EQ 3  THEN BEGIN
-  	IF n_elements(pickDet) EQ 0 THEN BEGIN 
-        IF npts(0) GE 1000 or npts(1) GE 500 OR npts(2) GE 500 THEN pickDet = 16
-	  ENDIF
- 	nel =1L *npts(0)*npts(1)*npts(2)
-	if nel gt 500000000L then begin
-	msg = ['Warning! 3D scan array dimension kind of big', string(npts), $
-		'Only one detector returned : ',string(pickDet)]
-	print,msg
-	end
-  ENDIF
-
   IF keyword_set(header) THEN GOTO,DONE
 
   case Scan.rank of
   3: begin
   	if n_elements(pickDet) then begin
-	dpick = where(Scan.id_def(4:88,0) gt 0)
-;	if pickDet lt 0 then pick3d=0 else $
-	pick3d = where((dpick-pickDet+1) eq 0)
-	if pick3d ge -1 then begin
-	Scan.pick3d = 1 
-	sscan_read3DPick,Scan,da2D,da3D,idet=pick3d
-	if Scan.im_filled(2) eq 0 then scanSee_fillVector,Scan,da1D  ;,/echo
+	if pickDet lt 0 then begin
+	  Scan.pick3d = 0
+	  sscan_read3D,Scan,da2D,/only2d
+	  if Scan.im_filled(Scan.rank-2) eq 0 then  $
+		scanSee_fillImage,Scan,da2D  ;,/echo
+	endif else begin
+	  dpick = where(Scan.id_def(4:88,0) gt 0)
+	  pick3d = where((dpick-pickDet+1) eq 0)
+	  if pick3d ge -1 then begin
+	  Scan.pick3d = 1 
+	  sscan_read3DPick,Scan,da2D,idet=pick3d
+	  if Scan.im_filled(Scan.rank-2) eq 0 then  $
+		scanSee_fillImage,Scan,da2D  ;,/echo
+	  end
+	end
 	endif else begin
 	msg = ['Error: pick3D Detector # '+string(pickDet) + ' not defined!']
 	r = dialog_message(msg,/error)
 	return,-1
-	end
 	end
      end
    1: sscan_read,Scan,file=filename,/data
@@ -233,30 +227,6 @@ reread:
   end
 
 ; fill det array for Scan structure 
-
-
-  IF Scan.rank EQ 3 THEN BEGIN
-  IF n_elements(pickDet) THEN BEGIN
-	v = *Scan.da(0)
-  ENDIF ELSE BEGIN
-  if detMax(0) gt SSD.nb_det(0) then begin
-	i = 0
-	d = fltarr(npts(0),npts(1),npts(2),detMax(i))
-	v = *Scan.da(i)
-	np = Scan.nb_det(i)
-	if np gt 0 then begin
-	jj = 0
-	for j=0,detMax(i)-1 do begin
-	  if Scan.id_def(4+j,i) then begin
-	  d(*,*,*,j) = v(*,*,*,jj) 
-  	  jj = jj+1
-	  end
-	end	
-	end
-	*(*scan.da)[0] = d
-  end
-  END
-  END
 
   res= Scan.scanno
   lastDet = DetMax
@@ -301,8 +271,8 @@ PRO scanSee_writeConfig,SSD
 END
 
 PRO scanSee_image2d,SSD,axis1,axis2
+
 	if SSD.rank eq 1 then return
-        da2d = *SSD.da(SSD.rank-2)
 	xarr = *SSD.pa(SSD.rank-2)
 	yarr = *SSD.pa(SSD.rank-1)
 
@@ -327,8 +297,9 @@ if sz(0) eq 1 and axis2 gt 0 then yarr = indgen(sz(1))
 	id_def = SSD.id_def(*,SSD.rank-2)
 	id_def = id_def(4:4+SSD.detMax(SSD.rank-2)-1)
 
+;        da2d = *SSD.da(SSD.rank-2)
 ;	if axis2 ge 4 or axis1 ge 4 then image2d,da2d,id_def=id_def else $
-        image2d,da2d,xarr,yarr,id_def=id_def, $
+        image2d,*SSD.da(SSD.rank-2),xarr,yarr,id_def=id_def, $
 	xdescs=xd,ydescs=yd,zdescs=zdescs
 END
 
@@ -504,7 +475,7 @@ PRO scanSee_pick4d_det,Event
 	scanSee_data.pick4d = idet
 	if n_elements(*scanSee_data.SSD) then SSD = *scanSee_data.SSD
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
-
+	
 	sscan_read4dPick,ssd,pda4d,idet=idet
 
 	view4d,pda4d,group=Event.top,SSD=SSD ,title='4D: Detector # '+strtrim(idet,2)
@@ -517,16 +488,16 @@ PRO scanSee_pick3d_det,Event
 	if n_elements(*scanSee_data.SSD) then SSD = *scanSee_data.SSD
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 	if ssd.rank eq 3 then begin
-	sscan_read3DPick,SSD,da2D,pda3D,idet=idet
+	sscan_read3DPick,SSD,da2D,idet=idet
 	nd = where(SSD.id_def(4:88,0) gt 0)
 	title=SSD.class+' : 3D Seq # :D_'+strtrim(nd(idet)+1,2)
-	view3d_2d,pda3D,title=title,group=Event.top
+	view3d_2d,*SSD.da[0],title=title,group=Event.top
 	end
 	if ssd.rank eq 4 then begin
-	pda3d = *ssd.da(1)
+;	pda3D = *ssd.da(1)
 	nd = where(SSD.id_def(4:88,1) gt 0)
 	title=SSD.class+' : 3D Seq # :D_'+strtrim(nd(idet)+1,2)
-	view3d_2d,pda3D(*,*,*,idet),title=title,group=Event.top
+	view3d_2d,(*ssd.da(1))(*,*,*,idet),title=title,group=Event.top
 	end
 END
 
@@ -534,6 +505,17 @@ PRO scanSee_checkrank,scanSee_data
   	SSD = *scanSee_data.SSD
   	WIDGET_CONTROL, scanSee_data.type_wid, set_value= strtrim(SSD.rank)+'D'
 
+	if SSD.rank lt 3 then begin
+	    WIDGET_CONTROL,scanSee_data.p4d_wid,SENSITIVE=0 
+	    WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0 
+	    return
+	end
+	if SSD.rank eq 3 then begin
+	    WIDGET_CONTROL,scanSee_data.p4d_wid,SENSITIVE=0 
+	    WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 
+	    widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
+	    return
+	end
 	if SSD.rank eq 4 then begin
 	  if ssd.nb_det(1) gt 0 then begin
 	    WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1
@@ -557,11 +539,9 @@ PRO scanSee_field,Event
   widget_control,Event.top,get_uvalue=scanSee_data,/no_copy
 	catch,error_status
 	if error_status ne 0 then begin
-	  close,1	
+		print,!error_state
 	endif else begin
-	openr,1,file
-	close,1
-  	sscan_read,SSD,file=file,/echo,error=error
+  	sscan_read,SSD,file=file,/echo,error=error,pick3d=-1
 	if error eq 0 then begin
 	 scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
@@ -569,9 +549,7 @@ PRO scanSee_field,Event
   	widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
 	if SSD.rank eq 3 then WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 $
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
-
 	scanSee_checkrank,scanSee_data
-
 	end
 	end
   widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
@@ -591,7 +569,7 @@ PRO scanSee_first,Event
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo,error=error
+  	sscan_read,SSD,file=file,/echo,error=error,pick3d=-1
 	if error eq 0 then begin
 	 scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
@@ -626,7 +604,7 @@ PRO scanSee_next,Event
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo,error=error
+  	sscan_read,SSD,file=file,/echo,error=error,pick3d=-1
 	if error eq 0 then begin
 	scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
@@ -660,7 +638,7 @@ PRO scanSee_prev,Event
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo,error=error
+  	sscan_read,SSD,file=file,/echo,error=error,pick3d=-1
 	if error eq 0 then begin
 	 scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
@@ -692,7 +670,7 @@ PRO scanSee_last,Event
 	endif else begin
 	openr,1,file
 	close,1
-  	sscan_read,SSD,file=file,/echo,error=error
+  	sscan_read,SSD,file=file,/echo,error=error,pick3d=-1
 	if error eq 0 then begin
 	 scanSee_writeConfig,SSD
   	*scanSee_data.SSD = SSD
@@ -722,8 +700,8 @@ PRO SCANSEE_READ_PICK3D_Event, Event
 	da3d = da3d_state.da3d
 	detID = da3d_state.detID
   	widget_control,Event.Top,set_uvalue=da3d_state
-	da = da3d(*,*,*,i)
-	view3d_2d,da,group=Event.top,title='3D Array Seq # '+': D_'+strtrim(i+1,2)
+;	da = da3d(*,*,*,i)
+	view3d_2d,da3d(*,*,*,i),group=Event.top,title='3D Array Seq # '+': D_'+strtrim(i+1,2)
       END
   'SCANSEE_READ_DONE': BEGIN
 	widget_control,event.top,/destroy
@@ -795,12 +773,13 @@ heap_gc
 ; print,ptr_valid()
 END
 
-PRO sscan_readHeader,file=file,SSD,echo=echo,error=error
+PRO sscan_readHeader,file=file,SSD,echo=echo,error=error,pick3d=pick3d
 ;  this routine closes the old lun and frees the pointer
 ;  then open the file set create the data pointer and
 ;  leave the file lun open until next call of this routine
 ;  
 
+if n_elements(pick3d) eq 0 then pick3d=-1
 error=0
 catch,error_status
 if error_status ne 0 then begin
@@ -872,7 +851,7 @@ HD_T = make_array(4,mdim,value=trg_info)
 	EH	: ptr_new(/allocate_heap), $
 	da	: ptrarr(mdim,/allocate_heap), $
 	pa	: ptrarr(mdim,/allocate_heap), $
-	da0	: ptrarr(mdim,/allocate_heap), $
+;	da0	: ptrarr(mdim,/allocate_heap), $
 	sub_scan_ptr : ptrarr(mdim-1,/aLLOCATE_HEAP) $	
 	}
 
@@ -914,7 +893,6 @@ SSD.lun = lun
   readu,lun,rank,npts,cpt
   SSD.npts(rank-1) = npts
   SSD.cpt(rank-1) = cpt
-
   IF(rank GT 1) THEN BEGIN
     sub_scan_ptr=lonarr(npts)
     readu,lun,sub_scan_ptr
@@ -923,15 +901,34 @@ SSD.lun = lun
   ENDIF
 
 
+if keyword_set(echo) then print,'rank,npts,cpt:',rank,npts,cpt
+if keyword_set(echo) then print,'ssd.npts=',ssd.npts
+
   ; read the pvname
   name=''
   time=''
-  readu,lun,name,time
+  readu,lun,name
+if keyword_set(echo) then print,'pvname=',name
+
+if strtrim(name,2) eq '' then begin
+	error = -1
+	print,'Bad file...',file
+	return
+end
+  readu,lun,time
+if strlen(time) eq 0 or  strlen(time) gt 31 then begin
+	error = -1
+	print,'Bad file...',file
+	return	
+end
+if keyword_set(echo) then print,'time=',time
+
   SSD.pv(rank-1) = name
   SSD.ts1 = time
 
-if rank gt 1 then begin
-ts2 = make_array(cpt,value='                               ',/string)
+if rank gt 1 and rank eq tmp.rank then begin
+ts2 = make_array(SSD.npts(rank-1)+1,value='                               ',/string)
+ts2(SSD.npts(rank-1)) = SSD.ts1
 *SSD.ts2 = ts2
 end
 
@@ -943,64 +940,6 @@ end
   SSD.nb_det(rank-1) = nb_det 
   SSD.nb_trg(rank-1) = nb_trg 
   if keyword_set(echo) then print,nb_pos,nb_det,nb_trg
-
-  if tmp.rank eq 4 then begin
-    if ir eq 1 then begin
-	nar = 1L*dim(0)*dim(1)*dim(2)*dim(3)
-	if dim(0) ge 1000 or nar gt 2601000 then SSD.pick4d = 1
-	if nb_det gt 0 then $
-	  *SSD.da(3) = make_array(dim(3),nb_det) else $
-	  *SSD.da(3) = make_array(dim(3),1) 
-    end
-    if ir eq 2 then begin
-	if nb_det gt 0 then $
-	  *SSD.da(2) = make_array(dim(2),dim(3),nb_det) else $
-	  *SSD.da(2) = make_array(dim(2),dim(3),1) 
-    end
-    if ir eq 3 then begin
-	if SSD.pick3d eq 0 and nb_det gt 0 then $
-	  *SSD.da(1) = make_array(dim(1),dim(2),dim(3),nb_det) else $
-	  *SSD.da(1) = make_array(dim(1),dim(2),dim(3),1) 
-help,*SSD.da(1),*SSD.da(1)
-    end
-    if ir eq 4 then begin
-	if SSD.pick4d eq 0 and nb_det gt 0 then $
-	  *SSD.da(0) = make_array(dim(0),dim(1),dim(2),dim(3),nb_det) else $
-	  *SSD.da(0) = make_array(dim(0),dim(1),dim(2),dim(3),1) 
-    end
-  end
-
-  if tmp.rank eq 3 then begin
-    if ir eq 1 then begin
-	nar = 1L*dim(0)*dim(1)*dim(2)
-	if dim(0) ge 1000 or nar gt 2601000 then SSD.pick3d = 1
-	if nb_det gt 0 then $
-	  *SSD.da(2) = make_array(dim(2),nb_det) else $
-	  *SSD.da(2) = make_array(dim(2),1) 
-    end
-    if ir eq 2 then begin
-	if nb_det gt 0 then $
-	  *SSD.da(1) = make_array(dim(1),dim(2),nb_det) else $
-	  *SSD.da(1) = make_array(dim(1),dim(2),1) 
-    end
-    if ir eq 3 then begin
-	if SSD.pick3d eq 0 and nb_det gt 0 then $
-	  *SSD.da(0) = make_array(dim(0),dim(1),dim(2),nb_det) else $
-	  *SSD.da(0) = make_array(dim(0),dim(1),dim(2),1) 
-    end
-  end
-
-  if tmp.rank eq 2 then begin
-     if ir eq 1 then begin
-	if nb_det gt 0 then $
-	   *SSD.da(1) = make_array(dim(1),nb_det) 
-     end
-     if ir eq 2 then begin
-	if nb_det gt 0 then $
-	   *SSD.da(0) = make_array(dim(0),dim(1),nb_det)
-     end
-  end
-
 
 
 ; read header
@@ -1041,6 +980,63 @@ help,*SSD.da(1),*SSD.da(1)
     HD_T(num,rank-1) = trg_info
     if keyword_set(echo) then print,'trigger:',i,rank,num,trg_info
   ENDFOR
+
+  if tmp.rank eq 4 then begin
+    if ir eq 1 then begin
+	if nb_det gt 0 then $
+	  *SSD.da(3) = make_array(dim(3),nb_det,/float) else $
+	  *SSD.da(3) = make_array(dim(3),1,/float) 
+    end
+    if ir eq 2 then begin
+	if nb_det gt 0 then $
+	  *SSD.da(2) = make_array(dim(2),dim(3),nb_det,/float) else $
+	  *SSD.da(2) = make_array(dim(2),dim(3),1,/float) 
+    end
+    if ir eq 3 then begin
+	if SSD.pick3d eq 0 and nb_det gt 0 then $
+	  *SSD.da(1) = make_array(dim(1),dim(2),dim(3),nb_det,/float) else $
+	  *SSD.da(1) = make_array(dim(1),dim(2),dim(3),1,/float) 
+    end
+    if ir eq 4 then begin
+	nar = 1L*dim(0)*dim(1)*dim(2)*dim(3)
+	if dim(0) ge 1000 or nar gt 2601000 then SSD.pick4d = 1
+	if SSD.pick4d eq 0 and nb_det gt 0 then $
+	  *SSD.da(0) = make_array(dim(0),dim(1),dim(2),dim(3),nb_det,/float) else $
+	  *SSD.da(0) = make_array(dim(0),dim(1),dim(2),dim(3),1,/float) 
+    end
+  end
+
+  if tmp.rank eq 3 then begin
+    if ir eq 1 then begin
+	if nb_det gt 0 then $
+	  *SSD.da(2) = make_array(dim(2),nb_det,/float) else $
+	  *SSD.da(2) = make_array(dim(2),1,/float) 
+    end
+    if ir eq 2 then begin
+	if nb_det gt 0 then $
+	  *SSD.da(1) = make_array(dim(1),dim(2),nb_det,/float) else $
+	  *SSD.da(1) = make_array(dim(1),dim(2),1,/float) 
+    end
+    if ir eq 3 and pick3d ge 0 then begin
+	nar = 1L*dim(0)*dim(1)*dim(2)
+	if dim(0) ge 1000 or nar gt 2601000 then SSD.pick3d = 1
+	if SSD.pick3d eq 0 and nb_det gt 0 then $
+	  *SSD.da(0) = make_array(dim(0),dim(1),dim(2),nb_det,/float) else $
+	  *SSD.da(0) = make_array(dim(0),dim(1),dim(2),1,/float) 
+    end
+  end
+
+  if tmp.rank eq 2 then begin
+     if ir eq 1 then begin
+	if nb_det gt 0 then $
+	   *SSD.da(1) = make_array(dim(1),nb_det,/float) 
+     end
+     if ir eq 2 then begin
+	if nb_det gt 0 then $
+	   *SSD.da(0) = make_array(dim(0),dim(1),nb_det,/float)
+     end
+  end
+
 
 ; read 1st data set
 
@@ -1150,76 +1146,70 @@ print,EH
 end
 END
 
-PRO scanSee_fillVector,SSD,rim_array,echo=echo
+PRO scanSee_fillVector,SSD,im_array,echo=echo
 ; map to real defined detector vector array
 
   if SSD.nb_det(SSD.rank-1) eq 0 then return
-  im_array = *SSD.da(SSD.rank-1)
-  if SSD.im_filled(SSD.rank-1) eq 0 then *SSD.da0(SSD.rank-1) = im_array
-	x = *SSD.pa(SSD.rank-1)
-  sz = size(im_array)
+  if SSD.im_filled(SSD.rank-1)  then return
+
+  npts=SSD.npts
   detMax = SSD.detMax(SSD.rank-1)
+  if detMax eq 0 then return
+  im_array = make_array(npts(SSD.rank-1),detMax)
+  sz = size(*SSD.da(SSD.rank-1))
 
 if detMax gt sz(2) then begin
-  if SSD.im_filled(SSD.rank-1) eq 0 then begin
-	rim_array = make_array(sz(1),detMax)
 	id_def = SSD.id_def(4:88,SSD.rank-1)
 	jj=0
 	for ij=0,detMax-1 do begin
 		if id_def(ij) then begin
-		rim_array(*,ij) = im_array(*,jj)
+		im_array(*,ij) = (*SSD.da(SSD.rank-1))[*,jj]
 		jj = jj+1
 		end
 	end
 
-	*SSD.da(SSD.rank-1) = rim_array
+	*SSD.da(SSD.rank-1) = im_array
 	SSD.im_filled(SSD.rank-1) = 1
-  endif else begin
-		rim_array = im_array
-  end
-endif else begin
-	rim_array = im_array
-end
+
 	if keyword_set(echo) then begin
 	title = strtrim(SSD.rank,2)+"D SCAN #"+strtrim(SSD.scanno,2)
-	plot1d,x,rim_array,title=title,/data
+	x = *SSD.pa(SSD.rank-1)
+	plot1d,x,im_array,title=title,/data
 	end
+end
 END
 
 
-PRO scanSee_fillImage,SSD,rim_array,echo=echo
+PRO scanSee_fillImage,SSD,im_array,echo=echo
 ; map to real defined detector image array
 
   if SSD.rank lt 2 then return
-  im_array = *SSD.da(SSD.rank-2)
-  if SSD.im_filled(SSD.rank-2) eq 0 then *SSD.da0(SSD.rank-2) = im_array
-  sz = size(im_array)
+  if SSD.im_filled(SSD.rank-2) then return
+
+  npts=SSD.npts
   detMax = SSD.detMax(SSD.rank-2)
+  if detMax eq 0 then return
+  im_array = make_array(npts(SSD.rank-2),npts(SSD.rank-1),detMax) 
+		;,value=!values.F_NAN)
+  sz = size(*SSD.da(SSD.rank-2))
 
 if detMax gt sz(3) then begin
-  if SSD.im_filled(SSD.rank-2) eq 0 then begin
-	rim_array = make_array(sz(1),sz(2),detMax)
 	id_def = SSD.id_def(4:88,SSD.rank-2)
 	jj=0
 	for ij=0,detMax-1 do begin
 		if id_def(ij) then begin
-		rim_array(*,*,ij) = im_array(*,*,jj)
+		im_array(*,*,ij) = (*SSD.da(SSD.rank-2))[*,*,jj]
 		jj = jj+1
 		end
 	end
 
-	*SSD.da(SSD.rank-2) = rim_array
+	*SSD.da(SSD.rank-2) = im_array
 	SSD.im_filled(SSD.rank-2) = 1
-  endif else begin
-	rim_array = im_array
-  end
-endif else begin
-	rim_array = im_array
-end
 	if keyword_set(echo) then begin
 	title = strtrim(SSD.rank,2)+"D SCAN #"+strtrim(SSD.scanno,2)
-	panimage,rim_array,id_def,numd=10,title=title
+	panimage,im_array,id_def,numd=10,title=title
 	end
+end
 END
 
 PRO sscan_read2D,SSD,da2D
@@ -1241,14 +1231,8 @@ PRO sscan_read2D,SSD,da2D
 	*SSD.da(0) = da2D
 END
 
-PRO scanSee_pick3D,SSD,da2D,da3D,idet=idet,file=file
-	if keyword_set(file) eq 0 then file=SSD.file
-	sscan_readHeader,SSD,file=file
-	sscan_read3DPick,SSD,da2D,pda3D,idet=idet
-	view3d_2d,pda3D,title=SSD.class+' : 3D Seq # '+strtrim(idet+1,2)
-END
 
-PRO sscan_read3DPick,SSD,da2D,pda3D,idet=idet
+PRO sscan_read3DPick,SSD,da2D,idet=idet
 ; read 3D scan
    if SSD.rank lt 3 then return
 	ptr3D = *SSD.sub_scan_ptr(0)
@@ -1256,9 +1240,8 @@ PRO sscan_read3DPick,SSD,da2D,pda3D,idet=idet
 	if keyword_set(idet) eq 0 then idet=0
 	if idet ge SSD.nb_det(0) then return
 widget_control,/hourglass
-;t1=systime(1)
 	da2D = *SSD.da(1)
-	pda3D = make_array(SSD.npts(0),SSD.npts(1),SSD.npts(2),1)
+	*SSD.da[0] = make_array(SSD.npts(0),SSD.npts(1),SSD.npts(2),1)
 	cpt = SSD.cpt
 	d = make_array(SSD.npts(0))	; alloc data vector
 tp = 0L
@@ -1284,43 +1267,40 @@ tp = 0L
 			readu,SSD.lun,d
 		  tp = tp+SSD.lrecl
 		end
+if j eq 0 then print,'Reading 3D ...',k,j,tp1,tp
 		if n_elements(d2) gt 1 then $
-		pda3D(0,j,k,0) = d
+		(*SSD.da[0])[0,j,k,0] = d
 		if j eq 0 then pa3D = p2
 	  end
 	end
 
 	end
-;print,'time used=',systime(1)-t1
 
-	if idet ge 0 then *SSD.da[0] = pda3D
-	
 	if SSD.im_filled(1) eq 0 then begin
 		*SSD.da[1] = da2D
 		scanSee_fillImage,SSD,da2D  ;,/echo
 	end
-widget_control,/clear_events
-;	if idet ge 0 then view3d_2d,pda3D,title=SSD.class+' : 3D Seq # '+strtrim(idet+1,2)
 END
 
-PRO sscan_read3D,SSD,da2D,da3D
+PRO sscan_read3D,SSD,da2D,only2d=only2d
 ; read 3D scan
    if SSD.rank lt 3 then return
 
 	ptr3D = *SSD.sub_scan_ptr(0)
 	if n_elements(ptr3D) eq 0 then return
 ;t1=systime(1)
-	da3D = *SSD.da(0)
 	da2D = *SSD.da(1)
 	cpt = SSD.cpt
 	for k=0,cpt(2)-1 do begin
 	  pos = ptr3D(k)
-	  sscan_read1D,SSD,k,level=0,pa=p1,da=d1 
+	  if pos gt 0 then begin
+	  sscan_read1D,SSD,k,level=0,pa=p1,da=d1
  	  point_lun,-SSD.lun,tp1
 	  if n_elements(d1) gt 1 then da2D(*,k,*) = d1(*,*)
 	  if k eq 0 then pa2D = p1
-	  for j=0,cpt(1)-1 do begin
-;		sscan_read1D,SSD,j,level=1,pa=p2,da=d2 
+	  
+	  if keyword_set(only2d) eq 0 or only2d eq 0 then begin
+	    for j=0,cpt(1)-1 do begin
 		if j eq 0 then begin
 		sscan_read1D,SSD,j,level=1,pa=p2,da=d2 
 		  point_lun,-SSD.lun,tp
@@ -1335,13 +1315,15 @@ PRO sscan_read3D,SSD,da2D,da3D
 		end
 		point_lun,-SSD.lun,tp
 		if n_elements(d2) gt 1 then $
-		da3D(*,j,k,*) = d2(*,*)
+		(*SSD.da(0))[*,j,k,*] = d2(*,*)
 		if j eq 0 then pa3D = p2
 	  end
 	end
+	end
+	end
 
-	*SSD.da(0) = da3D
 	*SSD.da(1) = da2D
+
 ;print,'time used=',systime(1)-t1
 END
 
@@ -1383,7 +1365,8 @@ if keyword_set(echo) then print,sub_scan_ptr
   time=''
   readu,lun,name,time
   SSD.pv(rank-1) = name
-  (*SSD.ts2)[seqno] = time
+  if SSD.rank lt 4 then (*SSD.ts2)[seqno] = time
+  if keyword_set(echo) then print,name,',',time
 
   nb_pos=0
   nb_det=0
@@ -1497,17 +1480,16 @@ PRO sscan_read,SSD,file=file,path=path,echo=echo,pick3d=pick3d,header=header,dat
 	if  error eq -1  then return
 
 	if keyword_set(data) then goto,dataonly
-	sscan_readHeader,SSD,file=file,error=error
+	sscan_readHeader,SSD,file=file,error=error,pick3d=pick3d
 	if  error ne 0  then return
 	if keyword_set(header) then return
 
 dataonly:
-WIDGET_CONTROL,/HOURGLASS
 	if SSD.rank eq 2 then sscan_read2D,SSD,da2D
-
 	if SSD.rank eq 3 then begin
-	if SSD.pick3d then sscan_read3DPick,SSD,da2D,da3D,idet=pick3d else $
-	sscan_read3D,SSD,da2D,da3D
+	if n_elements(pick3d) eq 0 or pick3d lt 0 then SSD.pick3d=0
+	if SSD.pick3d then sscan_read3DPick,SSD,da2D,idet=pick3d else $
+	sscan_read3D,SSD,da2D,/only2d
 	end
 
 ; need implement sscan_read4D
@@ -1525,26 +1507,27 @@ WIDGET_CONTROL,/HOURGLASS
 		da1D = *SSD.da(0)
 		if keyword_set(echo) then plot1d,da1D,title='SSCAN: Scan # '+strtrim(SSD.scanno,2)
 	end
+
+
 	if SSD.rank eq 2 then begin
-		da2d = *SSD.da(0)
-		if SSD.nb_det(1) then da1D = *SSD.da(1)
+;		if SSD.nb_det(1) then da1D = *SSD.da(1)
+;		da2d = *SSD.da(0)
 		id_def = SSD.id_def(4:4+SSD.detMax(0)-1,0)
-		panimage,da2D,id_def,numd=10,title='SSCAN: 2D scan #'+strtrim(SSD.scanno,2)
+		panimage,*SSD.da(0),id_def,numd=10,title='SSCAN: 2D scan #'+strtrim(SSD.scanno,2)
 	end
 
 if n_elements(zslice) eq 0 then zslice=1
 
 	if SSD.rank eq 3 then begin 
-		da3D = *SSD.da(0)
-		da2D = *SSD.da(1)
-		da1D = *SSD.da(2)
+;		da2D = *SSD.da(1)
 		title='SSCAN: 3D Scan #'+strtrim(SSD.scanno,2)
 		if SSD.nb_det(1) gt 0 then begin
 			id_def = SSD.id_def(4:4+SSD.detMax(1)-1,1)
-			 panimage,da2D,id_def,numd=10,title=title 
+			 panimage,*SSD.da(1),id_def,numd=10,title=title 
 		endif else begin
 		; only 3D data detected, extract second slice from da3D
-		sz = size(da3D)
+		if n_elements(*SSD.da(0)) gt 2 then begin
+		sz = size(*SSD.da(0))
 		if sz(0) eq 4 then begin
 		da = make_array(sz(1),sz(2),SSD.detMax(0))
 		id_def = SSD.id_def(4:4+SSD.detMax(0)-1,0)
@@ -1552,21 +1535,20 @@ if n_elements(zslice) eq 0 then zslice=1
 		for i=0,SSD.detMax(0)-1 do begin
 		  if id_def(i) gt 0 then begin
 		  if zslice ge SSD.cpt(ssd.rank-1) then zslice = ssd.cpt(ssd.rank-1)-1
-		  da(*,*,i) = da3d(*,*,zslice,ip)       ; 2nd scan
+		  da(*,*,i) = (*SSD.da(0))(*,*,zslice,ip)       ; 2nd scan
 		  ip=ip+1
 		  end
 		end
-
 		title='SSCAN: 3D Scan #'+strtrim(SSD.scanno,2)+'  Zslicer:'+strtrim(zslice,2)
 		panimage,da,id_def,numd=10,title=title
+		end
 		end
 		end
 	end
 
 	if SSD.rank eq 4 then begin
-		da2D = *SSD.da(2)
-		da1D = *SSD.da(3)
-		if SSD.nb_det(2) gt 0 then panimage,da2D
+;		da2D = *SSD.da(2)
+		if SSD.nb_det(2) gt 0 then panimage,*SSD.da(2)
 		if SSD.nb_det(1) gt 0 then begin
 		id_def = ssd.id_def(4:4+ssd.nb_det(1)-1,1)
 		da3D = *SSD.da(1)
@@ -1578,7 +1560,6 @@ if n_elements(zslice) eq 0 then zslice=1
 help,da4D
 		end
 	end
-WIDGET_CONTROL,/clear_events
 END
 
 
@@ -1628,7 +1609,8 @@ PRO PDMENU2_Event, Event
 
 
   'File.Open...': BEGIN
-	sscan_read,SSD,/echo,error=error
+  	WIDGET_CONTROL,Event.top,/HOURGLASS
+	sscan_read,SSD,/echo,error=error,pick3d=-1
 	if error eq 0 then begin
 	 scanSee_writeConfig,SSD
 	*scanSee_data.SSD = SSD
@@ -1679,25 +1661,24 @@ print,SSD.path
 
     END
   'ViewData.3D Array...': BEGIN
-	if SSD.pick3d then begin
+	if SSD.rank eq 4 then begin
   	widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
 	if SSD.rank eq 3 then WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 $
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
 	end
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 	if ssd.rank lt 3 then return
-	ip = 0
-	if ssd.rank eq 4 then ip=1 
+	if ssd.rank eq 3 then begin
+	r = dialog_message(title='3D Array...', $
+		['Please use "Pick3D Seq # . " droplist', $
+		' to select the desired 3D data array.'],/info)
+	end
+	if ssd.rank eq 4 then begin
+	ip=1 
 	if n_elements(*SSD.da(ip)) eq 0 then return
 	detID = SSD.nb_det(ssd.rank-3)
 	if detID le 0 then return
-	if SSD.pick3d eq 0 then $
-	sscan_read_pick3d,*SSD.da(ip),detID=detID,group=Event.top else begin
-	r = dialog_message(title='3D Array...', $
-		['Please use "Pick3D Seq # . " droplist', $
-		' to select the other desired 3D data array.'],/info)
-	title=SSD.class+' : 3D Seq # :D_'+strtrim(detID(ip)+1,2)
-	view3d_2d,*SSD.da(ip),title=title
+	sscan_read_pick3d,*SSD.da(ip),detID=detID,group=Event.top 
 	end
     END
   'Scan Info.Axes Info...': BEGIN
@@ -1814,6 +1795,7 @@ PRO SSCAN_MAIN13_Event, Event
   'PDMENU2': PDMENU2_Event, Event
 
   'FIELD3': BEGIN
+  	WIDGET_CONTROL,Event.top,/HOURGLASS
 	scanSee_field,Event
       END
   'SSCAN_PICKAX': BEGIN
@@ -1823,21 +1805,27 @@ PRO SSCAN_MAIN13_Event, Event
 	scanSee_pickYaxis,Event
       END
   'SSCAN_PICK4D': BEGIN
+  	WIDGET_CONTROL,Event.top,/HOURGLASS
 	scanSee_pick4d_det,Event
       END
   'SSCAN_PICK3D': BEGIN
+  	WIDGET_CONTROL,Event.top,/HOURGLASS
 	scanSee_pick3d_det,Event
       END
   'SSCAN_FIRST': BEGIN
+  	WIDGET_CONTROL,Event.top,/HOURGLASS
 	scanSee_first,Event
       END
   'SSCAN_NEXT': BEGIN
+  	WIDGET_CONTROL,Event.top,/HOURGLASS
 	scanSee_next,Event
       END
   'SSCAN_PREV': BEGIN
+  	WIDGET_CONTROL,Event.top,/HOURGLASS
 	scanSee_prev,Event
       END
   'SSCAN_LAST': BEGIN
+  	WIDGET_CONTROL,Event.top,/HOURGLASS
 	scanSee_last,Event
       END
   'SSCAN_DONE': BEGIN
@@ -1845,6 +1833,7 @@ PRO SSCAN_MAIN13_Event, Event
 	SSD = *scanSee_data.SSD
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
 	scanSee_writeConfig,SSD
+	scanSee_free,SSD
 	widget_control,Event.top,/destroy,bad_id=bad
       END
 
@@ -2022,7 +2011,8 @@ if XRegistered('SSCAN_MAIN13') then return
 	}
 
   if keyword_set(file) then begin
-	sscan_read,SSD,file=file,/echo,error=error
+  	WIDGET_CONTROL,SSCAN_MAIN13,/HOURGLASS
+	sscan_read,SSD,file=file,/echo,error=error,pick3d=-1
 	if error eq 0 then begin
 		*scanSee_data.SSD = SSD
 		scanSee_writeConfig,SSD
