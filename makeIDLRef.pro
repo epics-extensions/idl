@@ -121,6 +121,16 @@ mk_html_help,'colorbar.pro','html/colorbarRef.html', $
 
 END
 
+PRO panImageRef
+descript=[ '<H1>panimage.pro</H1> ', $
+'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This is a utility routine for generating the panImage on a plot device.' $
+]
+mk_html_help,'panimage.pro','html/panImageRef.html', $
+	descript=descript
+
+END
+
 PRO u_readRef
 descript=[ '<H1>u_read.pro</H1> ', $
 'At APS this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
@@ -235,6 +245,18 @@ mk_html_help,'calibration_factor.pro','html/calibrationRef.html', $
 	descript=descript
 END
 
+PRO view3d_slicerRef
+descript=[ '<H1>view3d_slicer.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application VIEW3D_SLICER to flexiblely', $
+'access the 2D data from the 3D data array. Currently, the 3D data must be automatically saved by', $
+'the IOC scan software in XDR format. ']
+
+mk_html_help,'view3d_slicer.pro','html/view3D_slicerRef.html', $
+	descript=descript
+END
+
+;
 PRO scan1d_ObjectRef
 ;
 descript=[ '<H1>scan1d__define.pro</H1> ', $
@@ -293,7 +315,7 @@ END
 
 PRO scanSee_ObjectRef
 ;
-descript=[ '<H1>scanSee__define.pro</H1> ', $
+descript=[ '<H1>scanSee__define.pro.R2</H1> ', $
 'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
 'This program is written in IDL object programming language .', $
 'It allows the IDL user easily to access the scan data written by the IOC scan software.', $
@@ -305,16 +327,18 @@ descript=[ '<H1>scanSee__define.pro</H1> ', $
 'in his/her IDL search path.', $
 '<P>From the unix operating system to access IDL <I><B>scanSee</B></I> object class by entering :', $
 "<PRE><B>     idl</B>", $
-"<PRE><B>     IDL> .run scanSee__define</B></PRE>", $
-'<P>The files used by <B>scanSee__define.pro</B> are automatically loaded into IDL for user.', $
+"<PRE><B>     IDL> .run scanSee__define.pro.R2</B></PRE>", $
+"<PRE><B>     IDL> .run read_scan.pro.R2</B></PRE>", $
+"<PRE><B>     IDL> .run readScan.pro.R2</B></PRE>", $
+'<P>The files used by <B>scanSee__define.pro.R2</B> are automatically loaded into IDL for user.', $
 "</B><P>For an example to create a <I><B>'scanSee'</B></I> object with variable name as <B>v2</B>, ", $
 "where the scan data is saved in the file <B><I>'/home/sricat/CHA/data/rix/cha:_0039.scan'</I></B>:", $
 
 "<PRE><B>     file=<I>'/home/sricat/CHA/data/rix/cha:_0039.scan'</I></B>", $
 "<B>     v2 = obj_new('scanSee',file=<I>file</I>)</B></PRE>", $
 
-"<P>To view the 4th detector's image from the file:", $
-'<PRE><B>     v2->view2d,4 </B></PRE>', $
+"<P>To view the 16th detector's image from the file:", $
+'<PRE><B>     v2->view2d,16 </B></PRE>', $
 "<P>To run the calibration program for the file:", $
 '<PRE><B>     v2->calibration </B></PRE>' $
 ]
@@ -376,6 +400,55 @@ mk_html_help,'readScan.pro','html/readScan.html', $
 	descript=descript
 END
 
+PRO multiroi_pickRef
+descript=[ '<H1>multiroi_pick.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application MULTIROI_PICK to flexiblely', $
+'define multiple 2D-ROIs and caluculates statistics with any input 2D image.']
+
+mk_html_help,'multiroi_pick.pro','html/multiroi_pickRef.html', $
+	descript=descript
+END
+
+PRO pick3dRef
+descript=[ '<H1>pick3d.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application PICK3D to flexiblely', $
+'pick a 3D scan detector and obtaining various display features of the 3D data.']
+
+mk_html_help,'pick3d.pro','html/pick3d.html', $
+	descript=descript
+END
+
+PRO view3d_2dsumRef
+descript=[ '<H1>view3d_2dsum.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application VIEW3D_2DSUM to flexiblely', $
+'define multiple 2D-ROIs and caluculates statistics with any input 3D image.']
+
+mk_html_help,'view3d_2dsum.pro','html/view3d_2dsum.html', $
+	descript=descript
+END
+
+PRO view3d_2dRef
+descript=[ '<H1>view3d_2d.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a widget application VIEW3D_2D to flexiblely', $
+'extract any 2D data array from the input 3D data array.']
+
+mk_html_help,'view3d_2d.pro','html/view3d_2dRef.html', $
+	descript=descript
+END
+
+PRO xdr_openRef
+descript=[ '<H1>xdr_open.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides IDL users a set of simple to use routines to handle XDR file. ', $
+'It provides XDR open, write, read, and close to access xdr fromat.']
+
+mk_html_help,'xdr_open.pro','html/xdr_open.html', $
+	descript=descript
+END
 
 PRO makeIDLRef
 ; This program builds the catcher.html from the source files
@@ -410,8 +483,8 @@ PRO makeIDLRef
 ; PS_openRef
 	PS_openRef
 
-; CW_TermRef
-	CW_TermRef
+; cw_termRef
+	cw_termRef
 
 ;  toImageRef
 
@@ -438,10 +511,28 @@ PRO makeIDLRef
 ; readScanRef
 	readScanRef
 
+; scan2dOverlayRef
+	scan2dOverlayRef
 ; scan2d_convertRef
 	scan2d_convertRef
-; scan2d_ROIRef
-	scan2d_ROIRef
 ; calibrationRef
 	calibrationRef
+; view3d_slicerRef
+	view3d_slicerRef
+; scan2d_ROIRef
+	scan2d_ROIRef
+; colorbarRef
+	colorbarRef
+; panImageRef
+	panImageRef
+; multiROI_pickRef
+	multiROI_pickRef
+; pick3dRef
+	pick3dRef
+; view3d_2dsumRef
+	view3d_2dsumRef
+; view3d_2dRef
+	view3d_2dRef
+; xdr_OpenRef
+	xdr_OpenRef
 END
