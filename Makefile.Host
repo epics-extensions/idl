@@ -18,7 +18,7 @@ IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 	os.init PS_open.pro u_read.pro cw_term.pro plot1d.pro plot2d.pro \
 	colorbar.pro rename_dialog.pro scan2d_roi.pro xdisplayfile.pro \
 	fit_statistic.pro calibration_factor.pro calibra_pick1d.pro \
-	calibdrv.pro \
+	calibdrv.pro iplot1d.pro \
  	dc2ins_2d dc2ins_1d \
 	go_scan1d  go_scan2d \
 	dc2tiff.pro scan2d_convert.pro \
@@ -49,7 +49,7 @@ SCRIPTS_DEFAULT = ezcaidl_setup idluserdir_setup \
 	catcher toimage \
 	viewer mda2vol \
 	dc2hdf img \
-	hdfb NX \
+	hdfb.sav hdfb NX \
 	scanSee \
 	SB \
 	pick3d 
