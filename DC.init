@@ -50,6 +50,7 @@ DB_HD = { $
       plot_wid    : DRAW61,       $
       plot_area   : DRAW61_Id,    $
       pickpan     : pick_panimage, $
+      pickimin    : pick_imin, $
       panwin      : -1,    $
       summary_base: 0L,      $
       terminal    : 0L,    $
@@ -142,6 +143,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       image        : 1, $		; default 60x60 image 
       image_width  : 60, $
       image_height : 60, $
+	imin	   : 0, $		; pick imin for image display
 	sel_list   : intarr(nd), $	; panimage sublist
 	sel_id 	   : 8, $		; 0 - D01-D10, 8 - All 
 	sel_changed: 0, $		; changed sublist
