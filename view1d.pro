@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: view1d.pro,v 1.21 2002/08/02 15:39:03 jba Exp $
+; $Id: view1d.pro,v 1.22 2003/05/05 20:59:13 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -19,11 +19,11 @@ WIDGET_CONTROL, event.id, GET_UVALUE=Ev
 CASE Ev OF 
 'EXIT': WIDGET_CONTROL, event.top, /DESTROY
 'FILE_PRINT': begin
-	r = findfile(state.file,count=ct)
+	r = findfile(state.filename,count=ct)
 	if r(0) ne '' then begin
-		PS_enscript,state.file
+		PS_enscript,state.filename
 	endif else begin
-	WIDGET_CONTROL,state.text_area,GET_VALUE=str
+	WIDGET_CONTROL,state.filetext,GET_VALUE=str
 	openw,unit,'tmp',/GET_LUN
 	for i=0,n_elements(str)-1 do printf,unit,str(i)
 	FREE_LUN,unit
@@ -35,7 +35,7 @@ END
 
 
 PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
-		HEIGHT = HEIGHT, TEXT = TEXT, FONT = font
+	HEIGHT = HEIGHT, TEXT = TEXT, FONT = font, BLOCK=block,MODAL=MODAL
 ;+
 ; NAME: 
 ;	XDISPLAYFILE
@@ -74,6 +74,10 @@ PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
 ;	WIDTH:	The number of characters wide the widget should be.  If this
 ;		keyword is not specified, 80 characters is the default.
 ;
+;	BLOCK:  Set this keyword to have XMANAGER block when this application 
+;	        is registered. By default the Xmanager keyword NO_BLOCK 
+;	        is set to 1
+;	MODAL: 
 ; OUTPUTS:
 ;	No explicit outputs.  A file viewing widget is created.
 ;
@@ -96,14 +100,20 @@ PRO XDisplayFile, FILENAME, TITLE = TITLE, GROUP = GROUP, WIDTH = WIDTH, $
 ;      16 Jun. 1997     BKC Max dispalyable line is 10000 for non-unix OS system.
 ;      28 Aug. 1997     BKC Add the printer button, file name label, it uses the
 ;                       PS_print,file to print.
+;      30 Jul. 2002     BKC Add the block, modal keywords take care the 
+;                       animation help problem
+;      09 Aug  2002     BKC fix the problem with no input filename case
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
                                                         ;use the defaults if
 IF(NOT(KEYWORD_SET(HEIGHT))) THEN HEIGHT = 24		;the keywords were not
 IF(NOT(KEYWORD_SET(WIDTH))) THEN WIDTH = 80		;passed in
 
+if n_elements(block) eq 0 then block=0
+noTitle = n_elements(title) eq 0
+
 IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
-  IF(NOT(KEYWORD_SET(TITLE))) THEN TITLE = FILENAME     
+  IF noTitle THEN TITLE = FILENAME     
   OPENR, unit, FILENAME, /GET_LUN, ERROR=i		;open the file and then
   if i lt 0 then begin		;OK?
 	a = [ !err_string, ' Can not display ' + filename]  ;No
@@ -138,8 +148,14 @@ ENDIF ELSE BEGIN
     a = TEXT
 ENDELSE
 
+ourGroup = 0L
+if n_elements(group) eq 0 then ourGroup = widget_base() else ourGroup=group
+
+if keyword_set(MODAL) then $
+filebase = WIDGET_BASE(TITLE = TITLE, /MODAL, $		;create the base
+		GROUP=ourGROUP,/COLUMN ) else $
 filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
-		/COLUMN ) 
+		GROUP=ourGROUP,/COLUMN ) 
 
 label=WIDGET_LABEL(filebase,value=TITLE)
 rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
@@ -163,12 +179,10 @@ ELSE filetext = WIDGET_TEXT(filebase, $			;create a text widget
 		/SCROLL, $
 		VALUE = a)
 
-state = { $
-	 base: filebase, $
-	 text_area: filetext, $
-	 file: '' $
-	 }
-if n_elements(filename) then state.file = filename
+ state = { ourGroup: ourGroup, $
+	filename: title, $
+	filetext: filetext, $
+	notitle: noTitle}
 
 WIDGET_CONTROL,filebase,SET_UVALUE=state
 
@@ -177,11 +191,11 @@ WIDGET_CONTROL, filebase, /REALIZE			;instantiate the widget
 Xmanager, "XDisplayFile", $				;register it with the
 		filebase, $				;widget manager
 		GROUP_LEADER = GROUP, $
-		EVENT_HANDLER = "XDispFile_evt" 
+		EVENT_HANDLER = "XDispFile_evt",NO_BLOCK=(NOT(FLOAT(block))) 
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.21 2002/08/02 15:39:03 jba Exp $
+; $Id: view1d.pro,v 1.22 2003/05/05 20:59:13 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -4209,6 +4223,13 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 	view1d_plotspec_id.xcord = Event.Index - 1
 	view1d_UPDATE_PLOT, V1D_scanData.lastPlot
 	END
+  'PICK_PS': BEGIN
+	ratio=0.5^(Event.Index+1)
+	PS_open,'view1d.ps',scale_factor=ratio
+	view1d_UPDATE_PLOT, V1D_scanData.lastPlot
+	PS_close
+	PS_print,'view1d.ps'
+	END
   'PICK_XDR': BEGIN
 	V1D_scanData.XDR = Event.Index
 	END
@@ -4333,6 +4354,8 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;                       X vector was found.
 ;                       ASCII files will be saved under ASCII sub-directory
 ;                       Add submenu FWHM on Y and DY/DX to Statistic menu
+;       05-17-03  bkc   R1.5e+ 
+;		        Add option of selection 'PS ratio' droplist
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -4572,6 +4595,10 @@ end
 
   pick_xaxis = WIDGET_DROPLIST(BASE144_1, VALUE=BTNS913, $
         UVALUE='PICK_XAXIS',TITLE='Xaxis')
+  WIDGET_CONTROL,pick_xaxis,set_droplist_select = 1
+
+  pick_ps = WIDGET_DROPLIST(BASE144_1, VALUE=['1/2','1/4','1/8'], $
+        UVALUE='PICK_PS',TITLE='PS ratio')
   WIDGET_CONTROL,pick_xaxis,set_droplist_select = 1
 
   Btns1994 = [ $
