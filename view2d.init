@@ -1,5 +1,5 @@
 
-COMMON CATCH2D_IMAGE, widget_ids, view_option, image
+COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
   widget_ids = {                  $ 
@@ -7,6 +7,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
       xsurface    : 0L,  $
       top_base    : BASE68,       $
       sel_base    : BASE185,       $
+      norm_base	  : 0L,       $
       sel_image   : IMAGE186,       $
       slider	  : 0L,  $
       seqno	  : FIELD100, $
@@ -16,9 +17,12 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
       y_min       : FIELD157,     $
       x_max       : FIELD159,     $
       x_min       : FIELD161,     $
+      z_max       : VIEW2D_ZMAX,     $
+      z_min       : VIEW2D_ZMIN,     $
       info        : TEXT133,	  $
       textdata    : 0L,	  $
-      z_max	:  CURSOR62_MAX, $
+      zmax      :  CURSOR62_ZMAX, $
+      zmin      :  CURSOR62_ZMIN, $
       x_cursor	:  CURSOR62_X, $
       y_cursor	:  CURSOR62_Y, $
       z_cursor	:  CURSOR62_Z, $
@@ -31,15 +35,22 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	}
 
   catch2d_file = {                $
+	XDR     : 0, $  ; default pure binary
 	version : '', $
+	path    : '', $
         name    : 'catch1d.trashcan.image',           $
         opened  : 0,            $
 	fptr	: make_array(10000,/long), $
+	pan     : 0, $ ; pan all detectors or not
+        win     : -1, $; pan window # $
 ;       mode    : 0,            $   ; 0 - scan, 1 - view
-        seqno   : 0,            $
-        maxno   : 0,             $
+        seqno   : 0, $		; image seq #
+        maxno   : 0, $ 		; total # of images found
 	x_pv	: '', $
 	y_pv	: '', $
+	x_desc	: '', $		; 1D positioner desc
+	y_desc	: '', $		; 2D posititoner desc
+	z_desc	: '', $		; detector desc
 	file_1d	: '', $
 	scanno_2d : 0, $  	; current readin 2d scan #
 	scanno_current : 0, $  	; current viewed 2d scan #
@@ -77,14 +88,20 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
   view_option = { $
 	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
         ncolors : !d.n_colors-1, $   max color index 
+	pick_ref : 1, $   ; normalized against detector # 1
+	fullcolor : 0, $   0-auto 1-user 2-normalize
 	user	: 1, $  ; if 1 use user set range
 	versus  : 1, $  ; 0 - step # or 1 - values 
 	width	: 100, $  	; default x set range 
 	height  : 100, $	; default y set range
-	margin_l : 50, $         ; TV left margin
-	margin_r : 50, $         ; TV right margin
+	margin_l : 80, $         ; TV left margin
+	margin_r : 80, $         ; TV right margin
 	margin_t : 50, $         ; TV top margin
-	margin_b : 50, $         ; TV buttom margin
+	margin_b : 50, $         ; TV bottom margin
+	ps_l : 0.2, $		; PS left 
+	ps_b : 0.125, $		; PS bottom 
+	ps_r : 0.95, $		; PS right 
+	ps_t : 0.875, $		; PS top 
 	x_min	: 0, $		; user set xmin
 	x_max	: 100, $	; user set xmax
 	y_min	: 0, $		; user set ymin
@@ -94,9 +111,18 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	x	: 0, $		; device cursor x
 	y	: 0, $		; device cursor y
 	z	: 0., $
-	i_max	: 0,$		; i index for z_max
+	i_min	: 0, $		; i index for z_min
+	j_min	: 0, $		; j index for z_min
+	i_max	: 0, $		; i index for z_max
 	j_max	: 0, $		; j index for z_max
-	z_max	: 0. $		; z_max for TV image 
+	k_min	: 0., $		; k index for z_min
+	k_max	: 0., $		; k index for z_max
+	u_k_min	: 0., $		; z_min for user scale
+	u_k_max	: 255., $	; z_max for user scale
+	r_k_min	: 0., $		; z_min for norm ref
+	r_k_max	: 255., $	; z_max for norm ref
+	z_min	: 0., $		; z_min for TV image 
+	z_max	: 0. $	; z_max for TV image 
 	}
 
    WIDGET_CONTROL, widget_ids.y_max, SET_VALUE = view_option.height 
