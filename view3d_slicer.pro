@@ -3,18 +3,19 @@ PRO view3d_test,state
 ;print,read_scan('/home/sricat/CHA/data/rix/cha:_0049.scan',Scan)
 ;filename='cha:_0049.scan'
 
-   CASE state.method OF
-   0: begin
 	idet = state.det_listid
 	k = state.k_listid
 	rank = state.rank
 	xyz = *(*state.Scan.da)[0]
-	title = state.class+'  (D'+strtrim(idet+1,2)+')'
+	title = state.class+'  (' + state.dets(idet) + ')' ;D'+strtrim(idet+1,2)+')'
 	if rank eq 0 then title=title+'  (Slice X_'+strtrim(k,2)+')'
 	if rank eq 1 then title=title+'  (Slice Y_'+strtrim(k,2)+')'
 	if rank eq 2 then title=title+'  (Slice Z_'+strtrim(k,2)+')'
 
 	xyz = xyz(*,*,*,idet)
+
+   CASE state.method OF
+   0: begin
 	view3d,xyz,k,rank,title=title,group=state.base
    end
    1: begin
@@ -22,6 +23,9 @@ PRO view3d_test,state
    end
    2: begin
 	view3d_pick1d,state,group=state.base
+   end
+   10: begin
+	view3d_2dSum,xyz,state.rank,class=state.class,group=state.base
    end
    ENDCASE
 END
@@ -502,6 +506,11 @@ PRO VIEW3D_Event, Event
       END
   'VIEW3D_RANK': BEGIN
 	state.rank = Event.Value
+	cpt = *(state.Scan).cpt
+	ilist = indgen(cpt[state.rank])
+	ilist = strtrim(ilist,2)
+	widget_control,state.k_listwid,set_value=ilist,set_list_select=0
+	state.k_listid = 0
 	view3d_test,state
       END
   'VIEW3D_PANIMAGE': BEGIN
@@ -517,6 +526,10 @@ PRO VIEW3D_Event, Event
 	state.method = Event.Value
 	view3d_test,state
       END
+  'VIEW3D_2DSUMSLICES': BEGIN
+	state.method = 10
+	view3d_test,state
+      END
   ENDCASE
 
   if state.base gt 0 then $
@@ -524,7 +537,10 @@ PRO VIEW3D_Event, Event
 
 END
 
-
+PRO view3d_closeReset,wid
+	widget_control,wid,get_uvalue=state
+	widget_control,state.parent,sensitive=1
+END
 
 
 PRO VIEW3D_SLICER, file=file, DMAX=DMAX, GROUP=Group
@@ -566,6 +582,12 @@ PRO VIEW3D_SLICER, file=file, DMAX=DMAX, GROUP=Group
 ;
 ;       VIEW3D_SLICER, File='cha:_0049.scan'
 ;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 10-01-99.
+;       01-25-2001  bkc R1.1
+;                       Update the slicer # with the picked rank
+;                       Set selected default detector to D01
+
 ;-
 
   heap_gc
@@ -579,7 +601,9 @@ PRO VIEW3D_SLICER, file=file, DMAX=DMAX, GROUP=Group
   if keyword_set(DMAX) then ND = DMAX
   ndet = ND
 
-  ListVal1283 = 'D'+strtrim(indgen(ND)+1,2) 
+   lis = 'D' + [strtrim(indgen(9)+1,2),'A','B','C','D','E','F', $
+               '01','02','03','04','05','06','07','08','09']
+   ListVal1283 = [lis , 'D'+strtrim(indgen(61)+10,2)] 
 
   cd,current=cr
   home = cr 
@@ -597,6 +621,7 @@ Scan = { $
         }
 
   view3d_state = { base: 0L, $
+	parent: group, $
 	prevnext: 0L, $
 	basecntl: 0L, $
 	filenamewid: 0L, $
@@ -624,8 +649,8 @@ Scan = { $
 
   VIEW3D = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
-      MAP=1, $
-	TITLE='VIEW3D_SLICER (1.0)', $
+      MAP=1, KILL_NOTIFY='view3d_closeReset', $
+	TITLE='VIEW3D_SLICER (R1.1)', $
       UVALUE='VIEW3D')
 
   BASE2 = WIDGET_BASE(VIEW3D, $
@@ -704,7 +729,8 @@ Scan = { $
   LIST11 = WIDGET_LIST( BASE4_0,VALUE=view3d_state.dets, $
       UVALUE='VIEW3D_DETECTOR', $
       YSIZE=5)
-  WIDGET_CONTROL,LIST11,SET_LIST_SELECT=0
+  WIDGET_CONTROL,LIST11,SET_LIST_SELECT=15,SET_LIST_TOP=15
+  view3d_state.det_listid  = 15
 
   BASE4_1 = WIDGET_BASE(BASE4, $
       COLUMN=1, $
@@ -733,8 +759,8 @@ Scan = { $
 
   ListVal1288 = strtrim(indgen(10),2) 
   LIST21 = WIDGET_LIST( BASE4_2,VALUE=ListVal1288, $
-      UVALUE='VIEW3D_INDEX', $
-      YSIZE=7)
+      UVALUE='VIEW3D_INDEX',YSIZE=6,XSIZE=5)
+      
   WIDGET_CONTROL,LIST21,SET_LIST_SELECT=0
 
   Btns1499 = [ $
@@ -760,8 +786,8 @@ Scan = { $
   PDMENUV3D_panimage = CW_PDMENU( BASE4_3, MenuV3DPANImage, /RETURN_FULL_NAME, $
       UVALUE='PDMENUV3D_PANIMAGE')
 
-;  SLICER_PANIMAGE = WIDGET_BUTTON(BASE4_3,VALUE='PanImages...', $
-;	UVALUE='VIEW3D_PANIMAGE')
+  SLICER_SUM = WIDGET_BUTTON(BASE4_3,VALUE='View3D_2D Sum Slices ...', $
+	UVALUE='VIEW3D_2DSUMSLICES')
 
 ;  SLICER_PICK1D = WIDGET_BUTTON(BASE4_3,VALUE='Pick_1D...', $
 ;	UVALUE='VIEW3D_PICK1D')
