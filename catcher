@@ -20,13 +20,13 @@ else
 	source $EPICS_EXTENSIONS/bin/$HOST_ARCH/setup_ezcaIDL
 endif
 
-	source /usr/local/rsi/idl_5/bin/idl_setup
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl5"
+#	source /usr/local/rsi/idl_5.1/bin/idl_setup
+	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl51"
 	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl5"
+	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl51"
 	endif
-	if -e catcher.exe2.idl5 then
-	set exe = "-rt=catcher.exe2.idl5"
+	if -e catcher.exe2.idl51 then
+	set exe = "-rt=catcher.exe2.idl51"
 	endif
 
 # echo $exe
@@ -120,7 +120,6 @@ if ("$w" != "") then
 	 set xyz = $xyz','$w
 	echo $wf >>! go_catcher2
    echo "scanData.y_handshake=' '" >>! go_catcher2
-;   echo "WIDGET_CONTROL,catcher_setup_ids.y_handshake,SET_VALUE=' '" >>! go_catcher2
 endif
 if ("$v" != "") then
 	 set xyz = $xyz','$v
@@ -133,6 +132,7 @@ echo $xyz >>! go_catcher
 
 	idl $exe go_catcher
 	rm go_catcher2
+	rm go_catcher
 exit
 help::
 echo  ""
