@@ -1,4 +1,5 @@
 ;@scanSee__define
+@panimage.pro
 
 PRO DC_view_writeConfig,state
 	openw,unit,'scanSee.config',/get_lun
@@ -112,7 +113,7 @@ PRO DC_view_cleanup,state
 END
 
 PRO DC_viewOutputFilename,state,subclass,type,filename
-; type is a string can be 'TIFF','GIF','PICT'
+; type is a string can be 'TIFF','XDR','PICT'
 ; subclass is a subclass string, e.g. '.pan.'
 
 ;	lp = rstrpos(state.filename,!os.file_sep)+1
@@ -259,19 +260,10 @@ PRO scanSee_PDMENU2D_PanImage_Event,state,Event
 v = state.v
 
   CASE Event.Value OF
-  'PanImage.PanImages+TIFF': begin
-	DC_viewOutputFilename,state,'.pan.','TIFF',filename
-        v->panImage,tiff=filename,/reverse
-        end
-  'PanImage.PanImages+PICT': begin
-	DC_viewOutputFilename,state,'.pan.','PICT',filename
-        v->panImage,pict=filename
-        end
-  'PanImage.PanImages+GIF': begin
-	DC_viewOutputFilename,state,'.pan.','GIF',filename
-        v->panImage,gif=filename
-        end
-  'PanImage.PanImages...': begin
+  'PanImage.Options...': begin
+	v->panImage,/sel
+	end
+  'PanImage.Default': begin
         v->panImage
         end
   ENDCASE
@@ -304,8 +296,8 @@ slice = state.slice
 	DC_viewOutputFilename,state,'.pan.','PICT',filename
         v->view3d_panImage,slice,rank,pict=filename
         end
-  '3D PanImage.PanImages+GIF': begin
-	DC_viewOutputFilename,state,'.pan.','GIF',filename
+  '3D PanImage.PanImages+XDR': begin
+	DC_viewOutputFilename,state,'.pan.','XDR',filename
         v->view3d_panImage,slice,rank,gif=filename
         end
   '3D PanImage.PanImages...': begin
@@ -382,7 +374,7 @@ PRO SS_VIEWSPEC_Event, Event
 	'','                      WORKED ON 2D SCAN DATA ONLY',$
 	'PLOT2D...       - access various plot2d features of 2D image', $
 	'ASCII2D...      - saves and displays the ASCII report of 2D image', $
-	'PanImage        - panImage with option of save TIFF/GIFF/PICT file', $
+	'PanImage...     - panImage with option of save TIFF/XDR/PICT file', $
 ;	'Overlay Plot... - overlays plot of multiple 1D scan lines ',$ 
 ;	'Help 1D Line #...- hints on selecting multiple lines of a detector', $
 ;	'                   defaults to line 1 ', $
@@ -687,7 +679,7 @@ loadct,39
   if keyword_set(filename) then DC_view_ids.filename = filename
 
   SS_VIEWSPEC = WIDGET_BASE(GROUP_LEADER=Group, $
-      COLUMN=1, title='scanBrowser R1.0', $
+      COLUMN=1, title='scanBrowser R2.1', $
       MAP=1, $
       UVALUE='SS_VIEWSPEC')
   DC_view_ids.base = SS_VIEWSPEC
@@ -845,10 +837,12 @@ loadct,39
         { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
         { CW_PDMENU_S,       0, 'PanImages+PICT' }, $ ;        1
-        { CW_PDMENU_S,       2, 'PanImages+GIF' } $ ;        1
+        { CW_PDMENU_S,       2, 'PanImages+XDR' } $ ;        1
         ]
   PDMENU3D_panimage = CW_PDMENU( BASE28_61, Menu3DPANImage, /RETURN_FULL_NAME, $
       UVALUE='PDMENU3D_PANIMAGE_SCANSEE')
+
+
   DC_view_ids.base3dWID = BASE28_6  
 
   BGROUP15 = CW_BGROUP( BASE28_61,['X','Y','Z'],/ROW,/NO_RELEASE, $
@@ -892,12 +886,12 @@ loadct,39
   BUTTON36 = WIDGET_BUTTON( BASE28_1, $
       UVALUE='VIEWSPEC_PICK1D', $
       VALUE='2D_PICK1D... ')
+
+
   MenuPANImage = [ $
       { CW_PDMENU_S,       1, 'PanImage' }, $ ;        0
-        { CW_PDMENU_S,       0, 'PanImages...' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages+TIFF' }, $ ;        1
-        { CW_PDMENU_S,       0, 'PanImages+PICT' }, $ ;        1
-        { CW_PDMENU_S,       2, 'PanImages+GIF' } $ ;        1
+        { CW_PDMENU_S,       0, 'Options...' }, $ ;        1
+        { CW_PDMENU_S,       2, 'Default' } $ ;        1
         ]
   PDMENU2D_panimage = CW_PDMENU( BASE28_1, MenuPANImage, /RETURN_FULL_NAME, $
       UVALUE='PDMENU2D_PANIMAGE_SCANSEE')
