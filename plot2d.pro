@@ -763,7 +763,9 @@ COMMON COLORBAR,colorbar_data
   'PLOT2D_RTIFF': BEGIN
        tvlct,R,G,B,/get
 	cd,current=p
-	p = p + !os.file_sep +'TIFF'
+	p = p + !os.file_sep +'TIFF'+!os.file_sep
+	found = findfile(p,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +p
 	file = plot2d_state.class+'.rtiff'
 	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
 		title='Save R-TIFF Image')
@@ -773,7 +775,9 @@ COMMON COLORBAR,colorbar_data
   'PLOT2D_TIFF': BEGIN
        tvlct,R,G,B,/get
 	cd,current=p
-	p = p + !os.file_sep +'TIFF'
+	p = p + !os.file_sep +'TIFF'+!os.file_sep
+	found = findfile(p,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +p
 	file = plot2d_state.class+'.tiff'
 	fn = dialog_pickfile(filter='*tiff',path=p,file=file,/WRITE, $
 		title='Save TIFF Image')
@@ -783,23 +787,28 @@ COMMON COLORBAR,colorbar_data
   'PLOT2D_PICT': BEGIN
        tvlct,R,G,B,/get
 	cd,current=p
-	p = p + !os.file_sep +'TIFF'
+	p = p + !os.file_sep +'PICT' +!os.file_sep
+	found = findfile(p,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +p
 	file = plot2d_state.class+'.pict'
 	fn = dialog_pickfile(filter='*pict',path=p,file=file,/WRITE, $
 		title='Save PICT Image')
 	if fn ne '' then $
         WRITE_PICT,fn,TVRD(),R,G,B
       END
-  'PLOT2D_GIF': BEGIN
-      tvlct,R,G,B,/get
+  'PLOT2D_XDR': BEGIN
 	cd,current=p
-	p = p + !os.file_sep +'GIF'
-	file = plot2d_state.class+'.gif'
-	fn = dialog_pickfile(filter='*gif',path=p,file=file,/WRITE, $
-		title='Save GIF Image')
-	if fn ne '' then $
-        WRITE_GIF,fn,TVRD(),R,G,B
-        WRITE_GIF,fn,/close
+	p = p + !os.file_sep +'XDR'+!os.file_sep
+	found = findfile(p,count=ct)
+	if ct eq 0 then spawn,!os.mkdir + ' ' +p
+	file = plot2d_state.class+'.xdr'
+	fn = dialog_pickfile(filter='*xdr',path=p,file=file,/WRITE, $
+		title='Save TIFF Image')
+	if fn ne '' then begin
+	xdr_open,unit,fn,/write,error=error
+	xdr_write,unit,plot2d_state.data
+	xdr_close,unit
+	end
       END
   'BUTTON51': BEGIN
 	plot2d_setupLabels,plot2d_state,Event.Top
@@ -961,9 +970,9 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
   PLOT2D_PICT = WIDGET_BUTTON( BASE47, $
       UVALUE='PLOT2D_PICT', $
       VALUE='Save PICT...')
-  PLOT2D_GIF = WIDGET_BUTTON( BASE47, $
-      UVALUE='PLOT2D_GIF', $
-      VALUE='Save GIF...')
+  PLOT2D_XDR = WIDGET_BUTTON( BASE47, $
+      UVALUE='PLOT2D_XDR', $
+      VALUE='Save XDR...')
   BUTTON50 = WIDGET_BUTTON( BASE47, $
       UVALUE='BUTTON50', $
       VALUE='   Close   ')
@@ -1436,6 +1445,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;       06-01-2000      Add colorbar_config dialog, and toggle the colorbar to
 ;                       get the colorbar redraw correctly
 ;                       Add classname for automatically generate output file
+;       12-05-2000      Replace save 2D data as GIF by XDR option
 ;-
 COMMON COLORBAR, colorbar_data
 
