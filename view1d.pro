@@ -21,13 +21,27 @@
 ;  u_close, unit
 ;
 
+;PRO DebugError
+;help,/struct,!error_state
+;END
+
 FUNCTION u_writePermitted,filename
 ;
 ; check for filename write permission
 ;
+; existed
+	found = findfile(filename)
+	if found(0) ne '' then begin
+	ret= dialog_message(['Do you want to overwrite the existed file : ',$
+		'','     '+filename], $
+			/question)
+	if strupcase(ret) eq 'NO' then return,-1
+	end
+; create new
         CATCH,error_status
-        if error_status eq -171 then begin
-                ret=WIDGET_MESSAGE(!err_string)
+;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
+	if error_status eq -215 or error_status eq -206 then begin
+                ret=WIDGET_MESSAGE(!err_string + string(!err))
                 if n_elements(unit) then u_close,unit
                 return,-1
         end
@@ -67,7 +81,7 @@ PRO u_rewind,unit
 point_lun,unit,0
 END
 
-PRO u_openw,unit,filename,append=append,help=help,XDR=XDR
+PRO u_openw,unit,filename,append=append,help=help,XDR=XDR,ERRCODE
 ;+
 ; NAME:
 ;       U_OPENW
@@ -112,6 +126,16 @@ PRO u_openw,unit,filename,append=append,help=help,XDR=XDR
 ;
 if keyword_set(help) then goto, help1
 if n_elements(filename) eq 0 then filename='data.dat'
+ERRCODE=0
+        CATCH,error_status
+;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
+	if !err eq -215 or !err eq -206 then begin
+                ret=WIDGET_MESSAGE(!err_string + string(!err))
+                if n_elements(unit) then u_close,unit
+		ERRCODE=-99
+                return 
+        end
+
 if keyword_set(XDR) then begin
 	if keyword_set(append) then $
 	openw,/XDR,unit,filename,/GET_LUN,/APPEND else $
@@ -391,7 +415,17 @@ if n_params() lt 3 then begin
 	print,'       ERRCODE    returned code, 0 for success, -99 for failure'
 	return
 	end
+
+CATCH,error_status
+if error_status  eq -229 or error_status eq -219 or error_status eq -184 then begin 
+	str = [ !err_string + string(!err),'', $
+		'Error: unable to read data, wrong type of file opened!!' ]
+	ret=WIDGET_MESSAGE(str)
+	return
+	end
+
 readu,unit,s
+
 if (s(0) gt 1L) then begin	; two dim
 	type = s(3)
 	int = s(4)
@@ -451,15 +485,10 @@ else: begin
 	end
 endcase
 
-	CATCH,error_status
-	if error_status eq -184 then begin
-		ret=WIDGET_MESSAGE('Error: unable to read data, wrong type of file opened!!')
-;		retall
-	return
-	end
 	readu,unit,x
 ERRCODE = 0
 END
+
 
 PRO u_read,unit,x,ERRCODE,help=help
 ;+
@@ -571,18 +600,13 @@ PRO u_bi2xdr,filename,help=help
 
 if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
 
+	found = findfile(filename)
+	if found(0) eq '' then return
+
 	OK_WRITE = u_writePermitted(filename+'.xdr')
 	if OK_WRITE lt 0 then return
 
         id=0
-        CATCH,error_status
-        if error_status eq -206 then begin
-
-                ret=WIDGET_MESSAGE(!err_string)
-                if n_elements(unit) then u_close,unit
-                 retall
-        end
-
         u_openr,unit,filename
         u_openw,unit2,filename+'.xdr',/XDR
 
@@ -594,7 +618,8 @@ if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
         maxno = id
         u_close,unit
         u_close,unit2
-        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+filename+'.xdr"')
+        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
+		filename+'.xdr"')
 
 	return
 
@@ -732,6 +757,9 @@ PRO PS_open,psfile,TV=TV
 ;       07-28-97   bkc  Add the support for color PostScript
 ;                       Add the support for reverse video
 ;                       Add handling capability for different operating system
+;       05-15-98   bkc  Change the reverse video to reverse legend color for
+;                       2D TV plot, to get reverse video use the xloadct's
+;                       option, reverse feature  
 ;-
 
 COMMON PRINTER_BLOCK,printer_info
@@ -744,23 +772,23 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	if keyword_set(TV) then begin 
 
-	; change to reverse video  for TV image
+	; use xloadct reverse video, reverse legend only  
 
-	if printer_info.reverse then begin
-	r_curr = reverse(r_orig)
-	g_curr = reverse(g_orig)
-	b_curr = reverse(b_orig)
-	endif else begin
-	r_curr = r_orig
-	g_curr = g_orig
-	b_curr = b_orig
-	end
-	TVLCT,r_curr,g_curr,b_curr
+;	if printer_info.reverse then begin
+;	r_curr = reverse(r_orig)
+;	g_curr = reverse(g_orig)
+;	b_curr = reverse(b_orig)
+;	endif else begin
+;	r_curr = r_orig
+;	g_curr = g_orig
+;	b_curr = b_orig
+;	end
+;	TVLCT,r_curr,g_curr,b_curr
 
 	    if printer_info.color gt 0 then $
 		device,filename=psfile,/color,bits=8, $
 			/Courier,/Bold, $
-			 yoffset=7, xsize=15, ysize=15  else $
+			 yoffset=7, xsize=15, ysize=15  else  $
 		device,filename=psfile,/Courier,/Bold
 	endif else begin
 	    if printer_info.color gt 0 then $
@@ -922,8 +950,13 @@ PRO PS_print,psfile
 ;       Written by:     Ben-chin K. Cha, 03-23-95.
 ;
 ;       07-28-97   bkc  Add handling capability for different operating system
+;       05-14-98   bkc  Add the checking for unreadable color on the PS plot
+;                       On unix if the color is too light use the gv to preview 
+;			pops up setup printer and info dialog
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
+COMMON PRINTER_BLOCK,printer_info
+COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	if (n_elements(psfile) ne 0) then begin 
 		if strtrim(psfile,2) eq '' then begin
@@ -932,10 +965,28 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		end
 	end else psfile = 'idl.ps'
 
-	if OS_SYSTEM.os_family eq 'unix' then $
-        str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile $
-	else str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
-        spawn,str
+	if OS_SYSTEM.os_family eq 'unix' then begin
+        	str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile 
+		color = r_curr(0) + g_curr(0)*256L + b_curr(0)*256L ^2
+		if color ge 16777200 then begin 
+			temp = ['Warning:','',$
+			 'There may be problem of unreadable title or legend on PS plot.',$
+			'The ghostview is brought up for you to preview the PS plot.', $
+			'If the PS plot looks fine you may use the ghostview to send the',$
+			'print job and then close the ghostview and Printer Setup Dialog.',$
+			'','If you can not see the title and legend, please close', $
+			'the ghostview program first, try different color table or set the ',$
+			'Reverse_Legend_Color to "Y" in Printer Setup Dialog first then', $
+			'try Print again'] 
+			res=dialog_message(temp,/info,title='PS legend problem')
+			PS_printer
+			spawn,'gv '+psfile + ' &'
+		endif else print,'spawn',str 
+  		spawn,str
+	endif else begin
+		str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
+	        spawn,str
+	end
 	print,str
 END
 
@@ -950,7 +1001,6 @@ COMMON PRINTER_BLOCK,printer_info
 
   'PS_REVERSE': BEGIN
 	printer_info.reverse = Event.Index
-help,printer_info.reverse
       END
 
   'BGROUP3': BEGIN
@@ -997,7 +1047,7 @@ END
 
 
 
-PRO PS_printer,psfile=psfile,  GROUP=Group
+PRO PS_printer, GROUP=Group
 ;+
 ; NAME:
 ;	PS_PRINTER
@@ -1045,9 +1095,14 @@ PRO PS_printer,psfile=psfile,  GROUP=Group
 ;       Written by:     Ben-chin K. Cha, 6-01-97.
 ;       10-15-97 bkc  - Add droplist Y/N for reverse color option
 ;                       Now it defaults to non reverse color option.
+;       05-14-98 bkc  - Remove the B/W option, use the xloadct to select B/W
+;                       Change reverse video to reverse legeng color if legend
+;                       is in white color 
 ;-
 
 COMMON PRINTER_BLOCK,printer_info
+
+if XRegistered('PS_printer') then return
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -1072,19 +1127,19 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='LABEL3', $
       VALUE='Setup PS Printer')
 
-  Btns167 = [ $
-    'B/W', $
-    'Color' ]
-  BGROUP3 = CW_BGROUP( BASE2, Btns167, $
-      ROW=1, $
-      EXCLUSIVE=1, $
-      LABEL_LEFT='Output PS', $
-      UVALUE='BGROUP3')
-  WIDGET_CONTROL,BGROUP3,SET_VALUE= printer_info.color
+;  Btns167 = [ $
+;    'B/W', $
+;    'Color' ]
+;  BGROUP3 = CW_BGROUP( BASE2, Btns167, $
+;      ROW=1, $
+;      EXCLUSIVE=1, $
+;      LABEL_LEFT='Output PS', $
+;      UVALUE='BGROUP3')
+;  WIDGET_CONTROL,BGROUP3,SET_VALUE= printer_info.color
 
   Btn168 = ['N','Y']
   ps_reverse = WIDGET_DROPLIST(BASE2, VALUE=Btn168, $
-        UVALUE='PS_REVERSE',TITLE='Reverse Color')
+        UVALUE='PS_REVERSE',TITLE='Reverse Legend Color')
   WIDGET_CONTROL,ps_reverse,SET_DROPLIST_SELECT=printer_info.reverse
 
   FieldVal269 = [ $
@@ -1109,7 +1164,7 @@ COMMON PRINTER_BLOCK,printer_info
   XMANAGER, 'PS_printer', PS_printer_base
 END
 
-; $Id: view1d.pro,v 1.6 1998/02/24 17:19:17 cha Exp $
+; $Id: view1d.pro,v 1.7 1998/05/14 22:29:14 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1278,7 +1333,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.6 1998/02/24 17:19:17 cha Exp $
+; $Id: view1d.pro,v 1.7 1998/05/14 22:29:14 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1900,6 +1955,13 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	catch1d_get_pvtct
 	color = R_ORIG(i) + G_ORIG(i)*256L + B_ORIG(i)*256L ^2
 ;	plot,indgen(10),color=color
+END
+
+PRO catch1d_load_pvtct,ctfile
+	if n_params() eq 0 then restore,'catch1d.tbl' else $
+	restore,ctfile
+	tvlct,red,green,blue
+	xpalette
 END
 
 PRO catch1d_save_pvtct
@@ -3457,7 +3519,7 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 	outfile = filename+'.tmp'
 
         CATCH,error_status
-        if error_status eq -171 then begin
+        if error_status ne 0 then begin
                 report_path = V1D_scandata.home + !os.file_sep
                 outfile = report_path+ '.tmp'
                 goto, RESET_TMPNAME
@@ -4876,7 +4938,7 @@ deepmove:
 	end
 
 	CATCH,error_status
-	if error_status eq -171 or error_status eq -206 then begin
+	if error_status ne 0 then begin ;  eq -171 or error_status eq -206 then begin
 		report_path = V1D_scandata.home + !os.file_sep 
 		save_outfile = report_path+view1d_summary_id.outfile
 		goto, RESETSENSE
@@ -6056,6 +6118,7 @@ PRO VIEW1D, config=config, data=data, debug=debug, XDR=XDR, GROUP=Group
 ;                       at y(0)
 ;       02-17-98  bkc   If the user entered an existing ASCII file it will be
 ;                       backuped for user
+;       05-14-98  bkc   Upgrade to R1.4
 ;-
 
 COMMON VIEW1D_COM, view1d_widget_ids, V1D_scanData
@@ -6078,7 +6141,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='VIEW1D (R1.3)', $          ;   VIEW1D release
+      TITLE='VIEW1D (R1.4)', $          ;   VIEW1D release
       UVALUE='VIEW1D_1')
 
   BASE68 = WIDGET_BASE(VIEW1D_1, $
