@@ -464,7 +464,7 @@ state.list_sel = indgen(n_elements(state.selection))
 
   npt_slidet = WIDGET_SLIDER(BASE2_2,value=state.npt, $
 	title='NPT Plotted:', $
-	maximum=state.npt,minimum=3,UVALUE='plot1d_npt')
+	maximum=state.npt,minimum=2,UVALUE='plot1d_npt')
 
   BASE2_411 = WIDGET_BASE(BASE2, $
       /ROW, $
