@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.40 2002/03/21 16:51:35 cha Exp $
+; $Id: view2d.pro,v 1.41 2002/05/09 19:52:03 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1265,6 +1265,7 @@ PRO view2d_normalize_accept,pick_i
 COMMON CATCH2D_FILE_BLOCK, catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON w_warningtext_block,w_warningtext_ids
+COMMON CATCH1D_2D_COM,data_2d
 
 	view_option.pick_ref = pick_i
 	view_option.fullcolor = 2
@@ -1279,15 +1280,17 @@ COMMON w_warningtext_block,w_warningtext_ids
         begin_seqno = catch2d_file.image_no(scanno-1)
         end_seqno = catch2d_file.image_no(scanno)
         seqno = begin_seqno + view_option.pick_ref - 1
+
         if seqno lt end_seqno and seqno ge begin_seqno then begin
                 catch2d_file.seqno = seqno
                 if XRegistered('w_warningtext') then $
                 WIDGET_CONTROL,w_warningtext_ids.base,BAD=bad,/DESTROY
-
-		unit = catch2d_file.opened
+		
+		; read in ref image
 		seqno = catch2d_file.seqno
+		unit = catch2d_file.opened
 		point_lun,unit,catch2d_file.fptr(seqno)
-		scanimage_read_record,catch2d_file.opened
+                scanimage_read_record,unit
 
 		view_option.r_k_max = MAX(image)
 		view_option.r_k_min = MIN(image)
@@ -1304,13 +1307,15 @@ COMMON w_warningtext_block,w_warningtext_ids
         end
 	REPLOT
 	catch2d_file.seqno = save_seqno
-	point_lun,unit,catch2d_file.fptr(catch2d_file.seqno)
-	scanimage_read_record,catch2d_file.opened,/view
+	viewscanimage_current
+
 END
 
 PRO view2d_normalize_Event, Event
+COMMON CATCH2D_FILE_BLOCK, catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON VIEW2D_NORM_BLOCK, norm_ids
+COMMON CATCH1D_2D_COM,data_2d
 
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
@@ -1323,43 +1328,62 @@ COMMON VIEW2D_NORM_BLOCK, norm_ids
       END
   'NORM_COLOR_SCHEME': BEGIN
 	view_option.fullcolor = Event.value
+	if Event.value eq 1 then  $
+		WIDGET_CONTROL,norm_ids.userBase,SENSITIVE=1 else $
+		WIDGET_CONTROL,norm_ids.userBase,SENSITIVE=0 
 	if view_option.fullcolor lt 2 then begin
-	   zmin = view_option.z_min
-   	   zmax = view_option.z_max
+;	   zmin = view_option.k_min
+;	   zmax = view_option.k_max
 	   if view_option.fullcolor eq 1 then begin
 		zmin = view_option.u_k_min
 		zmax = view_option.u_k_max
-	   end
            WIDGET_CONTROL,widget_ids.z_min,SET_VALUE=zmin
            WIDGET_CONTROL,widget_ids.z_max,SET_VALUE=zmax
+	   end
 	   REPLOT
 	endif else begin
    	   WIDGET_CONTROL,norm_ids.pick,GET_VALUE=i
 	   view2d_normalize_accept, i
 	end
       END
+  'NORM_SLIDER1': BEGIN
+	WIDGET_CONTROL,Event.Id,GET_VALUE=zmin
+	view_option.u_k_min = zmin
+        WIDGET_CONTROL,widget_ids.z_min,SET_VALUE=zmin
+	   REPLOT
+      END
+  'NORM_SLIDER2': BEGIN
+	WIDGET_CONTROL,Event.Id,GET_VALUE=zmax
+	view_option.u_k_max = zmax
+        WIDGET_CONTROL,widget_ids.z_max,SET_VALUE=zmax
+	   REPLOT
+      END
   'NORM_HELP': BEGIN
-	st=['Currently, there are three modes of image color scheme available:', $
+	st=['Currently, there are three modes of image color scheme available.', $
+	'It defaults to the Auto Scaled scheme. ', $
 	'', '    Auto_Scaled - Automatically scaled by the z-max, z-min of the image data.', $
 	'', '    User_Scaled - User settable interest range of z-min, z-max.', $
-	'', '    Normalized - Value normalized against the value of the selected detector.', $
+	'', '    Normalized - Value normalized against the value of the selected image #.', $
 	'', $
-	'It defaults to the Auto Scaled scheme. The title label reflects current scheme', $
-	'is used for the TV image.', '', $
-	'If the User Scaled color scheme is selected, then a user can modify the Zmin and Zmax', $
-	'fields of the main window.', '', $ 
-	'If the detector number field is entered with a <CR>, it automatically', $
-	'turns on the normalized color scheme mode. The entered # will be the reference detector.', $
-	'The normalized value of the reference detector itself will be a uniform 1.', $
+	'If the User Scaled color scheme is selected, then a user can directly modify', $
+	'the Zmin and Zmax fields of the main window or through the lower/upper', $
+	'bound sliders.', '', $ 
+	'If the image sequence # field is entered with a <CR>, it automatically turns on the', $
+	'normalized color scheme mode. The entered # will be the reference image #.', $
+	'The normalized value of the reference image itself will be a uniform 1.', $
 	'', $
-	 'The z-min and z-max corresponding to different schemes are all shown in this dialog window.', $
-	'' $
+	'The Done of color scheme dialog resets the image to AutoScaled mode.', '', $
+	'NOTE: if problem with Normalization encountered, a user can change to',$
+	'      AutoScale or UserScale mode and then re-select the detector from',$
+	'      the detector list to clear the error.','' $
 	 ] 
-	res=WIDGET_MESSAGE(st)
+	res=dialog_message(st,/info,title='Help on Image Color Scheme')
 	END
   'NORM_CANCEL': BEGIN
 	WIDGET_CONTROL,widget_ids.norm_base,/DESTROY
 	widget_ids.norm_base = 0L
+	   view_option.fullcolor = 0
+           viewscanimage_current
       END
   ENDCASE
 END
@@ -1376,12 +1400,12 @@ COMMON VIEW2D_NORM_BLOCK, norm_ids
       st2='Auto Scaled (Min  Value) :' + string(view_option.z_min)
       st3='User Scaled (Upper Bound) :' + string(view_option.u_k_max)
       st4='User Scaled (Lower Bound) :' + string(view_option.u_k_min)
-      st5='Ref Detector '+strtrim(view_option.pick_ref,2) + $
+      st5='Ref Image # '+strtrim(view_option.pick_ref,2) + $
 		' (Max Value) :' + string(view_option.r_k_max)
-      st6='Ref Detector '+strtrim(view_option.pick_ref,2) + $
+      st6='Ref Image # '+strtrim(view_option.pick_ref,2) + $
 		' (Min Value) :' + string(view_option.r_k_min)
 
-	WIDGET_CONTROL,norm_ids.mode,SET_VALUE=mode
+;	WIDGET_CONTROL,norm_ids.mode,SET_VALUE=mode
 	WIDGET_CONTROL,norm_ids.lb1,SET_VALUE=st1
 	WIDGET_CONTROL,norm_ids.lb2,SET_VALUE=st2
 	WIDGET_CONTROL,norm_ids.lb3,SET_VALUE=st3
@@ -1412,10 +1436,10 @@ if XRegistered('view2d_normalize') then return
       MAP=1, $
       UVALUE='BASE2')
 
-  LABEL3 = WIDGET_LABEL( BASE2, $
-      FONT='-dt-application-bold-r-normal-sans-20-140-100-*', $
-      UVALUE='LABEL3', /DYNAMIC_RESIZE, $
-      VALUE='Auto Scaled')
+;  LABEL3 = WIDGET_LABEL( BASE2, $
+;      FONT='-dt-application-bold-r-normal-sans-20-140-100-100-p-105-iso8859-1', $
+;      UVALUE='LABEL3', /DYNAMIC_RESIZE, $
+;      VALUE='Auto Scaled')
 
   color_schemes = [ $
 	'AutoScaled', $
@@ -1436,21 +1460,27 @@ if XRegistered('view2d_normalize') then return
       VALUE='Auto Scaled (Max  value) :' + string(view_option.z_max))
 
   BASE5 = WIDGET_BASE( BASE2, COL=1)   ;/FRAME)
-  norm_lower = WIDGET_LABEL( BASE5, $
+  BASE5_1 = WIDGET_BASE( BASE5, ROW=1)   ;/FRAME)
+  BASE5_2 = WIDGET_BASE( BASE5, ROW=1)   ;/FRAME)
+  norm_lower = WIDGET_LABEL( BASE5_1, $
       UVALUE='NORM_LOWER', /ALIGN_LEFT,$
       VALUE='User Scaled (Lower Bound) :' + string(view_option.u_k_min))
+if view_option.z_max gt view_option.z_min then $
+  sldr1 = CW_FSLIDER(BASE5_1,MAX=view_option.z_max,MIN=view_option.z_min, $
+	value=view_option.z_min,UVALUE='NORM_SLIDER1')
 
-  norm_upper = WIDGET_LABEL( BASE5, $
+  norm_upper = WIDGET_LABEL( BASE5_2, $
       UVALUE='NORM_UPPER', /ALIGN_LEFT,$
       VALUE='User Scaled (Upper Bound) :' + string(view_option.u_k_max))
+if view_option.z_max gt view_option.z_min then $
+  sldr2 = CW_FSLIDER(BASE5_2,MAX=view_option.z_max,MIN=view_option.z_min, $
+	value=view_option.z_max,UVALUE='NORM_SLIDER2')
 
   BASE3 = WIDGET_BASE( BASE2, COLUMN=1)  ;/FRAME)
-  FieldVal1198 = [ $
-    '1' ]
-  norm_picked = CW_FIELD( BASE3,VALUE=FieldVal1198, $
+  norm_picked = CW_FIELD( BASE3,VALUE=view_option.pick_ref, $
       ROW=1, $
-      INTEGER=1, /return_events, $
-      TITLE='Normalize Against Detector:', XSIZE=2, $
+      INTEGER=1, /return_events, $  
+      TITLE='Normalize Against Image (Seq) #:', XSIZE=2, $
       UVALUE='NORM_PICKED')
 
   norm_ref_lower = WIDGET_LABEL( BASE3, $
@@ -1465,31 +1495,35 @@ if XRegistered('view2d_normalize') then return
 
   NORM_HELP = WIDGET_BUTTON( BASE4, $
       UVALUE='NORM_HELP', $
-      VALUE='Help')
+      VALUE='Help...')
 
   NORM_CANCEL = WIDGET_BUTTON( BASE4, $
       UVALUE='NORM_CANCEL', $
       VALUE='Done')
 
   norm_ids = { $
-	mode : LABEL3, $
-	lb1 : norm_max, $
-	lb2 : norm_min, $
-	lb3 : norm_upper, $
-	lb4 : norm_lower, $
-	lb5 : norm_ref_upper, $
-	lb6 : norm_ref_lower, $
-	norm : norm_color_scheme, $
-	pick : norm_picked $
+;	mode : LABEL3, $		; label WID
+	userBase : BASE5, $		; user scaled WID
+	lb1 : norm_max, $		; auto max WID
+	lb2 : norm_min, $		; auto min WID
+	lb3 : norm_upper, $		; user max WID
+	lb4 : norm_lower, $		; user min WID
+	lb5 : norm_ref_upper, $		; ref upper WID
+	lb6 : norm_ref_lower, $		; ref lower WID
+	norm : norm_color_scheme, $	; color scheme WID
+	pick : norm_picked $              ; norm detector WID
 	}
 
-  WIDGET_CONTROL, norm_ids.norm, SET_VALUE=0
+  WIDGET_CONTROL, norm_ids.norm, SET_VALUE=view_option.fullcolor ;0
+  if view_option.fullcolor eq 1 then $
+  	WIDGET_CONTROL, norm_ids.userBase, SENSITIVE=1 else $
+  	WIDGET_CONTROL, norm_ids.userBase, SENSITIVE=0
   widget_ids.norm_base = view2d_normalize
   view2d_normalize_setvalue
 
   WIDGET_CONTROL, view2d_normalize, /REALIZE
 
-  XMANAGER, 'view2d_normalize', view2d_normalize,/NO_BLOCK
+  XMANAGER, 'view2d_normalize', view2d_normalize, /NO_BLOCK
 END
 PRO scan2dROIRpt,scanno,Ref=Ref,roifile=roifile,rptfile=rptfile,header=header,comment=comment,append=append
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
@@ -1863,6 +1897,7 @@ END
 @plot1d.pro
 @plot2d.pro
 @scan2d_roi.pro
+@scan2d_overlay.pro
 
 PRO view2d_pan_images_on,Event,tiff=tiff,xdr=xdr,rtiff=rtiff,def=def,image_array=image_array
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
@@ -2445,6 +2480,7 @@ w = colorbar_data.width*10
 		    plot,/noerase,/nodata,pos=p1 ,[-1,-1], $
 			xrange=xrange, yrange=yrange, $
 			xtitle= catch2d_file.x_desc, $
+			xticklen= -!p.ticklen, yticklen=-!p.ticklen, $
 			ytitle=ytitle, $
 			title=title, xstyle = xstyle, ystyle=ystyle,color=t_color
 
@@ -2666,7 +2702,6 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
 	if s(0) eq 2 then totalno = s(4) - 1
 	if s(0) eq 1 then totalno = s(3) - 1
-        view_option.z_max = newImage(0)
 	view_option.i_max = 0
 	view_option.j_max = 0
 	view_option.z_max = MAX(newImage,imax)
@@ -2679,6 +2714,8 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 		view_option.k_max = view_option.z_max 
 		view_option.k_min = view_option.z_min 
 	end
+view_option.u_k_max = view_option.z_max
+view_option.u_k_min = view_option.z_min
 
 	if s(0) ne 2 then begin
 		w_warningtext,'Warning: data is not 2D image ',60,5,'VIEW2D Messaes'
@@ -2877,10 +2914,16 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 
   'File.Save as XDR': BEGIN
 	if catch2d_file.scanno_current le 0 then return
+        xmin = catch2d_file.xarr(0)
+        xmax = catch2d_file.xarr(catch2d_file.width-1)
+        ymin = catch2d_file.yarr(0)
+        ymax = catch2d_file.yarr(catch2d_file.height-1)
+        ranges = [xmin,xmax,ymin,ymax,view_option.z_min,view_option.z_max]
 	xdr_open,unit,'view2d.xdr',/write,error=eror
 	xdr_write,unit,image
+	xdr_write,unit,ranges
 	xdr_close,unit
-	fileSeqString,catch2d_file.seqno,suf0
+	fileSeqString,catch2d_file.seqno+1,suf0
 	outname=catch2d_file.name+'.'+suf0+'.xdr'
 	dir = catch2d_file.outpath+'XDR'+!os.file_sep
 	rename_dialog,dir,'view2d.xdr',outname,GROUP=Event.Top
@@ -3631,6 +3674,8 @@ PRO view2d, GROUP=Group, file=file, XDR=XDR,CA=CA
 ;       03-20-02 bkc  Release R2.5
 ;                     Add XL,XR,YL,YR fields reflecting ROI for scan
 ;                     Add set new 2D scan start and end position
+;       05-07-02 bkc  Add ranges to XDR image save
+;                     Modify the user interface of Image Color Scheme
 ;-
 ;
 @os.init
@@ -3775,8 +3820,8 @@ if XRegistered('main13_2') ne 0  then return
 ; add detectors
 
   BASE186 = WIDGET_BASE(main13_2, $
-      ROW=1, $
-      MAP=1, $ ; /scroll, $
+      ROW=1, /frame, $
+      MAP=1, $ 
       TITLE='Detector btns', $
       UVALUE='BASE186')
   Btns_detector = [ $
