@@ -198,11 +198,11 @@ if strtrim(multi_ids.title,2) ne '' then title = multi_ids.title
 if strtrim(multi_ids.xtitle,2) ne '' then xtitle = multi_ids.xtitle
 if strtrim(multi_ids.ytitle,2) ne '' then ytitle = multi_ids.ytitle
 
-	plot1d,x,y,title=title,xtitle=xtitle,ytitle=ytitle, $
-		legend=legend,$
+	plot1d,x,newy,title=title,xtitle=xtitle,ytitle=ytitle, $
+		legend="Scan # "+strtrim(legend,2),$
 		xylegend=[0.05, 0.95],comment=comment, /stamp, $
 		symbol=symbol, $
-		ylog=ylog, $
+		ylog=ylog, /data, $
 		linestyle=linestyle
 
 END
