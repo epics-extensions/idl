@@ -138,6 +138,7 @@ ERRCODE=0
                 ret=WIDGET_MESSAGE(!err_string + string(!err))
                 if n_elements(unit) then u_close,unit
 		ERRCODE=-99
+;		exit
                 return 
         end
 
@@ -257,6 +258,7 @@ PRO u_close,unit
 ;
 ;       xx-xx-xx      iii  comment     
 ;-
+close,unit
 free_lun,unit
 END
 
@@ -624,7 +626,8 @@ if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
 
         id=0
         u_openr,unit,filename
-        u_openw,unit2,filename+'.xdr',/XDR
+;        u_openw,unit2,filename+'.xdr',/XDR
+	openw,/XDR,unit2,filename+'.xdr',/GET_LUN  
 
         WHILE NOT  EOF(unit) DO BEGIN
         id = id + 1
