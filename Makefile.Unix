@@ -6,6 +6,7 @@ DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt
 SCRIPTS = setup_ezcaIDL ezcaidl_startup.pro \
 	catcher_v1.pro catcher_v1.init catcher\
 	view2d.pro view2d.init plot1d.pro \
+	PS_open.pro u_read.pro catcher_view1d.pro catcher_V1D \
 	catcher.exe 
 
 include $(EPICS)/config/RULES.Unix
