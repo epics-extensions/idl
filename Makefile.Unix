@@ -6,13 +6,15 @@ DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt
 SCRIPTS = setup_ezcaIDL ezcaidl_startup.pro \
 	os.init PS_open.pro u_read.pro plot1d.pro \
 	ez_fit.pro ezfit catch1d.tbl \
-	catcher_v1.pro catcher_v1.init catcher toImage.pro\
-	catcher.exe2 catcher.exe2.idl5 \
+	catcher_v1.pro catcher_v1.init catcher toImage.pro toimage \
+	catcher.exe2.idl5 catcher.exe2.idl51 \
 	scan1d__define.pro go_scan1d \
 	scan2d__define.pro go_scan2d \
 	viewer dcviewer.pro viewer_startup.pro \
 	view1d.pro view1d.init view1d_overlay.pro \
-	view2d.pro view2d.init makeIDLRef.pro 
+	view2d.pro view2d.init makeIDLRef.pro \
+	dc2hdf catcher2hdf.pro \
+	hdfb hdfb.pro hdfb_startup.pro
 
 include $(EPICS)/config/RULES.Unix
 
