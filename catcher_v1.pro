@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.56 2004/01/29 23:50:18 cha Exp $
+; $Id: catcher_v1.pro,v 1.57 2004/04/13 20:36:01 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -493,7 +493,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.56 2004/01/29 23:50:18 cha Exp $
+; $Id: catcher_v1.pro,v 1.57 2004/04/13 20:36:01 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3345,7 +3345,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 COMMON w_statistic_block,w_statistic_ids
 
-if !d.name eq 'WIN' then device,decomposed=1
+if !d.n_colors gt !d.table_size then device,decomposed=1
 
    WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
    if total(wf_sel) eq 0 then return
@@ -3485,7 +3485,11 @@ ENDELSE
 	end
 
    ;Now draw the axis and plot the selected waveforms
-
+if !d.n_colors le !d.table_size then begin
+TVLCT,o_red,o_green,o_blue,/get
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+TVLCT,red,green,blue
+end
 
 if !d.name ne 'PS' then WSET, widget_ids.plot_area
 ;   ERASE
@@ -3500,7 +3504,6 @@ if !d.name ne 'PS' then WSET, widget_ids.plot_area
 	yticklen = w_plotspec_id.yticklen
 	gridstyle = w_plotspec_id.gridstyle
 
-;if scanData.act_npts ge scanData.req_npts then begin
 ; 
 ; linear plot
 ;
@@ -3664,6 +3667,8 @@ footer_note= 'comment: ' + strtrim(w_plotspec_array(5))
 	ydis = 0.1*!d.y_ch_size
 	xyouts,xdis,ydis,footer_note,/device
 
+if !d.n_colors le !d.table_size then TVLCT,o_red,o_green,o_blue
+if !d.n_colors gt !d.table_size then device,decomposed=0
 END
 
 
@@ -3812,11 +3817,8 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
 	color = w_plotspec_id.colorI(id)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
+	if w_plotspec_id.color eq 0 then color = !d.n_colors-1
+
 	if !d.name eq 'PS' then color = 0
 
 	line = id1
@@ -4337,6 +4339,7 @@ if cpts le 1 then return
 retval = pd
 
 if cpts le scanData.act_npts  then return
+if !d.n_colors gt !d.table_size then device,decomposed=1
 
 n1 = realtime_id.no
 n2 = cpts - 1  
@@ -4477,11 +4480,6 @@ if realtime_id.axis eq 1 then begin
 	for i=0,scanData.num_det - 1 do begin
 	if realtime_id.def(4+i) ne 0 and wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
 		oplot,scanData.px(1:n1), scanData.da(1:n1,i),LINE=ln_style(i), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
@@ -4491,11 +4489,6 @@ if realtime_id.axis eq 1 then begin
 	for i=0,scanData.num_pos - 1 do begin
 	if realtime_id.def(i) ne 0 and wf_sel(15+i) eq 1 then begin
 	color = w_plotspec_id.colorI(15+i)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
 	oplot,scanData.px(1:n1), scanData.pa(1:n1,i),LINE=ln_style(i+15), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
@@ -4517,12 +4510,7 @@ for i=0,scanData.num_det-1 do begin
 		end
 		if wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
-			 oplot,xtemp, ytemp,LINE=ln_style(i), $
+		oplot,xtemp, ytemp,LINE=ln_style(i), $
 			PSYM = symbol * (i+1) mod 8, $
 			 COLOR=color
 		end
@@ -4539,12 +4527,7 @@ for i=0,scanData.num_pos-1 do begin
 		end
 		if wf_sel(i+15) eq 1 then begin
 	color = w_plotspec_id.colorI(i+15)
-	; 24 bit visual case
-	if !d.n_colors eq 16777216 then begin
-		catch1d_get_pvtcolor,color,t_color
-		color = t_color
-		end
-			oplot,xtemp, ytemp,LINE=ln_style(i+15), $
+		oplot,xtemp, ytemp,LINE=ln_style(i+15), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -4560,7 +4543,7 @@ if (n2+1) ge npts then begin
 	realtime_id.ind = 2
 ;	print,'caclock',caclock()
 	end
-
+if !d.n_colors gt !d.table_size then device,decomposed=0
 END
 
 
@@ -5385,22 +5368,6 @@ if n_params() eq 4 then return
 END
 
 
-PRO plotoption_setcolor
-COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
-
-  if w_plotspec_id.color eq 1 then begin
-;        LOADCT, 39
-	dcl = !d.table_size - 2
-	ncv = 4 
-        colorlevel = dcl / ncv
-        for i=0,18 do begin
-        ii = i / ncv
-        im = i mod ncv
-        w_plotspec_id.colorI(i) = dcl - ii - im * colorlevel
-        end
-  end
-
-END
 
 PRO plotoptionsmenu_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
@@ -5420,14 +5387,10 @@ if w_plotspec_id.scan eq 0 and realtime_id.ind eq -1 then $
     2: begin
 	plotoptionsmenu_set_string,2,3
 	w_plotspec_id.color = 1
-	plotoption_setcolor
 	end
     3: begin
 	plotoptionsmenu_set_string,3,2
 	w_plotspec_id.color = 0
-	for i=0,18 do begin
-       	w_plotspec_id.colorI(i) = !d.table_size - 1 
-	end
 	end
 ; solid / dotted/ dashed
       5: begin
@@ -7657,7 +7620,8 @@ if error_status lt 0 then begin
 end
 
 	wset,new_win
-	if !d.name eq 'WIN' then device,decompose=0
+;	if !d.name eq 'WIN' then device,decompose=0
+	if !d.n_colors gt !d.table_size then device,decompose=0
 
 ;	erase
 	for sel=0,14 do begin
@@ -7684,7 +7648,8 @@ end
 	end
 	end
 
-	if !d.name eq 'WIN' then device,decompose=1
+;	if !d.name eq 'WIN' then device,decompose=1
+	if !d.n_colors gt !d.table_size then device,decompose=1
 	wset,old_win
 END
 
@@ -8008,6 +7973,7 @@ END
 @u_read.pro
 @PS_open.pro
 @cw_term.pro
+@colorbar.pro
 
 PRO catch1d_refreshScreen,pv
   COMMON CATCH1D_COM, widget_ids, scanData
@@ -8959,6 +8925,10 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
 ;    catcher_close,event.top
     	WIDGET_CONTROL, event.top, /DESTROY
     END
+
+  'File.Print': BEGIN
+	PS_TVRD,file='catch1d.ps',wid=widget_ids.plot_area
+    END
   ENDCASE
 END
 
@@ -9672,6 +9642,9 @@ end ;     end of if scanData.option = 1
 	END
   'BINARY_TYPE': BEGIN
 	scanData.XDR = Event.Index
+	END
+  'CATCHER_REFRESH': BEGIN
+    	UPDATE_PLOT, scanData.lastPlot
 	END
   'PICK_PS': BEGIN
 	ratio = .5 ^ Event.Index
@@ -10390,6 +10363,7 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;     			 Fix problem encountered in WIN save file
 ;			 spawn,/noshell,rm,wc,index file etc...
 ;       12-03-03 bkc   - R3.0  Support old/new scan record
+;       04-06-04 bkc   - R3.1  Support TrueColor devices
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10419,7 +10393,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R3.0)', $
+      TITLE='Scan Data Catcher (R3.1)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10638,13 +10612,13 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       MAP=1, $
       TITLE='PS', $
       UVALUE='BASE144_2')
+
+  Refresh_btn = WIDGET_BUTTON(BASE144_2,VALUE='ReDraw Plot Area',$
+	UVALUE='CATCHER_REFRESH')
+
   pick_PS = WIDGET_DROPLIST(BASE144_2, VALUE=['1','1/2','1/4'], $
         UVALUE='PICK_PS',TITLE='PS ratio')
   WIDGET_CONTROL,pick_PS,set_droplist_select = 1
-
-;  Btns913 = ['#','P1','P2','P3','P4', $
-;	     'D1','D2','D3','D4','D5','D6','D7','D8', $
-;	     'D9','D10','D11','D12','D13','D14','D15']
 
 ; if detector for X axis is desired just comment out the following line
   Btns913 = ['#','P1','P2','P3','P4']
@@ -10681,7 +10655,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R3.0)'
+scanData.release = '(R3.1)'
 
 ; get start home work directory
 
