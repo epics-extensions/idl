@@ -7,6 +7,30 @@ time instead of explicitly included in the sources.  The PS_open.pro
 is modified such that the 2D PS plot is same as the plot display 
 shown on the window.
 
+<<cathcer>>
+
+catcher -n 
+
+To start data catcher as a realtime scan data viewer use the -n option on 
+the command line. Data acqusition is allowed but no data will be saved at
+the end of scan. The user will see a 'No Save' note on the right upper hand 
+of the data catcher main window. The 'No Save' mode will be turned off as 
+soon as a new file is selected by the user, i.e., it will become the normal
+operation of data acqusition.
+
+I don't recommand that the user to use this option because that sometimes
+the 'No Save' version of data catcher interferes with the normal operation 
+version of data acqusition of the normal operation of data catcher.
+
+catcher -D -v 
+
+To start data catcher as a data viewer use the -D -v option on the command
+line. No data acqusition is allowed on any old data file selected, and a
+user will see a 'View Only' note on the right upper hand of the data catcher
+main window. The 'View Only' mode will be turned off as soon as a new file
+is selected by the user, i.e., it will become the normal operation of data
+acqusition.
+
 <<TV>>
 
 The problem of plotting TV image vs Step # is fixed in this release.
