@@ -36,7 +36,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
   cd,current=h
 
   catch2d_file = {                $
-	version : '', $
+	version : 'R2.5', $
 	home    : h, $
 	path    : h+!os.file_sep,   $ ;'/', $
 	outpath : h+!os.file_sep, $
@@ -120,6 +120,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	ps_b : 0.125, $		; PS bottom 
 	ps_r : 0.85, $		; PS right 
 	ps_t : 0.875, $		; PS top 
+	pickx : 0, $            ; pick P1 as X axis
 	x_min	: 0, $		; user set xmin
 	x_max	: 1000, $	; user set xmax
 	y_min	: 0, $		; user set ymin

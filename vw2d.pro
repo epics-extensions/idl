@@ -570,7 +570,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.11 2001/06/19 19:23:21 cha Exp $
+; $Id: vw2d.pro,v 1.12 2001/07/02 21:19:28 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1223,7 +1223,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.11 2001/06/19 19:23:21 cha Exp $
+; $Id: vw2d.pro,v 1.12 2001/07/02 21:19:28 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2634,16 +2634,16 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	da1D = *(*gD).da1D
 	pa2D = *(*gD).pa2D
 	da2D = *(*gD).da2D
-
 	catch2d_file.scanno_2d = scanno
 	catch2d_file.scanno_current = scanno
 	catch2d_file.id_def = id_def(4:89-1,0) 
 
-	max_pidi = catch2d_file.last -1  
+	max_pidi = n_elements(id_def(*,0))  
 	pv1_desc = labels(max_pidi,0)
-	if pv1_desc eq '' then pv1_desc = labels(0,0)
+	if pv1_desc eq '' then pv1_desc = labels(view_option.pickx,0)
+	if strtrim(pv1_desc,2) eq '' then pv1_desc = 'P'+strtrim(view_option.pickx+1,2)
 	pv2_desc = labels(max_pidi,1)
-	if pv2_desc eq '' then pv2_desc = labels(0,1)
+	if pv2_desc eq '' then pv2_desc = labels(view_option.pickx,1)
 	pvs0 = [pv(0:1),filename,pv1_desc,pv2_desc]
 
 	seqno = 0
@@ -2656,7 +2656,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	if y_name eq '' then y_name = labels(i,0)
 	pvs = [ pvs,y_name]
 	nos = [cpt(0),num_pts(0),cpt(1),detector,scanno,num_pts(1)]
-	x = pa2D(*,0,0)
+	x = pa2D(*,view_option.pickx)    ;0,0)    
 	y = pa1D(*,0)
 	image = da2D(*,*,i-4)
 
@@ -2703,11 +2703,12 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 
 	catch2d_file.scanno_2d = scanno
 
-	max_pidi = n_elements(id_def) / 2
-	pv1_desc = labels(max_pidi,0)
-	if pv1_desc eq '' then pv1_desc = labels(0,0)
-	pv2_desc = labels(max_pidi,1)
-	if pv2_desc eq '' then pv2_desc = labels(0,1)
+	max_pidi = n_elements(id_def(*,0))
+	pv1_desc = labels(max_pidi+view_option.pickx,0)
+	if pv1_desc eq '' then pv1_desc = labels(view_option.pickx,0)
+	if strtrim(pv1_desc,2) eq '' then pv1_desc = 'P'+strtrim(view_option.pickx+1,2)
+	pv2_desc = labels(max_pidi+view_option.pickx,1)
+	if pv2_desc eq '' then pv2_desc = labels(view_option.pickx,1)
 	filename = catch2d_file.name
 	pvs0 = [pv(0:1),filename,pv1_desc,pv2_desc]
 
@@ -2720,10 +2721,9 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 	if y_name eq '' then y_name = labels(i,0)
 	pvs = [ pvs,y_name]
 	nos = [cpt(0),num_pts(0),cpt(1),detector,scanno,num_pts(1)]
-	x = pa2D(*,0,0)
+	x = pa2D(*,view_option.pickx)    ;,0,0)
 	y = pa1D(*,0)
 	image = da2D(*,*,seqno)
-
 		scanno_2d = nos(4)
 		detector = nos(3) + 1
 	
@@ -2783,9 +2783,7 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 	end
 	END
 
-
-
-END
+   END
 END
 
 PRO fileSeqString,no,suf0
@@ -3950,8 +3948,9 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
 	dir = outpath+'TIFF' + !os.file_sep
 	catch2d_file.outpath = outpath
 	found = findfile(dir,count=ct)
-	if ct eq 0 then spawn,!os.mkdir + ' '+dir
-	openw,fw,dir+'.tmp',/get_lun
+;	if ct eq 0 then spawn,!os.mkdir + ' '+dir
+;	openw,fw,dir+'.tmp',/get_lun
+	openw,fw,outpath+'.tmp',/get_lun
 	free_lun,fw
 	close,fw
 
@@ -4181,6 +4180,7 @@ COMMON CATCH1D_2D_COM,data_2d, gD
   CASE Event.Value OF
   'PanImage.PanImages...': begin
 	panimage_sel,image_array,det_def,title=title,new_win=new_win, $
+		path=catch2d_file.outpath, $
 		tiff='TIFF'+!os.file_sep+catch2d_file.name+'.tiff',Group=Event.top
 	catch2d_file.panwin = new_win
 	end
@@ -4228,6 +4228,10 @@ COMMON w_warningtext_block,w_warningtext_ids
   'SURFACE_PLOT': BEGIN
 	view_option.surface = Event.Index
 	REPLOT
+	END
+  'PICK_2DXAXIS': BEGIN
+	view_option.pickx = Event.Index
+	viewscanimage_current
 	END
   'PLOTVERSUS': BEGIN
 	view_option.versus = Event.Index
@@ -4564,6 +4568,8 @@ PRO VW2D,dname=dname, GROUP=Group, file=file,CA=CA,lastDet=lastDet
 ;                      scan2d_roi allow save and read filter range
 ;                      Mutiroi_pick can read the fileter ROI from scan2d_roi
 ;                      ScanSee_overlay 1D scan plot is available
+;       06-27-01 bkc   R2.5
+;                      Add pickx into vw2d
 ;
 ;-
 ;
@@ -4575,7 +4581,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VW2D (R2.4)'
+  version = 'VW2D (R2.5)'
 
   VW2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
@@ -4685,6 +4691,9 @@ if XRegistered('VW2D_BASE') ne 0 then return
   LISTSIM = WIDGET_LIST( BASE185,VALUE=lis, $
       UVALUE='VIEW2D_SELECTIMAGE', XSIZE=7, $
       YSIZE=3)
+
+  xaxis = WIDGET_DROPLIST(BASE185, VALUE=['P1','P2','P3','P4'], $
+	UVALUE='PICK_2DXAXIS',TITLE='X axis:')
 
 ;  LABEL31 = WIDGET_LABEL( BASE185, VALUE='Set Last Detector:')
 ;  LISTLASTD = WIDGET_LIST( BASE185,VALUE=lis(0:69), $
@@ -4946,6 +4955,7 @@ end
 
 @vw2d.init
 
+  WIDGET_CONTROL, xaxis, SET_DROPLIST_SELECT=view_option.pickx
   WIDGET_CONTROL, surface_plot, SET_DROPLIST_SELECT=view_option.surface
   WIDGET_CONTROL, BGROUP184, SET_DROPLIST_SELECT=view_option.user
   WIDGET_CONTROL, plot_versus, SET_DROPLIST_SELECT=view_option.versus
