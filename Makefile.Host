@@ -38,7 +38,7 @@ IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 	multiroi_pick.pro xdr_open.pro \
 	pick3d.pro view3d_2dsum.pro pick2d.pro \
  	view3d_2d.pro panimage.pro slide_image.pro \
-	mda2vol.pro \
+	mda2vol.pro xrf_peak_library.txt \
 	memtest.pro scansee_overlay.pro assignname_read.pro scansee_browser.pro
 #	volviewer.pro volviewer_eventcb.pro volume_animator.pro \
 
