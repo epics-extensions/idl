@@ -305,7 +305,7 @@ class=class,outpath=outpath
 
 END
 
-PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,pict=pict,group=group
+PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,pict=pict,group=group,SEL=SEL
 ;+
 ; NAME:
 ;       scanSee::VIEW3D_PANIMAGE
@@ -317,7 +317,7 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,p
 ;
 ; CALLING SEQUENCE:
 ;      Obj->[scanSee::]VIEW3D_PANIMAGE, Slice [,Rank] [,Data] [,/TIFF] 
-;                  [,/REVERSE] [,/GIF] [,/PICT] [,GROUP=group]
+;                  [,/REVERSE] [,/XDR] [,/PICT] [,GROUP=group]
 ;
 ; ARGUMENTS:
 ;      Slice     - Specifies the slice # in the viewing direction 
@@ -326,11 +326,12 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,p
 ;      DATA      - returns the panimage data array
 ;
 ; KEYWORDS:
-;       GIF      - specifies the output gif filename
 ;       TIFF     - specifies the output tiff filename
 ;       REVERSE  - indicates the reverse tiff is desired
 ;       PICT     - specifies the output pict filename
+;       XDR      - specifies the output XDR filename
 ;       GROUP    - specifies the parent widget ID
+;       SEL      - provides selection dialog for panimage
 ;
 ; RESTRICTION:
 ;   The scanSee object must be a 3D scan object.
@@ -344,7 +345,9 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,p
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, April 7, 2000.
-;       xx-xx-xxxx      comment
+;       11-03-2000      Remove GIF file generation
+;                       Add panimage_sel support
+;                       Add u_read,u_write,u_open XDR data format
 ;
 ;-
 
@@ -380,15 +383,17 @@ PRO scanSee::view3d_panImage,slice,rank,data,tiff=tiff,reverse=reverse,gif=gif,p
 	if keyword_set(REVERSE) then $
 	tiff = self.outpath+'TIFF'+!os.file_sep+self.class+ $
 		scanno+'.rtiff'
-	if keyword_set(GIF) then $
-	gif = self.outpath+'GIF'+!os.file_sep+self.class+ $
-		scanno+'.gif'
+	if keyword_set(XDR) then $
+	xdr = self.outpath+'XDR'+!os.file_sep+self.class+ $
+		scanno+'.xdr'
 	if keyword_set(PICT) then $
 	pict = self.outpath+'PICT'+!os.file_sep+self.class+ $
 		scanno+'.pict'
 
 	nw = self.win
-	panImage,data,id_def,new_win=nw,tiff=tiff,reverse=reverse,gif=gif,pict=pict,title=title
+	if keyword_set(SEL) then $
+	panImage_sel,data,id_def,new_win=nw,title=title else $
+	panImage,data,id_def,new_win=nw,tiff=tiff,reverse=reverse,pict=pict,xdr=xdr,title=title
 	self.win = nw
 
 END
@@ -514,7 +519,7 @@ PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
 	if keyword_set(panimage) then self->panImage 
 END
 
-PRO scanSee::panImage,GIF=GIF,TIFF=TIFF,PICT=PICT,REVERSE=REVERSE
+PRO scanSee::panImage,SEL=SEL,TIFF=TIFF,XDR=XDR,PICT=PICT,REVERSE=REVERSE
 ;+
 ; NAME:
 ;       scanSee::PanImage
@@ -523,18 +528,19 @@ PRO scanSee::panImage,GIF=GIF,TIFF=TIFF,PICT=PICT,REVERSE=REVERSE
 ;       This method allows the user to view detector images in a pop up window.
 ;
 ; CALLING SEQUENCE:
-;       Obj->[scanSee::]PanImage] [,GIF=GIF] [,TIFF=TIFF] [,REVERSE=REVERSE]
-;                  [,PICT=PICT]
+;       Obj->[scanSee::]PanImage] [,SEL=SEL] [,TIFF=TIFF] [,REVERSE=REVERSE]
+;                  [,PICT=PICT] [,XDR=XDR]
 ;
 ; ARGUMENTS:
 ;     None.
 ;
 ; KEYWORDS:
-;       GIF      - specifies the output gif filename
 ;       TIFF     - specifies the output tiff filename
 ;       REVERSE  - indicates the reverse tiff is desired 
 ;       PICT     - specifies the output pict filename
+;       XDR      - specifies the output xdr filename
 ;       GROUP    - specifies the parent widget ID 
+;       SEL      - specifies the selection dialog
 ;
 ; EXAMPLE:
 ;    Following example pops up the panimage window for the input scanSee file
@@ -547,6 +553,7 @@ PRO scanSee::panImage,GIF=GIF,TIFF=TIFF,PICT=PICT,REVERSE=REVERSE
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       xx-xx-xxxx      comment
+;       11-03-2000      Add the panImage selection option
 ;-
 
 ; pops up pan images
@@ -554,6 +561,24 @@ PRO scanSee::panImage,GIF=GIF,TIFF=TIFF,PICT=PICT,REVERSE=REVERSE
 	def = self.def
 	seq = self.scanno
 	image_array = *(*self.gD).da2D
+	title=self.name+' SCAN # '+strtrim(seq,2)
+
+catch,error_status
+if error_status ne 0 and !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
+	r = dialog_message([!error_state.msg,!error_state.sys_msg,$
+		string(!error_state.code)],/error)
+	return	
+end
+if error_status then self.win = -1 
+if self.win ne -1 then wdelete,self.win
+self.win = -1
+
+	if keyword_set(SEL) then begin
+	nw = self.win 
+	panImage_sel,image_array,def,new_win=nw,title=title 
+	self.win = !d.window
+	return
+	end
 
 update:
 
@@ -572,18 +597,9 @@ update:
 	NR = ND/8 + 1
 	NL = NR*NC - 1
 
-catch,error_status
-if error_status ne 0 and !error_state.name eq 'IDL_M_CNTOPNFIL' then begin
-	r = dialog_message([!error_state.msg,!error_state.sys_msg,$
-		string(!error_state.code)],/error)
-	return	
-end
-if error_status then self.win = -1 
-if self.win ne -1 then wdelete,self.win
-self.win = -1
 	if self.win lt 0 then begin
 		window,/free, xsize = NC*width, ysize=NR*height, $
-			title=self.name+' SCAN # '+strtrim(seq,2)
+			title=title,retain=2
 		for i=0,ND-1 do begin
 		ii = NL-i
 		xi=(i mod NC)*width+width/2 - 5 
@@ -621,11 +637,11 @@ self.win = new_win
 		else write_tiff,tiffname,TVRD(),red=r,green=g,blue=b
 	end
 
-	if keyword_set(GIF) then begin
-		tvlct,r,g,b,/get
-		gifname = strtrim(gif,2)
-		write_gif,gifname,TVRD(),r,g,b
-		write_gif,gifname,/close
+	if keyword_set(XDR) then begin
+		xdrname = strtrim(xdr,2)
+		u_openw,unit,xdrname,/XDR,error=error
+		u_write,unit,image_array
+		u_close,unit
 	end
 
 	if keyword_set(PICT) then begin
