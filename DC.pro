@@ -580,7 +580,7 @@ DONE:
 END
 
 
-; $Id: DC.pro,v 1.29 2002/12/04 23:55:39 cha Exp $
+; $Id: DC.pro,v 1.30 2003/05/05 15:54:14 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1180,7 +1180,6 @@ if !d.name eq 'WIN' then device,decomposed=1
 
 win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
 
-;   plotSubTitle = strtrim(w_plotspec_array(4))
    plotSubTitle = ''
    plotTitle=''
    plotYTitle=''
@@ -1474,20 +1473,13 @@ if auto eq 1 and n_elements(st) gt 0  and widget_ids.statistic gt 1 then begin
 	ydis = !d.y_size - 1.2 * !d.y_ch_size
 	xyouts,xdis,ydis,header_note,/device
 
-
-	footer_note = strmid(strtrim(w_plotspec_array(4)),0,29)
+	footer_note = strtrim(w_plotspec_array(4),2)
 	xdis = 0.01 * !d.x_size
 	ydis = 1.2*!d.y_ch_size
 	xyouts,xdis,ydis,footer_note,/device
 
-	len = strlen( strtrim(w_plotspec_array(4)))
-	footer_note = strmid(strtrim(w_plotspec_array(4)),30,len-30)
-	xdis = 0.7 * !d.x_size
-	ydis = 1.2*!d.y_ch_size
-	xyouts,xdis,ydis,footer_note,/device
 
-
-footer_note= 'comment: ' + strtrim(w_plotspec_array(5))
+	footer_note= 'comment: ' + strtrim(w_plotspec_array(5))
 	view1d_ydist,(.01-pos(1)),ydis	
 	xdis = 0.01 * !d.x_size
 	ydis = 0.1*!d.y_ch_size
@@ -1639,7 +1631,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	ch_ratio = float(!d.y_ch_size) / !d.y_size
 	view1d_ydist,(pos(3)-pos(1)-5*id1*ch_ratio),lydis	
 
-	color = w_plotspec_id.colorI(id1)
+	color = w_plotspec_id.colorI(id)   ; use fix detector color
 	; 24 bit visual case
 	if !d.n_colors eq 16777216 then begin
 		catch1d_get_pvtcolor,color,t_color
@@ -2280,12 +2272,14 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
   if w_plotspec_id.color eq 1 then begin
 ;        LOADCT, 39
 	dcl = !d.table_size - 2
-	ncv = 4
+	ncv = 7 ;4
         colorlevel = dcl / ncv
         for i=0,n_elements(w_plotspec_id.colorI)-1 do begin
         ii = i / ncv
         im = i mod ncv
         w_plotspec_id.colorI(i) = dcl - ii - im * colorlevel
+	if w_plotspec_id.colorI(i) le 2 then $
+		 w_plotspec_id.colorI(i)= dcl + w_plotspec_id.colorI(i) 
         end
   end
 
@@ -3034,7 +3028,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 	end
       WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
 
-       prefix = str_sep(scanData.pv,':')
+       prefix = strsplit(scanData.pv,':',/extract)
 ;        ln = caget(prefix[0]+':saveData_fullPathName',pd)
         ln = cagetArray(prefix[0]+':saveData_fullPathName',pd)
 	if !d.name eq 'X' then begin
@@ -4342,7 +4336,6 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	st = str_sep(w_plotspec_array(3),'.')
 	st0 = str_sep(st(0),'_')
 	prefix = strmid(w_plotspec_array(3),0,strlen(st0(0))+1)
-
 	; get current file no
 	if n_elements(no) eq 0 then begin
 	no = fix(st0(1))
@@ -4803,6 +4796,9 @@ scanData.pvconfig(1) = scanData.y_pv
 
 WIDGET_CONTROL, /HOURGLASS
 
+;maxno = scanData.act_npts
+;dim = scanData.dim
+;w_viewscan_id.maxno = maxno
 w_viewscan_id.unit = unit
 ;        catch,error_status
 ;        if error_status then goto,next_step
@@ -4817,7 +4813,7 @@ if n_elements(maxno) eq 0 then begin
 ;	return
 	retall
 end
-;	if dim eq 3 then return
+if dim eq 3 then w_viewscan_id.maxno = maxno
 
 w_viewscan_topbase=WIDGET_BASE(GROUP_LEADER=Group, $
 	TLB_FRAME_ATTR = 8, $
@@ -4889,11 +4885,12 @@ w_viewscan_format = CW_FIELD( row1,VALUE=scanData.code+scanData.format, $
 
 @vw2d.bm
 
-   if maxno gt 1 then begin
-
-   VIEW2D_BTN = WIDGET_BUTTON( row1,VALUE=BMP167, $
-      UVALUE='VIEWSPEC_2DIMAGE')
-   end
+;   if maxno gt 1 then begin
+;
+;  if dim eq 2 then $
+;   VIEW2D_BTN = WIDGET_BUTTON( row1,VALUE=BMP167, $
+;      UVALUE='VIEWSPEC_2DIMAGE')
+;   end
 
   BASE2 = WIDGET_BASE(w_viewscan_base, $
       ROW=1, $
@@ -4927,12 +4924,12 @@ if maxno gt 1 then begin
 
 end
 
-if dim eq 3 then begin
-	WIDGET_CONTROL,ROW0,SENSITIVE=0
-	WIDGET_CONTROL,ROW1,SENSITIVE=0
-	WIDGET_CONTROL,BASE2,SENSITIVE=0
-	r = dialog_message("Please use IMAGE2D / SB / PICK3D to view this file",/info)
-end
+;if dim eq 3 then begin
+;	WIDGET_CONTROL,ROW0,SENSITIVE=0
+;	WIDGET_CONTROL,ROW1,SENSITIVE=0
+;	WIDGET_CONTROL,BASE2,SENSITIVE=0
+;	r = dialog_message("Please use IMAGE2D / SB / PICK3D to view this file",/info)
+;end
 
 
 ; set widget ids :
@@ -5469,6 +5466,7 @@ END  ; end seqno le 0
 		scanData.pv = pv
 		scanData.scanno = seqno
 		scanData.y_scan = 0
+		scanData.y_seqno = 0
         end
 
 ; get Y positional vector 
@@ -5598,7 +5596,7 @@ if id lt 0 then begin
 	if strlen(new_pv[0]) gt 2 then scanData.pv = new_pv[0]
 	if strlen(new_pv[1]) gt 2 then scanData.y_pv = new_pv[1]
 
-	realtime_id.def = old_id_def
+	if scanData.pv ne '' then realtime_id.def = old_id_def
 	scanData.y_scan = old_yscan
 end
 
@@ -7334,10 +7332,6 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 
   CASE Event.Value OF
   'ViewData.1D/2D...': BEGIN
-;	if *(*gD).dim eq 3 then begin
-;		DC_3DscanMessage,scanData.trashcan
-;		return
-;	end
 	if scanData.realtime eq 0 then catch1d_viewmode, Event else begin
 	if !d.name eq 'WIN' then begin
 		r = dialog_message('Please use the "@go_SB" to view the scan data.',/info)
@@ -7360,6 +7354,9 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 	endif else $
 	spawn,'pick3d '+scanData.trashcan+ ' &'
 	end
+	END
+  'ViewData.1D_OVERLAY...': BEGIN
+	r = dialog_message('1D_OVERLAY not available yet !!',/info)
 	END
   'ViewData.IMAGE2D...': BEGIN
 	dim = *(*gD).dim
@@ -7460,10 +7457,10 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
   'Print.Plot': BEGIN
 	if scanData.lastPlot lt 0 then return
 	scanData.act_npts = scanData.readin_npts
-    	PS_open,'catch1d.ps'
+    	PS_open,'1d.ps'
     	UPDATE_PLOT, scanData.lastPlot
     	PS_close
-    	PS_print,'catch1d.ps'
+    	PS_print,'1d.ps'
  	END
   'Print.Report ...': BEGIN
 	view1d_summary_setup,GROUP=Event.top  		; pick the range
@@ -8162,6 +8159,13 @@ end ;     end of if scanData.option = 1
   'DC_BYPASS3D': BEGIN
 	scanData.bypass3d = Event.Index
 	END
+  'PICK_PS': BEGIN
+        ratio = .5 ^ Event.Index
+        PS_open,'1d.ps',scale_factor=ratio
+        UPDATE_PLOT, scanData.lastPlot
+        PS_close
+        PS_print,'1d.ps'
+	END
   'PICK_XAXIS': BEGIN
 	w_plotspec_id.x_axis_u = 0
 	w_plotspec_id.xcord = 0
@@ -8456,7 +8460,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 		end
    END
 
-	tn = str_sep(pd(1),": ")             ; works only if ': ' is true
+	tn = str_sep(pd(1),": ")       ; works only if ': ' is true
 	if n_elements(tn) gt 1 then begin
 	  filename = tn(1) 
 
@@ -8802,7 +8806,10 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;			for loaded 2D or 3D scan file 
 ;       11-01-2002 bkc  R2.5.3
 ;			Add the AutoScan option
-;			Add the read of timestamp of each line scan 
+;                       Add the read of timestamp of each line scan 
+;       01-08-2003 bkc 	Detector use fixed color number
+;			Allow 1D line scan view of 2D images of 3D scan 
+;                       Add droplist of reduced 1D plot menu
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -8826,7 +8833,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R2.5.3)', $
+      TITLE='scanSee ( R2.5.4)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -8859,16 +8866,9 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       { CW_PDMENU_S,       3, 'ViewData' }, $ ;        0
         { CW_PDMENU_S,       0, '1D/2D...' }, $ ;        1
         { CW_PDMENU_S,       0, 'IMAGE2D...' },  $ ;        3
+        { CW_PDMENU_S,       0, '1D_OVERLAY...' },  $ ;        3
         { CW_PDMENU_S,       0, 'SB (1D/2D/3D Browser)...'}, $ ;        2
-        { CW_PDMENU_S,       2, 'PICK3D...' },  $ ;        3
-        { CW_PDMENU_S,       3, 'Load # Detectors' }, $ ;        4
-          { CW_PDMENU_S,       0, '25' }, $ ;        5
-          { CW_PDMENU_S,       0, '35' }, $ ;        6
-          { CW_PDMENU_S,       0, '45' }, $ ;        7
-          { CW_PDMENU_S,       0, '55' }, $ ;        8
-          { CW_PDMENU_S,       0, '65' }, $ ;        9
-          { CW_PDMENU_S,       0, '75' }, $ ;      10 
-          { CW_PDMENU_S,       2, '85' } $ ;     10 
+        { CW_PDMENU_S,       2, 'PICK3D...' }  $ ;        3
 	]
 
   PDMENU_VDATA = CW_PDMENU( BASE68, MenuVData, /RETURN_FULL_NAME, $
@@ -9032,6 +9032,9 @@ l123 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D
    pick_image = WIDGET_LIST(BASE144_3, VALUE=BTNS912, $
         UVALUE='PICK_IMAGE',YSIZE=3)
 
+  pick_PS = WIDGET_DROPLIST(BASE144_2, VALUE=['1','1/2','1/4'], $
+        UVALUE='PICK_PS',TITLE='PS ratio')
+  WIDGET_CONTROL,pick_PS,set_droplist_select = 1
 
 ; set drawing area as wide as window width
 win_state = WIDGET_INFO(MAIN13_1, /GEOMETRY)
@@ -9062,17 +9065,12 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
 if keyword_set(viewonly) then  scanData.option = 0
  
 ; check for input file names
-;
 
 if keyword_set(config) then scanData.config = config
 
 if keyword_set(data) then w_plotspec_array(3) = data 
 
-;if keyword_set(nosave) then scanData.nosave = 1 
-
   catch1d_scanInitSetup
-
-; WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
 
   XMANAGER, 'MAIN13_1', MAIN13_1, CLEANUP='catcher_close'
 ;  XMANAGER, 'MAIN13_1', MAIN13_1, CLEANUP='catcher_close',NO_BLOCK=0
