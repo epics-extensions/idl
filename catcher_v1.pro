@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.54 2003/09/15 21:31:24 cha Exp $
+; $Id: catcher_v1.pro,v 1.55 2003/10/29 23:50:33 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -120,15 +120,16 @@ IF(NOT(KEYWORD_SET(TEXT))) THEN BEGIN
   endif else begin
 
     y=10000
-    if OS_SYSTEM.os_family eq 'unix' then begin
-	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+;    if OS_SYSTEM.os_family eq 'unix' then begin
+;	spawn,[OS_SYSTEM.wc,'-l',FILENAME],y,/noshell
+	WC,FILENAME,y
 
 	lines=long(y(0))
 	if lines eq 0 then begin
 	res=WIDGET_MESSAGE('Unable to display '+FILENAME)
 	return
 	end
-    end
+;    end
 
 	  a = strarr(y(0))				;Maximum # of lines
 	  i = 0L
@@ -260,6 +261,7 @@ end
 		res = dialog_message(st,/question)
 		if res eq 'No' then return	
 	end
+	if !d.name eq 'WIN' then spawn,[!os.mv, oldname, newname] else $
 	spawn,[!os.mv, oldname, newname],/noshell
 
 	WIDGET_CONTROL,Event.Top,/DESTROY
@@ -471,7 +473,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.54 2003/09/15 21:31:24 cha Exp $
+; $Id: catcher_v1.pro,v 1.55 2003/10/29 23:50:33 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -1045,7 +1047,8 @@ if keyword_set(help) then begin
 	return
 	end
 
-spawn,['wc','-l',filename],y, /noshell
+; spawn,['wc','-l',filename],y, /noshell
+WC,filename,y
 if y(0) eq '' then begin
 	print,'Error: bad filename for readLabelsPvnames' 
 	return 
@@ -2106,7 +2109,8 @@ if keyword_set(help) then begin
 	return
 	end
 
-spawn,[OS_SYSTEM.wc,'-l',filename],y, /noshell
+;spawn,[OS_SYSTEM.wc,'-l',filename],y, /noshell
+WC,filename,y
 if y(0) eq '' then begin
 	w_warningtext,['readEnvPvnames','Error: bad filename for readEnvPvnames' ]
 	return 
@@ -7150,6 +7154,7 @@ COMMON CATCH1D_COM, widget_ids, scanData
 	res = dialog_message(st,/default_no,/question)
 	if res eq 'No' then return
 	
+       if !d.name eq 'WIN' then spawn,[!os.rm,scanData.filelock] else $
        spawn,[!os.rm,'-f',scanData.filelock],/noshell
        found = findfile(scanData.filelock)
 	if found(0) eq '' then begin
@@ -7219,6 +7224,7 @@ IF fd(0) NE '' THEN BEGIN
 found = findfile(indexfile)
 if found(0) ne '' then begin
 errcode = 0
+	if !d.name eq 'WIN' then u_openr,unit,indexfile,/XDR else $
 	u_openr,unit,indexfile
 	u_read,unit,name
 	u_read,unit,fsize
@@ -7263,6 +7269,8 @@ if found(0) eq '' then return
 	indexfile = w_viewscan_id.file + '.index'
 	CATCH,error_status
 	if error_status lt 0 then return
+
+	if !d.name eq 'WIN' then U_OPENW,unit,indexfile,/XDR else $
 	openw,unit,indexfile,/GET_LUN
 
 	array = w_viewscan_id.fptr(0:w_viewscan_id.maxno)
@@ -8051,13 +8059,13 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
   'Help.Catcher Html ...': BEGIN
 	if scanData.option eq 0 then begin
 	str = 'file:'+getenv('EPICS_EXTENSIONS')+docp+'catcher.html'
-	spawn,['netscape',str],/noshell
+	if !d.name eq 'X' then spawn,['netscape',str],/noshell
 	endif else w_warningtext,'Sorry: This option is only accessible by the View Only mode.'
  	END
   'Help.ezcaIDL Html ...': BEGIN
 	if scanData.option eq 0 then begin
 	str = 'file:'+getenv('EPICS_EXTENSIONS')+docp+'ezcaIDLRef.html'
-	spawn,['netscape',str],/noshell
+	if !d.name eq 'X' then spawn,['netscape',str],/noshell
 	endif else w_warningtext,'Sorry: This option is only accessible by the View Only mode.'
  	END
 
@@ -8441,7 +8449,10 @@ if strlen(P) gt 1 then begin
 
 	if ln  eq 0 then begin
 
-	 if scanData.pid eq 0 then spawn,[!os.rm,'-f',scanData.filelock],/noshell
+	 if scanData.pid eq 0 then begin
+		if !d.name eq 'WIN' then spawn,[!os.rm,scanData.filelock] else $
+		spawn,[!os.rm,'-f',scanData.filelock],/noshell
+	 end
 	 scanData.trashcan = FNAME
 	 catch1d_appendCheck,FNAME
 	 if string(D) ne string(old_path) then  pventry_event
@@ -8480,7 +8491,10 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
         return
         end
 
-	 if scanData.pid eq 0 then spawn,[!os.rm,'-f',scanData.filelock],/noshell
+	 if scanData.pid eq 0 then begin
+		if !d.name eq 'WIN' then spawn,[!os.rm,scanData.filelock] else $
+		spawn,[!os.rm,'-f',scanData.filelock],/noshell
+	 end
 
 ; use XDR binary as default
 
@@ -8690,10 +8704,8 @@ OPEN_RET=0
 	return
 	end
 
-;	spawn,[!os.chmod,'644',scanData.trashcan ],/noshell
 	scan_mode_write, w_plotspec_id.opened
 	flush, w_plotspec_id.opened
-;	spawn,[!os.chmod,'444',scanData.trashcan],/noshell
 
 	status = FSTAT(w_plotspec_id.opened)
 
@@ -8893,7 +8905,10 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
 	WIDGET_CONTROL,w_caset_base,/DESTROY
 	w_warningtext_close
 
-	if scanData.pid eq 0 then spawn,[!os.rm,'-f',scanData.filelock],/noshell
+	if scanData.pid eq 0 then begin
+		if !d.name eq 'WIN' then spawn,[!os.rm,scanData.filelock] else $
+		spawn,[!os.rm,'-f',scanData.filelock],/noshell
+	end
 
     IF (STRLEN(scanData.pv) NE 0) THEN begin 
 	if caSearch(scanData.pv) eq 0 then begin
@@ -8917,6 +8932,7 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
         scanData.home = oldpath
         end
 ;	CD,scanData.home, CURRENT=oldpath
+	if !d.name eq 'WIN' then spawn,['rm','catch1d.config.tmp'] else $
 	spawn,['rm','catch1d.config.tmp'],/noshell
 	if scanData.nosave eq 0 then write_config
 
@@ -8930,7 +8946,7 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
 ;	end
 	end
 
-	if !d.name eq 'X' then EXIT
+	EXIT
 END
 
 PRO getPositionDetectorData
@@ -10344,6 +10360,9 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;                        Add a variation error function FUNCT_ERF1 to
 ;                        ez_fit
 ;       03-17-03 bkc   - Add option of selecting 'PS ratio' droplist
+;       10-24-03 bkc   - R2.2.2c10  Ported to IDLVM for window
+;     			 Fix problem encountered in WIN save file
+;			 spawn,/noshell,rm,wc,index file etc...
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10373,7 +10392,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R2.2.2c9+)', $
+      TITLE='Scan Data Catcher (R2.2.2c10)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10635,7 +10654,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R2.2.2c9+)'
+scanData.release = '(R2.2.2c10)'
 
 ; get start home work directory
 
