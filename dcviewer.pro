@@ -32,8 +32,8 @@ PRO COMMANDTEXT_Event, Event
 	end
       END
   'COMMANDTEXT_BUTTON6': BEGIN
-      Print, 'Event for Cancel'
 	WIDGET_CONTROL,info.base,/DESTROY
+	exit
       END
   ENDCASE
 END
@@ -269,9 +269,12 @@ COMMON DCVIEWER_BLOCK,dcviewer_ids
       Print, 'Event for BI2XDR ...'
 	bi2xdr_converter,GROUP=Event.Top
       END
-  'BUTTON6': BEGIN
-      Print, 'Event for Quit'
+  'BUTTON7': BEGIN
 	WIDGET_CONTROL,Event.Top,/DESTROY	
+      END
+  'BUTTON6': BEGIN
+	WIDGET_CONTROL,Event.Top,/DESTROY	
+	exit
       END
   ENDCASE
 END
@@ -363,6 +366,9 @@ PRO dcViewer,data=data,file=file, XDR=XDR, GROUP=Group
 ;       12-19-97 bkc  - Allows the access of the view1d_overlay program
 ;                       Add the IDL> prompt dialog which let the user
 ;                       run any IDL command
+;       09-06-02 bkc  - The Close button will close viewer program but stay in
+;                       IDL sesseion with all the routines intact
+;			The Exit button will exit the IDL session 
 ;-
 
 COMMON DCVIEWER_BLOCK,dcviewer_ids
@@ -450,6 +456,10 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
   dcviewer_ids.xdr = 1
 
 end
+
+  BUTTON7 = WIDGET_BUTTON( BASE2, $
+      UVALUE='BUTTON7', $
+      VALUE='   Close  ')
 
   BUTTON6 = WIDGET_BUTTON( BASE2, $
       UVALUE='BUTTON6', $
