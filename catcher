@@ -4,6 +4,8 @@
 #
 # Author: Ben-chin Cha
 # 
+
+
 if ("$1" == "-h" | "$1" == "-help") then
 	goto help:
 endif
@@ -89,6 +91,16 @@ else
 endif 
 end
 
+# check for existing catcher processor
+# set STARTUP="catcher -n -D"
+# set PROG="catcher."
+# set PSTEST=""
+# set PSTEST=`/usr/bin/ps -e | grep $PROG | awk '{ print $4 }'`
+# if ( "$PSTEST" != "" ) then
+# 	xterm -e viewer &
+# 	exit
+# endif
+
 set xyz = "catcher_v1"
 	echo "" >! go_catcher2
 
@@ -107,11 +119,14 @@ endif
 if ("$w" != "") then
 	 set xyz = $xyz','$w
 	echo $wf >>! go_catcher2
+   echo "scanData.y_handshake=' '" >>! go_catcher2
+;   echo "WIDGET_CONTROL,catcher_setup_ids.y_handshake,SET_VALUE=' '" >>! go_catcher2
 endif
 if ("$v" != "") then
 	 set xyz = $xyz','$v
 	echo $vf >>! go_catcher2
 endif
+
 echo ".run catcher_v1" >! go_catcher
 echo ".run catch1d_user" >>! go_catcher
 echo $xyz >>! go_catcher
