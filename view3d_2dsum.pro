@@ -157,6 +157,11 @@ PRO view3d_2dsum_plot,state
 	  state.PS = 0
 	  return
 	end
+	if state.PS eq 3 then begin
+	  plot1d,v,title=title,xtitle=xtitle
+	  state.PS = 0
+	  return
+	end
 	if state.PS eq 1 then begin
 	  PS_open,'idl.ps'
 	  plot,v,title=title,xtitle=xtitle
@@ -211,6 +216,19 @@ PRO VIEW3D_2DSUM_Event, Event
 	widget_control,Event.Id,get_value=id
 	state.k2_pick = id
 	view3d_2dsum_plot,state
+      END
+  'VIEW3D_SUM_PLOT1D_ALL_I': BEGIN
+	xs = state.data(*,*,state.j_pick)
+	plot1d,xs,title='All Spectrum Lines @ J='+strtrim(state.j_pick,2)
+      END
+  'VIEW3D_SUM_PLOT1D_ALL_J': BEGIN
+	ys = state.data(*,state.i_pick,*)
+	ys = reform(ys,state.kmax,state.jmax)
+	plot1d,ys,title='All Spectrum Lines @ I='+strtrim(state.i_pick,2)
+      END
+  'VIEW3D_SUM_PLOT1D': BEGIN
+	state.PS = 3
+	view3d_2dsum_plot,state	
       END
   'VIEW3D_SUM_PS': BEGIN
 	state.PS = 1
@@ -568,6 +586,24 @@ if n_elements(rank) eq 0 then rank=0
   viewdata_b = WIDGET_BUTTON( BASE6, $
       UVALUE='VIEW3D_SUM_SCREENDATA', $
       VALUE='Screen Data...')
+
+  BASE53 = WIDGET_BASE(BASE5, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE53')
+
+  plot1d_b = WIDGET_BUTTON( BASE53, $
+      UVALUE='VIEW3D_SUM_PLOT1D', $
+      VALUE='PLOT1D')
+
+  plot1d_bx = WIDGET_BUTTON( BASE53, $
+      UVALUE='VIEW3D_SUM_PLOT1D_ALL_I', $
+      VALUE='PLOT1D_ALL_I')
+
+  plot1d_by = WIDGET_BUTTON( BASE53, $
+      UVALUE='VIEW3D_SUM_PLOT1D_ALL_J', $
+      VALUE='PLOT1D_ALL_J')
+  if rank ne 0 then widget_control,BASE53,sensitive=0
 
   postscpt_b = WIDGET_BUTTON( BASE6, $
       UVALUE='VIEW3D_SUM_PS', $
