@@ -48,3 +48,8 @@ defsysv,'!os',os_system
 
 ; loadct,39
 if !d.n_colors gt !d.table_size then device,decompose=0	
+
+; required for IDL 6.1 VM / RT  
+p = getenv('IDL_USERDIR')
+if strtrim(p,2) ne '' then cd,p
+
