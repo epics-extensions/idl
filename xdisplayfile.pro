@@ -6,10 +6,30 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: xdisplayfile.pro,v 1.6 2003/10/29 23:58:53 cha Exp $
-
+; $Id: xdisplayfile.pro,v 1.7 2004/01/30 21:25:31 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
+
+PRO WC,filename,nline,ncol
+; simulate unix command WC to read an ASCII file
+; nline - return the total # of lines in file
+; ncol  - returns the totol # of data elements in a line
+        openr,1,filename
+        line=''
+        nline=0
+        while NOT EOF(1) do begin
+        on_ioerror,close1
+        readf,1,line
+        nline=nline+1
+        if nline eq 1 then begin
+                y = strsplit(line,' ',/extract)
+                ncol = n_elements(y)
+        end
+        end
+close1:
+        close,1
+END
+
 PRO XDispFile_evt, event
 
 
@@ -158,7 +178,7 @@ filebase = WIDGET_BASE(TITLE = TITLE, /MODAL, $		;create the base
 filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
 		GROUP=ourGROUP,/COLUMN ) 
 
-label=WIDGET_LABEL(filebase,value=TITLE)
+label=WIDGET_LABEL(filebase,value=TITLE(0))
 rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
 fileprint = WIDGET_BUTTON(rowbtn, $			;create a Print Button
 		VALUE = "Print", $
