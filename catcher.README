@@ -1,4 +1,142 @@
 
+                        CATCHER R2.1  RELEASE NOTE 
+                        ==========================
+
+Primary changes is in fixing the 'No Save' problem due to user aborting
+2D scan from the MEDM screen. The view2d TV display has been modified
+such that all the scan data book keeping is done automatically on the
+TV postscript output.
+
+<< filename label added>>
+
+A filename label widget is added to the data catcher to reflect the 
+full path filename currently used by the data catcher.
+
+<< 1D Header>>
+
+If the 1D scan is invoked by the 2D scan, then the header of 1D plot will 
+reflect the corresponding 2D scan #.
+
+<< 2D Scan Changes>>
+
+The database description info for the postioner and detectors are saved
+with the 2D image data in this release.
+
+During 2D scan, if the user abort the 2D scan from the MEDM screen
+and there are no data held in the 1D scan record, it caused the
+data catcher falling into the 'NO Save' mode. This problem is fixed 
+in this release.
+
+The positioner array obtained in 2D scan is not always correct if the 
+user aborted the 2D scan from the MEDM screen. This problem is fixed
+in this release.  This fixes the incorrect vertical or hrizontal position
+readout in view2d program. 
+
+The PostScript vertical axis labels cut off is fixed. 
+
+The max and min values and locations now are displayed on the TV plot.
+
+In 2D TV plot the xtitle, ytitle, and title been modified to reflect
+the database description if it is defined in user database. 
+
+
+                        CATCHER R2.0  RELEASE NOTE 
+                        ==========================
+
+The major changes in this release are related to the 2D realtime display
+and post scan data viewer. Many upgrades in the 2D image display have
+been implemented which include widgets rearangement, 2D image strip, 
+and various TV color schemes.
+
+A new standalone data viewer package is implemented where all the channel
+access function calls are stripped away. It can be run on Unix or W95.
+It supports native binary data as well as platform independent XDR binary
+data. The viewer has a special function option which allows the user to 
+port the catcher saved data to XDR format. In viewing the scan data
+acquired by the data catcher, the viewer is more efficient than the data
+catcher.
+
+<<IDL4.0.1 / IDL5.0>>
+
+Catcher will run under IDL4.0.1b as well as IDL5.0. Two runtime versions
+are created for data catcher: one for IDL4.0.1 and one for IDL5.0. If the 
+environment IDL_DIR is set to /usr/local/rsi/idl_4 before invoking the 
+catcher, the IDL4.0.1 version will be used. If the IDL_DIR is set to 
+anything else the IDL5.0 version will be used.
+
+<<2D Realtime Images>>
+
+The display of realtime 2D image has been changed in this release. Now all
+15 detectors images are shown simultaneously in the 2D image window.
+
+A window consists of 8x2 square TV images is adopted for displaying the 2D 
+realtime images for all detectors. Initially each image area is labeled by 
+the detector number. The defined detector image area is updated at the end 
+of each 1D scan. If the TV area is labeled by the detector number indicating
+that detector is not defined in database.
+
+Two sizes of 2D realtime image are allowed: Small (60x60) or Large (120x120).  
+It defaults to small size. Before begin a 2D scan, a user should set the
+desired size first. During the scanning, if a user reset the size of the
+2D image size, he needs to close the 2D image realtime window first then
+the 2D realtime window will be drawn properly. 
+
+			VIEW2D UPGRADES
+
+<<Image Color Scheme ... >>
+
+A new feature of Image Color Scheme dialog is added to the Color pull 
+down menu. It supports three TV color schemes: AutoScaled, UserScaled, 
+and Normalized. The default auto scaled color scheme based on the image 
+data automatically maps (Vmin,Vmax) to avaiable color table. The user 
+scaled color table allows the user to change the text widget value 
+Zmin/Zmax to linearly scale the available color table. The normalized 
+color scheme allows the user to pick a reference detector, the data 
+array will be normalized against the array of the  reference detector. 
+
+<<BIN/XDR droplist>> 
+
+VIEW2D now supports two input modes: BIN or XDR. The BIN is the default,
+it assumes that the input data is in native binary format. The XDR option
+allows that the input data is in the platform independent binary format.
+The data catcher currently saves the data in native binary format which
+is machine dependent.
+
+<<Refresh>>
+
+The 'Zoom_off' button is renamed as 'Refresh' button and rearanged.
+
+<<Drawing Area Changes>>
+
+For smoother user TV interface the following mouse button operations have
+been changed.
+
+Click the LMB (left mouse button) on the TV drawing area, the value widgets
+will be updated. 
+
+Click the MMB (middle mouse button) in addition of updating the value 
+widgets, the XZ, YZ profile will be drawn. 
+
+Click the RMB (right mouse button) the bounding box zoom is invoked.
+
+<<Zmin and Zmax>>
+
+The Zmin and Zmax fields are added to reflect the current mininum and
+maximum values corresponding to the TV color scheme. In auto scaled
+mode, the Zmin and Zmax indicate the image data minimum and maximum
+values. In the user scaled color scheme, the Zmin and Zmax are used 
+to specify the desired min and max value corresponding to the color 
+table.  In the normalized color scheme, the Zmin ans Zmax reflects 
+the min and max value of the picked reference detector. 
+
+<<2D Images Strip>>
+
+A 'PanImages' button is added to view2d main window. This button allows the
+user preview the 2D images captured by the data catcher for all the defined
+detectors. Then a user can use the detector button group to select the image
+for more refined view in the main drawing area.
+
+
                         CATCHER 1.5.6  RELEASE NOTE 
                         ==========================
 
