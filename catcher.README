@@ -1,3 +1,32 @@
+
+                        CATCHER 1.5.6  RELEASE NOTE 
+                        ==========================
+
+<<2D scan with 10 detectors>>
+
+If there are more than 9 detectors specified in the scan record,
+data catcher fails to save 2D images. This problem is fixed in this
+release.
+
+<<View2D>>
+
+View2D fails to let the user to view the 2D image if the array size 
+of 2D image exceeds 32K. This problem is fixed in this release.
+
+<<Separate Summary Report>>
+
+Fix the problem of same  separate summary reports were generated for
+the selected scan ranges.
+
+                        CATCHER 1.5.5.0  RELEASE NOTE 
+                        ==========================
+
+The configuration file saved by the data catcher is modified slightly in 
+this version. If the '/tmp_mnt' is found in the data path, it will be
+stripped away.  This change will take care the problem the file system
+difference between solaris and sun4. 
+
+
                         CATCHER 1.5.5 RELEASE NOTE 
                         ==========================
 << medm setup>>
