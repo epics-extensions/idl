@@ -211,6 +211,18 @@ This menu gives this on-line help information.
 	Step #  - plot vs the x and y step number (SURFACE/CONTOUR)
 
 
+			DROPLIST - Xaxix 
+
+The droplist allows the user pick the X axis to be plotted. 
+A temporary image file 'tmp.image' will be used for storing image file.
+If the picked positioner is not defined in the scan, the index vector 
+is used for X axis.
+
+	P1 - Positioner 1 label and engu as x-axis
+	P2 - Positioner 2 label and engu as x-axis
+	P3 - Positioner 3 label and engu as x-axis
+	P4 - Positioner 4 label and engu as x-axis
+
 			DROPLIST - Binary/XDR
 
 	BIN - Data catcher image file is in machine dependent binary form 
