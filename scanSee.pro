@@ -260,6 +260,9 @@ PRO DC_VIEWSPEC_Event, Event
   	WIDGET_CONTROL, state.basefileWID,SENSITIVE=1
     END
 
+  'VIEWSPEC_LOADCT': BEGIN
+	xloadct,GROUP=Event.top
+    END
   'VIEWSPEC_HELP': BEGIN
     str = ['The scanSee data file are automatically created by the IOC scan',$
 	'software.  The file name is automatically created from the scan ',$
@@ -267,6 +270,7 @@ PRO DC_VIEWSPEC_Event, Event
 	'At the normal completion of scanSee the configuration file is updated.',$
 	'', $
 	'File...     - uses the file selection dialog for pick the initial file',$
+	'Color...    - calls the xloadct routine', $
 	'Help...     - show this help page', $
 	'DONE        - close the scanSee program',$
 	'                      WORKED ON FILENAME',$
@@ -509,6 +513,7 @@ END
 
 PRO scanSee, GROUP=Group, fileno=fileno, format=format, filename=filename 
 
+loadct,39
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -563,6 +568,10 @@ PRO scanSee, GROUP=Group, fileno=fileno, format=format, filename=filename
   BUTTON2 = WIDGET_BUTTON( BASE1, $
       UVALUE='VIEWSPEC_FILE_OPEN', $
       VALUE='File...')
+
+  BUTTON4 = WIDGET_BUTTON( BASE1, $
+      UVALUE='VIEWSPEC_LOADCT', $
+      VALUE='Color...')
 
   BUTTON3 = WIDGET_BUTTON( BASE1, $
       UVALUE='VIEWSPEC_HELP', $
