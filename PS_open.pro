@@ -2,6 +2,61 @@
 ; this routine is requied for generate the runtime executable
 ;
 PRO os_init
+;+
+; NAME:
+;	OS_INIT
+;
+; PURPOSE:
+;       Defines the structure of main operating system variables. All the 
+;       operating system dependent varibles used in data catcher are 
+;       assembled in this routine. 
+;
+; CATEGORY:
+;       Global System Variables !os.
+;
+; CALLING SEQUENCE:
+;       OS_INIT
+;
+; PARAMETER FIELDS:
+;       ARCH:           IDL detected operating system architecture
+;       OS:             IDL detected operating system 
+;       OS_FAMILY:      IDL detected operating system family
+;       RELEASE:        IDL release number
+;       FONT:           Bold font used in highlight label in dialog
+;       DEVICE:         Default output device
+;       FILE_SEP:       Operating sytem file separator, '/' for unix '\' for W95
+;       CHMOD:          Command change file permission mode, 'chmod'
+;       MV:             Command rename file, 'mv' for unix, 'rename' for W95
+;       CP:             Command copy file, 'cp' for unix, 'copy' for W95
+;       RM:             Command remove file, 'rm' for unix, 'del' for W95
+;       LPR:            Command print PS file, 'lpr' for unix, 'print' for W95
+;       PRT:            Command print text file, 'enscript' for unix, 'print' for W95
+;       PRINTER:        Default printer name, '' 
+;       WC:             Command return line count, 'wc' for unix
+;
+; COMMON BLOCKS:
+;       COMMON SYSTEM_BLOCK
+;
+; SIDE EFFECTS:
+;       This routine defines the OS_SYSTEM structure and the global 
+;       system variable !os. All the system dependent varialbes used in
+;       data catcher and data viewer are kept in this routine.
+;
+; RESTRICTIONS:
+;       Current version works for Unix and W95 operating system. 
+;
+; PROCEDURE:
+;       Porting to other operating system, the corresponding
+;       fields in 'os.init' may need to be modified accordingly.
+;
+; EXAMPLE:
+;
+;               OS_INIT
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 6-01-97.
+;       xx-xx-xx iii  - comment
+;-
 @os.init
 END
 
@@ -10,15 +65,63 @@ END
 ;
 PRO PS_init
 COMMON PRINTER_BLOCK,printer_info
+COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
+
 if n_elements (printer_info) eq 0 then $
   printer_info = { $
 	name: '', $
 	color: 1, $
 	base: 0L, $
 	ptr_field:0L }
+if n_elements(r_curr) eq 0 then begin
+	LOADCT,39
+	end
 END
 
 PRO PS_open,psfile,TV=TV
+;+
+; NAME:
+;       PS_OPEN
+;
+; PURPOSE:
+;       This routine sets the current graphics device to PostScript.
+;       and saves plot in a user specified PostScript file.
+;
+; CALLING SEQUENCE:
+;       PS_OPEN, 'myfile.ps' [,/TV]
+;
+; INPUTS:
+;       myfile.ps:  Specifies the PostScript filename to be saved.
+;
+; OUTPUTS:
+;       The PostScript graphic output is saved which can be sent to
+;       any PostScript printer or viewer. 
+;
+; KEYWORD PARAMETERS:
+;       TV:       Specifies whether reverse color video to be used in PS. 
+;
+; COMMON BLOCKS:
+;       COMMON PRINTER_BLOCK
+;       COMMON COLORS 
+;
+; RESTRICTIONS:
+;       The program 'PS_open.pro' must be loaded into IDL first before 
+;       calling this routine.
+;
+; EXAMPLE:
+;
+;        PS_OPEN, 'myfile.ps'
+;        tvscl,scan
+;        PS_CLOSE
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       07-28-97   bkc  Add the support for color PostScript
+;                       Add the support for reverse video
+;                       Add handling capability for different operating system
+;-
+
 COMMON PRINTER_BLOCK,printer_info
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
@@ -53,6 +156,47 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 END
 
 PRO PS_close
+;+
+; NAME:
+;       PS_CLOSE
+;
+; PURPOSE:
+;       This routine closes the PostScript output device and resets the
+;       the original system graphic device as the output plot device.
+;
+; CALLING SEQUENCE:
+;       PS_CLOSE
+;
+; INPUTS:
+;       None.
+;
+; OUTPUTS:
+;       None.
+;
+; KEYWORD PARAMETERS:
+;       None.
+;
+; COMMON BLOCKS:
+;       COMMON SYSTEM_BLOCK
+;       COMMON COLORS 
+;
+; RESTRICTIONS:
+;       The program 'PS_open.pro' must be loaded into IDL prior calling
+;       this routine. 
+;
+; EXAMPLE:
+;
+;        PS_OPEN, 'myfile.ps'
+;        tvscl,scan
+;        PS_CLOSE
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       07-28-97   bkc  Add the support for reverse PostScript color scheme. 
+;                       Add handling capability for different operating system
+;-
+
 COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
@@ -70,6 +214,43 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 END
 
 PRO PS_enscript,fileName
+;+
+; NAME:
+;       PS_ENSCRIPT
+;
+; PURPOSE:
+;       This routine uses the system printing command to print
+;       an ASCII text file. On unix operating system the command
+;       'enscript -r' is used. 
+;
+; CALLING SEQUENCE:
+;       PS_ENSCRIPT, 'filename'
+;
+; INPUTS:
+;       filename : Specifies the ASCII filename to be printed.
+;
+; OUTPUTS:
+;       A copy of the specified file is sent to the user selected  
+;       printer.
+;
+; KEYWORD PARAMETERS:
+;
+; COMMON BLOCKS:
+;       COMMON SYSTEM_BLOCK
+;
+; RESTRICTIONS:
+;       The program 'PS_open.pro' must be loaded into IDL prior calling
+;       this routine. 
+;
+; EXAMPLE:
+;
+;        PS_ENSCRIPT, 'myfile'
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       07-28-97   bkc  Add handling capability for different operating system
+;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
 
 	if n_elements(fileName) eq 0 then begin
@@ -86,6 +267,44 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 END
 
 PRO PS_print,psfile
+;+
+; NAME:
+;       PS_PRINT
+;
+; PURPOSE:
+;       This routine uses the system printing command to print
+;       a PostScript or ASCII text file. On the unix operating 
+;       system the command 'lpr' is used. 
+;
+; CALLING SEQUENCE:
+;       PS_PRINT, 'myfile.ps'
+;
+; INPUTS:
+;       myfile:    Specifies either the PostScript or ASCII text filename 
+;                  to be printed.
+;
+; OUTPUTS:
+;       A copy of the specified file is sent to the user selected  
+;       printer.
+;
+; KEYWORD PARAMETERS:
+;
+; COMMON BLOCKS:
+;       COMMON SYSTEM_BLOCK
+;
+; RESTRICTIONS:
+;       The program 'PS_open.pro' must be loaded into IDL prior calling
+;       this routine. 
+;
+; EXAMPLE:
+;
+;        PS_PRINT, 'myfile.ps'
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       07-28-97   bkc  Add handling capability for different operating system
+;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
 
 	if (n_elements(psfile) ne 0) then begin 
@@ -147,13 +366,61 @@ COMMON PRINTER_BLOCK,printer_info
 
 if printer_info.name ne '' and OS_SYSTEM.os_family eq 'unix' then $
 	OS_SYSTEM.printer = '-P'+printer_info.name + ' ' else $
-	OS_SYSTEM.printer = printer_info.name
+	OS_SYSTEM.printer = ''
 
 END
 
 
 
 PRO PS_printer,  GROUP=Group
+;+
+; NAME:
+;	PS_PRINTER
+;
+; PURPOSE:
+;       This widget dialog allows the user to set up PostScript printer
+;       and printer name to be used by the IDL session. Default setting
+;       is color PS using default printer.
+;
+; CATEGORY:
+;       Widgets.
+;
+; CALLING SEQUENCE:
+;       PS_PRINTER [,GROUP=Group]
+;
+; INPUTS:
+;       None.
+;	
+; KEYWORD PARAMETERS:
+;       GROUP:  The widget ID of the group leader of the widget. If this 
+;               keyword is specified, the death of the group leader results in
+;               the death of PS_PRINTER.
+;
+; OUTPUTS:
+;
+; COMMON BLOCKS:
+;       COMMON PRINTER_BLOCK
+;
+; SIDE EFFECTS:
+;       Initially the system printer is set to the user's default 
+;       printer. If a null printer name is specified, whatever the 
+;       system printer was previously set will be used. 
+;
+; RESTRICTIONS:
+;       The program 'PS_open.pro' must be loaded into IDL prior calling
+;       this routine. 
+;       
+; PROCEDURE:
+;      
+; EXAMPLE:
+;
+;               PS_PRINTER
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 6-01-97.
+;       xx-xx-xx bkc  - comment
+;-
+
 COMMON PRINTER_BLOCK,printer_info
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
