@@ -13,14 +13,15 @@ OS_SYSTEM = { $
 	font	: '-adobe-helvetica-bold-r-normal--24-*', $
 	device  : !d.name, $
 	file_sep: '/', $
-	chmod   : 'chmod', $     ; command change file mode
-	mv  	: 'mv', $       	; command rename file
-	cp      : 'cp', $        ; command copy file 
-	rm 	: 'rm', $  	; command remove
+	mkdir   : 'mkdir', $    ; create a directory
+	chmod   : 'chmod', $    ; command change file mode
+	mv  	: 'mv', $       ; command rename file
+	cp      : 'cp', $       ; command copy file 
+	rm 	: 'rm', $       ; command remove
 	lpr 	: 'lpr', $  	; command lpr
 	prt 	: 'enscript', $ ; command enscript
 	printer : '', $		; default printer
-	wc	: 'wc' $       ; command wc find lines
+	wc	: 'wc' $        ; command wc find lines
 	}
 
 if !d.name eq 'WIN' then OS_SYSTEM.file_sep = '\'
