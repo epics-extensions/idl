@@ -72,6 +72,7 @@ PRO catch1d_newIndexFile,file,array,XDR=XDR,print=print,TV=TV,header=header,nowr
 	end
 	if keyword_set(nowrite) or keyword_set(TV) then return
 
+	if !d.name eq 'WIN' then openw,unit,filename+'.index',/get_lun,/XDR else $
 	openw,unit,filename+'.index',/get_lun
 	u_write,unit,st.name
 	u_write,unit,st.size
