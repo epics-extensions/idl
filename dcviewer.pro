@@ -6,6 +6,80 @@
 ; @view2d.pro
 
 
+
+PRO COMMANDTEXT_Event, Event
+
+
+  WIDGET_CONTROL,Event.Top,GET_UVALUE=info
+  WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
+
+  CASE Ev OF 
+
+  'COMMANDTEXT_FIELD': BEGIN
+	WIDGET_CONTROL,info.command_field,GET_VALUE=name
+	if strtrim(name(0),2) ne '' then begin
+	x = string(name,/print)
+ 	r = execute(x)	
+	if !err lt 0 then begin
+		res = WIDGET_MESSAGE(!err_string,/Error,dialog_parent=Event.top)
+		end
+	end
+      END
+  'COMMANDTEXT_BUTTON6': BEGIN
+      Print, 'Event for Cancel'
+	WIDGET_CONTROL,info.base,/DESTROY
+      END
+  ENDCASE
+END
+
+;
+;
+PRO commandtext_dialog, GROUP=Group
+
+
+  IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
+
+  junk   = { CW_PDMENU_S, flags:0, name:'' }
+
+
+  COMMANDTEXT = WIDGET_BASE(GROUP_LEADER=Group, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='COMMANDTEXT')
+
+  BASE2 = WIDGET_BASE(COMMANDTEXT, $
+      COLUMN=1, $
+      MAP=1, $
+      UVALUE='BASE2')
+
+  COMMANDTEXT_FIELD = CW_FIELD( BASE2,VALUE='', $
+      ROW=1, $
+      STRING=1, $
+      RETURN_EVENTS=1, $
+      TITLE='IDL> ', $
+      UVALUE='COMMANDTEXT_FIELD', $
+      XSIZE=60)
+
+  BASE4 = WIDGET_BASE(BASE2, $
+      COLUMN=2, $
+      MAP=1, $
+      UVALUE='BASE4')
+
+  COMMANDTEXT_BUTTON6 = WIDGET_BUTTON( BASE4, $
+      UVALUE='COMMANDTEXT_BUTTON6', $
+      VALUE='Close')
+
+  info = {  $
+	base : COMMANDTEXT, $
+	command_field : COMMANDTEXT_FIELD $
+	}
+
+  WIDGET_CONTROL, COMMANDTEXT, SET_UVALUE=info
+  WIDGET_CONTROL, COMMANDTEXT, /REALIZE
+
+  XMANAGER, 'COMMANDTEXT', COMMANDTEXT
+END
+
 PRO BI2XDR_Event, Event
 COMMON BI2XDR_BLOCK, bi2xdr_ids
 
@@ -150,10 +224,23 @@ COMMON DCVIEWER_BLOCK,dcviewer_ids
 
   CASE Ev OF 
 
+  'PROMPT_IDL': begin
+	commandtext_dialog,GROUP=Event.top
+	end
+  'FIX24BITS': BEGIN
+	device,bypass_translation=0
+      END
+  '1D_OVERLAY ...': BEGIN
+	view1d_overlay,GROUP=Event.Top 
+      END
   'BUTTON3': BEGIN
       Print, 'Event for VIEW1D ...'
 	found = findfile(dcviewer_ids.data)
 	if found(0) ne '' then begin
+		if !d.name eq 'WIN' then begin
+		view1d,data=dcviewer_ids.data,/XDR,GROUP=Event.Top
+		return
+		end
 		if dcviewer_ids.xdr eq 1 and dcviewer_ids.datatype eq 0 then $
 		view1d,data=dcviewer_ids.data,/XDR,GROUP=Event.Top else $
 		view1d,data=dcviewer_ids.data,GROUP=Event.Top
@@ -238,6 +325,7 @@ PRO dcViewer,data=data,file=file, XDR=XDR, GROUP=Group
 ;          dcviewer.pro
 ;          view1d.init
 ;          view1d.pro
+;          view1d_overlay.pro
 ;          view2d.init
 ;          view2d.pro
 ;          plot1d.pro
@@ -262,7 +350,9 @@ PRO dcViewer,data=data,file=file, XDR=XDR, GROUP=Group
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin K. Cha, 6-01-97.
-;       xx-xx-xx iii  - comment
+;       12-19-97 bkc  - Allows the access of the view1d_overlay program
+;                       Add the IDL> prompt dialog which let the user
+;                       run any IDL command
 ;-
 
 COMMON DCVIEWER_BLOCK,dcviewer_ids
@@ -314,13 +404,25 @@ COMMON DCVIEWER_BLOCK,dcviewer_ids
       MAP=1, $
       UVALUE='BASE2')
 
+;  FIX24BITS = WIDGET_BUTTON( BASE2, $
+;      UVALUE='FIX24BITS', $
+;      VALUE='FIX24BITS')
+
   BUTTON3 = WIDGET_BUTTON( BASE2, $
       UVALUE='BUTTON3', $
       VALUE='VIEW1D ...')
 
+  BUTTON1 = WIDGET_BUTTON( BASE2, $
+      UVALUE='1D_OVERLAY ...',$
+      VALUE='1D_OVERLAY ...')
+
   BUTTON4 = WIDGET_BUTTON( BASE2, $
       UVALUE='BUTTON4', $
       VALUE='VIEW2D ...')
+
+  PROMPT_IDL = WIDGET_BUTTON( BASE2, $
+      UVALUE='PROMPT_IDL', $
+      VALUE='IDL Prompt ...')
 
  if keyword_set(XDR) then begin
   BUTTON5 = WIDGET_BUTTON( BASE2, $
