@@ -1,32 +1,127 @@
-;  u_openw, unit
-;  u_openr
+;
+;  To save platform independent data use the /XDR option on file open
+;
+;  u_openw, unit [,/XDR]  [,'filename']
+;  u_openr, unit [,/XDR]  [,'filename']
 ;  u_write 
 ;  u_read
 ;  u_dump
-;  rewind, unit
+;  u_rewind, unit
 ;
 ; Examples: 
-;  u_openw, unit
+;  u_openw, unit, 'filename'
 ;  u_write, unit, x
 ;  u_close, unit
 ;
+;
 ;  u_dump
 ;
-;  u_openr, unit
+;  u_openr, unit, 'filename'
 ;  u_read, unit, x  &  print,x
 ;  u_close, unit
 ;
 
+FUNCTION u_writePermitted,filename
+;
+; check for filename write permission
+;
+        CATCH,error_status
+        if error_status eq -171 then begin
+                ret=WIDGET_MESSAGE(!err_string)
+                if n_elements(unit) then u_close,unit
+                return,-1
+        end
+	openw,1,filename
+	close,1
+	return,0
+END
 
-PRO rewind,unit
+PRO u_rewind,unit
+;+
+; NAME:
+;       U_REWIND
+;
+; PURPOSE:
+;       This routine locates the LUN file pointer at the beginning of the 
+;       file.
+;
+; CALLING SEQUENCE:
+;
+;       U_REWIND, Unit
+;
+; INPUTS:
+;       Unit:     The LUN number to be rewind.
+;
+; OUTPUTS:
+;       None.
+;
+; EXAMPLE:
+;
+;        U_REWIND, unit
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       07-25-97      bkc  Rename routine rewind to u_rewind     
+;-
 point_lun,unit,0
 END
 
-PRO u_openw,unit,filename,append=append,help=help
+PRO u_openw,unit,filename,append=append,help=help,XDR=XDR
+;+
+; NAME:
+;       U_OPENW
+;
+; PURPOSE:
+;       This routine assigns a LUN to the opened file for unformatted
+;       write only.
+;
+; CALLING SEQUENCE:
+;
+;       U_OPENW, Unit, 'filename' [,/Append] [,/XDR] [,/Help]
+;
+; INPUTS:
+;       filename: Specifies the filename to be created or opened for
+;                 data recording through using the U_WRITE command.
+;
+; OUTPUTS:
+;       Unit:     The LUN number to be associated with the opened file.
+;
+; KEYWORD PARAMETERS:
+;       APPEND:   This keyword specifies that the file is opened for 
+;                 data appending. If not specified, write on the unit
+;                 will replace the old file content by the new data.
+;       XDR:      This keyword specifies that the file is opened for 
+;                 writing data in platform-independent XDR binary form. 
+;       HELP:     If this keyword is set, a simple on line help is given.
+;
+; RESTRICTIONS:
+;       The data file should contain only consistant type of binary 
+;       objects: either native binary data or platform-independent 
+;       XDR data. No mixture type is allowed.
+;
+; EXAMPLE:
+;
+;        U_OPENW, unit, 'catch1d.trashcan'
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       xx-xx-xx      iii  comment     
+;-
+;
 if keyword_set(help) then goto, help1
 if n_elements(filename) eq 0 then filename='data.dat'
-if keyword_set(append) then openw,unit,filename,/GET_LUN,/APPEND else $
-openw,unit,filename,/GET_LUN  
+if keyword_set(XDR) then begin
+	if keyword_set(append) then $
+	openw,/XDR,unit,filename,/GET_LUN,/APPEND else $
+	openw,/XDR,unit,filename,/GET_LUN  
+endif else begin
+	if keyword_set(append) then $
+	openw,unit,filename,/GET_LUN,/APPEND else $
+	openw,unit,filename,/GET_LUN  
+end
+
 if n_params() eq 0 then print,'unit=',unit
 return
 
@@ -43,10 +138,53 @@ help1:
 	print,''
 END
 
-PRO u_openr,unit,filename,help=help
+PRO u_openr,unit,filename,help=help,XDR=XDR
+;+
+; NAME:
+;       U_OPENR
+;
+; PURPOSE:
+;       This routine assigns a LUN to the opened file for unformatted
+;       read only.
+;
+; CALLING SEQUENCE:
+;
+;       U_OPENR, Unit, 'filename' [,/XDR] [,/Help]
+;
+; INPUTS:
+;       filename: Specifies the filename to be read by the U_READ 
+;                 command.
+;
+; OUTPUTS:
+;       Unit:     The LUN number to be associated with the opened file.
+;
+; KEYWORD PARAMETERS:
+;       XDR:      This keyword specifies that the file is opened for 
+;                 reading data in platform-independent XDR binary form. 
+;       HELP:     If this keyword is set, a simple on line help is given.
+;
+; RESTRICTIONS:
+;       The data file should contain only consistant type of binary 
+;       objects: either native binary data or platform-independent 
+;       XDR data. No mixture type is allowed.
+;
+; EXAMPLE:
+;
+;        U_OPENR, unit, 'catch1d.trashcan'
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       xx-xx-xx      iii  comment     
+;-
 if keyword_set(help) then goto, help1
 if n_elements(filename) eq 0 then filename='data.dat'
-openr,unit,filename,/GET_LUN
+
+if keyword_set(XDR) then  $
+	openr,/XDR,unit,filename,/GET_LUN $
+else $
+	openr,unit,filename,/GET_LUN
+
 if n_params() eq 0 then print,'unit=',unit
 return
 
@@ -64,6 +202,32 @@ help1:
 END
 
 PRO u_close,unit
+;+
+; NAME:
+;       U_CLOSE
+;
+; PURPOSE:
+;       This routine closes a file LUN opened for unformmated I/O.
+;
+; CALLING SEQUENCE:
+;
+;       U_CLOSE, Unit
+;
+; INPUTS:
+;       Unit:     The LUN number to be closed.
+;
+; OUTPUTS:
+;       None.
+;
+; EXAMPLE:
+;
+;        U_CLOSE, unit
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       xx-xx-xx      iii  comment     
+;-
 free_lun,unit
 END
 
@@ -82,7 +246,7 @@ PRO u_write,unit,array,help=help
 ;
 ; CALLING SEQUENCE:
 ;
-;       U_WRITE, Unit, Var, /Help
+;       U_WRITE, Unit, Var [,/Help]
 ;
 ; INPUTS:
 ;       Unit:   The logic unit number returned by file open for unformatted
@@ -114,8 +278,16 @@ PRO u_write,unit,array,help=help
 ;         u_write, unit, X
 ;         u_close,unit
 ;
+;       Create XDR platform independent data to the 'test.dat'  
+;
+;         u_openw,unit,/XDR,'test.dat'
+;         u_write, unit, X
+;         u_close,unit
+;
 ; MODIFICATION HISTORY:
-;       Written by:	Ben-chin Cha, 03-23-95.
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       05-30-97	bkc	Support opened file as XDR type data.
 ;-
 ;
 if keyword_set(help) then goto, help1
@@ -159,11 +331,16 @@ END
 ;
 ; dump unfomatted data ( which was written by u_write)
 ;
-PRO u_dump,norecord,filename,data=data,help=help
+PRO u_dump,norecord,filename,data=data,help=help,XDR=XDR
 ON_IOERROR,BAD
 if keyword_set(help) then goto, help1
 if n_elements(filename) eq 0 then filename='data.dat'
-openr,unit,filename,/GET_LUN
+
+if keyword_set(XDR) then $
+	openr,/XDR,unit,filename,/GET_LUN $
+else $
+	openr,unit,filename,/GET_LUN
+	
 s = lonarr(5)
 norecord = 0
 print,''
@@ -231,7 +408,7 @@ case fix(type) of
 	1: if (s(0) eq 2) then begin		; byte
 		x = make_array(s(1),s(2),/byte) 
 	   endif else begin
-		x = btyarr(fix(int))  	
+		x = bytarr(fix(int))  	
 	   end
 	2: if (s(0) eq 2) then begin		; int
 		x = make_array(s(1),s(2),/int) 
@@ -265,8 +442,18 @@ case fix(type) of
 	   endif else begin
 		x = make_array(fix(int),/string,value=string(replicate(32b,s(4))))  	
 	   end
-else: print,'type=',type
+else: begin
+	print,'type=',type
+		ret=WIDGET_MESSAGE('Error: wrong type of data read in!!')
+		retall
+	end
 endcase
+
+	CATCH,error_status
+	if error_status eq -184 then begin
+		ret=WIDGET_MESSAGE('Error: unable to read data, wrong type of file opened!!')
+		retall
+	end
 	readu,unit,x
 END
 
@@ -282,7 +469,7 @@ PRO u_read,unit,x,help=help
 ;
 ; CALLING SEQUENCE:
 ;
-;       U_READ, Unit, Var, /Help
+;       U_READ, Unit, Var [,/Help]
 ;
 ; INPUTS:
 ;       Unit:   The logic unit number returned by file open for unformatted
@@ -309,7 +496,9 @@ PRO u_read,unit,x,help=help
 ;         u_close,unit
 ;
 ; MODIFICATION HISTORY:
-;       Written by:	Ben-chin Cha, 03-23-95.
+;       Written by:     Ben-chin K. Cha, 03-23-95.
+;
+;       05-30-97	bkc	Support opened file as XDR type data.
 ;-
 
 if keyword_set(help) then goto, help1
@@ -330,3 +519,84 @@ help1:
 	print,'       X    returned array'
 
 END
+
+
+PRO u_bi2xdr,filename,help=help
+;+
+; NAME:
+;       U_BI2XDR
+;
+; PURPOSE:
+;       This IDL routine converts native binary data into platform-independent
+;       XDR binary data. 
+;
+;       The input file should contain only pure native binary data.
+;       The output filename uses the input filename suffixed with '.xdr'.
+;
+; CALLING SEQUENCE:
+;
+;       U_BI2XDR, 'filename' [,/Help]
+;
+; INPUTS:
+;       filename:   The data file should contain pure binary data objects.
+;
+; OUTPUTS:
+;       filename.xdr:   Output file. 
+;                   It contains the converted XDR binary data objects.
+;
+; KEYWORD PARAMETERS:
+;       HELP:   If this keyword is set, a simple on line help is given.
+;
+; RESTRICTIONS:
+;       The input data file should contain pure binary data objects.
+;
+; EXAMPLE:
+;
+;        U_BI2XDR,'catch1d.trashcan'
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin K. Cha, 05-30-97.
+;
+;       xx-xx-xx      iii  comment     
+;-
+;
+
+if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
+
+	OK_WRITE = u_writePermitted(filename+'.xdr')
+	if OK_WRITE lt 0 then return
+
+        id=0
+        CATCH,error_status
+        if error_status eq -206 then begin
+
+                ret=WIDGET_MESSAGE(!err_string)
+                if n_elements(unit) then u_close,unit
+                 retall
+        end
+
+        u_openr,unit,filename
+        u_openw,unit2,filename+'.xdr',/XDR
+
+        WHILE NOT  EOF(unit) DO BEGIN
+        id = id + 1
+        u_read,unit,x
+	u_write,unit2,x
+        END
+        maxno = id
+        u_close,unit
+        u_close,unit2
+        ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+filename+'.xdr"')
+
+	return
+
+help1:
+
+	print,''
+	print,'Usage: U_BI2XDR,"filename"'
+	print,''
+	print,'This program converts the pure binary data objects into XDR binary format.'
+	print,'The file "filename.xdr" created will be IDL platform independent.'
+	print,''
+END
+
