@@ -222,7 +222,9 @@ PRO view3d_2Dredisplay,state,Event
 
 	CASE state.display OF 
 	0: begin
-		plot2d,im,xarr=x,yarr=y,title=title,group=state.base
+		if state.value then $
+		plot2d,im,xarr=x,yarr=y,title=title,group=state.base else $
+		plot2d,im,title=title,group=state.base
 	   end
 	1: begin
 	view3d_2Dascii,im,rank,kindex,report,px=x,py=y,title=title,group=Event.top
@@ -268,6 +270,9 @@ PRO VIEWDRV3D_Event, Event
 	WIDGET_CONTROL,state.sldrWid,SET_SLIDER_MAX=state.dim(state.rank)-1
 	view3d_2Dredisplay,state,Event
       END
+  'VIEW3D_VALUES': BEGIN
+	state.value = Event.value
+      END
   'VIEW3D_INDEX': BEGIN
 	r =  WIDGET_INFO(Event.ID,/LIST_SELECT)
 	state.kindex = r
@@ -289,7 +294,40 @@ PRO VIEWDRV3D_Event, Event
   'VIEW3D_2DSUM': BEGIN
 	data = *state.data
 	rank = state.rank
-	view3d_2dSum,data,rank,class=state.title,group=state.base
+	if state.value eq 0 then $
+	view3d_2dSum,data,rank,class=state.title,group=state.base else $
+	begin
+	x = *state.x
+	y = *state.y
+	z = *state.z
+	view3d_2dSum,data,rank,x,y,z,class=state.title,group=state.base
+	end
+      END
+  'VIEW3D_2D_HELP': BEGIN
+    str = [ '','        ** Set Display Option **', $
+	'PLOT2D  - use PLOT2D to display 2D image slice (default)', $
+	'ASCII2D - display 2D image slice as ASCII data', $
+	'ROI2D   - call SCAN2D_ROI program with 2D image slice ', $
+	'PICK1D  - call CALIBRA_PICK1D with 2D image slice ', $ 
+	'','        ** Pick Axial Rank **', $
+	'Rank 0  - pick inner most scan as viewing axis (default)', $
+	'Rank 1  - pick second inner most scan as viewing axis', $
+	'Rank 2  - pick outer most scan as viewing axis', $
+	'','        ** Axial Numbers in **', $
+	'Index   - axial number in index number (default)', $
+	'Values  - axial number in array values', $
+	'','        ** Selection of Slice # **', $
+	'List    - selection list of available axial slices', $
+	'','        ** 2D Image Area **', $
+	'Draw Area  - show the image of the selected axial slice', $
+	'Slider Bar - pre-view of the axial slice images', $
+	'','        ** Control Buttons **', $
+	'Accept      - Re-display the selected image with current setting', $
+	'View3d_2d Sum Slices... - call VIEW3D_2DSUM program with 3D data array', $
+	'Help...     - display this help message', $
+	'Close       - close this VIEW3d_2D program' $
+	]
+	xdisplayfile,text=str,title='VIEW3D_2D HELP INFO ',Group=Event.top
       END
   'VIEW3D_CLOSE': BEGIN
       WIDGET_CONTROL,Event.Top,/DESTROY
@@ -305,7 +343,7 @@ END
 
 
 
-PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outpath=outpath,class=class
+PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outpath=outpath,class=class,descs=descs
 ;+
 ; NAME:
 ;       VIEW3D_2D 
@@ -334,6 +372,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 ;  SLICER3:   Calls the slicers if it is non-zero
 ;  OUTPATH:   Specifies the output directory path
 ;  CLASS:     Specifies the source file class name 
+;  DESCS:     Specifies the X,Y,Z axis descriptions
 ;
 ; RESTRICTIONS:
 ;    The environment variables must be set by source in 
@@ -354,6 +393,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 ;                       are entered, it will try to display data against index #.
 ;       04-24-2001  bkc Add Outpath, Class keywords on the command line
 ;       02-22-2002  bkc Add a slider and a preview image of 2D slice
+;       07-11-2002  bkc Add option of plot X,Y in index or axial values
 ;-
 
 
@@ -412,12 +452,19 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
     'X Axis', $
     'Y Axis', $
     'Z Axis' ]
+  if keyword_set(descs) then Btns429 = descs
   BGROUP11 = CW_BGROUP( BASE8, Btns429, $
       COLUMN=1, /FRAME, /NO_RELEASE, $
       EXCLUSIVE=1, $
       LABEL_TOP='Pick Rank', $
       UVALUE='VIEW3D_AXIS')
 
+  BGROUP12 = CW_BGROUP( BASE8, ['Index','Values'], $
+      ROW=1, /FRAME, /NO_RELEASE, $
+      EXCLUSIVE=1, $
+      LABEL_TOP='Plot Axial Numbers in', $
+      UVALUE='VIEW3D_VALUES')
+  widget_control,BGROUP12,set_value=0
 
   BASE14 = WIDGET_BASE(BASE2, $
       COLUMN=1, $
@@ -449,15 +496,19 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 
   BUTTON21 = WIDGET_BUTTON( BASE20, $
       UVALUE='VIEW3D_ACCEPT', $
-      VALUE='Accept')
+      VALUE='  Accept  ')
 
   BUTTON22 = WIDGET_BUTTON( BASE20, $
       UVALUE='VIEW3D_2DSUM', $
       VALUE='View3d_2d Sum Slices...')
 
+  BUTTON24 = WIDGET_BUTTON( BASE20, $
+      UVALUE='VIEW3D_2D_HELP', $
+      VALUE='  Help...  ')
+
   BUTTON23 = WIDGET_BUTTON( BASE20, $
       UVALUE='VIEW3D_CLOSE', $
-      VALUE='Close')
+      VALUE='  Close  ')
 
   if n_elements(xv) eq 0 then xv = indgen(sz(1))
   if n_elements(yv) eq 0 then yv = indgen(sz(2))
@@ -480,6 +531,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 	sldrWid: slider, $
 	kindex : 0 ,$
 	slicer3 : 0,$
+	value: 0, $    ; axial values in 0-index, 1-values
 	x: ptr_new(/allocate_heap), $
 	y: ptr_new(/allocate_heap), $
 	z: ptr_new(/allocate_heap), $
