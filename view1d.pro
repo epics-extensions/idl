@@ -1,4 +1,4 @@
-; $Id: view1d.pro,v 1.18 2000/03/03 21:01:20 cha Exp $
+; $Id: view1d.pro,v 1.19 2000/04/20 15:53:13 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -172,7 +172,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.18 2000/03/03 21:01:20 cha Exp $
+; $Id: view1d.pro,v 1.19 2000/04/20 15:53:13 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2674,10 +2674,21 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 	size = status.size
 
 	view1d_viewscan_id.file = status.name
-
+	view1d_viewscan_id.size = status.size
+	view1d_viewscan_id.seqno = 0 
+u_rewind,unit
 ; check whether indexFile exist
 found = findfile(indexFile)
 if found(0) eq '' then begin
+	if !d.name eq 'WIN' then begin
+	WIDGET_CONTROL,/HOURGLASS
+	catch1d_newIndexFile,view1d_viewscan_id.file,array,/XDR ;,/nowrite
+	maxno = n_elements(array)
+	view1d_viewscan_id.maxno = maxno -1
+	view1d_viewscan_id.fptr = array
+	return
+	end
+	
 	id = 0
 	view1d_viewscan_id.fptr = make_array(10000,/long)
 
@@ -2726,9 +2737,6 @@ endif else begin
 	endif else maxno = view1d_viewscan_id.maxno 
 end
 end
-	view1d_viewscan_id.seqno = 0
-	view1d_viewscan_id.size = status.size
-	view1d_viewscan_id.file = status.name
 
 END
 ; 
@@ -2833,18 +2841,10 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 
 tempname=outfile
 
-; position record to the startno
-	if V1D_scanData.XDR eq 1 then U_OPENR,unit1,filename,/XDR else $
-	U_OPENR,unit1,filename
+unit1 = view1d_viewscan_id.unit
+maxno = view1d_viewscan_id.maxno
 
-	if start gt 0 then point_lun,unit1,view1d_viewscan_id.fptr(start-1)
-
-end_unit1:
-if EOF(unit1) then begin
-                print,'EOF! Last record is',i-1
-                u_close, unit1
-                return
-	end
+if start gt 0 and start le maxno then point_lun,unit1,view1d_viewscan_id.fptr(start-1)
 
 openw,unit2,tempname,/get_lun 
 
@@ -2863,7 +2863,6 @@ end
 
 end_loop:
 	u_close,unit2
-	u_close,unit1
 
 END
 
@@ -3606,13 +3605,16 @@ IF fd(0) NE '' THEN BEGIN
 
 found = findfile(indexfile)
 if found(0) ne '' then begin
+	if !d.name eq 'WIN' then $
+		readfixindex,indexfile,fsize,maxno,array else $
+	begin
 	U_OPENR,unit,indexfile
 	u_read,unit,name
 	u_read,unit,fsize
 	u_read,unit,maxno
 	u_read,unit,array
 	u_close,unit
-
+	end
 	openr,1,filename
 	status = FSTAT(1)
 	close,1
@@ -3641,8 +3643,6 @@ COMMON view1d_viewscan_block, view1d_viewscan_ids, view1d_viewscan_id
 
 ; check file existence
 
-if !d.name eq 'WIN' then return
-
 found = findfile(filename)
 if found(0) eq '' then return
 	openr,1,filename
@@ -3656,6 +3656,8 @@ if found(0) eq '' then return
 	indexfile = view1d_viewscan_id.file + '.index'
 	CATCH,error_status
 	if error_status lt 0 then return
+
+	if !d.name eq 'WIN' then U_OPENW,unit,indexfile,/XDR else $
 	U_OPENW,unit,indexfile
 
 	array = view1d_viewscan_id.fptr(0:view1d_viewscan_id.maxno)

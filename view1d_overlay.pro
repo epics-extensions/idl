@@ -37,12 +37,15 @@ IF fd(0) NE '' THEN BEGIN
 
 found = findfile(indexfile)
 if found(0) ne '' then begin
+	if !d.name eq 'WIN' then readfixindex,indexfile,fsize,maxno,array else $
+	begin
         u_openr,unit,indexfile
         u_read,unit,name
         u_read,unit,fsize
         u_read,unit,maxno
         u_read,unit,array
         u_close,unit
+	end
 
         if status.size eq fsize(0) then begin
         multi_ids.idx_size = fsize(0)
@@ -60,6 +63,16 @@ endif else begin
 	multi_ids.XDR = type
 	id=0
 	multi_ids.idx_fptr = make_array(10000,/long)
+
+	if !d.name eq 'WIN' then begin
+	WIDGET_CONTROL,/HOURGLASS
+	catch1d_newIndexFile,filename,array,/XDR ;,/nowrite,/print
+	maxno = n_elements(array)
+	multi_ids.idx_maxno = maxno -1
+	multi_ids.idx_fptr = array
+	return
+	end
+
 	WHILE NOT EOF(unit) DO BEGIN
 	id = id + 1
 		multiscan_read_record,unit
@@ -96,7 +109,8 @@ end
         u_read,unit,labels
         u_read,unit,x
         u_read,unit,y
-        u_read,unit,n
+        u_read,unit,n,errcode
+if errcode ne 0 then return
         if n(0) gt 0 then begin
         u_read,unit,ze
         end
@@ -104,7 +118,7 @@ END
 
 PRO multi_read,filename, ids, lists,factors
 COMMON  MULTI_BLOCK, multi_ids
-
+; data point can not exceed 1000
 ; read index file
 
 ;	multiscan_readFileIndex,filename
@@ -132,6 +146,7 @@ COMMON  MULTI_BLOCK, multi_ids
 	for i=0, n_elements(ids)-1 do begin
 
 	if i gt 0 then legend = [legend, ids(i)]
+	u_rewind,unit
 	point_lun, unit, multi_ids.idx_fptr(ids(i)-1)
 	multiscan_read_record, unit, version,pv,num_pts,FA1,x1,y1,n1,ze1,id_def,x_dpt,labels
 
@@ -157,18 +172,23 @@ COMMON  MULTI_BLOCK, multi_ids
 
 	newy = y(0:num_pts -1,0:no-1)
 
-	parse_desc_engu,labels,x_names,y_names,x_descs,y_descs,x_engus,y_engus
+	xtitle ='' 
+	ytitle ='' 
 	title = pv
 	comment = "Scans # " + lists
 	
 	temp= 'Detector '+strtrim(iy+1,2)  
 	comment = [comment, temp, 'File: '+ filename]
+
+	if n_elements(labels) gt 0 then begin
+	parse_desc_engu,labels,x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	if ix eq 0 then xtitle = 'Step #' else begin
 	xtitle = x_descs(ix-1) 
 	if strlen(x_engus(ix-1)) gt 0 then xtitle=xtitle+' (' +x_engus(ix-1)+')'
 	end
 	ytitle = y_descs(iy)
 	if strlen(y_engus(iy)) gt 0 then ytitle=ytitle+' ('+y_engus(iy)+')'
+	end
 	symbol = multi_ids.symbol
 	if multi_ids.symbol gt 1 then symbol = -1
 	ylog = multi_ids.ylog
