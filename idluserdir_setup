@@ -1,0 +1,29 @@
+#!/bin/csh -f -x
+#
+# set default IDL_USERDIR
+#
+
+set dir=`pwd`
+echo "PWD" $dir
+if (-w $dir)  == 1  then 
+	set IDL_USERDIR=$dir
+	setenv IDL_USERDIR $IDL_USERDIR
+	echo IDL_USERDIR $IDL_USERDIR
+	exit
+endif
+
+if ${?IDL_USERDIR} == 0 then
+
+		set IDL_USERDIR=$HOME/idl
+		if -e $IDL_USERDIR then
+		        if (-d $IDL_USERDIR )== 0 then
+		        set IDL_USERDIR=$HOME
+		        endif
+		else
+		        mkdir ${IDL_USERDIR}
+		endif
+
+endif
+
+setenv IDL_USERDIR $IDL_USERDIR
+echo IDL_USERDIR $IDL_USERDIR
