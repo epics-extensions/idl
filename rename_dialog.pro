@@ -74,18 +74,18 @@ END
 
 
 
-PRO rename_dialog, pathdir,oldname,newname, GROUP=Group
+PRO rename_dialog, pathdir,oldname,newname, GROUP=Group,title=title
 COMMON RENAME_BLOCK,rename_ids
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-
+  if keyword_set(title) eq 0 then title='Rename File ...'
   RENAME_DIALOG = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
       MAP=1, $
-	TITLE='Rename File ...', $
+	TITLE=title, $
       UVALUE='RENAME_DIALOG')
 
   BASE2 = WIDGET_BASE(RENAME_DIALOG, $
