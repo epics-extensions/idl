@@ -1,3 +1,16 @@
+                        CATCHER R3.1  RELEASE NOTE 
+                        ===============================
+
+The catcher_v1.pro program has been upgraded to R3.1. Now catcher can
+support both new and old scan record detector name convention. The first 
+15 detector names of the old scan record had been dropped in new sscan
+record. 
+
+The restriction of running catcher with 8 bits PseudoColor setting is 
+removed, now catcher also run with 24 bits TrueColor settings.
+
+
+
                         CATCHER R2.2.2c9+  RELEASE NOTE 
                         ===============================
 
