@@ -33,8 +33,10 @@ ON_ERROR,0 ;,1
 	IF rank EQ 2 THEN BEGIN
     *gData.pa1D  = *(*Scan.pa)[1]
     *gData.da1D  = *(*Scan.da)[1]
-    *gData.pa2D  = *(*Scan.pa)[0]
-    *gData.da2D  = *(*Scan.da)[0]
+if ptr_valid(gData.pa2D) eq 0 then *gData.pa2D  = ptr_new(/ALLOCATE_HEAP)
+if ptr_valid((*Scan.pa)[0]) then *gData.pa2D  = *(*Scan.pa)[0] 
+if ptr_valid(gData.da2D) eq 0 then *gData.da2D  = ptr_new(/ALLOCATE_HEAP)
+if ptr_valid((*Scan.da)[0]) then *gData.da2D  = *(*Scan.da)[0] 
 	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
 	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
   ENDIF
@@ -57,6 +59,8 @@ PRO free_scanAlloc,Scan
 
   rank = *Scan.dim
 
+  ptr_free,Scan.timestamp1
+  ptr_free,Scan.timestamp2
   ptr_free,Scan.scanno
   ptr_free,Scan.dim
   ptr_free,Scan.npts
@@ -106,6 +110,7 @@ ON_IOERROR, BAD
   name=''
   time=''
   readu,lun,name,time
+  *Scan.timestamp2 = time
   
   nb_pos=0
   nb_det=0
@@ -237,6 +242,7 @@ ON_IOERROR, BAD
   name=''
   time=''
   readu,lun,name,time
+  *Scan.timestamp1 = time
   (*Scan.pv)[rank-1]=name
   
   nb_pos=0
@@ -469,6 +475,8 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
 
   if n_elements(Scan) eq 0 then $
   Scan = { $
+  	timestamp1: ptr_new(/allocate_heap), $ 
+  	timestamp2: ptr_new(/allocate_heap), $ 
   	scanno	: ptr_new(/allocate_heap), $  ;0L, $
   	dim	: ptr_new(/allocate_heap),     $  ;0, $
   	npts	: ptr_new(/allocate_heap),   $  ;[0,0], $
@@ -495,6 +503,8 @@ FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,he
   readu,lun, isRegular
   readu,lun, env_fptr
 
+  *Scan.timestamp1=''
+  *Scan.timestamp2=''
   *Scan.scanno=tmp.scanno
   *Scan.dim= tmp.rank
   *Scan.npts= reverse(npts)
@@ -623,7 +633,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.18 2002/09/10 17:03:06 cha Exp $
+; $Id: vw2d.pro,v 1.19 2003/05/05 21:05:20 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1276,7 +1286,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.18 2002/09/10 17:03:06 cha Exp $
+; $Id: vw2d.pro,v 1.19 2003/05/05 21:05:20 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2648,7 +2658,7 @@ PRO scanimage_cleanup
 	heap_gc
 END
 
-PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet
+PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet,timestamp=timestamp
 
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
@@ -2672,6 +2682,7 @@ gData = { $
 ; help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,pa2d,da1d,da2d
 
 	scanno = read_scan(filename,Scan,pickDet=pickDet,header=header,lastDet=lastDet)
+	timestamp=*Scan.timestamp1
 	*gData.scanno = scanno
 
 	if scanno lt 0 then return
@@ -4166,8 +4177,14 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
     END
 
   'File.Print': BEGIN
-    PS_open,'view2d.ps',/TV
-    REPLOT
+    WSET,widget_ids.plot2d_area
+    arr = TVRD()
+    sz=size(arr)
+    xsize = 7.7*2.54*sz(1)/700
+    ysize = 7.7*2.54*sz(2)/700
+    PS_open,'view2d.ps',/TV,xsize=xsize,ysize=ysize
+    TV,arr
+;    REPLOT
     PS_close
     PS_print,'view2d.ps'
     END
@@ -4752,6 +4769,8 @@ PRO VW2D,dname=dname, GROUP=Group, file=file,CA=CA,lastDet=lastDet
 ;                     -Fix scan setup allows any scan record name
 ;       09-10-02 bkc  -R2.5.2
 ;                      Update the read_scan routine
+;       03-03-03 bkc  -R2.5.3
+;		       Add timestamp to scan structure
 ;-
 ;
 @os.init   ; 
@@ -4762,7 +4781,7 @@ if XRegistered('VW2D_BASE') ne 0 then return
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  version = 'VW2D (R2.5.2)'
+  version = 'VW2D (R2.5.3)'
 
   VW2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       COLUMN=1, $; SCR_XSIZE=750, SCR_YSIZE=820, /SCROLL, $
