@@ -139,16 +139,6 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	; use xloadct reverse video, reverse legend only  
 
-;	if printer_info.reverse then begin
-;	r_curr = reverse(r_orig)
-;	g_curr = reverse(g_orig)
-;	b_curr = reverse(b_orig)
-;	endif else begin
-;	r_curr = r_orig
-;	g_curr = g_orig
-;	b_curr = b_orig
-;	end
-;	TVLCT,r_curr,g_curr,b_curr
 
 	    if printer_info.color gt 0 then $
 		device,filename=psfile,/color,bits=8, $
@@ -212,7 +202,7 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	if !d.name eq 'PS' then begin
-	!P.FONT=1
+	!P.FONT=-1
 	device,/close
 
 	r_curr = r_orig
@@ -554,14 +544,17 @@ END
 ;help,/struct,!error_state
 ;END
 
-FUNCTION u_writePermitted,filename
+FUNCTION u_writePermitted,filename,VT=VT
 ;
 ; check for filename write permission
 ;
 ; existed
 	found = findfile(filename)
 	if found(0) ne '' then begin
-	ret= dialog_message(['Do you want to overwrite the existed file : ',$
+	ret=''
+	if keyword_set(VT) then $ 
+	read,ret,prompt='Overwrite the existed file - '+filename+' (Yes/No) ?' else $
+	ret= widget_message(['Do you want to overwrite the existed file : ',$
 		'','     '+filename], $
 			/question)
 	if strupcase(ret) eq 'NO' then return,-1
@@ -570,6 +563,8 @@ FUNCTION u_writePermitted,filename
         CATCH,error_status
 ;        if !error_state.name eq 'IDL_M_CNTOPNFIL' then begin 
 	if error_status eq -215 or error_status eq -206 then begin
+		if keyword_set(VT) then $
+		read,ret,prompt=!err_string+string(!err) else $
                 ret=WIDGET_MESSAGE(!err_string + string(!err))
                 if n_elements(unit) then u_close,unit
                 return,-1
@@ -953,6 +948,11 @@ if error_status  eq -229 or error_status eq -219 or error_status eq -184 then be
 	return
 	end
 
+IF EOF(unit) THEN begin
+	print,'Error! Error! Error!'
+	print,'Error: wrong type or bad data encountered'
+	return 
+END
 readu,unit,s
 
 if (s(0) gt 1L) then begin	; two dim
@@ -1087,7 +1087,7 @@ help1:
 END
 
 
-PRO u_bi2xdr,filename,help=help
+PRO u_bi2xdr,filename,help=help,VT=VT
 ;+
 ; NAME:
 ;       U_BI2XDR
@@ -1101,7 +1101,7 @@ PRO u_bi2xdr,filename,help=help
 ;
 ; CALLING SEQUENCE:
 ;
-;       U_BI2XDR, 'filename' [,/Help]
+;       U_BI2XDR, 'filename' [,/VT] [,/Help]
 ;
 ; INPUTS:
 ;       filename:   The data file should contain pure binary data objects.
@@ -1111,6 +1111,8 @@ PRO u_bi2xdr,filename,help=help
 ;                   It contains the converted XDR binary data objects.
 ;
 ; KEYWORD PARAMETERS:
+;       VT:     If a dumb terminal without X window server is used, 
+;               this option must be set, e.g. a telnet session.
 ;       HELP:   If this keyword is set, a simple on line help is given.
 ;
 ; RESTRICTIONS:
@@ -1130,8 +1132,12 @@ PRO u_bi2xdr,filename,help=help
 if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
 
 	found = findfile(filename)
-	if found(0) eq '' then return
-
+	if found(0) eq '' then begin
+		print,'Error: '+filename+' not found!'
+		return
+		end
+	if keyword_set(VT) then $
+	OK_WRITE = u_writePermitted(filename+'.xdr',/VT) else $
 	OK_WRITE = u_writePermitted(filename+'.xdr')
 	if OK_WRITE lt 0 then return
 
@@ -1147,6 +1153,8 @@ if n_elements(filename) eq 0 or keyword_set(help) then goto,help1
         maxno = id
         u_close,unit
         u_close,unit2
+	if keyword_set(VT) then $
+	print,string(maxno)+' sets of binary objects saved in "'+ filename+'.xdr"' else $
         ret=WIDGET_MESSAGE(string(maxno)+' sets of binary objects saved in "'+ $
 		filename+'.xdr"')
 
@@ -1162,8 +1170,7 @@ help1:
 	print,''
 END
 
-
-; $Id: ez_fit.pro,v 1.3 1998/05/15 15:38:13 cha Exp $
+; $Id: ez_fit.pro,v 1.4 1998/08/10 18:47:53 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1291,12 +1298,11 @@ ENDIF ELSE BEGIN
 ENDELSE
 
 filebase = WIDGET_BASE(TITLE = TITLE, $			;create the base
-		/COLUMN, $
-		SPACE = 5, XPAD = 5, YPAD = 5)
+		/COLUMN ) 
 
 label=WIDGET_LABEL(filebase,value=TITLE)
 rowbtn = WIDGET_BASE(filebase,/ROW,TITLE='ROWBTN')
-fileprint = WIDGET_BUTTON(rowbtn, $			;create a Done Button
+fileprint = WIDGET_BUTTON(rowbtn, $			;create a Print Button
 		VALUE = "Print", $
 		UVALUE = "FILE_PRINT")
 
