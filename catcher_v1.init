@@ -58,7 +58,7 @@ w_plotspec_id = { $
    device,bypass_translation=0
    loadct,39
    plotoption_setcolor		; init color index array
-
+   
    scanData  =  {                 $
 XDR : 1, $   ; 0 - native binary,  1 - in xdr binary
 debug : 0,    $   ;  0 normal runing mode, 1 debug mode
@@ -66,7 +66,9 @@ option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 viewonly:0, $ 
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'CATCHER_V1', $
-      release     : '(R2.2.2c6)', $
+      release     : '(R3.0)', $
+	new	  : 0, 		  $ 1 - sscan 5.19, 70 detectors
+	DI  	  : strarr(15), $
       dataversion : '', 	  $  new field in R1.5.5.0
       pv          : '',           $
       pvconfig    : '',           $
@@ -176,67 +178,6 @@ realtime_id = { $
 	ymax	: 0. $
 	}
 
-; scan field init
-
-if n_elements(field_name) eq 0 then begin
-
-x1 = [ $
-        'NPTS Number of Points               : ', $
-        'P1PV Positioner # 1 PV Name         : ', $
-        'R1PV Readback   # 1 PV Name         : ', $
-        'P1SM Positioner # 1 Step Mode       : ', $
-        'P2PV Positioner # 2 PV Name         : ', $
-        'R2PV Readback   # 2 PV Name         : ', $
-        'P1SM Positioner # 2 Step Mode       : ', $
-        'P3PV Positioner # 3 PV Name         : ', $
-        'R3PV Readback   # 3 PV Name         : ', $
-        'P3SM Positioner # 3 Step Mode       : ', $
-        'P4PV Positioner # 4 PV Name         : ', $
-        'R4PV Readback   # 4 PV Name         : ', $
-        'P4SM Positioner # 4 Step Mode       : ', $
-        'D1PV Data Detector # 1 PV Name      : ', $
-        'D2PV Data Detector # 2 PV Name      : ', $
-        'D3PV Data Detector # 3 PV Name      : ', $
-        'D4PV Data Detector # 4 PV Name      : ', $
-        'D5PV Data Detector # 5 PV Name      : ', $
-        'D6PV Data Detector # 6 PV Name      : ', $
-        'D7PV Data Detector # 7 PV Name      : ', $
-        'D8PV Data Detector # 8 PV Name      : ', $
-        'D9PV Data Detector # 9 PV Name      : ', $
-        'DAPV Data Detector # A PV Name      : ', $
-        'DBPV Data Detector # B PV Name      : ', $
-        'DCPV Data Detector # C PV Name      : ', $
-        'DDPV Data Detector # D PV Name      : ', $
-        'DEPV Data Detector # E PV Name      : ', $
-        'DFPV Data Detector # F PV Name      : ', $
-        'T1PV Trigger # 1 PV Name            : ', $
-        'T1CD Trigger # 1 Command            : ', $
-        'T2PV Trigger # 2 PV Name            : ', $
-        'T2CD Trigger # 2 Command            : ' $
-	]
-
-y1 = [ $
-        '.NPTS', $
-        '.P1PV', '.R1PV', '.P1SM', $
-        '.P2PV', '.R2PV', '.P2SM', $
-        '.P3PV', '.R3PV', '.P3SM', $
-        '.P4PV', '.R4PV', '.P4SM', $
-        '.D1PV', '.D2PV', '.D3PV', '.D4PV', '.D5PV', '.D6PV', '.D7PV', $
-        '.D8PV', '.D9PV', '.DAPV', '.DBPV', '.DCPV', '.DDPV', '.DEPV', $
-        '.DFPV', '.T1PV', '.T1CD', '.T2PV', '.T2CD' $
-        ]
-
-field_name = y1
-field_max = n_elements(field_name)
-field_label_array = x1
- 
-field_name_array = make_array(field_max,/string,value=string(replicate(32b,30)))
-field_value = make_array(field_max,/string,value=string(replicate(32b,40)))
-
-end
-
-x1 = 0 
-y1 = 0
 
 capendio,time=3., list_time=5.
 capendevent,time=0.001
