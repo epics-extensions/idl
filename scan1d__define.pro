@@ -2,6 +2,8 @@
 ; scan1d__define.pro
 ;
 
+@u_read.pro
+
 PRO parse_num0,instring,ids,sep=sep
 Keysepar = '-'
 if keyword_set(sep) then Keysepar = sep
@@ -627,7 +629,7 @@ PRO scan1d::Readindex,filename
 ;
 ; MODIFICATION HISTORY:
 ; 	Written by:	Ben-chin Cha, Jan 26, 1998.
-;	xx-xx-xxxx      comment
+;       05-15-1998  bkc Catch error for nozeo (due to openw )
 ;-
 
 ; check whether filename exists
@@ -674,7 +676,7 @@ end
 	dir = ''
 	if self.path ne '' then dir = self.path+'/'
 	CATCH,error_status
-	if error_status eq -206 then begin
+	if error_status ne 0 then begin
        	 if self.path ne '' and self.home ne self.path then $
        	 dir = self.home+'/' else $
        	 dir = getenv('HOME')+'/'
@@ -684,6 +686,7 @@ end
 	self.dir = dir
 ENDIF ELSE BEGIN
 	res=WIDGET_MESSAGE('Warning: file "' + filename + '" not found.',/info)
+	return
 END 
 
 print,'Selected Data File         : ', filename
