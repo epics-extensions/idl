@@ -31,10 +31,7 @@ if -e catch1d.config then
 	cp catch1d.config catch1d.config.tmp
 endif
 
-	set exe = "-rt=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.exe2.idl53"
-	if ${?EPICS_EXTENSIONS_PVT} == 1 then
-	set exe = "-rt=$EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH/catcher.exe2.idl53"
-	endif
+	set exe = "-rt=$PVT_LOC/catcher.exe2.idl53"
 	if -e catcher.exe2.idl53 then
 	set exe = "-rt=catcher.exe2.idl53"
 	endif
