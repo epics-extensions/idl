@@ -2163,7 +2163,7 @@ close,1
         WIDGET_CONTROL, widget_ids.x2WID, GET_VALUE= x2
         WIDGET_CONTROL, widget_ids.y1WID, GET_VALUE= y1
         WIDGET_CONTROL, widget_ids.y2WID, GET_VALUE= y2 
-	st ='caput.00002 '+image2d_state.x_pv+'.P1SP,'+image2d_state.x_pv+'.P1EP,' + $
+	st ='caput '+image2d_state.x_pv+'.P1SP,'+image2d_state.x_pv+'.P1EP,' + $
 		image2d_state.y_pv+'.P1SP,'+image2d_state.y_pv+'.P1EP  "' + $
 		strtrim(x1,2)+','+strtrim(x2,2)+','+ $
 		strtrim(y1,2)+','+ strtrim(y2,2)+'"'
