@@ -630,6 +630,14 @@ PRO plot2d_setupMain13_Event, Event
       ELSE: Message,'Unknown button pressed'
       ENDCASE
       END
+  'plot2d_zoomin': BEGIN
+	st = ['Mouse functions for zoom in the PLOT2D area:','', $
+	'Set zoom center : Left mouse button', $
+	'Set zoom factor : Middle mouse button', $
+	'Exit zoom mode  : Right mouse button']
+	r = dialog_message(st, title='plot2d_zoom_info',/info)
+	zoom,fact=2,xsize=400,ysize=400,/KEEP ;/continuous
+      END
   'plot2d_setupLevels': BEGIN
 	plot2d_setupContourLevels, plot2d_state, GROUP=Event.Top 
       END
@@ -841,6 +849,9 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
 
   plot2d_setupLevels = WIDGET_BUTTON(BASE21,VALUE='Contour_Levels ...', $
 	UVALUE='plot2d_setupLevels')
+
+  plot2d_zoomin = WIDGET_BUTTON(BASE21,VALUE='Zoom...', $
+	UVALUE='plot2d_zoomin')
 
   BASE44 = WIDGET_BASE(plot2d_setupMain13, $
       ROW=1, $
@@ -1356,7 +1367,7 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;       01-24-2000      Add TV step # or axis options
 ;-
 
-if XRegistered('Plot2dMAIN13') then WIDGET_CONTROL,plot2d_state.base,/DESTROY
+;if XRegistered('Plot2dMAIN13') then WIDGET_CONTROL,plot2d_state.base,BAD=bad,/DESTROY
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
