@@ -48,7 +48,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
   cd,current=h
 
   catch2d_file = {                $
-	version : 'R2.5.1', $
+	version : 'R2.5.2', $
 	home    : h, $
 	path    : h+!os.file_sep,   $ ;'/', $
 	outpath : h+!os.file_sep, $
