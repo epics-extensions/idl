@@ -1,4 +1,519 @@
-; $Id: DC.pro,v 1.13 2000/07/19 22:18:38 cha Exp $
+FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
+
+
+PRO rix2DC,Scan,gData
+ON_ERROR,0 ;,1
+ 
+  *gData.scanno  = *Scan.scanno
+  *gData.dim     = *Scan.dim
+  *gData.num_pts = *Scan.npts
+  *gData.cpt     = *Scan.cpt
+  *gData.id_def  = *Scan.id_def
+  *gData.pv      = *Scan.pv
+  *gData.labels  = *Scan.labels
+
+	IF *Scan.dim EQ 1 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[0]
+    *gData.da1D  = *(*Scan.da)[0]
+	  *gData.pa2D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.da2D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
+	ENDIF
+	IF *Scan.dim EQ 2 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[1]
+    *gData.da1D  = *(*Scan.da)[1]
+    *gData.pa2D  = *(*Scan.pa)[0]
+    *gData.da2D  = *(*Scan.da)[0]
+	  *gData.pa3D  = ptr_new(/ALLOCATE_HEAP)
+	  *gData.da3D  = ptr_new(/ALLOCATE_HEAP)
+  ENDIF
+	IF *Scan.dim EQ 3 THEN BEGIN
+    *gData.pa1D  = *(*Scan.pa)[2]
+    *gData.da1D  = *(*Scan.da)[2]
+    *gData.pa2D  = *(*Scan.pa)[1]
+    *gData.da2D  = *(*Scan.da)[1]
+    *gData.pa3D  = *(*Scan.pa)[0]
+    *gData.da3D  = *(*Scan.da)[0]
+	ENDIF
+ 
+  ptr_free,Scan.scanno
+  ptr_free,Scan.dim
+  ptr_free,Scan.npts
+  ptr_free,Scan.cpt
+  ptr_free,Scan.id_def
+  ptr_free,Scan.pv
+  ptr_free,Scan.labels
+  ptr_free,Scan.pa
+  ptr_free,Scan.da
+
+  Scan = 0
+  heap_gc
+
+END
+	
+
+FUNCTION nbElem,dim,vectOR
+  res=1L
+  FOR i=0,dim-1 DO BEGIN
+     res= res*vectOR[i]
+  ENDFOR
+  RETURN, res
+END
+
+
+FUNCTION read_scan_rest,lun,Scan,dim,offset,DetMax,dump,pickDet=pickDet
+ON_IOERROR, BAD	
+
+  rank=0
+  npts=0
+  cpt=0
+  readu,lun,rank,npts,cpt
+  
+;  print,'REST  *** rank,npts,offset', rank,npts,offset
+  
+  IF(rank GT 1) THEN BEGIN
+    sub_scan_ptr=lonarr(npts)
+    readu,lun,sub_scan_ptr
+  ENDIF
+
+  (*Scan.cpt)[rank-1]=cpt;
+
+  ; read the pvname
+  name=''
+  time=''
+  readu,lun,name,time
+  
+  nb_pos=0
+  nb_det=0
+  nb_trg=0
+  readu,lun,nb_pos,nb_det,nb_trg
+
+  IF(nb_pos NE 0) THEN BEGIN
+    pos_num=intarr(nb_pos)
+  ENDIF
+  pos_info= { $
+    pxpv:'', $
+    pxds:'', $
+    pxsm:'', $
+    pxeu:'', $
+    rxpv:'', $
+    rxds:'', $
+    rxeu:'' }
+  IF(nb_det NE 0) THEN BEGIN
+    det_num=intarr(nb_det)
+  ENDIF
+
+  det_info= { $
+    dxpv:'', $
+    dxds:'', $
+    dxeu:'' }
+  IF(nb_trg NE 0) THEN trg_num=intarr(nb_trg)
+  trg_info= { $
+    txpv:'', $
+    txcd: 1.0 } 
+
+  num=0
+  FOR i=0,nb_pos-1 DO BEGIN
+    readu,lun, num
+    pos_num[i]=num
+    readu,lun,pos_info
+  ENDFOR
+
+  FOR i=0,nb_det-1 DO BEGIN
+    readu,lun,num
+    det_num[i]=num
+    readu,lun,det_info
+  ENDFOR
+
+  FOR i=0,nb_trg-1 DO BEGIN
+    readu,lun,num
+    trg_num[i]=num
+    readu,lun,trg_info
+  ENDFOR
+  
+  IF nb_pos GT 0 THEN BEGIN
+    tmp=dblarr(npts)
+    FOR i=0,nb_pos-1 DO BEGIN
+      readu,lun,tmp
+; change to single vector only
+      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[0:cpt-1,pos_num[i]]=tmp[0:cpt-1]
+;	if i eq 0 then $
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,pos_num[i]]=tmp[0:cpt-1]
+    ENDFOR
+  ENDIF
+
+  IF (nb_det GT 0) AND (cpt GT 0) THEN BEGIN
+    tmp=fltarr(npts)
+    point_lun,-lun,filepos
+    IF rank eq 1 and keyword_set(pickDet) THEN BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i]+1 EQ pickDet THEN BEGIN
+          point_lun,lun, (filepos+npts*4L*i)
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+          GOTO,doneDetectors
+        ENDIF
+      ENDFOR
+    ENDIF ELSE BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i] LT DetMax[rank-1] THEN BEGIN
+          point_lun,lun, (filepos+npts*4L*i)
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,det_num[i]]=tmp[0:cpt-1]
+        ENDIF
+      ENDFOR
+    ENDELSE
+  ENDIF
+doneDetectors:
+
+      
+  IF(rank GT 1) THEN BEGIN
+    FOR i=0,npts-1 DO BEGIN
+      IF sub_scan_ptr[i] EQ 0 THEN GOTO,done
+      point_lun,lun,sub_scan_ptr[i]
+      res= read_scan_rest(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet)
+      IF(res NE 1) THEN GOTO,BAD
+    ENDFOR
+done:
+  END
+
+  offset[rank-1]=offset[rank-1]+(*Scan.npts)[rank-1]
+
+  RETURN, 1
+BAD:
+  RETURN, 0
+END  
+
+
+
+FUNCTION read_scan_first,lun,Scan,dim,offset,DetMax,dump,pickDet=pickDet,header=header
+ON_IOERROR, BAD	
+
+  ndet = 85 ; 15
+  ntot = ndet + 4
+
+  rank=0
+  npts=0
+  cpt=0
+  readu,lun,rank,npts,cpt
+
+;  print,'FIRST *** rank,npts,offset', rank,npts,offset
+
+  IF(rank GT 1) THEN BEGIN
+    sub_scan_ptr=lonarr(npts)
+    readu,lun,sub_scan_ptr
+  ENDIF
+
+  (*Scan.cpt)[rank-1]=cpt;
+
+  ; read the pvname
+  name=''
+  time=''
+  readu,lun,name,time
+  (*Scan.pv)[rank-1]=name
+  
+  nb_pos=0
+  nb_det=0
+  nb_trg=0
+  readu,lun,nb_pos,nb_det,nb_trg
+
+IF dump then print,'nb_pos,nb_det,nb_trg:',nb_pos,nb_det,nb_trg
+
+  dims=(*Scan.npts)[rank-1:rank+dim-1]
+  size= nbElem(dim+1, dims)
+  IF(nb_pos NE 0) THEN pos_num= intarr(nb_pos)
+
+  (*Scan.pa)[rank-1]= ptr_new(dblarr(dims[0],4), /NO_COPY)    ; one vector Position
+;  (*Scan.pa)[rank-1]= ptr_new(dblarr(size,1), /NO_COPY)    ; one Position
+;  (*Scan.pa)[rank-1]= ptr_new(dblarr(size,4), /NO_COPY)
+;  (*(*Scan.pa)[rank-1])[*]= !VALUES.D_NAN  
+
+  pos_info= { $
+    pxpv:'', $
+    pxds:'', $
+    pxsm:'', $
+    pxeu:'', $
+    rxpv:'', $
+    rxds:'', $
+    rxeu:'' }
+
+  IF(nb_det NE 0) THEN det_num=intarr(nb_det)
+
+  det_info= { $
+    dxpv:'', $
+    dxds:'', $
+    dxeu:'' }
+
+  IF(nb_trg NE 0) THEN trg_num=intarr(nb_trg)
+  trg_info= { $
+    txpv:'', $
+    txcd: 1.0 }
+
+  num=0
+  FOR i=0,nb_pos-1 DO BEGIN
+    readu,lun, num
+    pos_num[i]=num
+    readu,lun,pos_info
+    IF dump THEN print,"====>position: ",i,num
+    IF dump THEN help,pos_info,/st
+    (*Scan.id_def)[num,rank-1]=1
+    IF(pos_info.rxpv NE '') THEN BEGIN
+	    (*Scan.labels)[num,rank-1]= pos_info.rxpv
+	    (*Scan.labels)[ntot+num,rank-1]= pos_info.rxds
+	    (*Scan.labels)[ntot*2+num,rank-1]= pos_info.rxeu
+    ENDIF ELSE BEGIN
+	    (*Scan.labels)[num,rank-1]= pos_info.pxpv
+	    (*Scan.labels)[ntot+num,rank-1]= pos_info.pxds
+	    (*Scan.labels)[ntot*2+num,rank-1]= pos_info.pxeu
+     ENDELSE
+  ENDFOR
+
+  FOR i=0,nb_det-1 DO BEGIN
+    readu,lun,num
+    det_num[i]=num
+    DetMax[rank-1] = num+1
+;print,'rank,i,detno,detmax',rank,i,num,detMax
+;if rank eq 1 and num gt DetMax then DetMax=num
+    readu,lun,det_info
+    IF dump THEN print,"====>detector: ",i,num
+    IF dump THEN help,det_info,/st
+    (*Scan.id_def)[4+num,rank-1]=1
+    (*Scan.labels)[4+num,rank-1]= det_info.dxpv
+    (*Scan.labels)[ntot+4+num,rank-1]= det_info.dxds
+    (*Scan.labels)[ntot*2+4+num,rank-1]= det_info.dxeu
+  ENDFOR
+
+  IF keyword_set(pickDet) GT 0 and rank eq 1 THEN DetMax[rank-1] = 1
+  (*Scan.da)[rank-1]= ptr_new(fltarr(size,DetMax[rank-1]), /NO_COPY)
+;  (*(*Scan.da)[rank-1])[*]= !VALUES.F_NAN
+
+  FOR i=0,nb_trg-1 DO BEGIN
+    readu,lun,num
+    trg_num[i]=num
+    readu,lun,trg_info
+  ENDFOR
+
+  IF keyword_set(header) THEN RETURN,1
+
+  IF nb_pos GT 0 THEN BEGIN
+    tmp=dblarr(npts)
+    FOR i=0,nb_pos-1 DO BEGIN
+      readu,lun,tmp
+      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[0:cpt-1,pos_num[i]]=tmp[0:cpt-1]
+;	if i eq 0 then $
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+;      IF(cpt NE 0) THEN (*(*Scan.pa)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,pos_num[i]]=tmp[0:cpt-1]
+    ENDFOR
+  ENDIF
+
+  IF (nb_det GT 0) AND (cpt GT 0) THEN BEGIN
+    point_lun,-lun,filepos
+    tmp=fltarr(npts)
+    IF keyword_set(pickDet) and rank eq 1 THEN BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i]+1 EQ pickDet THEN BEGIN
+          point_lun,lun,filepos+npts*4L*i
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,0]=tmp[0:cpt-1]
+          GOTO,doneDetectors
+        ENDIF
+      ENDFOR
+    ENDIF ELSE BEGIN
+      FOR i=0,nb_det-1 DO BEGIN
+        IF det_num[i] LT DetMax[rank-1] THEN BEGIN
+          point_lun,lun,filepos+npts*4L*i
+          readu,lun,tmp
+          (*(*Scan.da)[rank-1])[offset[rank-1]:offset[rank-1]+cpt-1,det_num[i]]=tmp[0:cpt-1]
+        ENDIF
+      ENDFOR
+    ENDELSE
+  ENDIF
+doneDetectors:
+
+
+  IF(rank GT 1) THEN BEGIN
+    IF sub_scan_ptr[0] EQ 0 THEN GOTO,done
+    point_lun,lun,sub_scan_ptr[0]
+    if(read_scan_first(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet) NE 1) THEN GOTO,bad
+    FOR i=1,npts-1 DO BEGIN
+      IF sub_scan_ptr[i] EQ 0 THEN GOTO,done
+      point_lun,lun,sub_scan_ptr[i]
+      if(read_scan_rest(lun,Scan,dim+1,offset,DetMax,dump,pickDet=pickDet) NE 1) THEN GOTO,bad
+    ENDFOR
+done:
+  ENDIF
+
+  offset[rank-1]=offset[rank-1]+(*scan.npts)[rank-1]
+  RETURN, 1
+
+BAD:
+  RETURN, 0
+END  
+
+
+FUNCTION read_scan,filename, Scan, dump=dump, lastDet=lastDet,pickDet=pickDet,header=header
+; lastDet if specified only detectOR 1 to lastDet is extracted
+; pickDet>=1  if specified only the specified detector is extracted 
+;             it is target for big 3D scan 
+;
+;+
+; NAME:
+;       FUNCTION READ_SCAN,Filename,Scan,Dump=Dump,LastDet=LastDet,PickDet=PickDet,Header=Header
+;
+; PURPOSE:
+;       This function read any 1D/2D/3D scan file and returns a scan pointer 
+;       which consists of few heap pointers to point to the data extracted
+;       from the XDR  scan file.
+;
+; CATEGORY:
+;       Function.
+;
+; CALLING SEQUENCE:
+;
+;       READ_SCAN(Filename,Scan, ...)
+;
+; INPUTS:
+;       Filename:    Input XDR scan filename
+; 
+; KEYWORD PARAMETERS:
+;       DUMP :  Set this keyword to specify the plot title string.
+;
+;       PICKDET: Set this keyword to specify the xtitle string.
+;       LASTDET: Set this keyword to specify the xtitle string.
+;       HEADER: Set this keyword to specify the xtitle string.
+;
+; OUTPUTS:
+;       SCAN: The scan data structure composed of heap data pointers.
+;             
+;             scanno   -  integer pointer of scan number
+;             dim      -  integer pointer of scan dimension 
+;             npts     -  pointer of requested data point vector (dim)
+;             cpt      -  pointer of current data point vector (dim)
+;             id_def   -  pointer of defined Pi & Di integer array (85,dim)
+;             pv       -  pointer of PV names string array  (85,dim)
+;             labels   -  pointer to PV labels string array (85*3,dim)
+;             pa       -  pointer to positioner array pointer  (dim)
+;             da       -  pointer to detecor array pointer  (dim)
+;
+; COMMON BLOCKS:
+;       None.
+;
+; SIDE EFFECTS:
+; RESTRICTIONS: Required scan filename which is automatically saved
+;               by the scan record by IOC. The filename follows the
+;               special sequential rule which is ended with '.scan' type.
+;
+; EXAMPLES:
+;
+; MODIFICATION HISTORY:
+;       Written by:     Originally written by Eric Boucher 
+;                       Modify and extended by Ben-chin K. Cha, Mar. 7, 2001.
+;
+;-
+
+  debug = 0
+  IF keyword_set(dump) THEN debug = dump
+  ON_ERROR,0 ;,1
+  ON_IOERROR,BAD
+
+  res=0
+  ndet = 85 ; 15
+  ntot = ndet+4
+
+  if n_elements(Scan) eq 0 then $
+  Scan = { $
+  	scanno	: ptr_new(/allocate_heap), $  ;0L, $
+  	dim	: ptr_new(/allocate_heap),     $  ;0, $
+  	npts	: ptr_new(/allocate_heap),   $  ;[0,0], $
+  	cpt	: ptr_new(/allocate_heap),     $  ;[0,0], $
+  	id_def	: ptr_new(/allocate_heap), $  ;intarr(ntot,2), $
+  	pv	: ptr_new(/allocate_heap),     $  ;['',''], $
+  	labels	: ptr_new(/allocate_heap), $  ;strarr(ntot*3,2), $
+  	pa	: ptr_new(/allocate_heap),     $
+  	da	: ptr_new(/allocate_heap)      $
+	}
+
+  get_lun, lun
+  openr, /XDR, lun, filename      ;Open the file for input.
+
+  tmp= {$
+    version: 0.0, $
+    scanno : 0L , $
+    rank   : 0L }
+
+  readu,lun, tmp
+
+  npts= intarr(tmp.rank)
+  readu,lun, npts
+  readu,lun, isRegular
+  readu,lun, env_fptr
+
+  *Scan.scanno=tmp.scanno
+  *Scan.dim= tmp.rank
+  *Scan.npts= reverse(npts)
+  *Scan.cpt = intarr(tmp.rank)
+  *Scan.id_def= intarr(ntot,tmp.rank)
+  *Scan.pv= strarr(tmp.rank)
+  *Scan.labels= strarr(ntot*3,tmp.rank)
+  *Scan.pa= ptrarr(tmp.rank)
+  *Scan.da= ptrarr(tmp.rank)
+
+; IF 3D rank exceed 500 set default pickDet=16 
+  IF tmp.rank EQ 3  THEN BEGIN
+  	IF n_elements(pickDet) EQ 0 THEN BEGIN 
+    	IF npts(0) GE 500 OR npts(1) GE 500 OR npts(2) GE 500 THEN pickDet = 16
+	  ENDIF
+  dd =1L *npts(0)*npts(1)*npts(2)
+	if dd gt 5202000L then begin
+		r = dialog_message(['Sorry! 3D scan array too big for IDL ',string(npts)],/error)
+		goto,BAD
+	end
+  ENDIF
+
+  ; extract the first DetMax detectORs only
+  DetMax = intarr(tmp.rank)
+  DetMax(*) = 1 ;ndet
+  IF keyword_set(lastDet) THEN DetMax = lastDet 
+
+  offset= lonarr(tmp.rank)
+
+  IF(read_scan_first(lun, Scan,0,offset,DetMax,debug,pickDet=pickDet,header=header) NE 1) THEN GOTO,BAD
+
+  IF keyword_set(header) THEN GOTO,DONE
+
+  fOR i=0,tmp.rank-1 DO BEGIN
+    dims=(*Scan.npts)[i:tmp.rank-1]
+	if dims[0] le 0 then goto,BAD
+    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims[0],4])       ; vector only
+;    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,1])        ; only one PI
+;    *(*Scan.pa)[i]= reform(*(*Scan.pa)[i], [dims,4])         
+
+;    IF i eq 0 and keyword_set(pickDet) THEN $
+;      *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims]) ELSE $
+      *(*Scan.da)[i]= reform(*(*Scan.da)[i], [dims,DetMax[i]])
+    IF debug THEN BEGIN
+      print,'dims: ',dims
+      help,*(*Scan.pa)[i]
+      help,*(*Scan.da)[i]
+    ENDIF
+  ENDFOR
+
+  res= *Scan.scanno
+
+  GOTO,DONE
+BAD:
+  res= -1
+  print, !ERR_STRING
+DONE:
+  free_lun, lun
+
+  RETURN, res
+END
+
+
+; $Id: DC.pro,v 1.14 2001/04/04 21:34:40 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -557,7 +1072,12 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 COMMON w_statistic_block,w_statistic_ids
 
-   if total(scanData.wf_sel) eq 0 then return
+if !d.name eq 'WIN' then device,decomposed=1
+
+    WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
+    scanData.wf_sel = wf_sel
+;   if total(scanData.wf_sel) eq 0 then return
+
    x_axis = w_plotspec_id.x_axis_u
 
 win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
@@ -601,7 +1121,7 @@ if w_plotspec_id.log eq 2 and auto ne 0 then auto=2   ;  Y > 0
      err_dy = 0
 
 
-for i=0,14 do begin
+for i=0,scanData.num_det - 1 do begin
 
      IF (scanData.wf_sel(i) EQ 1) THEN  BEGIN
 
@@ -621,9 +1141,9 @@ for i=0,14 do begin
 end
 
 ; add the support postioner as Y
-for i=15,18 do begin
+for i=scanData.num_det,scanData.num_det-1+4 do begin
      IF (scanData.wf_sel(i) EQ 1) THEN  BEGIN
-	d1 = scanData.pa(0:num_pts,i-15)
+	d1 = scanData.pa(0:num_pts,i-scanData.num_det)
          IF (MIN(d1) LT ymin) THEN ymin = MIN(d1)
          IF (MAX(d1) GT ymax) THEN ymax = MAX(d1)
 	 if w_plotspec_id.log eq 1 and ymin le 0. then begin
@@ -785,7 +1305,7 @@ y_descs = strtrim(y_descs,2)
 st='Scan #: ' + strtrim(scanData.scanno)
 
 is = 0
-for i=0,14 do begin
+for i=0,scanData.num_det-1 do begin
    IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
 	d1 = scanData.da(0:num_pts,i)
 if w_plotspec_id.statistic eq 3 then begin
@@ -797,6 +1317,7 @@ endif else if w_plotspec_id.statistic gt 0 then begin
         st = [st, st1]
 	statis_value = [xpeak,c_mass,FWHM,ypeak]
 end
+
 if n_elements(statis_value) gt 0 then $
        view1d_legends,pos,is,i,p1,d1,num_pts,x_axis,statis_value else $
        view1d_legends,pos,is,i,p1,d1,num_pts,x_axis
@@ -805,9 +1326,9 @@ if n_elements(statis_value) gt 0 then $
         end
 end
 
-for i=15,18 do begin
-   IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(i-15) gt 0) THEN begin
-        d1 = scanData.pa(0:num_pts,i-15)
+for i=scanData.num_det,scanData.num_det-1+4 do begin
+   IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(i-scanData.num_det) gt 0) THEN begin
+        d1 = scanData.pa(0:num_pts,i-scanData.num_det)
 if w_plotspec_id.statistic eq 3 then begin
         getStatisticDeviation_1d,i,d1,moments,sdev,mdev,st1
         st = [st, st1]
@@ -843,10 +1364,14 @@ if auto eq 1 and n_elements(st) gt 0  and widget_ids.statistic gt 1 then begin
 	xdis = 0.45 * !d.x_size
 	ydis = !d.y_size - 1.2 * !d.y_ch_size
 
-	header_note = '2D SCAN # : '+string(scanData.scanno_2d)
+	if scanData.dim eq 3 then $
+	header_note = '3D SCAN # : '+string(scanData.scanno_2d) else $
+	header_note = '2D SCAN # : '+string(scanData.scanno_2d) 
 	xyouts,xdis,ydis,header_note,/device
 	end
 
+	if scanData.dim eq 3 then $
+	header_note =  '2D SCAN # : ' + string(scanData.scanno) else $
 	header_note =  '1D SCAN # : ' + string(scanData.scanno) 
 	xdis = 0.75 * !d.x_size
 	ydis = !d.y_size - 1.2 * !d.y_ch_size
@@ -887,11 +1412,11 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	   p1 = scanData.da(0:num_pts,i-4)
 	   xmin = MIN(p1)
 	   xmax = MAX(p1)
-	   if xmin eq xmax then begin
-		str='Warning: Maybe no data available for x-axis P'+ $
-			strtrim(i+1,2)+ ' array'
-		w_warningtext,str
-	   end
+;	   if xmin eq xmax then begin
+;		str='Warning: Maybe no data available for x-axis P'+ $
+;			strtrim(i+1,2)+ ' array'
+;		w_warningtext,str
+;	   end
 END
 
 
@@ -1039,15 +1564,15 @@ if w_plotspec_id.type eq 0 then begin
 	xdis = 0.8*!d.x_size
 	xdis2 = 0.85*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
-	if id lt 15 then begin
+	if id lt scanData.num_det then begin
 	   if strlen(y_descs(id)) gt 1 then $
 		xyouts,xdis2,ydis,'  '+y_descs(id), /device else $
-		xyouts,xdis2,ydis,'  Detector '+strtrim(id+1,1), /device
+		xyouts,xdis2,ydis,'  Detector '+scanData.detname(id), /device
 	endif else begin
-	   idd = id-15
+	   idd = id-scanData.num_det
 	   if strlen(x_descs(idd)) gt 1 then $
 		xyouts,xdis2,ydis,'  '+x_descs(idd), /device else $
-		xyouts,xdis2,ydis,'  Encoder P'+strtrim(idd+1,1), /device
+		xyouts,xdis2,ydis,'  Encoder '+scanData.detname(id), /device
 	end
 endif else begin
 	sym = id1+1
@@ -1062,15 +1587,15 @@ endif else begin
 	xdis = 0.8*!d.x_size
 	xdis2 = 0.85*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
-	if id lt 15 then begin
+	if id lt scanData.num_det then begin
 	   if strlen(y_descs(id)) gt 1 then  $
 		xyouts,xdis2,ydis,'  '+y_descs(id),/device  else $
-		xyouts,xdis2,ydis,'  Detector '+strtrim(id+1,1),/device
+		xyouts,xdis2,ydis,'  Detector '+scanData.detname(id),/device
 	endif else begin
-	   idd = id-15
+	   idd = id-scanData.num_det
 	   if strlen(x_descs(idd)) gt 1 then $
 		xyouts,xdis2,ydis,'  '+x_descs(idd), /device else $
-		xyouts,xdis2,ydis,'  Encoder P'+strtrim(idd+1,1), /device
+		xyouts,xdis2,ydis,'  Encoder '+scanData.detname(id,1), /device
 	end
 end
 
@@ -1941,6 +2466,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	end
    ELSE:
    ENDCASE
+
 END
 
 
@@ -2463,7 +2989,7 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 if keyword_set(help) then begin
 	st = ["Usage: setScanPvnames,/file", $
 	'       This function defines the pvnames monitored by the scan record',$
-	'       If file keyword not used, then 4 positioners and 15 detectors assumed', $
+	'       If file keyword not used, then 4 positioners and 85 detectors assumed', $
 	'       If file keyword used, the pvnames are read from the scan_pvnames file']
 	w_warningtext,st
 	return
@@ -2487,8 +3013,8 @@ if keyword_set(file) then begin
 	return
 	end
 endif else begin
-	scanData.nonames = 19 
-	realtime_pvnames = make_array(19,/string,value=string(replicate(32b,5)))
+	scanData.nonames = 89 
+	realtime_pvnames = make_array(89,/string,value=string(replicate(32b,5)))
 	realtime_pvnames(0)=scanData.pv+'.R1CV'
 	realtime_pvnames(1)=scanData.pv+'.R2CV'
 	realtime_pvnames(2)=scanData.pv+'.R3CV'
@@ -2508,6 +3034,10 @@ endif else begin
 	realtime_pvnames(16)=scanData.pv+'.DDCV'
 	realtime_pvnames(17)=scanData.pv+'.DECV'
 	realtime_pvnames(18)=scanData.pv+'.DFCV'
+	; add 01-70 PV
+	pvs = '.D' + strtrim(indgen(61)+10,2) +'CV'
+	pvs = ['.D01CV','.D02CV','.D03CV','.D04CV','.D05CV','D06CV','.D07CV','.D08CV','.D09CV',pvs]
+	for i=1,70 do realtime_pvnames(18+i) = scanData.pv+pvs(i-1)
 	end
 
 ;print,'pvnames',realtime_pvnames
@@ -2559,7 +3089,7 @@ if scanData.showlist eq 1 then begin
 	WIDGET_CONTROL,widget_ids.terminal,SET_VALUE=strtrim(st),BAD_ID=bad_id
 
 ;	s0 = string(replicate(32b,340))
-twd = strlen(st) > 18*total(realtime_id.def) + 10
+twd = strlen(st) > 88*total(realtime_id.def) + 10
 s0 = string(replicate(32b,twd))
 	st = s0
 	strput,st,';  (Desc)',0  &  ij = 17
@@ -2633,7 +3163,7 @@ print,'REALTIME_INIT: add caScan at # ',w_plotspec_id.seqno
 
 scanData.px = make_array(4000,/float)
 scanData.pa = make_array(4000,4,/float)
-scanData.da = make_array(4000,15,/float)
+scanData.da = make_array(4000,scanData.num_det,/float)
 end
 	ln = caScan(scanData.pv+'.CPT',realtime_pvnames,/zero,max=mpts)
 	scanData.act_npts = 0
@@ -2705,8 +3235,8 @@ if realtime_id.ind eq 2 then return
 
 symbol = w_plotspec_id.type 
 if w_plotspec_id.type eq 2 then symbol = -1
-ln_style = intarr(19)
-for i=0,18 do begin
+ln_style = intarr(89)
+for i=0,88 do begin
 	ln_style(i) = i mod 6
 	if w_plotspec_id.solid eq 1 then ln_style(i) = 0
 end
@@ -2715,6 +3245,7 @@ retval = make_array(scanData.nonames,scanData.req_npts+1);
 nonames= scanData.nonames
 pts = scanData.req_npts+1
 ln = caScan(scanData.pv+'.CPT',realtime_pvnames,nonames,pts,pd,/get,max=realtime_id.mpts)
+
 cpts = pts
 if cpts le 1 then return
 retval = pd
@@ -2727,6 +3258,7 @@ scanData.act_npts = cpts
 if scanData.act_npts eq 0 then return
 
 realtime_retval = transpose(retval)
+
 	for i=0,scanData.num_pos-1 do begin
 	is = i*cpts
 	scanData.pa(n1:n2,i)	= realtime_retval(n1:n2,i)
@@ -2872,14 +3404,14 @@ if realtime_id.axis eq 1 then begin
 	end
 	; plot positoner vs positioner (encode cases)
 	for i=0,scanData.num_pos - 1 do begin
-	if realtime_id.def(i) ne 0 and scanData.wf_sel(15+i) eq 1 then begin
-	color = w_plotspec_id.colorI(15+i)
+	if realtime_id.def(i) ne 0 and scanData.wf_sel(scanData.num_det+i) eq 1 then begin
+	color = w_plotspec_id.colorI(scanData.num_det+i)
 	; 24 bit visual case
 	if !d.n_colors eq 16777216 then begin
 		catch1d_get_pvtcolor,color,t_color
 		color = t_color
 		end
-	oplot,scanData.px(0:n1), scanData.pa(0:n1,i),LINE=ln_style(i+15), $
+	oplot,scanData.px(0:n1), scanData.pa(0:n1,i),LINE=ln_style(i+scanData.num_det), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -2920,14 +3452,14 @@ for i=0,scanData.num_pos-1 do begin
 		xtemp = [scanData.px(n1:n2)]
 		ytemp = [scanData.pa(n1:n2,i)]
 		end
-		if scanData.wf_sel(i+15) eq 1 then begin
-	color = w_plotspec_id.colorI(i+15)
+		if scanData.wf_sel(i+scanData.num_det) eq 1 then begin
+	color = w_plotspec_id.colorI(i+scanData.num_det)
 	; 24 bit visual case
 	if !d.n_colors eq 16777216 then begin
 		catch1d_get_pvtcolor,color,t_color
 		color = t_color
 		end
-			oplot,xtemp, ytemp,LINE=ln_style(i+15), $
+			oplot,xtemp, ytemp,LINE=ln_style(i+scanData.num_det), $
 			PSYM = symbol * (i+1) mod 8, $
 			COLOR=color
 		end
@@ -3201,11 +3733,11 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 
 if n_elements(x_names) eq 0 then begin
         x_names=make_array(4,/string,value=string(replicate(32b,30)))
-        y_names=make_array(15,/string,value=string(replicate(32b,30)))
+        y_names=make_array(89,/string,value=string(replicate(32b,30)))
         x_descs=make_array(4,/string,value=string(replicate(32b,30)))
-        y_descs=make_array(15,/string,value=string(replicate(32b,30)))
+        y_descs=make_array(89,/string,value=string(replicate(32b,30)))
         x_engus=make_array(4,/string,value=string(replicate(32b,30)))
-        y_engus=make_array(15,/string,value=string(replicate(32b,30)))
+        y_engus=make_array(89,/string,value=string(replicate(32b,30)))
 	end
 
 if w_plotspec_id.mode eq 0 then begin
@@ -3213,11 +3745,11 @@ if casearch(scanData.pv) eq 0 then begin
         find_desc_engu,names,descs,engus
 
         x_names = names(0:3)
-        y_names = names(4:18)
+        y_names = names(4:4+scanData.num_det-1)
         x_descs = descs(0:3)
-        y_descs = descs(4:18)
+        y_descs = descs(4:4+scanData.num_det-1)
         x_engus = engus(0:3)
-        y_engus = engus(4:18)
+        y_engus = engus(4:4+scanData.num_det-1)
 
 end
 end
@@ -3290,7 +3822,7 @@ END
 
 PRO find_desc_engu,names,descs,engus
 ; RETURN:
-;       names - scan record Pi,Di PV names (4 positioners and 15 detectors)
+;       names - scan record Pi,Di PV names (4 positioners and 85 detectors)
 ;       descs - corresponding descs from the  database
 ;       engus - corresponding Pi, Di engu from the database
 ;
@@ -3299,16 +3831,18 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON field_block, field_name, field_name_array, field_value, w_scanfield_ids
 COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 
-names= make_array(19,/string,value=string(replicate(32b,30)))
-descs = make_array(19,/string,value=string(replicate(32b,30)))
-engus = make_array(19,/string,value=string(replicate(32b,30)))
+; 4 positioner + 85 detectors
+TOT = scanData.num_det+4
+
+names= make_array(TOT,/string,value=string(replicate(32b,30)))
+descs = make_array(TOT,/string,value=string(replicate(32b,30)))
+engus = make_array(TOT,/string,value=string(replicate(32b,30)))
 
 if casearch(scanData.pv) eq 0 then begin 
 scan_field_get,scanData.pv
 
 ; check for defined PiPV & DiPV
-realtime_id.def = make_array(19,/int)
-; 4 positioner + 15 detectors
+realtime_id.def = make_array(TOT,/int)
 
 x_dn = [ scanData.pv+'.R1PV', $
 	scanData.pv+'.R2PV', $
@@ -3343,16 +3877,24 @@ x_dn = [ scanData.pv+'.D1PV', $
 	scanData.pv+'.DEPV', $
 	scanData.pv+'.DFPV' $
 	]
+	; add 01-70 PV
+        pvs = '.D' + strtrim(indgen(61)+10,2) +'PV'
+        pvs = ['.D01PV','.D02PV','.D03PV','.D04PV','.D05PV','.D06PV','.D07PV','.D08PV','.D09PV',pvs]
+	add_x_dn = make_array(70,/string,value=string(replicate(32b,30)))
+        for i=0,69 do add_x_dn(i) = scanData.pv+pvs(i)
+
+	x_dn = [x_dn,add_x_dn]
+
 ln = cagetArray(x_dn,pd,/string)
 x_dv = strtrim(pd,2)
 names(0:3) = p1
-names(4:18) = x_dv
+names(4:4+scanData.num_det-1) = x_dv
 
 ; get desc & eng units
  
 s0=string(replicate(32b,30))
 
-for i=0,18 do begin
+for i=0,4+scanData.num_det-1 do begin
 if strlen(names(i)) gt 1 then begin
  
         realtime_id.def(i) = 1
@@ -3389,9 +3931,17 @@ x_dn = [ scanData.pv+'.P1EU', $
 	scanData.pv+'.DEEU', $
 	scanData.pv+'.DFEU' $
 	]
+	; add 01-70 PV
+        pvs = '.D' + strtrim(indgen(61)+10,2) +'EU'
+        pvs = ['.D01EU','.D02EU','.D03EU','.D04EU','.D05EU','.D06EU','.D07EU','.D08EU','.D09EU',pvs]
+	add_x_dn = make_array(70,/string,value=string(replicate(32b,30)))
+        for i=0,69 do add_x_dn(i) = scanData.pv+pvs(i)
+
+	x_dn = [x_dn,add_x_dn]
+
 	ln = cagetArray(x_dn,pd,/string)
 	x_dv = pd
-	for i=0,18 do begin
+	for i=0,4+scanData.num_det-1 do begin
         engus(i) = strtrim(x_dv(i),2)
         if strtrim(engus(i),2) eq '-1' then engus(i)=''
 	end
@@ -3622,48 +4172,43 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	if found(0) ne '' then begin
 		w_plotspec_array(3) = filename
 		scanData.trashcan = scanData.path+filename
-		catch1d_viewdataSetup
-		WIDGET_CONTROL,w_viewscan_ids.base,/DESTROY
+;		catch1d_viewdataSetup
 		WIDGET_CONTROL,widget_ids.trashcan,SET_VALUE=scanData.trashcan
+		if  scanData.scanno ge 0 then begin
+;		WIDGET_CONTROL,w_viewscan_ids.base,/DESTROY
 		w_viewscan,1
-;		w_viewscan_update
+		end
 	endif else begin
 		WIDGET_CONTROL,w_viewscan_ids.fileno,SET_VALUE=scanData.fileno
 		res = dialog_message(['File: ', scanData.path+filename, ' not found'],/INFO)
 	end
 END 
 
-PRO w_viewscan_update
-COMMON CATCH1D_COM, widget_ids, scanData 
-COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array, w_plotspec_id, w_plotspec_limits , w_plotspec_saved
-COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
-
-	WIDGET_CONTROL,w_viewscan_ids.file,SET_VALUE=w_plotspec_array(3)
-
-	;update scan ....
-END
 
 PRO read_desc_engu,labels
 COMMON LABEL_BLOCK,x_names,y_names,x_descs,y_descs,x_engus,y_engus
+
+num = 4+85
 
 if n_elements(x_names) lt 4 then begin
 	x_names = make_array(4,/string,value=string(replicate(32b,30)))
 	x_descs = x_names
 	x_engus = x_names
-	y_names = make_array(15,/string,value=string(replicate(32b,30)))
+	y_names = make_array(85,/string,value=string(replicate(32b,30)))
 	y_descs = y_names
 	y_engus = y_names
 	end
 labels = string(labels)
+
 for i=0,3 do begin 
 	x_names(i) = labels(i)
-	x_descs(i) = labels(i+19)
-	x_engus(i) = labels(i+38)
+	x_descs(i) = labels(i+num)
+	x_engus(i) = labels(i+num*2)
 end
-for i=0,14 do begin 
+for i=0,84 do begin 
 	y_names(i) = labels(i+4)
-	y_descs(i) = labels(i+4+19)
-	y_engus(i) = labels(i+4+38)
+	y_descs(i) = labels(i+4+num)
+	y_engus(i) = labels(i+4+num*2)
 end
 
 END
@@ -3703,8 +4248,10 @@ if error_status lt 0 then begin
 openw,unit,filename,/get_lun
 printf,unit,"; VERSION: ",scanData.version,' ',scanData.release
 
+str = "; 2D SCAN #: "
+if scanData.dim eq 3 then str="; 3D SCAN #: "
 if scanData.y_scan gt 0 then begin
-printf,unit,"; 2D SCAN #: ",scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno + 1
+printf,unit,str,scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno + 1
 	end
 printf,unit,"; 1D SCAN #: ",w_plotspec_id.seqno 
 printf,unit,"; SCAN Record Name: ",scanData.pv
@@ -3755,6 +4302,7 @@ endif else begin    ; viewing mode
 	engus = [x_engus,y_engus]
 end
 
+
 	no = n_elements(names)
 	st = ';    I   '
         for i=0,no-1 do begin
@@ -3801,7 +4349,7 @@ strput,st,i,0  &  ij = 10
 		ij = ij + temp_digit
 		end
 	end
-	for j = 0,14 do begin
+	for j = 0,84 do begin
 		if realtime_id.def(4+j) ne 0 then begin
 		strput,st,string(scanData.da(i,j),format=temp_format),ij  
 		ij = ij + temp_digit
@@ -3929,12 +4477,12 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 			w_warningtext,'Error: no data available!'
 			return
 			end
-		i1 = w_viewscan_id.maxno-1
+		i1 = w_viewscan_id.maxno
 		i2 = i1+1
-		scan_read,w_viewscan_id.unit, i2, i2+1
-		WIDGET_CONTROL,w_viewscan_ids.seqno,SET_VALUE=strtrim(i2,2)
+		scan_read,w_viewscan_id.unit, i1, i2
+		WIDGET_CONTROL,w_viewscan_ids.seqno,SET_VALUE=strtrim(i1,2)
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
-		WIDGET_CONTROL,w_viewscan_ids.slider,SET_VALUE=i2
+		WIDGET_CONTROL,w_viewscan_ids.slider,SET_VALUE=i1
                 END
 	"VIEWSPEC_FIRST" : BEGIN
 		close_plotspec
@@ -3958,7 +4506,8 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
                 END
 	"VIEWSPEC_2DIMAGE" : BEGIN
-		vw2d,/CA, GROUP=event.top, file=scanData.trashcan
+		vw2d,/CA, GROUP=event.top, file=scanData.trashcan   ;, $
+;			lastDet=scanData.lastDet
 		END
 	"VIEWSPEC_FIRST_FILE" : BEGIN
 		scanData.fileno = 1
@@ -3997,17 +4546,9 @@ WIDGET_CONTROL,/HOURGLASS
 
 ; get the last scan first
 
-if w_viewscan_id.unit gt 0 then begin
-	if (w_viewscan_id.seqno+1) lt w_viewscan_id.maxno then begin
-		i1 = w_viewscan_id.maxno
-		i2 = i1 + 1
-		scan_read,w_viewscan_id.unit, i1, i2
-	end
-end
 
 ; close the view mode 
 		w_viewscan_id.unit = 0
-;		w_plotspec_id.opened = 0
 		set_sensitive_on
 
 ; reset the w_plotspec variable
@@ -4041,7 +4582,8 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array, w_plotspec_id, w_plot
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 COMMON view1d_summary_block, view1d_summary_ids, view1d_summary_id
 
-if XRegistered('w_viewscan') ne 0 then return
+if XRegistered('w_viewscan') ne 0 then $ ; return
+		WIDGET_CONTROL,w_viewscan_ids.base,/DESTROY
 
 scanData.option = 0  ; acquisition off
 if XRegistered('view1d_summary_setup') ne 0 then $
@@ -4060,8 +4602,19 @@ scanData.pvconfig = scanData.pv
 WIDGET_CONTROL, /HOURGLASS
 
 w_viewscan_id.unit = unit
-scan_read,unit,-1,-1,maxno ; scan_read_all,w_viewscan_id.unit,maxno
-if n_elements(maxno) eq 0 then return
+        catch,error_status
+        if error_status then goto,next_step
+
+	scan_read,unit,-1,-1,maxno,dim 
+
+next_step:
+if n_elements(maxno) eq 0 then begin
+	r = dialog_message(!err_string,/error)
+	close,unit
+;	return
+	retall
+end
+;	if dim eq 3 then return
 
 w_viewscan_topbase=WIDGET_BASE(GROUP_LEADER=Group, $
 	TLB_FRAME_ATTR = 8, $
@@ -4099,6 +4652,7 @@ w_viewscan_base = WIDGET_BASE(w_viewscan_topbase, /COLUMN, /FRAME)
 
 w_viewscan_label = WIDGET_LABEL(w_viewscan_base,VALUE='Scan Data from : ' + $
 		strcompress(w_plotspec_array(3)),UVALUE='w_viewscan_label')
+
 row0 = WIDGET_BASE(w_viewscan_base, /ROW,/FRAME)
 
 w_viewscan_printplot = WIDGET_BUTTON(row0, $
@@ -4274,6 +4828,13 @@ if maxno gt 1 then begin
 
 end
 
+if dim eq 3 then begin
+	WIDGET_CONTROL,ROW0,SENSITIVE=0
+	WIDGET_CONTROL,ROW1,SENSITIVE=0
+	WIDGET_CONTROL,BASE2,SENSITIVE=0
+	r = dialog_message("Please use SB or pick3d to view this file",/info)
+end
+
 
 ; set widget ids :
 w_viewscan_ids = { $
@@ -4294,8 +4855,8 @@ w_viewscan_ids = { $
 if n_elements(w_viewscan_slider) gt 0 then w_viewscan_ids.slider = w_viewscan_slider
 
 ; Realize the widgets:
-WIDGET_CONTROL, w_viewscan_topbase, /REALIZE, $
-	TLB_SET_XOFFSET= 10, TLB_SET_YOFFSET= 100
+WIDGET_CONTROL, w_viewscan_topbase, /REALIZE, $ 
+	TLB_SET_XOFFSET= 0, TLB_SET_YOFFSET= 0
 
 ; Hand off to the XMANAGER:
 XMANAGER, 'w_viewscan', w_viewscan_topbase, GROUP_LEADER = GROUP, CLEANUP = 'w_viewscan_close'
@@ -4362,7 +4923,7 @@ PRO scanimage_cleanup
 	heap_gc
 END
 
-PRO scanimage_alloc,filename,gD,scanno
+PRO scanimage_alloc,filename,gD,scanno  ;,lastDet=lastDet
 
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
@@ -4382,11 +4943,10 @@ gData = { $
 	gD = ptr_new(/allocate_heap)
 	*gD = gData
 
-;	scanno = read_scan(filename,dim,num_pts,cpt,pv,labels,id_def,pa1D,da1D,pa2D,da2D)
 
 ; help,scanno,dim,num_pts,cpt,pv,labels,id_def,pa1d,pa2d,da1d,da2d
 
-	scanno = read_scan(filename, Scan)
+	scanno = read_scan(filename, Scan)   ;, lastDet=lastDet)
 	*gData.scanno = scanno
 
 	if scanno lt 0 then return
@@ -4396,6 +4956,9 @@ gData = { $
 ;	scanimage_print,gD
 
 END
+;
+; DCV2D_read.pro
+;
 PRO scanimage_readall,filename,maxno,gD
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
@@ -4404,7 +4967,7 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	catch2d_file.seqno = 0
         catch2d_file.scanno_2d_last = 0 
 
-	scanimage_alloc,filename,gD
+	scanimage_alloc,filename,gD    ;,lastDet=catch2d_file.last
 
 	scanno = *(*gD).scanno
 	dim = *(*gD).dim
@@ -4420,8 +4983,10 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 	da2D = *(*gD).da2D
 
 	catch2d_file.scanno_2d = scanno
+	catch2d_file.scanno_current = scanno
+	catch2d_file.id_def = id_def(4:89-1,0) 
 
-	max_pidi = n_elements(id_def) / 2
+	max_pidi = catch2d_file.last -1  
 	pv1_desc = labels(max_pidi,0)
 	if pv1_desc eq '' then pv1_desc = labels(0,0)
 	pv2_desc = labels(max_pidi,1)
@@ -4457,9 +5022,10 @@ if scanno eq 0 then scanno = 1
 	catch2d_file.scanno = scanno	
 	if catch2d_file.scanno_2d_last le 0 then $
 		catch2d_file.scanno_2d_last = scanno	
-	catch2d_file.image_no(catch2d_file.scanno_2d_last) = maxno 
-	catch2d_file.image_no(catch2d_file.scanno_2d_last - 1) = 0
-
+;	catch2d_file.image_no(catch2d_file.scanno_2d_last) = maxno 
+;	catch2d_file.image_no(catch2d_file.scanno_2d_last - 1) = 0
+	catch2d_file.image_begin = 0
+	catch2d_file.image_end = maxno
 
 END
 
@@ -4515,7 +5081,7 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 	catch2d_file.y_desc = pvs(4)
 	catch2d_file.scanno = scanno
 	catch2d_file.width = num_pts(0)
-	catch2d_file.height = cpt(1)
+	catch2d_file.height = num_pts(1)  ;cpt(1)
 	catch2d_file.detector = detector
 	catch2d_file.scanno_current = scanno
 	if scanno le 0 then catch2d_file.scanno_current = 1
@@ -4578,117 +5144,13 @@ PRO fileSeqString,no,suf0
 END
 
 
-PRO view2d_pan_images_on,Event,tiff=tiff,gif=gif,rtiff=rtiff,def=def,image_array=image_array
-COMMON CATCH2D_FILE_BLOCK,catch2d_file
-COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
-COMMON CATCH1D_2D_COM,data_2d, gD
-
-if !d.name eq 'WIN' then device,decomposed=0
-
-seq = catch2d_file.scanno_current
-last = catch2d_file.scanno_2d_last
-
-if catch2d_file.maxno le 0 then begin
-	res=WIDGET_MESSAGE('Error: no image file loaded in')
-	return
-end
-if seq lt 1 or seq ne catch2d_file.scanno_2d_last then begin
-	res=WIDGET_MESSAGE('Error: outside range seq entered')
-	return
-end
-
-	seqno = catch2d_file.image_no(seq-1)
-
-	da2D = *(*gD).da2D
-	id_def = *(*gD).id_def
-
-	def = make_array(15,value=0)
-
-	xdim = catch2d_file.width 
-	ydim = catch2d_file.y_req_npts
-	image_array  = make_array(xdim,ydim,15,/float)
-
-	scanno_2d = seq
-	for i=0,14 do begin
-		if id_def(i+4) gt 0 then begin
-		t_image = da2D(*,*,i)
-		image_array(*,*,i) = t_image
-		end
-	end
-
-; update the image plot
-
-update:
-
-	width = 60
-	height = 60
-	old_win = !D.window
-	if catch2d_file.win lt 0 then begin
-		window, xsize = 8*width, ysize=2*height, $
-			title='PanImages 2D SCAN # '+strtrim(catch2d_file.scanno_current,2)
-		for i=0,14 do begin
-		xi=(i mod 8)*width+width/2 - 5 
-		yi=height/2+(15-i)/8*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
-		end
-	end
-
-	new_win = !D.window
-	wset,new_win
-	for sel=0,14 do begin
-	if id_def(sel+4) gt 0 then begin
-	v_max = max(image_array(*,*,sel),min=v_min)
-	if v_max eq v_min then begin 
-		temp = view_option.ncolors * image_array(*,*,sel) 
-		TV,congrid(temp,width,height),sel
-	endif else begin
-		temp = congrid(image_array(*,*,sel), width, height)
-		TVSCL, temp, sel
-	end
-	end
-	end
-
-
-	plots,[0,8*width],[height,height],/device
-	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
-
-        if keyword_set(TIFF) then begin
-        tvlct,R,G,B,/get
-        WRITE_TIFF,'view2d.tiff',TVRD(),red=R,green=G,blue=B
-        fileSeqString,catch2d_file.scanno_current,suf0
-        outname=catch2d_file.name+'.pan'+suf0+'.tiff'
-        dir = catch2d_file.outpath+'TIFF'+!os.file_sep
-        rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
-        end
-
-        if keyword_set(RTIFF) then begin
-        tvlct,R,G,B,/get
-        WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
-        fileSeqString,catch2d_file.scanno_current,suf0
-        outname=catch2d_file.name+'.pan'+suf0+'.rtiff'
-        dir = catch2d_file.outpath+'TIFF'+!os.file_sep
-        rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
-        end
-
-        if keyword_set(GIF) then begin
-        tvlct,R,G,B,/get
-        WRITE_GIF,'view2d.gif',TVRD(),R,G,B
-        WRITE_GIF,'view2d.gif',/close
-        fileSeqString,catch2d_file.scanno_current,suf0
-        outname=catch2d_file.name+'.pan'+suf0+'.gif'
-        dir = catch2d_file.outpath+'GIF'+!os.file_sep
-        rename_dialog,dir,'view2d.gif',outname,GROUP=Event.Top
-        end
-
-	wset,old_win
-;	viewscanimage_current
-
-END
 
 PRO viewscanimage_init,file
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH1D_2D_COM,data_2d,gD
+
+WIDGET_CONTROL,/HOURGLASS
 
 scanimage_readall,file,maxno,gD
 ;scanimage_print,gD
@@ -4704,7 +5166,7 @@ print,'Total Number of Images     : ', catch2d_file.maxno
 
 view_option.fullcolor = 0 ; initialize to auto scaled image
 
-	catch2d_file.seqno = 0 ; maxno - 1
+	catch2d_file.seqno = 15  ; maxno - 1
 	if catch2d_file.scanno_2d_last gt 0 then viewscanimage_current
 
 
@@ -4714,7 +5176,9 @@ END
 ;
 ;    if seq_no < =0 then the last scan is plotted
 ;
-PRO scan_read,unit,seq_no,id,maxno
+
+
+PRO scan_read,unit,seq_no,id,maxno,dim
 
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
@@ -4736,15 +5200,19 @@ if id lt 0 then begin
 
 	if n_elements(gD) then begin
 
-;	scanno = read_scan(scanData.trashcan,dim,num_pts,cpt,pv,labels,id_def,pa1D,da1D,pa2D,da2D) 
 	scanno = -1
-	scanno = read_scan(scanData.trashcan,Scan)
+	DetMax = [85, 1, 1]  ;scanData.lastDet
+	scanno = read_scan(scanData.trashcan, Scan) ;, lastDet=DetMax)
 
 	if scanno lt 0 then begin   ; a new file is picked
+	if realtime_id.ind  eq 1 then return
 	scanData.y_scan = 0
 	scanData.y_seqno = 0
-	scanData.scanno = 0
+	scanData.scanno = scanno
 	catch1d_check_seqno
+	w_warningtext,['Error: failed in reading '+scanData.trashcan, $
+		'Use the ','', $
+		'File->Open... to pick a new file']
 	return
 	end
 
@@ -4764,11 +5232,12 @@ if id lt 0 then begin
 	pa3D = *(*gD).pa3D
 	da3D = *(*gD).da3D
 
+
 ;print,'READ AGAIN'
 	goto, populate
 	endif else begin
 
-	scanimage_alloc,scanData.trashcan, gD, scanno
+	scanimage_alloc,scanData.trashcan, gD, scanno   ;, lastDet=DetMax
 
 ;print,'ALLOC gD'
 	if scanno lt 0 then return
@@ -4782,6 +5251,7 @@ end ; seq_no > 0
 	pv = *(*gD).pv
 	labels = *(*gD).labels
 	id_def = *(*gD).id_def
+
 	if dim gt 2 then begin
 	pa3D = *(*gD).pa3D
 	da3D = *(*gD).da3D
@@ -4795,17 +5265,13 @@ end ; seq_no > 0
 
 populate:
 
-	if dim eq 3 then begin
-		r=dialog_message([scanData.trashcan,'is a 3D scan file.', $
-			'Use the ViewData->3D Slicer to view it'],/info)
-;		view3d_slicer,file=scanData.trashcan,Group=widget_ids.base
-		return
-	end
+	scanData.dim = dim
 
 ; check the header for the file if the the seq_no is set to le 0
 	if seq_no le 0 then begin
 
 	realtime_id.def = id_def[*,0]
+	if dim eq 3 then realtime_id.def = id_def[*,1]
 	label = labels[*,0]
 	read_desc_engu,label 
 
@@ -4813,7 +5279,7 @@ populate:
         scanData.req_npts = num_pts[0]
         scanData.act_npts = cpt[0]
 	scanData.refno = 0 ;        scanData.refno = start_seqno
-	if dim eq 2 then maxno = cpt[1] else maxno=1
+	if dim ge 2 then maxno = cpt[1] else maxno=1
 	w_viewscan_id.maxno = maxno
 	w_viewscan_id.file = scanData.trashcan 
 	w_viewscan_id.seqno = maxno
@@ -4823,15 +5289,19 @@ populate:
 ;	w_plotspec_id.opened = unit
 
 ;  bring up the image window for 2D
-	if dim eq 2 then begin
+
+	if dim ge 2 then begin
+	scanData.scanno_2d = scanno
 	scanData.y_req_npts = num_pts[1]
+	if dim eq 2 then $
 	update_2d_data,data_2d,num_pts[0],num_pts[1],da2D,id_def[*,0]
-;	scan_mode_write_image,pa1D,da1D,pa2D,da2D,id_def[*,0]
+	if dim eq 3 then $
+	update_2d_data,data_2d,num_pts[0],num_pts[1],da2D,id_def[*,1]
 	end
 	end
 
 
-        if dim eq 2 then begin
+        if dim ge 2 then begin
 		t_cpt = cpt[1]
 		if seq_no gt 0 then t_cpt = seq_no  ; view old data
 		maxno = t_cpt
@@ -4842,7 +5312,8 @@ populate:
 		scanData.pv = pv[0]
 		scanData.y_pv = pv[1]
 		scanData.y_scan = 1
-        endif else begin
+	end
+        if dim eq 1 then begin
                 seqno = 1   
 		maxno = 1
 		scanData.pv = pv
@@ -4851,40 +5322,69 @@ populate:
         end
 
 
-if dim eq 2 then begin
+if dim ge 2 then begin
 	if seq_no le 0 then seq_no = cpt[1]
 	scanData.y_seqno = seq_no - 1
 	if scanData.y_seqno lt 0 then  scanData.y_seqno=0
+	if dim eq 3 then yvalue = pa2D(scanData.y_seqno,0) else $
 	yvalue = pa1D(scanData.y_seqno,0)
 end
 if dim eq 1 and seq_no lt 0 then seq_no = 1
 next_seq_no = seq_no + 1
 
 scanData.pv = pv[0]
-act_npts = cpt[0]
-if dim eq 2 and act_npts eq 0 then act_npts = num_pts[1]
+;act_npts = cpt[0]
+;if dim ge 2 and act_npts eq 0 then act_npts = num_pts[1]
+act_npts = num_pts[0]
 scanData.act_npts = act_npts 
 
-	scanData.pa = make_array(4000,4,/double)
-	scanData.da = FLTARR(4000,15)
 
+ndet = 85 	; ndet = ceil( total(id_def(4:88,0)) )
+
+
+for j=0,dim-1 do begin
+det_id = id_def(4:84,j)
+for i=0,n_elements(det_id)-1 do begin
+	if det_id(i) gt 0 then scanData.lastDet(j) = i+1
+end
+end
+
+ndet=scanData.lastDet(0)
+sz = size(da2D)
+if dim eq 3 and sz(0) eq 3 then ndet = sz(3)
+
+	scanData.pa = make_array(4000,4,/double)
+	scanData.da = FLTARR(4000,ndet)
+
+if act_npts gt 0 then begin
 for i=0,3 do begin
         if id_def[i,0] gt 0 then begin
-;	scanData.pa(0:act_npts-1,i) = pa2D[*,seq_no-1,i]  else $  
-
+	if dim eq 3 then $
+	scanData.pa(0:act_npts-1,i) = pa3D[0:act_npts-1,i] 
 	if dim eq 2 then $
-	scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,0,i]   
+	scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,i] 
 	if dim eq 1 then $
 	scanData.pa(0:act_npts-1,i) = pa1D[0:act_npts-1,i] 
         end
 end
 
-for i=0,14 do begin
+for i=0,ndet-1 do begin
         if id_def[4+i,0] gt 0 then begin
 	if dim eq 2 then $
-	scanData.da(0:act_npts-1,i) = da2D[0:act_npts-1,scanData.y_seqno,i] else $
+	scanData.da(0:sz(0)-1,i) = da2D[0:sz(0)-1,scanData.y_seqno,i] 
+	if dim eq 3 then begin
+		cpt2 = cpt(2)
+		if cpt2 eq num_pts(2) then cpt2 = num_pts(2)-1
+		sz3 = size(da3D)
+		if sz3(0) eq 4 then $
+		  scanData.da(0:num_pts(0)-1,i) = da3D[0:num_pts(0)-1,scanData.y_seqno,cpt2,i] else $ 
+		  scanData.da(0:num_pts(0)-1,i) = da3D[0:num_pts(0)-1,scanData.y_seqno,cpt2]  
+	end
+;	scanData.da(0:act_npts-1,i) = da2D[0:act_npts-1,scanData.y_seqno,i] 
+	if dim eq 1 then $
 	scanData.da(0:act_npts-1,i) = da1D[0:act_npts-1,i]
-        end
+	end
+end
 end
 
 
@@ -4897,9 +5397,8 @@ w_viewscan_id.seqno = seq_no
 	if scanData.debug eq 1 then $
 	print,'Scan # ',seq_no, ' accessed.'
 	scanData.scanno = seq_no 
-;	setPlotLabels
 	w_plotspec_array(0) = scanData.pv
-	if dim eq 2 then w_plotspec_array(0) = w_plotspec_array(0) +' @ y('+strtrim(scanData.y_seqno+1,2)+')' +'='+strtrim(yvalue,2)
+	if dim ge 2 then w_plotspec_array(0) = w_plotspec_array(0) +' @ y('+strtrim(scanData.y_seqno+1,2)+')' +'='+strtrim(yvalue,2)
 	ix = w_plotspec_id.xcord
 	w_plotspec_array(1) = x_descs(ix)
 	if w_plotspec_array(1) eq '' then w_plotspec_array(1) = x_names(ix) 
@@ -4919,10 +5418,12 @@ end
 
 	scanData.readin_npts=scanData.act_npts
  
-	if dim eq 3 then begin
-		help,pa1d,pa2d,pa3d
-		help,da1d,da2d,da3d
-		return
+	if dim eq 3 and scanData.debug gt 0 then begin
+help,pa1D,pa2D,pa3D
+help,da1D,da2D,da3D
+print,scanData.lastDet
+;	DC_3DscanMessage,scanData.trashcan
+;	return
 	end
 END
 
@@ -4949,8 +5450,10 @@ COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array, w_plotspec_id, w_plotspec_limits , w_plotspec_saved
 COMMON field_block, field_max, field_name, field_name_array, field_value, field_label_array, w_scanfield_ids
 
+str = '; 2D SCAN #: '
+if scanData.dim eq 3 then str = '; 3D SCAN #: '
 if scanData.y_seqno gt 0 or scanData.y_scan gt 0 then begin
-printf,unit,"; 2D SCAN #: ",scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno+1
+printf,unit,str,scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno+1
         end
 
 printf,unit,"; 1D SCAN #: ",scanData.scanno
@@ -4967,9 +5470,11 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array, w_plotspec_id, w_plot
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON field_block, field_max, field_name, field_name_array, field_value, field_label_array, w_scanfield_ids
 
+str = '; 2D SCAN #: '
+if scanData.dim eq 3 then str = '; 3D SCAN #: '
 printf,unit,"; VERSION: ",scanData.version,' ',scanData.release
 if scanData.y_seqno gt 0 or scanData.y_scan gt 0 then begin
-printf,unit,"; 2D SCAN #: ",scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno+1
+printf,unit,str,scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno+1
         end
 
 printf,unit,"; 1D SCAN #: ",scanData.scanno
@@ -5025,9 +5530,11 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON field_block, field_max, field_name, field_name_array, field_value, field_label_array, w_scanfield_ids
 
 
+str = '; 2D SCAN #: '
+if scanData.dim eq 3 then str = '; 3D SCAN #: '
 printf,unit,"; VERSION: ",scanData.version,' ',scanData.release
 if scanData.y_seqno gt 0 or scanData.y_scan gt 0 then begin
-printf,unit,"; 2D SCAN #: ",scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno+1
+printf,unit,str,scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno+1
         end
 
 printf,unit,"; 1D SCAN #: ",w_plotspec_id.seqno 
@@ -5423,107 +5930,23 @@ END
 PRO update_2d_data,data_2d,xdim,ydim,da2D,id_def
 COMMON CATCH1D_COM, widget_ids, scanData
 
+	sz = size(da2D)
+	y_last = sz(2) - 1
+
+	xdim = sz(1)
+	ydim = sz(2)
+
 	if n_elements(data_2d) then data_2d = 0
 
      	make_2d_data,data_2d,xdim,ydim
 
-	sz = size(da2D)
-	y_last = sz(2) - 1
-
+	if !d.name eq 'WIN' then device,decomposed=0
 	if scanData.image gt 2 then catch1d_win_2D_update2,y_last else $
 	catch1d_win_2D_update1,y_last
+	if !d.name eq 'WIN' then device,decomposed=1
 END
 
 
-PRO scan_mode_write_image,pa1D,da1D,pa2D,da2D,id_def
-COMMON CATCH1D_COM, widget_ids, scanData
-COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
-COMMON LABEL_BLOCK,x_names,y_names,x_descs,y_descs,x_engus,y_engus
-  COMMON CATCH1D_2D_COM, data_2d, gD
-
-filename = scanData.imgfile
-
-CATCH,error_status
-if error_status ne 0 then begin
-	ret=dialog_message(!err_string+string(error_status),/Error)
-	filename = '/tmp/DCV2D.image.xdr'
-end
-
-scanData.imgfile = filename
-
-brandnew:
-	u_openw,unit,filename,/XDR
-	npts = scanData.req_npts-1
-	y_seqno = scanData.y_req_npts -1 ; scanData.y_seqno - 1
-
-if y_seqno ge 0 then begin
-
-	pa1D = *(*gD).pa1D
-;	da1D = *(*gD).da1D
-	pa2D = *(*gD).pa2D
-	da2D = *(*gD).da2D
-	id_def = *(*gD).id_def(*,0)
-	labels = *(*gD).labels
-
-	pv2_desc = labels(19,1)
-	if pv2_desc eq '' then pv2_desc = labels(0,1)
-
-	for i=0,14 do begin
-	if  id_def(4+i) gt 0 then begin
-
-	; write the detector  number i, width, height
-
-	pvs = make_array(60,6,/byte)
-	pvs(0,0) = byte(scanData.pv)
-	pvs(0,1) = byte(scanData.y_pv)
-	temp = w_plotspec_array(3)
-	if strlen(temp) gt 60 then temp = strmid(temp,0,60)
-	pvs(0,2) = byte(temp)
-
-;  3  for scan1  positioner desc
-;  4  for scan2  positioner desc
-;  5  for detector desc
-
-        len = strlen(x_descs(0))
-        if len gt 0 then pvs(0:len-1,3) = byte(x_descs(0)) else $
-	pvs(0,3) = byte(x_names(0))
-	len = strlen(pv2_desc)
-	if len gt 0 then pvs(0:len-1,4) = byte(pv2_desc)
-        len = strlen(y_descs(i))
-        if len gt 0 then pvs(0:len-1,5) = byte(y_descs(i)) else $
-	pvs(0,5) = byte(y_names(i))
-
-	u_write,unit,pvs
-
-if scanData.debug eq 1 then begin
-print,'2D Scan # =',scanData.scanno_2d, ' Scan # =',scanData.scanno
-print,'    width =',scanData.req_npts, ' height =', $
-	y_seqno, ' Detector # =',i
-	end
-
-	x = [scanData.scanno, scanData.req_npts, y_seqno+1, i, $
-		scanData.scanno_2d, scanData.y_req_npts]
-
-	u_write,unit,x
-
-	; write x and y positioner array
-	
-	x = pa2D(*,0,0)
-	u_write,unit,x
-
-	y = pa1D(*,0)
-	u_write,unit,y
-
-	; write image
-
-	data_2d.image = da2D(*,0:y_seqno,i)
-	u_write,unit,data_2d.image
-	end
-end
-end
-	free_lun,unit
-
-END
 
 PRO catch1d_process2Ddata
 COMMON CATCH1D_COM, widget_ids, scanData
@@ -5532,14 +5955,6 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
         if scanData.y_scan eq 1 then begin
 
-; update the 2D-scan data
-
-
-        ; assign 2D data array
-
-;        catch1d_fill_2D_data
-
-;	empty
 
 ; process the record at the end of scan
 
@@ -5553,13 +5968,88 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
         w_viewscan_id.maxno = w_plotspec_id.seqno
         scanData.scanno = scanData.y_seqno + 1 
 
+str = '2D SCAN #'
+if scanData.dim eq 3 then str='3D SCAN #'
 if scanData.debug eq 1 then $
-print,'2D SCAN #',scanData.scanno_2d, '  Y SCAN #',scanData.y_seqno
+print,str,scanData.scanno_2d, '  Y SCAN #',scanData.y_seqno
         end
 
 	if scanData.debug eq 1 then $
 	print,'1D SCAN #',scanData.scanno
 
+END
+
+
+PRO catch1d_win_2D_update
+COMMON CATCH1D_COM, widget_ids, scanData
+COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
+  COMMON CATCH1D_2D_COM, data_2d, gD
+
+str = '2D SCAN #'
+if scanData.dim eq 3 then str='3D SCAN #'
+	title=str+strtrim(scanData.scanno_2D,2) + ' : '+ $
+		scanData.sublist(scanData.sel_id)
+
+	da2D = *(*gD).da2D
+	d_def = *(*gD).id_def
+	realtime_id.def = d_def[*,0]
+;	if scanData.dim eq 3 and strpos(scanData.pv,'scanH') gt 0 then  $
+	if scanData.dim eq 3 then  $
+		realtime_id.def = d_def[*,1]
+
+	sz = size(da2D)
+	last = sz(3)  ;scanData.lastDet[2]
+
+	if scanData.sel_id eq 8 then begin
+		sel_list = indgen(last)
+		detname = scanData.detname(0:last-1)
+		id_def = realtime_id.def(4:last-1+4)
+; reorder if desired use following 3 statements
+;		sel_list = [indgen(last-15)+15,indgen(15)]
+;		detname = [scanData.detname(15:last-1),scanData.detname(0:14)]
+;		id_def = [realtime_id.def(19:last-1+4),realtime_id.def(4:18)]
+		NUM_SEL = sz(3)   ;scanData.lastDet[2] ;  85
+	endif else begin
+	NUM_SEL=0
+	for i=0,n_elements(scanData.sel_list)-1 do begin
+	idd = scanData.sel_list(i)
+	if idd gt 0 then begin
+	if n_elements(sel_list) eq 0 then sel_list = idd else $
+		sel_list = [sel_list, idd]
+	if n_elements(id_def) eq 0 then id_def = realtime_id.def(4+idd) else $
+		id_def = [id_def, realtime_id.def(4+idd)]
+	if n_elements(detname) eq 0 then detname = scanData.detname(idd) else $
+		detname = [detname, scanData.detname(idd)]
+ 	NUM_SEL = NUM_SEL+1 
+	end
+	end
+	end
+
+	if scanData.sel_id eq 7 then begin
+		sel_list = [0, sel_list]
+		id_def = [realtime_id.def(4), id_def]
+		detname = [scanData.detname(0), detname]
+		NUM_SEL = NUM_SEL + 1
+	end
+
+	image_subarray = make_array(sz(1),sz(2),NUM_SEL)
+	wd = sz(1)- 1
+	ht = sz(2) - 1
+	if sz(0) eq 3 then $
+	for i=0,NUM_SEL-1 do begin
+		idd = sel_list(i)
+		if idd lt sz(3) then $
+		image_subarray(0:wd,0:ht,i) = da2D(0:wd,0:ht,idd) 
+	end
+
+	old_win = widget_ids.plot_area
+	new_win = widget_ids.panwin
+	factor=2
+	if scanData.image eq 1 then factor=1
+	panimage,image_subarray,id_def,factor,detnm=detname,isel=sel_list, $
+		new_win=new_win,title=title,numd=10
+	widget_ids.panwin = new_win
+	wset,old_win
 END
 
 
@@ -5573,43 +6063,62 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 
 ;loadct, 39
 
+if scanData.sel_list(1) gt 0 then begin
+	catch1d_win_2D_update
+	return
+end
+
 npts = scanData.act_npts-1
 if n_params() eq 0 then y_seqno = scanData.y_seqno
 if y_seqno lt 0 then return
+	if scanData.image le 2 then begin
 	width = scanData.image_width * scanData.image
 	height = scanData.image_height * scanData.image
+	end
+;	if width gt 100 then begin
+;		width=90
+;		height=90
+;	end
 
-;	old_win = !D.window
+	da2D = *(*gD).da2D
+	sz = size(da2D)
+	NC = 8
+	ND = sz(3)     ;scanData.lastDet[2]  ;85
+	NR = ND /NC +1
+	NL = NR*NC-1
+
+str = '2D SCAN # '
+if scanData.dim eq 3 then str='3D SCAN # '
 	old_win = widget_ids.plot_area
 	new_win = old_win - 1 
-	if y_seqno eq 0 then begin
-		window,new_win, xsize = 8*width, ysize=2*height, title='2D_Images'
-		for i=0,14 do begin
-		xi=(i mod 8)*width+width/2 - 5
-		yi=height/2+(15-i)/8*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+widget_ids.panwin = new_win
+	if y_seqno eq 0 or realtime_id.ind eq -1 then begin
+		window,new_win, xsize = NC*width, ysize=NR*height, title=str+strtrim(scanData.scanno_2D,2)
+		for i=0,ND-1 do begin
+		ii = NL-i
+		xi=(i mod NC)*width+width/2 - 5
+		yi=height/2+ii/NC*height
+		xyouts, xi,yi,scanData.detname(i),/device
 		end
-        plots,[0,8*width],[height,height],/device
-        for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+        for i=1,NR-1 do plots,[0,NC*width],[i*height,i*height],/device
+        for i=1,NC-1 do plots,[i*width,i*width],[0,NR*height],/device
 
 	end
 
-; WSET: Window is closed and unavailable.        -324  R4.0.1
-; WSET: Window is closed and unavailable.        -367  R5.0
-; WSET: Window is closed and unavailable.        -386  R5.1
 CATCH,error_status
 
 if !error_state.name eq 'IDL_M_WINDOW_CLOSED' then begin
 ; help,!error_state,/st
 
-	window,new_win, xsize = 8*width, ysize=2*height, title='2D_Images'
-		for i=0,14 do begin
-		xi=(i mod 8)*width+width/2 - 5
-		yi=height/2+(15-i)/8*height
-		xyouts, xi,yi,'D'+strtrim(i+1,2),/device
+	window,new_win, xsize = NC*width, ysize=NR*height, title=str+strtrim(scanData.scanno_2D,2)
+		for i=0,ND-1 do begin
+		ii = NL-i
+		xi=(i mod NC)*width+width/2 - 5
+		yi=height/2+ii/NC*height
+		xyouts, xi,yi,scanData.detname(i),/device
 		end
-        plots,[0,8*width],[height,height],/device
-        for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+        for i=1,NR-1 do plots,[0,NC*width],[i*height,i*height],/device
+        for i=1,NC-1 do plots,[i*width,i*width],[0,NR*height],/device
 
 end
 	wset,new_win
@@ -5617,7 +6126,9 @@ end
 ;	erase
 
 	da2D = *(*gD).da2D
-	for sel=0,14 do begin
+	if sz(0) eq 2 then ND=1       ; zero detector
+
+	for sel=0,ND-1 do begin
 	if realtime_id.def(4+sel) gt 0 then begin
 	im = da2D(*,0:y_seqno,sel)
 	v_max = MAX(im,min=v_min)
@@ -5645,33 +6156,45 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 ; update the image plot
 
 ;loadct, 39
+
+if scanData.sel_list(1) gt 0 then begin
+	catch1d_win_2D_update
+	return
+end
+
 npts = scanData.act_npts-1
 if n_params() eq 0 then y_seqno = scanData.y_seqno
+
 if y_seqno lt 0 then return
+
+	sel = scanData.image - 3
+	title=scanData.detname(sel)
+	
+	da2D = *(*gD).da2D
+	sz = size(da2D)
+	if sel ge sz(3) then return  ; case of detector not defined
+	im = da2D(*,0:y_seqno,sel)
 
 ;	old_win = !D.window
 	old_win = widget_ids.plot_area
 	new_win = old_win - 1 
-	if y_seqno eq 0 then window,new_win, $
+widget_ids.panwin = new_win
+;	if y_seqno eq 0 then $
+		window,new_win, $
 		xsize = 200, ysize=200, $
-		title='2D_Image'
+		title = title
 
-; -386 window not found in 5.1
 CATCH,error_status
 if error_status lt 0 then begin
 	if !error_state.name eq 'IDL_M_WINDOW_CLOSED' then begin
+	help,!error_state,/st
 	window,new_win, $
 		xsize = 200, ysize=200, $
-                title='2D_Image'
-        end
+                title=title 
+	end
 end
 
 	wset,new_win
-
-	sel = scanData.image - 3
-	
-	da2D = *(*gD).da2D
-	im = da2D(*,0:y_seqno,sel)
 
 ;help,old_win,new_win,im,sel,y_seqno
         if strpos(!version.release,'5.0') eq 0 then $
@@ -6392,7 +6915,14 @@ END
 ;  DC.pro
 ;
 
-@scanSee.pro
+;@scanSee.pro
+
+PRO DC_3DscanMessage,filename
+	str = [filename,'','It is a 3D scan file, you have to use', $
+		'pick3d   [ViewData->PICK3D...]  or ','SB      [ViewData->1D/2D/3D Browser...', $
+		'to view it']
+	r = dialog_message(str,/info)
+END
 
 PRO catch1d_append
   COMMON CATCH1D_COM, widget_ids, scanData
@@ -6410,7 +6940,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 
 	filenamepath,scanData.trashcan,old_file,old_path
 
-        FNAME = '*scan*'
+        FNAME = '*sca*'
 
 
 ; check for bad directory -296
@@ -6431,7 +6961,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	if STRMID(F,0,1) eq '~' then filename_expand,F 
         found=findfile(F)
 
-        IF (STRMID(F,0,1) EQ '/') THEN $
+        IF STRPOS(F,!os.file_sep) ge 0 THEN $
                 FNAME = F $
         ELSE $
                 FNAME = P+F
@@ -6450,7 +6980,7 @@ if strlen(P) gt 1 then begin
 	if scanData.debug eq 1 then $
 	print,'CURRENT_DIR: ',P
 	cl = strlen(P)
-	if strmid(P,cl-1,1) eq '/' then D = strmid(P,0,cl-1)
+	if strmid(P,cl-1,1) eq !os.file_sep  then D = strmid(P,0,cl-1)
 	end
 
 ; check for bad D
@@ -6483,7 +7013,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	r = strpos(scanData.trashcan,'_')
 	user = strmid(scanData.trashcan,0,r+1)
 
-        found = findfile(scanData.path,count=ct)
+        found = findfile(scanData.path+'*.sca*',count=ct)
         len = strlen(user)
         sp = rstrpos(user,!os.file_sep)
         if sp gt -1 then sp=sp+1
@@ -6493,8 +7023,8 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
         len1 = strlen(prefix)
         rp = strpos(found(i),prefix)
         rp1 = rstrpos(found(i),suffix)
-        if rp eq 0 and rp1 gt len1 then begin
-                ar = strmid(found(i),len1,rp1-len1)
+        if rp ge 0 and rp1 gt len1 then begin
+                ar = strmid(found(i),rp+len1,rp1-rp-len1)
                 if fix(ar) gt num then begin
                         num= fix(ar)
                         ip = i
@@ -6517,8 +7047,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	w_plotspec_id.errbars = 0
 	w_plotspec_id.xcord = 0
 
-	scan_read,1,-1,-1    ; plot the last scan
-
+	scan_read,1,-1,-1,maxno    ; plot the last scan
 END
 
 
@@ -6556,18 +7085,56 @@ END
 
 PRO PDMENU_VDATA_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
+  COMMON CATCH1D_2D_COM, data_2d, gD
 
   CASE Event.Value OF
   'ViewData.1D/2D...': BEGIN
-	if scanData.realtime eq 0 then catch1d_viewmode, Event else $
-	scanSee,filename=scanData.trashcan, fileno=scanData.fileno, Group=Event.top
+;	if *(*gD).dim eq 3 then begin
+;		DC_3DscanMessage,scanData.trashcan
+;		return
+;	end
+	if scanData.realtime eq 0 then catch1d_viewmode, Event else begin
+	if !d.name eq 'WIN' then begin
+		r = dialog_message('Please use the "@go_SB" to view the scan data.',/info)
+	endif else $
+	spawn, 'SB '+scanData.trashcan +' & '
+	end
 	END
-  'ViewData.3D Slicer...': BEGIN
-	view3d_slicer,file=scanData.trashcan,DMAX=15,Group=Event.top
+  'ViewData.1D/2D/3D Browser...': BEGIN
+	if !d.name eq 'WIN' then begin
+;	view3d_slicer,file=scanData.trashcan,Group=Event.top
+	r = dialog_message('Please use  "@go_SB" to view the 1D/2D/3D data while scan is going on.', /info)
+	endif else $
+	spawn, 'SB '+scanData.trashcan +' & '
 	END
-  'ViewData.1D/2D/3D...': BEGIN
-	spawn,'scanBrowser &'
+  'ViewData.PICK3D...': BEGIN
+	if !d.name eq 'WIN' then begin
+;	pick3d,pickDet=16,path=scanData.path,Group=Event.top
+	r = dialog_message('Please use the "@go_pick3d" to view the 3D data while scan is going on.', /info)
+	endif else $
+	spawn,'pick3d '+scanData.trashcan+ ' &'
 	END
+  'ViewData.Load # Detectors.25': BEGIN
+	scanData.lastDet = [85,85,25]
+    END
+  'ViewData.Load # Detectors.35': BEGIN
+	scanData.lastDet = [85,85,35]
+    END
+  'ViewData.Load # Detectors.45': BEGIN
+	scanData.lastDet = [85,85,45]
+    END
+  'ViewData.Load # Detectors.55': BEGIN
+	scanData.lastDet = [85,85,55]
+    END
+  'ViewData.Load # Detectors.65': BEGIN
+	scanData.lastDet = [85,85,65]
+    END
+  'ViewData.Load # Detectors.75': BEGIN
+	scanData.lastDet = [85,85,75]
+    END
+  'ViewData.Load # Detectors.85': BEGIN
+	scanData.lastDet = [85,85,85]
+    END
   ENDCASE
 
 END
@@ -6582,10 +7149,10 @@ PRO HELPMENU_Event, Event
 	w_warningtext,st
  	END
   'Help.Release Note ...': BEGIN
-        private = getenv('EPICS_EXTENSIONS_PVT') + '/doc/scanSee.README'
+        private = getenv('EPICS_EXTENSIONS_PVT') + !os.file_sep +'doc' + !os.file_sep + 'scanSee.README'
         found = findfile(private)
         if found(0) ne '' then xdisplayfile,found(0),GROUP=Event.top else begin
-        str = getenv('EPICS_EXTENSIONS')+'/doc/scanSee.README'
+        str = getenv('EPICS_EXTENSIONS')+!os.file_sep + 'doc'+ !os.file_sep + 'scanSee.README'
         xdisplayfile,str, GROUP=Event.top
         end
         END
@@ -6602,6 +7169,8 @@ END
 PRO PRINTMENU_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
+  COMMON CATCH1D_2D_COM, data_2d, gD
+  if *(*gD).dim gt 2 then return 
 
   CASE Event.Value OF 
 
@@ -6628,6 +7197,8 @@ PRO ZOOMMENU_Event, Event
   COMMON CATCH1D_COM, widget_ids, scanData
 COMMON user_scale_block,user_scale_ids
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
+  COMMON CATCH1D_2D_COM, data_2d, gD
+  if *(*gD).dim gt 2 then return 
 
 if scanData.lastPlot ge 0 then begin 
 
@@ -6674,6 +7245,8 @@ PRO STATISTICMENU_Event, Event
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON w_statistic_block,w_statistic_ids
+  COMMON CATCH1D_2D_COM, data_2d, gD
+  if *(*gD).dim gt 2 then return 
 
   CASE Event.Value OF
 
@@ -6709,7 +7282,7 @@ COMMON w_statistic_block,w_statistic_ids
         w_plotspec_id.statistic = 5
         num_pts = scanData.act_npts-1
         VX=scanData.pa(0:num_pts,0)
-        for i=0,14 do begin
+        for i=0,84 do begin
         IF (realtime_id.def(4+i) gt 0) THEN begin
         VY=scanData.da(0:num_pts,i)
         title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+ strtrim(scanData.scanno,2)
@@ -6722,7 +7295,7 @@ COMMON w_statistic_block,w_statistic_ids
         w_plotspec_id.statistic = 5
         num_pts = scanData.act_npts-1
         VX=scanData.pa(0:num_pts,0)
-        for i=0,14 do begin
+        for i=0,84 do begin
         IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
         VY=scanData.da(0:num_pts,i)
         title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(scanData.scanno,2)
@@ -6737,7 +7310,7 @@ COMMON w_statistic_block,w_statistic_ids
         w_plotspec_id.statistic = 6
         num_pts = scanData.act_npts-1
         VX=scanData.pa(0:num_pts,0)
-        for i=0,14 do begin
+        for i=0,84 do begin
         IF (realtime_id.def(4+i) gt 0) THEN begin
         VY=scanData.da(0:num_pts,i)
         VY = slope(VX,VY)
@@ -6751,7 +7324,7 @@ COMMON w_statistic_block,w_statistic_ids
         w_plotspec_id.statistic = 6
         num_pts = scanData.act_npts-1
         VX=scanData.pa(0:num_pts,0)
-        for i=0,14 do begin
+        for i=0,84 do begin
         IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
         VY=scanData.da(0:num_pts,i)
         VY = slope(VX,VY)
@@ -6782,6 +7355,8 @@ END
 PRO FITTINGMENU_Event, Event
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
+  COMMON CATCH1D_2D_COM, data_2d, gD
+  if *(*gD).dim gt 2 then return 
 
 if scanData.act_npts lt 2 then begin
         w_warningtext,['No data available yet','', $
@@ -6790,10 +7365,10 @@ if scanData.act_npts lt 2 then begin
 end
 
 x = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord)
-y = make_array(scanData.act_npts,15)
-y(*,*) = scanData.da(0:scanData.act_npts-1,0:14)
+y = make_array(scanData.act_npts,85)
+y(*,*) = scanData.da(0:scanData.act_npts-1,0:84)
 WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
-for i=0,14 do begin
+for i=0,84 do begin
 	if wf_sel(i) then begin
 	if n_elements(jpick) eq 0 then jpick=i else jpick=[jpick,i]
 	end
@@ -6827,8 +7402,21 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
   CASE Event.Value OF 
 
   'File.Open ...': BEGIN
+        if scanData.realtime eq 0 and scanData.scanno_2d gt 0 then begin
+
+	catch,status_error
+	if status_error ne 0 then begin
+		w_warningtext,!error_state.msg+string(!error_state.code)
+		widget_ids.panwin = -1
+		return
+	end
+        if widget_ids.panwin gt 0 then $
+        wdelete,widget_ids.panwin        ; delete realtime panimage window
+        nowindow:
+	widget_ids.panwin = -1
+        end
+
 	catch1d_append
-;	catcher_setup,GROUP=Event.top
     END
 
   'File.Printer ...': BEGIN
@@ -6927,10 +7515,10 @@ if scanData.pvfound eq -1 then return
 	ln = cagetArray(scanData.y_pv+'.P1PV',s1)
 	if ln eq 0 and s1(0) eq ''  then $ 
 	begin
-	st = ['Error: Y Direction Scan is not properly set', $
-		'       for the scan record -  '+scanData.y_pv]
-	w_warningtext,st
-	return
+;	st = ['Error: Y Direction Scan is not properly set', $
+;		'       for the scan record -  '+scanData.y_pv]
+;	w_warningtext,st
+;	return
 	end
 	
 
@@ -7167,8 +7755,6 @@ print,'st2',scanData.y_seqno,scanData.scanno,w_plotspec_id.seqno,w_viewscan_id.m
 ; check whether 2D scan stopped by outside CA clients
 ;
 	  if scanData.y_scan eq 1 then begin
-;		scan_read,1,-1,-1,maxno
-;		id = caGet(scanData.y_pv+'.EXSC',pd) 
 		id = cagetArray(scanData.y_pv+'.EXSC',pd) 
 		if pd(0) eq 0 then begin
 		scan_read,1,-1,-1,maxno
@@ -7232,13 +7818,40 @@ end ;     end of if scanData.option = 1
   'FITTINGMENU': FITTINGMENU_Event, Event
   'EZFIT_FITTING': BEGIN
 	x = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord)
-	y = make_array(scanData.act_npts,15)
-	y(*,*) = scanData.da(0:scanData.act_npts-1,0:14)
+	y = make_array(scanData.act_npts,85)
+	y(*,*) = scanData.da(0:scanData.act_npts-1,0:84)
 	ez_fit,x=x,y=y,GROUP=Event.Top
 	END
+  'PICK_PANIMAGE': BEGIN
+	if scanData.scanno le 1 then return
+	scanData.sel_list = 0
+        sublist = WIDGET_INFO(Event.ID,/DROPLIST_SELECT)
+        CASE sublist OF
+        0: ret = indgen(10) +15 
+        1: ret = indgen(10) +25 
+        2: ret = indgen(10) +35 
+        3: ret = indgen(10) +45
+        4: ret = indgen(10) +55 
+        5: ret = indgen(10) +65 
+        6: ret = indgen(10) +75 
+        7: ret = indgen(15)
+        8: begin
+		ret = indgen(70) + 15
+		ret = [ret,indgen(15)]
+	   end
+        ENDCASE
+        scanData.sel_list = ret 
+        scanData.sel_id = sublist 
+	da2D = *(*gD).da2D
+	update_2d_data,data_2d,scanData.req_npts,scanData.y_req_npts,da2D,realtime_id.def
+	END
   'PICK_IMAGE': BEGIN
-	wdelete,!D.window - 1		; 2D image window
+	if scanData.scanno le 1 then return
+	scanData.sel_id = 8 
+	scanData.sel_list = 0
+
 	scanData.image = Event.Index + 1
+	
 	if scanData.y_scan eq 0 and scanData.y_seqno gt 0 then begin
 	da2D = *(*gD).da2D
 	update_2d_data,data_2d,scanData.req_npts,scanData.y_req_npts,da2D,realtime_id.def
@@ -7305,7 +7918,8 @@ end ;     end of if scanData.option = 1
   'BGROUP145': BEGIN
 	WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
 	scanData.wf_sel = wf_sel
-	if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 then begin
+	ln = cagetArray(scanData.y_pv+'.EXSC',pd)
+	if ln lt 0 or scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 then begin
 		UPDATE_PLOT, scanData.lastPlot 
 		return
 	end
@@ -7462,6 +8076,9 @@ scanData.pvfound = res
         	scanData.pv+'.DECV', $
         	scanData.pv+'.DFCV' $
 		]
+	lis = ['.D01','.D02','.D03','.D04','.D05','.D06','.D07','.D08','.D09']
+	lis = [lis,'.D'+strtrim(indgen(61)+10,2)]+'CV'
+	pvnames = [pvnames, scanData.pv+lis]
 
         ln = caGetTypeCount(pvnames,types,counts,wave_types)
         scanData.x_dpt = counts
@@ -7599,10 +8216,11 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 	F = scanData.path + w_plotspec_array(3)
 	scanReadCheckFileType,F,ok
 	if ok ne 1 then begin
-	res = dialog_message(['May be wrong file defined in DC.config file', $
-			'',scanData.path,'',w_plotspec_array(3), $
-			'','Do you want to use File->Open to select a new file?'],/question)
-	if res eq 'Yes' then return
+	res = dialog_message(['No or wrong DC.config file found.', $
+			'',scanData.path,w_plotspec_array(3), $
+			'','You have to open a new scan file first!'],/Info)
+	catch1d_append
+	return
 	end
 
 ; set init fileno
@@ -7622,13 +8240,7 @@ end
 outpath = scanData.path
 tpath1 = scanData.home+!os.file_sep
 outpath = outpath+'ASCII'+!os.file_sep
-found = findfile(outpath+'.tmp',count=ct)
-if ct eq 0 then begin
-	spawn,!os.mkdir+' '+outpath
-	str = ['Check existence for the directory:',outpath,$
-		'If not found, you may have to manually create it first']
-	r = dialog_message(str,/info)
-end
+print,outpath
 
 scanData.outpath = outpath
 
@@ -7666,7 +8278,7 @@ scanData.outpath = outpath
 ;WIDGET_CONTROL,/HOURGLASS
 
 ;	scan_read_all ,unit, maxno
-	scan_read,unit,-1,-1,maxno
+	scan_read,unit,-1,-1,maxno,dim
 
 	if scanData.y_scan  then scanData.y_seqno = maxno
 
@@ -7695,6 +8307,10 @@ end
 ;	setupoptionsmenu_sensitive,1,0
 	setupoptionsmenu_sensitive,4,0
 
+	if n_elements(maxno) eq 0 or n_elements(dim) eq 0 then begin
+	r = dialog_message(['Failed to read the file:','',scanData.trashcan, $
+		'','Please use File->Open... to pick a new file'],/Error)
+	end
 
 END
 
@@ -7749,10 +8365,25 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group
 ;                       ViewData->1D/2D... either calls W_VIEWSCAN or SCANSEE 
 ;                       routines which depends on whether without or with 
 ;                       active scanning going on
-;                       ViewData->3D Slicer... for viewing 3D scan data
-;       07-19-2000 bkc  R1.2f
-;                       view3d_slicer,DMAX=15,...  support 85/15 detectors
-;                       Add the ViewData->1D/2D/3D entry
+;                       ViewData->1D/2D/3D Browser... for viewing 3D scan data
+;       06-27-2000 bkc  R2.0
+;                       Increase the number of detectors to 85
+;       08-17-2000 bkc  R2.0.1
+;                       Detector name defaults to database definition
+;                       No pop up for missing x-axis data array
+;                       No pop up for read error during scanning
+;                       Allows panimage selection
+;       11-17-2000 bkc  R2.1
+;                       Panimage supports various sublist of detectors
+;                       Dynamic picking sublist of pan image strip
+;                       Fixed read error in read_scan routine
+;       01-09-2001 bkc  R2.2
+;                       Add PICK3D to ViewData menu
+;                       Update view3d_slicer to R1.1
+;                       Update vw2d to R2.2
+;       03-02-2001 bkc  R2.3
+;                       Defalut # of detector loaded into memory is 25
+;                       ViewData->Load # Detectors to load extra detectors
 ;                       
 ;-
 ;
@@ -7777,7 +8408,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R1.2f )', $
+      TITLE='scanSee ( R2.3 )', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -7805,13 +8436,20 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
 ; add the 1D/2D view memu
 
-;   VIEWDATA_BTN = WIDGET_BUTTON(BASE68,VALUE='ViewData...',UVALUE='VIEWDATA_BTN')
 
   MenuVData = [ $
       { CW_PDMENU_S,       3, 'ViewData' }, $ ;        0
         { CW_PDMENU_S,       0, '1D/2D...' }, $ ;        1
-        { CW_PDMENU_S,       0, '3D Slicer...' }, $ ;        1
-        { CW_PDMENU_S,       0, '1D/2D/3D...' } $ ;        1
+        { CW_PDMENU_S,       0, '1D/2D/3D Browser...'}, $ ;        2
+        { CW_PDMENU_S,       2, 'PICK3D...' },  $ ;        3
+        { CW_PDMENU_S,       3, 'Load # Detectors' }, $ ;        4
+          { CW_PDMENU_S,       0, '25' }, $ ;        5
+          { CW_PDMENU_S,       0, '35' }, $ ;        6
+          { CW_PDMENU_S,       0, '45' }, $ ;        7
+          { CW_PDMENU_S,       0, '55' }, $ ;        8
+          { CW_PDMENU_S,       0, '65' }, $ ;        9
+          { CW_PDMENU_S,       0, '75' }, $ ;      10 
+          { CW_PDMENU_S,       2, '85' } $ ;     10 
 	]
 
   PDMENU_VDATA = CW_PDMENU( BASE68, MenuVData, /RETURN_FULL_NAME, $
@@ -7920,65 +8558,52 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 
 
   BASE144 = WIDGET_BASE(MAIN13_1, $
-;      COLUMN=1, $
       ROW=1, $
-;      FRAME=2, $
       MAP=1, $
       TITLE='WF Selector', $
       UVALUE='BASE144')
 
-  Btns1994 = [ $
-    'D1', $
-    'D2', $
-    'D3', $
-    'D4', $
-    'D5', $
-    'D6', $
-    'D7', $
-    'D8', $
-    'D9', $
-    'D10', $
-    'D11', $
-    'D12', $
-    'D13', $
-    'D14', $
-    'D15', $
-    'P1', $
-    'P2', $
-    'P3', $
-    'P4' $
-	 ]
-  BGROUP145 = CW_BGROUP( BASE144, Btns1994, $
-      ROW=2, $
+  BASE144_0 = WIDGET_BASE(BASE144, $
+      ROW=1, X_SCROLL_SIZE=500, $
+      MAP=1, $
+      TITLE='DET Selector', $
+      UVALUE='BASE144_0')
+
+	detname = 'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
+		'01','02','03','04','05','06','07','08','09', $
+		strtrim(indgen(61)+10,2)]
+
+  Btns1994 = [ detname, 'P1','P2','P3','P4']
+  BGROUP145 = CW_BGROUP( BASE144_0, Btns1994, $
+      ROW=9, $
       NONEXCLUSIVE=1, $
       LABEL_LEFT='Y', $
       UVALUE='BGROUP145')
 
   BASE144_1 = WIDGET_BASE(BASE144, $
-      COLUMN=1, $
+      ROW=1, $
       FRAME=2, $
       MAP=1, $
       TITLE='Image', $
       UVALUE='BASE144_1')
+  BASE144_2 = WIDGET_BASE(BASE144_1,COLUMN=1, MAP=1) 
+  BASE144_3 = WIDGET_BASE(BASE144_1,COLUMN=1, MAP=1) 
 
-  label144 = widget_label(BASE144_1,value='Xaxis    Images')
-  BASE144_2 = WIDGET_BASE(BASE144_1, ROW=1, MAP=1) 
-;  Btns913 = ['#','P1','P2','P3','P4', $
-;	     'D1','D2','D3','D4','D5','D6','D7','D8', $
-;	     'D9','D10','D11','D12','D13','D14','D15']
-
-; if detector for X axis is desired just comment out the following line
+  label144 = widget_label(BASE144_2,value='Xaxis')
   Btns913 = ['#','P1','P2','P3','P4']
-
   pick_xaxis = WIDGET_DROPLIST(BASE144_2, VALUE=BTNS913, $
         UVALUE='PICK_XAXIS')
   WIDGET_CONTROL,pick_xaxis,set_droplist_select = 1
 
-   Btns912 = ['Small','Large', 'D1','D2','D3','D4','D5','D6','D7','D8', $
-	     'D9','D10','D11','D12','D13','D14','D15']
+  label145 = widget_label(BASE144_3,value='Images')
+  ; add sublist panimage
+l123 = ['D01-D10','D11-D20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D1-DF','ALL']
+  pick_panimage = WIDGET_DROPLIST(BASE144_3, VALUE=l123, $
+	UVALUE='PICK_PANIMAGE')
 
-  pick_image = WIDGET_DROPLIST(BASE144_2, VALUE=BTNS912, $
-        UVALUE='PICK_IMAGE')
+   Btns912 = ['Small','Large',detname]
+   pick_image = WIDGET_LIST(BASE144_3, VALUE=BTNS912, $
+        UVALUE='PICK_IMAGE',YSIZE=2)
 
 
 ; set drawing area as wide as window width
@@ -7993,12 +8618,13 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   COMMON DRAW61_Comm, DRAW61_Id
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
-@DC.init
+@DC.init.R2.3
 
 ; get start home work directory
 
   CD,'.',CURRENT=old_path
   scanData.home=old_path
+  scanData.sublist = l123
 
 ;  default is acquisition mode now
 
@@ -8025,3 +8651,4 @@ WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
 
 
 END
+

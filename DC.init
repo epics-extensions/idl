@@ -1,4 +1,4 @@
-;  DC.init (R1.2e)
+;  DC.init (R2.2)
 
   widget_ids = {                  $ 
       base        : MAIN13_1,     $
@@ -16,6 +16,7 @@
       wf_select   : BGROUP145,    $
       plot_wid    : DRAW61,       $
       plot_area   : DRAW61_Id,    $
+      panwin      : -1,    $
       summary_base: 0L,      $
       terminal    : 0L,    $
       statistic   : 0L    $
@@ -43,7 +44,7 @@ w_plotspec_id = { $
 	xticklen: 0.04, $
 	yticklen: 0.02, $
 	gridstyle: 0, $
-	colorI: make_array(19,/INT,value=!d.n_colors-2) $ 
+	colorI: make_array(89,/INT,value=!d.n_colors-2) $ 
         }
 
 if !d.name eq 'X' then device,bypass_translation=0
@@ -51,18 +52,19 @@ if !d.name eq 'X' then device,bypass_translation=0
    plotoption_setcolor		; init color index array
 
    scanData  =  {                 $
-XDR : 1, $   ; 0 - native binary,  1 - in xdr binary
+dim: 0, $   ; dimension
 debug : 0,    $   ;  0 normal runing mode, 1 debug mode
 option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'IOC_DC', $
-      release     : '(DC R1.2e)', $
+      release     : '(DC R2.2)', $
       dataversion : '', 	  $  new field in R1.5.5.0
       pv          : '',           $
       pvconfig    : '',           $
       pvfound     : -1, 	  $  indicator for pv found or not found
       num_pos	  : 4, 		  $  max no of pos allowed   
-      num_det     : 15, 	  $  max no of detectors allowed 
+      num_det     : 85, 	  $  max no of detectors allowed 
+      lastDet     : [85,1,1],           $  initial last detector
       home	  : '', $
       fileno	  : 0, 		  $  current scan file number
       filemax	  : 1, 		  $  max scan file number
@@ -78,11 +80,12 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       req_npts    : 100,          $
       act_npts    : 0,          $
       readin_npts    : 0,          $
-	wf_sel	   : make_array(19), $
+	wf_sel	   : make_array(89,/int), $
+	detname	   : detname, $
       	px         : FLTARR(4000), $
       	dx         : make_array(4000,/double), $
 	pa : Make_array(4000,4,/double), $
-	da : FLTARR(4000,15), $	
+	da : FLTARR(4000,85), $	
       lastPlot    : 1,   $   ; <0 not plot data, 0 userscale, 1 autoscale 
       scanno	  : 0,            $   ; current plot no 
       startno	  : 0,            $   ; start no when catch1d is brought up
@@ -98,20 +101,23 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       image        : 1, $		; default 60x60 image 
       image_width  : 60, $
       image_height : 60, $
+	sel_list   : intarr(85), $	; panimage sublist
+	sel_id 	   : 0, $		; panimage sublist
+	sublist    : ['D01-D10','D11-20','D21-D30','D31-D40','D41-D50','D51-D60','D61-D70','D1-DF','ALL'], $    
       y_pv	: '', $
       y_scan 	: 0, $		; if 1 2D scan is goring on
       y_value   : 0., $		; y value for 2D scan
       y_req_npts    : 1,          $
       y_act_npts    : 0,          $
-      x_dpt 	: make_array(15,/INT,value=1), $ ; data dim for X detectors
-      y_dpt 	: make_array(15,/INT,value=1), $ ; data dim for Y detectors
-      x_dtype 	: make_array(15,/INT,value=4), $ ; float for X detectors 
-      y_dtype 	: make_array(15,/INT,value=4), $ ; float for Y detectors
+      x_dpt 	: make_array(85,/INT,value=1), $ ; data dim for X detectors
+      y_dpt 	: make_array(85,/INT,value=1), $ ; data dim for Y detectors
+      x_dtype 	: make_array(85,/INT,value=4), $ ; float for X detectors 
+      y_dtype 	: make_array(85,/INT,value=4), $ ; float for Y detectors
       y_cur_pt  : 0, 	$  ; y index no from IOC
       y_seqno   : 0 	$  ; y dim scan seqno
    }
 
-   WIDGET_CONTROL, widget_ids.wf_select, SET_VALUE = [1,1,0,0]
+   WIDGET_CONTROL, widget_ids.wf_select, SET_VALUE = [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1]
 
    WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
    scanData.wf_sel = wf_sel
@@ -137,9 +143,9 @@ w_viewscan_id = { $
         type: 0, $
         unit: 0, $
         seqno: 0, $
-        maxno: 0, $
-	size: 0L, $
-        fptr: make_array(10000,/long) $
+        maxno: 0 $
+;	size: 0L, $
+;        fptr: make_array(10000,/long) $
         }
 
 ; realtime init
@@ -149,7 +155,7 @@ realtime_id = { $
         ind     : 0,    $
         no      : 0, $
         mpts    : 0, $
-	def     : make_array(19,/int), $     ; 1 PV defined, 2 time defined
+	def     : make_array(89,/int), $     ; 1 PV defined, 2 time defined
 	axis 	: 0, $
 	xmin	: 0., $
 	xmax	: 0., $
