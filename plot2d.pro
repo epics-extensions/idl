@@ -186,6 +186,12 @@ COMMON PLOT2d_BLOCK,plot2d_state
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
 	plot2d_state.ymargin2 = ch(0) 
       END
+  'plot2d_setupZoomin': BEGIN
+	plot2d_state.zoom = plot2d_state.zoom * 1.25
+      END
+  'plot2d_setupZoomout': BEGIN
+	plot2d_state.zoom = plot2d_state.zoom / 1.25 
+      END
   'plot2d_setupXtitle': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
 	plot2d_state.xtitle = ch(0) 
@@ -327,10 +333,9 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
   plot2d_setupSLIDER3 = WIDGET_SLIDER( BASE24, $
       MAXIMUM=180, $
       MINIMUM=-180, $
-      TITLE='Ax', $
       UVALUE='plot2d_setupSLIDER3', $
       VALUE=plot2d_state.ax, $
-      XSIZE=80)
+      XSIZE=180)
 
   FieldVal4939 = plot2d_state.az
   plot2d_setupAz = CW_FIELD( BASE24,VALUE=FieldVal4939, $
@@ -344,10 +349,9 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
   plot2d_setupSLIDER4 = WIDGET_SLIDER( BASE24, $
       MAXIMUM=180, $
       MINIMUM=-180, $
-      TITLE='Az', $
       UVALUE='plot2d_setupSLIDER4', $
       VALUE=plot2d_state.az, $
-      XSIZE=80)
+      XSIZE=180)
 
   BASE27 = WIDGET_BASE(plot2d_setupMain13, $
       ROW=1, $
@@ -390,6 +394,10 @@ WIDGET_CONTROL,BGROUP19,set_value=vals
       UVALUE='plot2d_setupYTop', $
       XSIZE=2)
 
+  plot2d_setupZoomin = WIDGET_BUTTON( BASE27,VALUE='Zi', $
+	UVALUE='plot2d_setupZoomin')
+  plot2d_setupZoomout = WIDGET_BUTTON( BASE27,VALUE='Zo', $
+	UVALUE='plot2d_setupZoomout')
 
   BASE36 = WIDGET_BASE(plot2d_setupMain13, $
       ROW=1, $
@@ -517,8 +525,8 @@ type = s(n_elements(s)-2)
 
 maxvl = plot2d_state.max
 minvl = plot2d_state.min
-xmargin = [plot2d_state.xmargin1,plot2d_state.xmargin2]
-ymargin = [plot2d_state.ymargin1,plot2d_state.ymargin2]
+xmargin = plot2d_state.zoom *[plot2d_state.xmargin1,plot2d_state.xmargin2]
+ymargin = plot2d_state.zoom *[plot2d_state.ymargin1,plot2d_state.ymargin2]
 
 CASE plot2d_state.plottype OF
     0: begin
@@ -802,6 +810,7 @@ COMMON PLOT2D_BLOCK,plot2d_state
 ;
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Dec 16, 1998.
+;       12-22-1998      Add zoom in/out button to control X, Y margins
 ;
 ;-
 
@@ -872,6 +881,7 @@ if keyword_set(yarr) then yarray = yarr
 	comment:footnote, $
 	xloc:xloc, $
 	yloc:yloc, $
+	zoom:1.0, $
 	xmargin1:10, $
 	xmargin2:5, $
 	ymargin1:5, $
