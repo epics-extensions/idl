@@ -1,16 +1,37 @@
 #!/usr/bin/csh
 
+# use IDL 6.0 virtual machine and solaris-sparc
 source /usr/local/rsi/idl_6.0/bin/idl_setup
+setenv HOST_ARCH solaris-sparc
 
-setenv EZCA_IDL_SHARE $EPICS_EXTENSIONS/lib/solaris/libezcaIDL.so
+set LOC=/usr/local/epics/extensions
+if ${?EPICS_EXTENSIONS_PVT} == 1 then
+	set LOC=$EPICS_EXTENSIONS_PVT
+endif
+source $LOC/bin/$HOST_ARCH/ezcaidl_setup
+
+setenv EZCA_IDL_SHARE $LOC/lib/$HOST_ARCH/libezcaIDL.so
 if $1 == "scanSee" then
-   idl -32 -vm=$EPICS_EXTENSIONS/bin/$HOST_ARCH/scanSee.sav
+   echo run $LOC/bin/$HOST_ARCH/scanSee.sav
+   idl -32 -vm=$LOC/bin/$HOST_ARCH/scanSee.sav
    exit
 endif
 
 if $1 == "catcher" then
-   idl -32 -vm=$EPICS_EXTENSIONS/bin/$HOST_ARCH/catcher.sav
+   echo run $LOC/bin/$HOST_ARCH/catcher.sav
+   idl -32 -vm=$LOC/bin/$HOST_ARCH/catcher.sav
    exit
 endif
 
-idl -vm=$EPICS_EXTENSIONS/bin/$HOST_ARCH/$1.sav
+if $1 == "sscan" then
+   echo run $LOC/bin/$HOST_ARCH/sscan.sav
+   idl -32 -vm=$LOC/bin/$HOST_ARCH/sscan.sav
+   exit
+endif
+
+if $1 == "" then
+   idl -32 -vm
+else
+   echo run $LOC/bin/$HOST_ARCH/$1.sav
+   idl -vm=$LOC/bin/$HOST_ARCH/$1.sav
+endif
