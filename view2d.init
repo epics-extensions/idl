@@ -1,6 +1,7 @@
 
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
+COMMON COLORBAR, colorbar_data
 COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 
   widget_ids = {                  $ 
@@ -96,12 +97,17 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
   
 if !d.name eq 'X' then device,bypass_translation=0,retain=2
 
+  colorbar_init,colorbar_data
+
   view_option = { $
 	roifile : '', $
 	rptfile : '', $
 	format : 'G17.7', $    ; ascii report format
 	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
+	bg     : 0, $
+	fg     : !d.table_size-1, $
         ncolors : !d.table_size-1, $   max color index 
+	fontname  : 'Default', $
 	pick_ref : 1, $   ; normalized against detector # 1
 	fullcolor : 0, $   0-auto 1-user 2-normalize
 	CA : 0, $       ; if run with data catcher is set to 1
@@ -113,9 +119,9 @@ if !d.name eq 'X' then device,bypass_translation=0,retain=2
 	margin_r : 80, $         ; TV right margin
 	margin_t : 50, $         ; TV top margin
 	margin_b : 50, $         ; TV bottom margin
-	ps_l : 0.10, $		; PS left 
+	ps_l : 0.125, $		; PS left 
 	ps_b : 0.125, $		; PS bottom 
-	ps_r : 0.85, $		; PS right 
+	ps_r : 0.875, $		; PS right 
 	ps_t : 0.875, $		; PS top 
 	x_min	: 0, $		; user set xmin
 	x_max	: 2000, $	; user set xmax
