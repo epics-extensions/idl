@@ -1,4 +1,4 @@
-; $Id: slide_image.pro,v 1.1 2003/05/05 16:08:12 cha Exp $
+; $Id: slide_image.pro,v 1.2 2004/04/06 18:33:00 cha Exp $
 ;
 ; Copyright (c) 1991-2000, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -148,7 +148,12 @@ pro SLIDE_IMG_EVENT, ev
 		end
 	'SLIDE_IMAGE_PRINT': begin
         WSET,slide_imageInfo.win
-        arr = TVRD()
+	if !d.n_colors gt !d.table_size then begin
+		t_arr = TVRD(/true)
+		tvlct,red,green,blue,/get
+		arr = color_quan(t_arr,1,r,g,b)
+		tvlct,r,g,b
+	endif else arr = TVRD()
         sz = size(arr)
 	s = min([sz(1),sz(2)])
 	if s ge 700 then begin
@@ -167,6 +172,7 @@ pro SLIDE_IMG_EVENT, ev
         TV,arr
         PS_close
         PS_print, 'idl.ps'
+	if !d.n_colors gt !d.table_size then tvlct,red,green,blue
 	end
 	'SLIDE_IMAGE_DONE': begin
   		WIDGET_CONTROL, ev.top, /DESTROY
@@ -215,7 +221,7 @@ pro slide_image, image, CONGRID=USE_CONGRID, ORDER=ORDER, REGISTER=REGISTER, $
     junk = WIDGET_BUTTON(base0, value='Printer...',uvalue='SLIDE_IMAGE_PRINTER')
     junk = WIDGET_BUTTON(base0, value='  Print ',uvalue='SLIDE_IMAGE_PRINT')
     scale = WIDGET_DROPLIST(base0, value=['Scale 1','Scale 1/2','Scale 1/4'], $
-		title='',uvalue='SLIDE_IMAGE_SCALE')
+		title='PS',/frame,uvalue='SLIDE_IMAGE_SCALE')
     junk = WIDGET_BUTTON(base0, value='  Done  ',uvalue='SLIDE_IMAGE_DONE')
     ibase = WIDGET_BASE(base, /ROW)
   endif else begin
