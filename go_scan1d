@@ -1,0 +1,4 @@
+@os.init
+.run u_read
+.run plot1d
+.run scan1d__define
