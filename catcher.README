@@ -1,3 +1,87 @@
+                        CATCHER R2.2.2c9+  RELEASE NOTE 
+                        ===============================
+
+The catcher_v1.pro program has been upgraded to R2.2.2c9+. 
+The view2d program has been updated to R2.5. The underline
+programs modified including the ez_fit, fit_statistic, scan2d_overlay,
+view3d_2dsum, etc.
+
+
+<<catcher_v1>>
+
+Previous releases, the 2D images are saved only at the end of 2D scan. 
+Now a user can use Image@1D/Image@2D to control the image save mode. The
+default is Image@1D, i.e. the 2D image file will be updated at the end
+of each 1D scan of a 2D scan. 
+
+For a very fast 2D scan, if the writing of 2D image competes with the 2D scan,
+then a user should set the Image@2D mode where 2D image file will be updated
+only at the end of 2D scan.
+
+The problem of GoTo button of a 1D plot remembers the last multiple motor
+names has been fixed, now the motor been moved will depend on the read in file 
+and the status of the current scan record.
+ 
+<<view2d>>
+
+Add the region fields: XL,XR,YL,YR to show the initial image region.
+They can be updated by the zoom box user interface. Three buttons added to
+control the scan record parameters
+
+	Set New P1PV...    - reset the scan1d and scan2d P1 moters position to 
+                             the Cursor @ X  and Cursor @ Y values
+        Set New P1CP...    - reset the scan1d and scan2d P1 center position to
+                             the Cursor @ X  and Cursor @ Y values 
+ Set New 2D Scan Ragnes... - reset the scan1d and scan2d P1 start and end 
+                             positions to the values in XL,XR,YL,YR 
+		             
+
+ Set TV Zoom Box Interface:
+	Right Mouse Button  - initiates the bounding box at the cursor
+	Left Mouse Button   - drag to move the zoom box 
+	Middle Mouse Button - drag the side to resize the zoom box 
+	Right Mouse Button  - accept the final zoom box and updates
+                              TV image and  XL,XR,YL,YR fields
+	Press ReNew Button  - restores the original TV image
+
+<<ez_fit>>
+
+The read ascii file option has been modified to accept flexible 1D/2D type
+of ascii data file, provides raw data preview option.
+
+The problem of single lorentzian fit has been fixed.  The user interface 
+for defining the mutiple-lorentzion parameters has been simplified by mouse
+clicking on the graph.
+
+The user interface of linear regession fit has been implemented.
+
+Two error functions supported by FUNCT_ERF dialog: FUNCT_ERF for linear
+term fit and FUNCT_ERF1 for square term fit.
+
+<<view3d_2dsum>>
+
+An image meter to show the sum of 2D image slices is implemented.
+
+<<scan2d_overlay>>
+
+Now scan2d_overlay program can support both scan2d__define and scanSee__define
+objects. It provides a way of displaying superposed images (up to 15) with 
+different color scheme.
+
+
+<<plot2d>>
+
+For the purpose of generating flexible 2D raw data for porting ascii data
+to various application, the droplist control option is added to plot2d.
+Header Options: Data only / With X Value / Full Header 
+
+<<plot1d>>
+
+Add reverse background color option, button to show plot data option,
+slider to control number of data points plotted. Support various forms
+of input data array. Flexible selection of multiple data curves.
+
+
                         CATCHER R2.2.2c7+  RELEASE NOTE 
                         ==========================
 
