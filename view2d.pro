@@ -1,4 +1,4 @@
-; $Id: view2d.pro,v 1.34 2001/06/19 19:07:19 cha Exp $
+; $Id: view2d.pro,v 1.35 2001/06/21 20:35:29 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3531,6 +3531,7 @@ PRO view2d, GROUP=Group, file=file, XDR=XDR,CA=CA
 ;                     Add the option of plot against to P2,P3,P4 X axis
 ;                     Add re-assign dnames to dcviewer driver
 ;                     Read user preferred detector names from '.tmpName'
+;                     Scan2d_roi support save filter ROI to pass into multiroi
 ;-
 ;
 @os.init
@@ -3705,7 +3706,7 @@ if XRegistered('main13_2') ne 0  then return
 	xdr_read,unit,dnames
 	xdr_close,unit
   end
-  Btns_detector = dnames[0:14]
+  if n_elements(dnames) then Btns_detector = dnames[0:14]
   IMAGE186 = CW_BGROUP( BASE186, Btns_detector, $
       ROW=1, EXCLUSIVE=1, LABEL_LEFT='Images', /NO_RELEASE, $
       UVALUE='IMAGE186')
