@@ -9,7 +9,7 @@ catcher.  It provides very flexible 2D scan image accessing and
 displaying. It also provides automatical hard copy generation.
 
 For each 2D image it provides following types of IDL plot : TV, SURFACE, 
-CONTOUR, SHOW3, XSURFACE, and TV Equal Aspect Ratio. The TV, surface and 
+CONTOUR, SHOW3, PLOT2D, and TV Equal Aspect Ratio. The TV, surface and 
 contour plot can either plot vs X,Y index or vs real X,Y values. 
 
 For TV plot, it can be user scaled drawing area image or the actual 
@@ -109,11 +109,18 @@ The function of each widget is briefly given below.
 				File
 
 The File pulldown menu consists of four selection items: 'Open ...',
+'Save Image for AIM', 'Save as TIFF','Save as R-TIFF','Save as XDR',
 'Printer ...', 'Print', 'PS_close', and 'Quit'.
 
 The 'Open ...' button pops up the IDL file selection box which allows the 
 user to select the 2D image file for viewing.  The default setting is
 'catch1d.trashcan.image'.  
+
+The 'Save Image for AIM' button exports the image data in a save file
+which is ready to load into another IDL image program, AIM .
+The 'Save as TIFF' button save the current image as a TIFF data.
+The 'Save as R-TIFF' button save the current image as a reverse TIFF data.
+The 'Save as XDR' button save the current image as a XDR array .
 
 The 'Printer ...' button allows the user to override the default printer
 for the postscript plot. Default color postscript file is generated.
@@ -187,7 +194,7 @@ This menu gives this on-line help information.
 	SURFACE     - view data as a surface plot
 	CONTOUR     - view data as a contour plot
 	SHOW3       - view TV + SURFACE + CONTOUR plot all together
-        XSURFACE    - view data through XSURFACE which provides more viewing
+        PLOT2D      - view data through PLOT2D which provides more viewing
                       controls 
 
 
@@ -251,7 +258,7 @@ pop up.
 
 
 The drawing area is used for displaying TV, SURFACE, CONTOUR, and SHOW3 
-plot.  The XSURFACE uses its own drawing window.
+plot.  The PLOT2D uses its own drawing window.
 
 In TV image mode, clicking the Left Mouse Button (LMB) in the drawing area 
 will redraw the cursor cross-hair and update the X, Y, Z value widgets.
@@ -325,7 +332,7 @@ above Zmax will be shown in same color as Zmax.
 
                              PanImage Menu 
 
-The PanImages sub menu provides the option of popping up / save TIFF or GIF
+The PanImages sub menu provides the option of popping up / save TIFF or XDR
 of the image-strip window to show 2D image of all detectors defined. Each 
 detector has its own 2D TV image based on its own data range. If no data 
 available for the detector the text 'Di' is drawn instead. For detailed 
