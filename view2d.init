@@ -8,6 +8,7 @@ COMMON CATCH2D_FILE_BLOCK,catch2d_file
       top_base    : BASE68,       $
       sel_base    : BASE185,       $
       norm_base	  : 0L,       $
+      bin_type    : pick_xdr, $
       sel_image   : IMAGE186,       $
       slider	  : 0L,  $
       seqno	  : FIELD100, $
