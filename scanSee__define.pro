@@ -692,7 +692,7 @@ PRO scanSee::Images,image_array,def,vmax,vmin,X=x,Y=y,panimage=panimage
 	def = self.def
 	nd = self.nd
 		id_def = *(*self.gD).id_def
-		def = id_def(4:88,1)
+		if self.dim eq 3 then def = id_def(4:88,1)
 
 	vmin = make_array(nd+1,/float)
 	vmax = make_array(nd+1,/float)
@@ -1129,6 +1129,37 @@ PRO scanSee::Print,debug=debug
 	if keyword_set(debug) then scanimage_print,self.gD
 END
 
+PRO scanSee::VW2D,group=group
+;+
+; NAME:
+;       scanSee::VW2D
+;
+; PURPOSE:
+;       This method allows the user to use VW2D program to view the 2D MDA
+;	data set.
+;
+; CALLING SEQUENCE:
+;       Obj->[scanSee::]Vw2D,GROUP=Group
+;
+; ARGUMENTS:
+;     None.
+;
+; KEYWORDS:
+;     GROUP  - specify the widget ID of the calling function
+;
+; EXAMPLE:
+;    Following example let the user access the VW2D program for a 2D scan MDA file.
+;
+;         v2->Vw2d,group=group
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, April 26, 2002.
+;       xx-xx-xxxx      comment
+;-
+
+	VW2D,file=self.file,Group=group
+END
+
 PRO scanSee::View2D,detno,xarr=xarr,yarr=yarr,im=im,plot=plot,group=group,_extra=e
 ;+
 ; NAME:
@@ -1149,6 +1180,7 @@ PRO scanSee::View2D,detno,xarr=xarr,yarr=yarr,im=im,plot=plot,group=group,_extra
 ;     YARR   - returns the Y vector
 ;     IM     - returns the image array 
 ;     PLOT   - calls PLOT2D package
+;     GROUP  - specify the widget ID of the calling function
 ;
 ; EXAMPLE:
 ;    Following example let the user view the 10th detector of the 
@@ -1234,7 +1266,7 @@ PRO scanSee::ASCII2D,detno,nowin=nowin,view=view,outfile=outfile,plot=plot,forma
 
 	s = size(data)
 	dim = s(1:2)
-	printf,fw,'; From:',self.file ,',   Detector = ',strtrim(detector,2)
+	printf,fw,'; From:',self.file ,',   Detector = ',self.detname(detector-1) ;strtrim(detector,2)
 	printf,fw,';   data('+strtrim(dim(0),2)+','+strtrim(dim(1),2)+')'
 	printf,fw,'; -------------------------------'
 
@@ -1545,7 +1577,8 @@ END
 
 PRO scanSee::Pick1d,detno,GROUP=group
 	
-	title='SCAN # '+ strtrim(scanno,2)+', D'+strtrim(pick1d,2)
+	dname = self.detname(detno-1)
+	title='SCAN # '+ strtrim(scanno,2)+', '+dname
 	im = image_array(*,*,detno-1)
 	calibra_pick1d,im,xa=x,ya=y,title=title,GROUP=group
 END
@@ -1616,7 +1649,8 @@ PRO scanSee::Calibration,pick1d=pick1d,GROUP=group,_extra=e
 
 	if keyword_set(pick1d) then begin
 		if pick1d lt 1 or def(pick1d-1) eq 0 then return
-		title='SCAN # '+ strtrim(scanno,2)+', D'+strtrim(pick1d,2)
+		dname = self.detname(pick1d-1)
+		title='SCAN # '+ strtrim(scanno,2)+', '+dname
 		calibra_pick1d,im,xa=x,ya=y,title=title,GROUP=group
 		return
 	end
@@ -1839,17 +1873,18 @@ heap_gc
 ;	self.suffix =  '.scan'
 	self.suffix = strmid(self.name,po,strlen(self.name)-po)
 
-	dir = self.path
+	cd,current=dir
+	dir = dir +!os.file_sep
+;	dir = self.path
         CATCH,error_status
         if error_status ne 0 then begin
-        if self.path ne '' and self.home ne self.path then $
-        dir = self.home+!os.file_sep else $
-        dir = getenv('HOME')+!os.file_sep
+          if self.path ne '' and self.home ne self.path then $
+          dir = self.home+!os.file_sep else $
+          dir = getenv('HOME')+!os.file_sep
         end
         openw,1,dir+'.tmp'
         close,1
         self.outpath = dir
-
 	self.detname =  'D'+ [strtrim(indgen(9)+1,2),'A','B','C','D','E','F' , $
         	'01','02','03','04','05','06','07','08','09', $
         	strtrim(indgen(61)+10,2)]
