@@ -9,6 +9,14 @@
 @PS_open.pro
 @colorbar.pro
 
+PRO plot2d_tablesize,ncolors
+        tvlct,r,g,b,/get
+        t_size = where(r eq 0 and g eq 0 and b eq 0)
+        ncolors= 256 - n_elements(t_size)+1
+;        print,t_size
+;        help,ncolors
+END
+
 PRO plot2d_setupMargins,plot2d_state,parent
 
   BASE27_0 = WIDGET_BASE(parent, $
@@ -198,14 +206,14 @@ PRO plot2d_tvprocess_Event, Event
   'plot2d_setThreshold': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=val
 	plot2d_state.threshValue=val(0)
-	plot2d_state.thresh = fix((val(0)-plot2d_state.min) /(plot2d_state.max-plot2d_state.min)*(!d.table_size-1))
+	plot2d_state.thresh = fix((val(0)-plot2d_state.min) /(plot2d_state.max-plot2d_state.min)*(plot2d_state.table_size-1))
 	WIDGET_CONTROL,plot2d_state.threshID,SET_VALUE=plot2d_state.thresh
 	plot2d_replot,plot2d_state
       END
   'SLIDER7': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=thresh
 	plot2d_state.thresh = thresh(0)
-	plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)* thresh(0)/(!d.table_size-1) 
+	plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)* thresh(0)/(plot2d_state.table_size-1) 
 	WIDGET_CONTROL,plot2d_state.threshVID,SET_VALUE=plot2d_state.threshValue
 	plot2d_replot,plot2d_state
       END
@@ -285,9 +293,9 @@ PRO plot2d_tvprocess_Event, Event
 	sz = size(plot2d_state.data)
 	dx = float(plot2d_state.range(1)-plot2d_state.range(0))/sz(1)
 	dy = float(plot2d_state.range(3)-plot2d_state.range(2))/sz(2)
-	cursor,x,y,0,/data ;,/device
+	cursor,x,y,0,/data ;/device
 	while (!mouse.button ne 4)  DO begin     ; 2 - MMB 4 - RMB
-	cursor,x,y,3,/data  ;,/device
+	cursor,x,y,3,/data ;/device
 ;	help,!mouse,/st
 	i = fix(float(x-plot2d_state.range(0))/dx)
 	j = fix(float(y-plot2d_state.range(2))/dy)
@@ -420,14 +428,14 @@ if XRegistered('plot2d_tvprocess') then return
 
   SLIDER5 = CW_FSLIDER( BASE94, $
       MAXIMUM=plot2d_state.max, $
-      MINIMUM=plot2d_state.min, $
+      MINIMUM=plot2d_state.min, /EDIT, $
       TITLE='Scaling Pixels < ',$ 
       UVALUE='SLIDER5', $
       VALUE=plot2d_state.max)
 
   SLIDER3 = CW_FSLIDER( BASE94, $
       MAXIMUM=plot2d_state.max, $
-      MINIMUM=plot2d_state.min, $
+      MINIMUM=plot2d_state.min, /EDIT, $
       TITLE='Scaling Pixels > ', $
       UVALUE='SLIDER3', $
       VALUE=plot2d_state.min)
@@ -494,7 +502,7 @@ if XRegistered('plot2d_tvprocess') then return
       UVALUE='plot2d_setThreshold')
 
  SLIDER7 = WIDGET_SLIDER( BASE76, $
-      MAXIMUM=!d.table_size-1, $
+      MAXIMUM=plot2d_state.table_size-1, $
       MINIMUM=0, $
 	/SCROLL, /SUPPRESS_VALUE, $
 ;      TITLE='Threshold Value', $
@@ -1045,9 +1053,9 @@ COMMON COLORBAR, colorbar_data
 
 if plot2d_state.bgrevs then begin
 	plot2d_state.tcolor = 0
-	plot2d_state.bgcolor = !d.table_size-1
+	plot2d_state.bgcolor = plot2d_state.table_size ;-1
 endif else begin
-	plot2d_state.tcolor = !d.table_size-1
+	plot2d_state.tcolor = plot2d_state.table_size ;-1
 	plot2d_state.bgcolor = 0
 end
 if !d.name eq 'PS' then plot2d_state.tcolor = 0
@@ -1118,34 +1126,34 @@ CASE plot2d_state.plottype OF
 	data = plot2d_state.data
 	if !d.name ne 'PS' then data = CONGRID(plot2d_state.data,width,height)
 
-	newdata = (data - plot2d_state.min)/(plot2d_state.max - plot2d_state.min)*!d.table_size
+	newdata = (data - plot2d_state.min)/(plot2d_state.max - plot2d_state.min)*plot2d_state.table_size
 newdata = fix(newdata)
 
 if plot2d_state.tvoption gt 0 then begin
 case plot2d_state.tvoption of
 1: begin 
    newdata = newdata LT plot2d_state.thresh
-   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
    end
 2: begin
    newdata = newdata GT plot2d_state.thresh
-   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
    end
 3: begin
    newdata = smooth(newdata,plot2d_state.npts) 
-   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
    end
 4: begin
    newdata = fix(newdata - smooth(newdata,plot2d_state.npts)) 
-   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
    end
 5: begin
    newdata = roberts(newdata) 
-   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
    end
 6: begin
    newdata = sobel(newdata) 
-   TVSCL,newdata,left,bottom,xsize=width,ysize=height
+   TVSCL,newdata,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
    end
 7: begin
    newdata = hist_equal(newdata) 
@@ -1157,10 +1165,10 @@ case plot2d_state.tvoption of
 endcase
 endif else begin
 	if max(data) eq min(data) then begin
-		temp = !d.table_size*data
+		temp = plot2d_state.table_size*data
 		TV,congrid(temp,width,height),left,bottom
 	endif else $
-	TVSCL,data,left,bottom,xsize=width,ysize=height
+	TVSCL,data,left,bottom,xsize=width,ysize=height,top=plot2d_state.table_size
 end
         xstyle = 1
         ystyle = 1
@@ -1172,7 +1180,7 @@ end
                  (!d.x_size-float(right))/!d.x_size, $
 		 (!d.y_size-float(top))/!d.y_size], $
                 xstyle=xstyle, ystyle=ystyle, xtitle=plot2d_state.xtitle, $
-		ytitle=plot2d_state.ytitle, $
+		ytitle=plot2d_state.ytitle, ticklen=-0.02, $
                 title=plot2d_state.title, color=plot2d_state.tcolor
 
 	plot2d_notes,plot2d_state
@@ -1198,13 +1206,14 @@ if !d.name eq 'PS' then colorbar_data.width = colorbar_data.width*30
 			horizontal=colorbar_data.horiz, $
 			PSfact=30, reverse=plot2d_state.bgrevs, $
 			format=colorbar_data.format, $
+			ncolors=plot2d_state.table_size+1, $
 			ncap=colorbar_data.nlabel
 		end
 
 	end
     3: begin
 	if plot2d_state.shade eq 1 then begin
-	shades = (plot2d_state.data-minvl)/(maxvl-minvl)*!d.table_size
+	shades = (plot2d_state.data-minvl)/(maxvl-minvl)*plot2d_state.table_size
 	shade_surf,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
 		xlog=plot2d_state.xlog,ylog=plot2d_state.ylog, $
 		charsize=plot2d_state.charsize, $
@@ -1226,7 +1235,7 @@ if !d.name eq 'PS' then colorbar_data.width = colorbar_data.width*30
 	end
     1: begin
 	if plot2d_state.shade then begin 
-	shades = (plot2d_state.data-minvl)/(maxvl-minvl)*!d.table_size
+	shades = (plot2d_state.data-minvl)/(maxvl-minvl)*plot2d_state.table_size
 	surface,plot2d_state.data, plot2d_state.xarr, plot2d_state.yarr, $
 		background=plot2d_state.bgcolor, color=plot2d_state.tcolor, $
 		xlog=plot2d_state.xlog,ylog=plot2d_state.ylog, $
@@ -1363,10 +1372,64 @@ ENDIF
   CASE Ev OF 
 
   'DRAW3': BEGIN
-;	IF ((Event.PRESS EQ 1) AND (plot2d_state.plottype EQ 0)) THEN BEGIN
-;	help,Event,/st
-;        END
-	return
+	WSET,plot2d_state.win
+if event.PRESS eq 2 then begin
+	plot2d_replot, plot2d_state
+	cursor,x,y,0,/data ;,/device
+
+	data = plot2d_state.data
+	xarr = plot2d_state.xarr
+	yarr = plot2d_state.yarr
+	vmax = plot2d_state.max
+	vmin = plot2d_state.min
+	
+	sz = size(data)
+	nn = sz(1)
+	if sz(2) gt nn then nn = sz(2)
+	xa = make_array(nn,2,value=!values.f_nan)
+	ya = make_array(nn,2,value=!values.f_nan)
+
+	dx = xarr(sz(1)-1) - xarr(0)
+	dy = yarr(sz(2)-1) - yarr(0)
+	xn = (x-xarr(0))/dx*sz(1)
+	yn = (y-yarr(0))/dy*sz(2)
+	xn = fix(xn)
+	yn = fix(yn)
+
+	x1 = (data(xn,*)-vmin) /(vmax-vmin)
+	x1 = transpose(x1)
+	y1 = (yarr - yarr(0))/dy
+	xa(0:sz(2)-1,0) = x1(*)
+	ya(0:sz(2)-1,0) = y1(*)
+
+	x2 = (xarr - xarr(0))/dx
+	y2 = (data(*,yn)-vmin) / (vmax - vmin)
+	xa(0:sz(1)-1,1) = x2(*)
+	ya(0:sz(1)-1,1) = y2(*)
+
+	title = 'Normalized (V-Vmin)/(Vmax-Vmin)'
+	xtitle = 'Normalized VY'
+	ytitle = 'Normalized VX'
+	comment = ['','Cross-hair @ X='+strtrim(x,2)+', Y='+strtrim(y,2)+')', $
+		'Vmax = '+strtrim(vmax,2)+',  Vmin = '+strtrim(vmin,2)]
+	plot1d, xa,ya,/data,title=title,xtitle=xtitle,ytitle=ytitle, $
+		xrange=[0.,1.], yrange=[0,1],/color, /bgrevs, $
+		comment=comment, /linestyle, $
+		legend=['@ X='+strtrim(x,2),'@ Y='+strtrim(y,2)], $
+		xylegend=[0.65,.92], $
+		Group=Event.top
+
+	x1 = data(xn,*)
+	x1 = transpose(x1)
+	plot1d,yarr,x1,/data,title='Profile @ X='+strtrim(x,2), $
+		ytitle='Data Values',/color, /bgrevs, $
+		xtitle='Y Values',Group=Event.top
+
+	wait,.1
+	plot1d,xarr,data(*,yn),/data,title='Profile @ Y='+strtrim(y,2), $
+		ytitle='Data Values',/color, /bgrevs,  $
+		xtitle='X Values',Group=Event.top
+end
       END
   'BGROUP2': BEGIN
 ;      plot2d_state = plot2d_stateInit
@@ -1382,6 +1445,11 @@ ENDIF
 		title=plot2d_state.title,GROUP=Event.top
 	end
       6: begin
+	scan2d_roi,plot2d_state.data, $
+		plot2d_state.xarr,plot2d_state.yarr, $
+		GROUP=Event.top
+	end
+      7: begin
 	st = ['You may find a HTML document about plot2d at :', $
 		'',$
 		'   http://www.aps.anl.gov/~cha/plot2d.html'$
@@ -1446,7 +1514,7 @@ END
 PRO plot2d,data,tlb,win, width=width, height=height, $
 	charsize=charsize, lego=lego, ax=ax, az=az, shade=shade, $
 	title=title, xtitle=xtitle, ytitle=ytitle, ztitle=ztitle, $
-	xarr=xarr,yarr=yarr, $
+	xarr=xarr,yarr=yarr, NCOLORS=NCOLORS, $
 	rxloc=rxloc, ryloc=ryloc, comment=comment, classname=classname, $
 	stamp=stamp, wTitle=wTitle, GROUP=Group
 
@@ -1526,6 +1594,9 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;               keyword is specified, the death of the group leader results
 ;               in the death of PLOT2D.
 ;
+;       NCOLORS: If this keyword is specified, it overrides the actual size 
+;                of the color table used in plot2d.
+;
 ; OPTIONAL_OUTPUTS:
 ;       TLB: The widget ID of the top level base returned by the PLOT2D.
 ;
@@ -1578,6 +1649,8 @@ PRO plot2d,data,tlb,win, width=width, height=height, $
 ;                       Allow the Color bar width, height ajustment
 ;       09-21-2001      Post script plot same as window size
 ;       01-18-2002      Add the PICK1D button to access plot1d, and ezfit
+;       03-26-2002      Add drawing normalized X,Y profile event
+;       05-01-2002      Add ncolors keyword, MMB event, check for max colors
 ;-
 COMMON COLORBAR, colorbar_data
 
@@ -1594,7 +1667,10 @@ yl =''
 zl =''
 ti = ''			; plot title
 wti='PLOT2D (R1.0b)'		; window title
-cl = !d.table_size
+table_size = !d.table_size
+if table_size eq 256 then plot2d_tablesize,table_size   ; actual table size
+if keyword_set(NCOLORS) then table_size = NCOLORS
+cl = table_size
 timestamp=''
 xloc = 0.01
 yloc = 0.97
@@ -1631,7 +1707,7 @@ if keyword_set(classname) then class = classname
 	max:max(data), $
 	min:min(data), $
 	region: [50,50,350,350], $          ; image origin
-	range: [0,sz(1),0,sz(2)], $         
+	range: [min(xarray),max(xarray),min(yarray),max(yarray)], $ 
 	x:1, $
 	y:1, $
 	xarr:xarray, $
@@ -1667,7 +1743,8 @@ if keyword_set(classname) then class = classname
 	stamp: 0, $
 	bgrevs: 1, $
 	bgcolor: 0, $		   ; background color
-	tcolor: !d.table_size-1, $     ; text color
+	tcolor: table_size-1, $     ; text color
+	table_size : table_size - 1, $
 	timestamp: timestamp, $
 	nlevels: 12, $
 	levels: make_array(12,/float), $
@@ -1685,7 +1762,7 @@ if keyword_set(classname) then class = classname
 	thresh: 140, $          ; threshold index value
 	threshValue: 140., $      ; threshold value
 	pixel_min:0., $
-	pixel_max: !d.table_size - 1., $
+	pixel_max: table_size - 1., $
 	npts:7, $		; smooth by 7x7 points
 	xsize: xsize, $
 	ysize: ysize $
@@ -1693,8 +1770,8 @@ if keyword_set(classname) then class = classname
 
 if n_elements(colorbar_data) eq 0 then colorbar_init,colorbar_data
 
-plot2d_state.thresh =  !d.table_size/2
-plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)*plot2d_state.thresh/(!d.table_size-1) 
+plot2d_state.thresh =  plot2d_state.table_size/2
+plot2d_state.threshValue = plot2d_state.min+(plot2d_state.max-plot2d_state.min)*plot2d_state.thresh/(plot2d_state.table_size-1) 
 
 plot2d_state.pixel_min = plot2d_state.min
 plot2d_state.pixel_max = plot2d_state.max
@@ -1710,7 +1787,7 @@ plot2d_state.pixel_max = plot2d_state.max
 	plot2d_ContourLevels,plot2d_state,nlevels
 
 ; set colors of line
-        dcl = !d.table_size - 2
+        dcl = plot2d_state.table_size - 2
         ncv = 12; 4
         colorlevel = dcl / ncv
         for i=0,ncv-1 do begin
@@ -1750,6 +1827,7 @@ if keyword_set(comment) then begin
     'SHADE_SURF',$
     'DATA...',$
     'PICK1D...',$
+    'ROI2D...',$
 	'HELP ...']
   BGROUP2 = CW_BGROUP( BASE1, Btns111, $
       ROW=1, UVALUE= 'BGROUP2') 
