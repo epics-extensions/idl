@@ -135,7 +135,13 @@ PRO plot1d_dialogs_Event, Event
 	state.linestyle = Event.Index
       END
   'plot1d_coloroff': BEGIN
-	if Event.Index then state.autocolor = 0 else state.autocolor = 1
+	if Event.Index then begin
+	  state.autocolor = 0
+	  state.linestyle = 1
+  	  widget_control,state.styleWid,set_droplist_select=1
+ 	endif else begin
+	  state.autocolor = 1
+	end
       END
   'plot1d_grid': BEGIN
 	state.grid = Event.Index
@@ -334,17 +340,17 @@ PRO plot1d_dialogs_Event, Event
 	n = n_elements(state.comment)
 	state.comment = val(0:n-1)
 	for i=0,n-1 do begin
-	if strlen(strtrim(state.comment(i),2)) gt 1 then ln=i
+	if strlen(strtrim(state.comment(i),2)) gt 0 then ln=i
 	end
-	state.footnote = ln+1
+	if n_elements(ln) then state.footnote = ln+1
       END
   'plot1d_footnote': BEGIN
 	state.footnote = Event.Index
 	if Event.Index then begin
 		for i=0,n_elements(state.comment)-1 do begin	
-		 if strlen(strtrim(state.comment(i),2)) gt 1 then ln = i
+		 if strlen(strtrim(state.comment(i),2)) gt 0 then ln = i
 		end
-		state.footnote = ln + 1
+		if n_elements(ln) then state.footnote = ln + 1
 	end
       END
   'plot1d_Xlogon': BEGIN
@@ -400,7 +406,7 @@ PRO plot1d_dialogs_Event, Event
   ENDCASE
 
   plot1d_replot,state
-  WIDGET_CONTROL,Event.top,set_uvalue=state
+  WIDGET_CONTROL,Event.top,set_uvalue=state,bad=bad
 
 END
 
@@ -465,17 +471,13 @@ state.list_sel = indgen(n_elements(state.selection))
 		UVALUE='plot1d_ystyle')
   widget_control,ystyle,set_droplist_select=0
 
-  charsize = WIDGET_DROPLIST(BASE2_1,title='CharSize:',value=['1','2'], $
-		UVALUE='plot1d_charsize')
-  widget_control,charsize,set_droplist_select=0
+  gridline = WIDGET_DROPLIST(BASE2_1,title='Grid:',value=['Off','On'], $
+		UVALUE='plot1d_grid')
+  widget_control,gridline,set_droplist_select=0
 
-  userscale = WIDGET_DROPLIST(BASE2_1,value=['AutoScl','UserScl'], $
-		UVALUE='plot1d_userscale')
-  widget_control,userscale,set_droplist_select=0
-
-  bgrever = WIDGET_DROPLIST(BASE2_1,title='Bg:',value=['Blk','Wht'], $
-		UVALUE='plot1d_bgreverse')
-  widget_control,bgrever,set_droplist_select=state.bgrevs
+;  bgrever = WIDGET_DROPLIST(BASE2_1,title='Bg:',value=['Blk','Wht'], $
+;		UVALUE='plot1d_bgreverse')
+;  widget_control,bgrever,set_droplist_select=state.bgrevs
 
   BASE2_2 = WIDGET_BASE(BASE2, $
       ROW=1, $
@@ -485,6 +487,14 @@ state.list_sel = indgen(n_elements(state.selection))
       ROW=1, $
       MAP=1, $
       UVALUE='BASE2_21')
+  BASE3 = WIDGET_BASE(BASE2, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE3')
+  BASE2_22 = WIDGET_BASE(BASE3, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE2_22')
 
   BMP5267 = [ $
     [ 128b, 1b ], $
@@ -529,45 +539,47 @@ state.list_sel = indgen(n_elements(state.selection))
   plot1d_setupZoomout = WIDGET_BUTTON( BASE2_21,VALUE=BMP5269, $
 	UVALUE='plot1d_zoomout')
 
-  slider3 = widget_slider(BASE2_2,title='Thickness',value=state.thick, $
-		max=10,min=1, xsize=60, $
-		UVALUE='plot1d_thickness')
-
   linestyle = WIDGET_DROPLIST(BASE2_2,title='Style:',value=['Off','On'], $
 		UVALUE='plot1d_linestyle')
   widget_control,linestyle,set_droplist_select=0
+  state.styleWid = linestyle
 
   coloroff = WIDGET_DROPLIST(BASE2_2,title='Color:',value=['On','Off'], $
 		UVALUE='plot1d_coloroff')
   widget_control,coloroff,set_droplist_select=0
 
-  gridline = WIDGET_DROPLIST(BASE2_2,title='Grid:',value=['Off','On'], $
-		UVALUE='plot1d_grid')
-  widget_control,linestyle,set_droplist_select=0
+  charsize = WIDGET_DROPLIST(BASE2_2,title='CharSize:',value=['1','2'], $
+		UVALUE='plot1d_charsize')
+  widget_control,charsize,set_droplist_select=0
 
-  stamp = WIDGET_DROPLIST(BASE2_2,title='Stamp:',value=['Off','On'], $
-		UVALUE='plot1d_stamp')
-  widget_control,stamp,set_droplist_select=state.stamp
+  slider3 = widget_slider(BASE2_2,title='Thickness',value=state.thick, $
+		max=10,min=1, xsize=60, $
+		UVALUE='plot1d_thickness')
 
-  yexpand = WIDGET_DROPLIST(BASE2_2,title='Y+:',value=['Off','On'], $
-		UVALUE='plot1d_yexpand')
-  widget_control,yexpand,set_droplist_select=state.yexpand
+  BASE2_91 = WIDGET_BASE(BASE2, $
+      /ROW, $
+      MAP=1, $
+      UVALUE='BASE2_91')
 
-  BASE2_411 = WIDGET_BASE(BASE2, $
+  userscale = WIDGET_DROPLIST(BASE2_91,value=['AutoScale','UserScale'], $
+		UVALUE='plot1d_userscale')
+  widget_control,userscale,set_droplist_select=0
+
+  BASE2_411 = WIDGET_BASE(BASE2_91, $
       /ROW, $
       MAP=1, $
       UVALUE='BASE2_411')
-  labeluser = WIDGET_LABEL(BASE2_411,VALUE='UserScl Ranges:')
+  labeluser = WIDGET_LABEL(BASE2_411,VALUE='Ranges:')
   xrange = state.xrange
   yrange = state.yrange
   xrange1 = CW_FIELD(BASE2_411,VALUE=xrange(0),/return_events,/float, $
-		title='XMin:',XSIZE=10,UVALUE='plot1d_xrange1')
+		title='XMin:',XSIZE=6,UVALUE='plot1d_xrange1')
   xrange2 = CW_FIELD(BASE2_411,VALUE=xrange(1),/return_events,/float, $
-		title='XMax:',XSIZE=10,UVALUE='plot1d_xrange2')
+		title='XMax:',XSIZE=6,UVALUE='plot1d_xrange2')
   yrange1 = CW_FIELD(BASE2_411,VALUE=yrange(0),/return_events,/float, $
-		title='YMin:',XSIZE=10,UVALUE='plot1d_yrange1')
+		title='YMin:',XSIZE=6,UVALUE='plot1d_yrange1')
   yrange2 = CW_FIELD(BASE2_411,VALUE=yrange(1),/return_events,/float, $
-		title='YMax:',XSIZE=10,UVALUE='plot1d_yrange2')
+		title='YMax:',XSIZE=6,UVALUE='plot1d_yrange2')
   state.rangebase = BASE2_411
   widget_control,state.rangebase,SENSITIVE = 0
 
@@ -667,14 +679,30 @@ end
       XSIZE=45, $
       YSIZE=2)
 
-  npt_slidet0 = WIDGET_SLIDER(BASE2_41,value=1, $
-	title='Start NPT:', $
+  npt_slidet0 = WIDGET_SLIDER(BASE2_22,value=1, $
+	title='Start NPT:', xsize=60, $
 	maximum=state.npt,minimum=1,UVALUE='plot1d_npt')
-  npt_slidet = WIDGET_SLIDER(BASE2_41,value=state.npt, $
-	title='End NPT:', $
+  npt_slidet = WIDGET_SLIDER(BASE2_22,value=state.npt, $
+	title='End NPT:', xsize=60, $
 	maximum=state.npt,minimum=1,UVALUE='plot1d_npt')
   state.cpt_wid0 = npt_slidet0
   state.cpt_wid = npt_slidet
+
+  symbol = WIDGET_DROPLIST(BASE2_22,title='Symb:',value=['Off','On'], $
+		UVALUE='plot1d_symbol')
+  widget_control,symbol,set_droplist_select=0
+
+  yexpand = WIDGET_DROPLIST(BASE2_22,title='Y+:',value=['Off','On'], $
+		UVALUE='plot1d_yexpand')
+  widget_control,yexpand,set_droplist_select=state.yexpand
+
+  ylogon = WIDGET_DROPLIST(BASE2_22,title='Ylog:',value=['Off','On'], $
+		UVALUE='plot1d_Ylogon')
+  widget_control,ylogon,set_droplist_select=0
+
+  xlogon = WIDGET_DROPLIST(BASE2_22,title='Xlog:',value=['Off','On'], $
+		UVALUE='plot1d_Xlogon')
+  widget_control,xlogon,set_droplist_select=0
 
   BASE6 = WIDGET_BASE(BASE2, $
       ROW=1, $
@@ -691,16 +719,9 @@ end
 		UVALUE='plot1d_legendon')
   widget_control,legendon,set_droplist_select= state.legendon
 
-  xlogon = WIDGET_DROPLIST(BASE6,title='Xlog:',value=['Off','On'], $
-		UVALUE='plot1d_Xlogon')
-  widget_control,xlogon,set_droplist_select=0
-  ylogon = WIDGET_DROPLIST(BASE6,title='Ylog:',value=['Off','On'], $
-		UVALUE='plot1d_Ylogon')
-  widget_control,ylogon,set_droplist_select=0
-
-  symbol = WIDGET_DROPLIST(BASE6,title='Symb:',value=['Off','On'], $
-		UVALUE='plot1d_symbol')
-  widget_control,symbol,set_droplist_select=0
+  stamp = WIDGET_DROPLIST(BASE6,title='Stamp:',value=['Off','On'], $
+		UVALUE='plot1d_stamp')
+  widget_control,stamp,set_droplist_select=state.stamp
 
   BUTTON8 = WIDGET_BUTTON( BASE2, $
       UVALUE='plot1d_xysize_cancel', $
@@ -1373,6 +1394,7 @@ state = { $
 	id_draw:0L, $
 	winDraw:0L,$
 	dialogsWid:0L,$
+	styleWid:0L,$
 	legendWid:0L,$
 	legendStrWid:0L,$
 	plotallWid:0L,$
