@@ -83,6 +83,50 @@ END
 
 
 PRO PICK2D, data,x,y, def=def, title=title, GROUP=Group,Path=Path,Class=Class
+;+
+; NAME:
+;   PICK2D
+;
+; PURPOSE:
+;       This dialog allows the user dynamically picks the desired
+;       detector numbers out of a 2D data array. A user can freely
+;       view the 2D data of the selected detector by using PLOT2D,
+;       ASCII2D, and 2D_PICK1D sub-programs.
+;
+; CALLING SEQUENCE:
+;       pick2d, data, x, y [,Def=def] [,Title=title] [,Path=path]
+;                               [,Class=class] [,Group=group]
+;
+; INPUT:
+;     Data:    Input multiple 2D data array Data(WIDTH,HEIGHT,NDET)
+;		WIDTH - X dim size
+;		HEIGHT - Y dim size
+;		NDET  - last # of detector defined
+;        X:    Vector of X positioner values, default index vector
+;        Y:    Vector of Y positioner values, default index vector
+;
+; KEYWORDS:
+;  Def:        The detector defined indicater vector of NDET values, 0 
+;               indicates not defined, 1 indicates defined, default all 1
+;  Title:      Optional prefix title, default ''
+;  Path:       Full path specifies the starting file directory where the scan
+;              files are stored.
+;  Group:      Specifies the parent widget ID. If specified, the destroy of
+;              parent window resulted the destroy of Pick3d window.
+
+;  Class:      Specifies the title class, e.g. filename where data is extracted 
+;
+; RESTRICTIONS:
+;    Number of detector NDET must be greater than 15  and less than 85 in the
+;    data array.
+;
+; EXAMPLE:
+;    PICK2D,data
+;
+; MODIFICATION HISTORY:
+;       Written by:     Ben-chin Cha, March 1, 2001.
+;-
+
 
 if n_params() eq 0 then return
 
