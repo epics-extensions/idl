@@ -73,6 +73,7 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	WIDGET_CONTROL,norm_ids.norm,SET_VALUE=2
 	image2d_normalize_accept, i,image2d_state
 	image2d_normalize_setvalue,image2d_state
+	   image2d_REPLOT,image2d_state
       END
   'NORM_COLOR_SCHEME': BEGIN
 	view_option.fullcolor = Event.value
@@ -93,8 +94,16 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	   image2d_REPLOT,image2d_state
 	endif else begin
    	   WIDGET_CONTROL,norm_ids.pick,GET_VALUE=i
+	   if i gt image2d_state.maxno then begin
+	   st = ['Error: Invalid Normalize Against Image Seq # '+strtrim(i,2), $
+	      '       Valid Max Image Seq # is '+strtrim(image2d_state.maxno,2)]
+	   r = dialog_message(st ,/error)
+	   endif else begin
 	   image2d_normalize_accept, i,image2d_state
  	   image2d_normalize_setvalue,image2d_state
+	   if i ne image2d_state.detector then $
+	   image2d_REPLOT,image2d_state
+	   end
 	end
 	norm_state.image2d_state = image2d_state
       END
@@ -136,9 +145,9 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	res=dialog_message(st,/info,title='Help on Image Color Scheme')
 	END
   'NORM_CANCEL': BEGIN
+	WIDGET_CONTROL,norm_ids.base,/DESTROY
   	image2d_state.widget_ids.norm_base = 0L
         image2d_state.view_option.fullcolor = 0
-	WIDGET_CONTROL,norm_ids.base,/DESTROY
 	norm_ids.base = 0L 
 	norm_ids.userbase = 0L 
 	norm_ids.lb1 = 0L 
@@ -151,12 +160,36 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	norm_ids.sldr2 = 0L 
 	norm_ids.norm = 0L 
 	norm_ids.pick = 0L 
-  	image2d_REPLOT,image2d_state
+	image2d_REPLOT,image2d_state
+	image2d_renew,widget_ids.base
 	return
       END
   ENDCASE
 
+  widget_control,widget_ids.base,get_uvalue=temp_state,/no_copy
+  temp_state.view_option.fullcolor = image2d_state.view_option.fullcolor 
+  widget_control,widget_ids.base,set_uvalue=temp_state,/no_copy
   WIDGET_CONTROL,norm_state.base,SET_UVALUE=norm_state,/no_copy
+END
+
+PRO image2d_renew,wid
+  widget_control,wid,get_uvalue=image2d_state,/no_copy
+  widget_ids = image2d_state.widget_ids
+  	image2d_state.widget_ids.norm_base = 0L
+        image2d_state.view_option.fullcolor = 0
+  xarr = *image2d_state.xarr
+  yarr = *image2d_state.yarr
+  	WIDGET_CONTROL, widget_ids.x_min, SET_VALUE=0
+  	WIDGET_CONTROL, widget_ids.y_min, SET_VALUE=0
+  	WIDGET_CONTROL, widget_ids.x_max, SET_VALUE=image2d_state.width-1
+  	WIDGET_CONTROL, widget_ids.y_max, SET_VALUE=image2d_state.height-1
+	image2d_REPLOT,image2d_state
+	; set initial xl,xr,yl,yr
+  	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE=xarr(0)
+  	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE=yarr(0)
+  	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE=xarr(image2d_state.width-1)
+  	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE=yarr(image2d_state.height-1)
+  widget_control,wid,set_uvalue=image2d_state,/no_copy
 END
 
 PRO image2d_normalize_setvalue,image2d_state
@@ -262,7 +295,7 @@ if XRegistered('image2d_normalize') then return
   norm_picked = CW_FIELD( BASE3,VALUE=view_option.pick_ref, $
       ROW=1, $
       INTEGER=1, /return_events, $  
-      TITLE='Normalize Against Image (Seq) #:', XSIZE=2, $
+      TITLE='Normalize Against Image (Seq+15) #:', XSIZE=2, $
       UVALUE='NORM_PICKED')
 
   norm_ref_lower = WIDGET_LABEL( BASE3, $
@@ -329,7 +362,7 @@ if XRegistered('image2d_normalize') then return
   WIDGET_CONTROL, image2d_normalize, SET_UVALUE=norm_state,/no_copy
 
 ;  return,image2d_normalize
-  XMANAGER, 'image2d_normalize', image2d_normalize, /NO_BLOCK
+  XMANAGER, 'image2d_normalize', image2d_normalize , /NO_BLOCK
 END
 
 
@@ -338,8 +371,8 @@ st = ['IMAGE2D -  An image array viewing program which allows the user to load 2
   'iamge_array directly into IDL', $
   '','                       *File  Menu*','',$
   'Save Image for Aim  - save 2D image variables accepted by the AIM program', $
-  'Save as TIFF        - save TV image as IDL TIFF file', $
-  'Save as R-TIFF      - save TV image as IDL TIFF file in reverse order', $
+  'Save as JPEG      - save TV image as IDL JPEG file', $
+  'Save as TIFF      - save TV image as IDL TIFF file in reverse order', $
   'Save as XDR         - save 2D image, X,Y,Z ranges in XDR format', $
   'Printer...          - dialog to override the default printer', $
   'Print               - send TV plot to PS plotter device', $
@@ -986,11 +1019,11 @@ if XRegistered('image2d_normalize') then begin
 	image2d_state.view_option.pick_ref = n2
   endif else begin
 	image2d_state.view_option.fullcolor = 0
-	image2d_state.view_option.pick_ref = 1 
+	image2d_state.view_option.pick_ref = 16 ;1 
   end
 endif else begin
 	image2d_state.view_option.fullcolor = 0
-	image2d_state.view_option.pick_ref = 1 
+	image2d_state.view_option.pick_ref = 16 ;1 
 end
 ;print,'fullcolor=',image2d_state.view_option.fullcolor,'  pick_ref=',image2d_state.view_option.pick_ref
 
@@ -1027,7 +1060,7 @@ end
 
 if image2d_state.scanno_current lt 0 then return
 
-if !d.name eq 'WIN' then device,decomposed=0
+if !d.name eq 'WIN' or !d.n_colors gt !d.table_size then device,decomposed=0
 
 ; update the info block
 
@@ -1098,11 +1131,19 @@ end
 		x_max=xdim-1
 		y_min=0
 		y_max=ydim-1
-
 	if view_option.fullcolor eq 2 then begin
-		image_ref = image_array(*,*,view_option.pick_ref-1)
-		*image2d_state.image = image_ref
-	 	image = image/ image_ref(x1:x2,y1:y2)	
+	   image_ref = image_array(*,*,image2d_state.view_option.pick_ref-1)
+		image_ref = float(image_ref)
+		ij = where(image_ref eq 0.)
+		if ij(0) ge 0 then begin
+		ii = ij mod xdim
+		jj = ij / xdim
+		image_ref(ii(0),jj(0)) = 1.e-3
+		end
+	   *image2d_state.image = image_ref
+	   image = image/ image_ref(x1:x2,y1:y2)	
+;print,max(image_ref),min(image_ref)
+;print,max(image),min(image)
 	end
 		
 
@@ -1116,6 +1157,7 @@ end
 	endif else begin
 		newimage = image
 		end
+*image2d_state.image = newimage
 ;      
 ; set plot area for 2D view
 ;
@@ -1184,25 +1226,24 @@ if !d.name eq OS_SYSTEM.device then WSET,widget_ids.plot2d_area
 			newim = image(x_min:ix-1,y_min:iy-1)
 			nc = image2d_state.view_option.ncolors
 			labels=[1,1,1,1,1,1,1,1,1,1,1]
-;			colors = [31,28,25,22,19,16,13,10]
 			zmax = max(newim)
 			zmin = min(newim)
 			dz= (zmax-zmin)/ 9.
+		if dz eq 0. then begin
+		erase
+		return
+		end
 			dc = nc / 10 
-			colors = nc 
+			colors = nc
 			levels = zmin
 			for i=1,9 do begin
 			levels = [levels, zmin + dz*i]
-			colors = [colors, nc - dc*i ]
+			colors = [colors,nc -dc*i]
 			end
-			if !d.n_colors eq 16777216 then begin
-				catch1d_get_pvtcolor,colors(0),lcolor
-				for i=1,9 do begin
-				catch1d_get_pvtcolor,colors(i),tcolor
-				lcolor =[lcolor,tcolor]
-				end
-			colors = lcolor
-			end
+		if !d.n_colors gt !d.table_size then begin
+		colors = lonarr(n_elements(labels))
+		getLineColors,colors
+		end
 
 		if image2d_state.view_option.versus then begin       ; versus values
 			nx=x(x_min:ix-1)
@@ -1537,7 +1578,7 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
         format : 'G17.7', $  ; ascii report format
         surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
         ncolors : !d.table_size-1, $   max color index 
-        pick_ref : 1, $   ; normalized against detector # 1
+        pick_ref : 16, $   ; normalized against detector # 16
         fullcolor : 0, $   0-auto 1-user 2-normalize
         CA : 0, $   ; realtime set this to 1
         user    : 1, $  ; if 1 use user set range
@@ -1550,7 +1591,7 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
         ps_b : 0.125, $         ; PS bottom 
         ps_r : 0.85, $          ; PS right 
         ps_t : 0.875, $         ; PS top 
-;        pickx : 0, $            ; pick P1 as X axis
+        pickx : 0, $            ; pick P1 as X axis
         width   : sz(1), $        ; default x set range 
         height  : sz(2), $        ; default y set range
         x_min   : 0, $          ; user set xmin
@@ -1576,6 +1617,8 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
         z_max   : 255. $  ; z_max for TV image 
         }
 
+;  if sz(3) lt 16 then view_option.pick_ref = 1
+
   ListVal949 = [ 'D1','D2','D3','D4','D5','D6','D7','D8','D9', $
 	'DA','DB','DC','DD','DE','DF', $ 
     'D01', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08', 'D09', 'D10' ]
@@ -1588,6 +1631,9 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	list = indgen(sz(3)) + 1
   if keyword_set(seqnm) then begin
 	ListVal949= 'S'+ strtrim(list,2)
+	if n_elements(zdescs) gt 1 then ListVal949 = zdescs 
+	if n_elements(seqnm) gt 1 then ListVal949 = seqnm
+
 	if sz(3) gt 15 then begin
 	widget_control,widget_ids.sel_image,set_value=ListVal949(0:14)
 	widget_control,widget_ids.sel_base,set_value=ListVal949(0:sz(3)-1)
@@ -1641,6 +1687,7 @@ image2d_state = { $
 	start : 0, $           ; panimage start index
 	x_mag : 1., $
 	y_mag : 1., $
+	ID1   : '', $   	; ITOOL identifier
 	xarr : ptr_new(/allocate_heap), $
 	yarr : ptr_new(/allocate_heap), $
 	image : ptr_new(/allocate_heap), $    ; ref image
@@ -1648,7 +1695,10 @@ image2d_state = { $
 	}
 
 
-  if sz(3) lt 16 then image2d_state.detector = 1
+  if sz(3) lt 16 then begin
+	image2d_state.detector=1
+	view_option.pick_ref = 1
+  end
   if n_elements(yarr) lt sz(2) then yarr=yarr(0)+indgen(sz(2))*(yarr(1)-yarr(0))
 
   *image2d_state.xarr = xarr
@@ -1764,15 +1814,19 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	imarr = image
 	save,filename='dc2aim.sav',/XDR,ncol,nrow,xarr,yarr,imarr
     END
+  'File.Save as JPEG': BEGIN
+	tvlct,r,g,b,/get
+        if !d.n_colors gt !d.table_size then $
+	write_jpeg,'image2d.jpg',tvrd(/true),/true else $
+	write_jpeg,'image2d.jpg',tvrd(),red=r,green=g,blue=b
+	outname = image2d_state.name+'_'+image2d_state.DPVS(image2d_state.detector-1)+'.jpg'
+	outpath = image2d_state.outpath+'JPG'+!os.file_sep
+	rename_dialog,outpath,'image2d.jpg',outname,Group=Event.top
+    END
   'File.Save as TIFF': BEGIN
 	tvlct,r,g,b,/get
-	write_tiff,'image2d.tiff',tvrd(),red=r,green=g,blue=b
-	outname = image2d_state.name+'_'+image2d_state.DPVS(image2d_state.detector-1)+'.tiff'
-	outpath = image2d_state.outpath+'TIFF'+!os.file_sep
-	rename_dialog,outpath,'image2d.tiff',outname,Group=Event.top
-    END
-  'File.Save as R-TIFF': BEGIN
-	tvlct,r,g,b,/get
+	if !d.n_colors gt !d.table_size then $
+	write_tiff,'image2d.tiff',reverse(tvrd(/true),3) else $
 	write_tiff,'image2d.tiff',reverse(tvrd(),2),1,red=r,green=g,blue=b
 	outname = image2d_state.name+'_'+image2d_state.DPVS(image2d_state.detector-1)+'.rtiff'
 	outpath = image2d_state.outpath+'TIFF'+!os.file_sep
@@ -1797,6 +1851,8 @@ COMMON IMAGE2D_NORM_BLOCK, norm_ids
 	PS_printer,Group=Event.top
     END
   'File.print': BEGIN
+	PS_TVRD,file='image2d.ps',wid=image2d_state.widget_ids.plot2d_area
+	return
 	wset,image2d_state.widget_ids.plot2d_area
 	arr = TVRD()
 	sz = size(arr)
@@ -1961,7 +2017,10 @@ PRO IMAGE2D_BASE_Event, Event
 
   WIDGET_CONTROL,Event.Top,GET_UVALUE=image2d_state,/NO_COPY
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
-
+if n_elements(image2d_state.view_option) eq 0 then begin
+	widget_control,Event.top,/destroy,bad_id=bad
+	return
+end
   view_option = image2d_state.view_option
   widget_ids = image2d_state.widget_ids
   image_array = *image2d_state.image_array
@@ -1972,97 +2031,20 @@ PRO IMAGE2D_BASE_Event, Event
   nx = n_elements(xarr) 
   ny = n_elements(yarr) 
 
+;if image2d_state.view_option.fullcolor eq 2 then image = *image2d_state.image
+
   CASE Ev OF 
 
-  ; Event for PDMENU4
-  'PDMENU4': PDMENU4_Event, Event, image2d_state
-  'IMAGE2D_VIEW': BEGIN
-	image2d_state.view_option.surface = Event.Index
-	image2d_REPLOT,image2d_state
-      END
-  'IMAGE2D_PIXEL': BEGIN
-       image2d_state.view_option.user = Event.Index
-        CASE view_option.user OF
-        0: begin
-		image2d_REPLOT,image2d_state
-        end
-        1: begin
-                WIDGET_CONTROL,widget_ids.x_min,SET_VALUE=view_option.x_min
-                WIDGET_CONTROL,widget_ids.x_max,SET_VALUE=view_option.x_max
-                WIDGET_CONTROL,widget_ids.y_min,SET_VALUE=view_option.y_min
-                WIDGET_CONTROL,widget_ids.y_max,SET_VALUE=view_option.y_max
-		image2d_REPLOT,image2d_state
-        end
-        ELSE:
-        ENDCASE
-      END
-  'IMAGE2D_PLOTVS': BEGIN
-	image2d_state.view_option.versus = Event.Index
-        image2d_REPLOT,image2d_state
-      END
-  'IMAGE2D_DONE': BEGIN
-	ptr_free,image2d_state.xarr	
-	ptr_free,image2d_state.yarr	
-	ptr_free,image2d_state.image	
-	ptr_free,image2d_state.image_array	
-	WIDGET_CONTROL,Event.Top,/DESTROY
-	return
-    END
-  'IMAGE2D_ASCII': BEGIN
-        image2d_datatotext,image2d_state
-      END
-  'IMAGE2D_FORMAT': BEGIN
-        WIDGET_CONTROL,Event.id,Get_VALUE=f
-        image2d_state.view_option.format = f(0)
-        image2d_datatotext,image2d_state
-      END
-  'IMAGE2D_RENEW': BEGIN
-  	WIDGET_CONTROL, widget_ids.x_min, SET_VALUE=0
-  	WIDGET_CONTROL, widget_ids.y_min, SET_VALUE=0
-  	WIDGET_CONTROL, widget_ids.x_max, SET_VALUE=image2d_state.width-1
-  	WIDGET_CONTROL, widget_ids.y_max, SET_VALUE=image2d_state.height-1
-	image2d_REPLOT,image2d_state
-	; set initial xl,xr,yl,yr
-  	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE=xarr(0)
-  	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE=yarr(0)
-  	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE=xarr(image2d_state.width-1)
-  	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE=yarr(image2d_state.height-1)
-      END
-  'IMAGE2D_LIST1': BEGIN
-	if Event.Index lt (image2d_state.maxno-15) then begin
-	image2d_state.detector = Event.Index + 16
-	if id_def(image2d_state.detector-1) then begin
-	image2d_REPLOT,image2d_state
-	; set initial xl,xr,yl,yr
-  	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE=xarr(0)
-  	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE=yarr(0)
-  	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE=xarr(image2d_state.width-1)
-  	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE=yarr(image2d_state.height-1)
-	endif else begin
-	r = dialog_message('Detector not defined',/info)
-	end
-	end
-      END
-  'IMAGE2D_LIST2': BEGIN
-	if id_def(Event.Index) then begin
-	image2d_state.detector = Event.Index + 1
-	image2d_REPLOT,image2d_state
-	; set initial xl,xr,yl,yr
-  	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE=xarr(0)
-  	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE=yarr(0)
-  	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE=xarr(image2d_state.width-1)
-  	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE=yarr(image2d_state.height-1)
-	endif else begin
-	r = dialog_message('Detector not defined',/info)
-	end
-      END
 ;  'IMAGE2D_XAXIS': BEGIN
 ;	image2d_state.view_option.pickx = Event.index
+;print,image2d_state.view_option.pickx
 ;      END
   'IMAGE2D_DRAW': BEGIN
 	wset,widget_ids.plot2d_area
+
 	if Event.Press eq 1 then begin
 	cursor,x,y,/device
+
 	if x ge view_option.margin_l and x lt (!d.x_size-view_option.margin_r) and  $
 	  y ge view_option.margin_b and y lt (!d.y_size-view_option.margin_t) then begin
 	  Ix = fix( float(x-view_option.margin_l) / image2d_state.x_mag)
@@ -2081,7 +2063,6 @@ PRO IMAGE2D_BASE_Event, Event
 	   end
 	  end
 	end
-
 	if Event.Press eq 2 then begin
 	cursor,x,y,/device
 
@@ -2180,11 +2161,135 @@ close,1
         end
 	end
       END
+  ; Event for PDMENU4
+  'PDMENU4': PDMENU4_Event, Event, image2d_state
+  'IMAGE2D_VIEW': BEGIN
+	image2d_state.view_option.surface = Event.Index
+	image2d_REPLOT,image2d_state
+      END
+  'IMAGE2D_PIXEL': BEGIN
+       image2d_state.view_option.user = Event.Index
+        CASE view_option.user OF
+        0: begin
+		image2d_REPLOT,image2d_state
+        end
+        1: begin
+                WIDGET_CONTROL,widget_ids.x_min,SET_VALUE=view_option.x_min
+                WIDGET_CONTROL,widget_ids.x_max,SET_VALUE=view_option.x_max
+                WIDGET_CONTROL,widget_ids.y_min,SET_VALUE=view_option.y_min
+                WIDGET_CONTROL,widget_ids.y_max,SET_VALUE=view_option.y_max
+		image2d_REPLOT,image2d_state
+        end
+        ELSE:
+        ENDCASE
+      END
+  'IMAGE2D_PLOTVS': BEGIN
+	image2d_state.view_option.versus = Event.Index
+        image2d_REPLOT,image2d_state
+      END
+  'IMAGE2D_DONE': BEGIN
+	ptr_free,image2d_state.xarr	
+	ptr_free,image2d_state.yarr	
+	ptr_free,image2d_state.image	
+	ptr_free,image2d_state.image_array	
+	WIDGET_CONTROL,Event.Top,/DESTROY
+	return
+    END
+  'IMAGE2D_ASCII': BEGIN
+        image2d_datatotext,image2d_state
+      END
+  'IMAGE2D_FORMAT': BEGIN
+        WIDGET_CONTROL,Event.id,Get_VALUE=f
+        image2d_state.view_option.format = f(0)
+        image2d_datatotext,image2d_state
+      END
+  'IMAGE2D_ITOOL': BEGIN
+	tvlct,r,g,b,/get
+	rgb = reform([r,g,b],256,3)
+	px = *image2d_state.xarr
+	py = *image2d_state.yarr
+	if view_option.user then begin 
+	widget_control,widget_ids.x_min,get_value=x1
+	widget_control,widget_ids.x_max,get_value=x2
+	widget_control,widget_ids.y_min,get_value=y1
+	widget_control,widget_ids.y_max,get_value=y2
+	image2d_state.view_option.x_min = x1
+	image2d_state.view_option.y_min = y1
+	image2d_state.view_option.x_max = x2
+	image2d_state.view_option.y_max = y2
+	  image = image_array(x1:x2,y1:y2,image2d_state.detector-1)
+	  xarr = px(x1:x2) 
+	  yarr = py(y1:y2) 
+	endif else begin 
+	image = image_array(*,*,image2d_state.detector-1)
+	  xarr = px
+	  yarr = py
+	end
+	x = float(xarr)
+	y = float(yarr)
+
+	iImage,image,rgb_table=rgb,GROUP=Event.top, $
+	title=image2d_state.name+': ('+image2d_state.DPVS(image2d_state.detector-1)+')', $ 
+		view_grid=[2,2], $
+		identifier=ID1, $
+		name='Detector '+image2d_state.DPVS(image2d_state.detector-1)
+	image2d_state.ID1 = ID1
+
+	iSurface,image,rgb_table=rgb,GROUP=Event.top,x,y, $
+		identifier=image2d_state.ID1,view_number=2, $
+		name='Detector '+image2d_state.DPVS(image2d_state.detector-1)
+
+	iContour,image,rgb_table=rgb,GROUP=Event.top,x,y, $
+		identifier=image2d_state.ID1,view_number=3, $
+		name='Detector '+image2d_state.DPVS(image2d_state.detector-1)
+      END
+  'IMAGE2D_RENEW': BEGIN
+  	WIDGET_CONTROL, widget_ids.x_min, SET_VALUE=0
+  	WIDGET_CONTROL, widget_ids.y_min, SET_VALUE=0
+  	WIDGET_CONTROL, widget_ids.x_max, SET_VALUE=image2d_state.width-1
+  	WIDGET_CONTROL, widget_ids.y_max, SET_VALUE=image2d_state.height-1
+	image2d_REPLOT,image2d_state
+	; set initial xl,xr,yl,yr
+  	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE=xarr(0)
+  	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE=yarr(0)
+  	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE=xarr(image2d_state.width-1)
+  	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE=yarr(image2d_state.height-1)
+      END
+  'IMAGE2D_LIST1': BEGIN
+	if Event.Index lt (image2d_state.maxno-15) then begin
+	image2d_state.detector = Event.Index + 16
+	if id_def(image2d_state.detector-1) then begin
+	image2d_REPLOT,image2d_state
+	image2d_state.ID1 = ''
+	; set initial xl,xr,yl,yr
+  	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE=xarr(0)
+  	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE=yarr(0)
+  	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE=xarr(image2d_state.width-1)
+  	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE=yarr(image2d_state.height-1)
+	endif else begin
+	r = dialog_message('Detector not defined',/info)
+	end
+	end
+      END
+  'IMAGE2D_LIST2': BEGIN
+	if id_def(Event.Index) then begin
+	image2d_state.detector = Event.Index + 1
+	image2d_REPLOT,image2d_state
+	image2d_state.ID1 = ''
+	; set initial xl,xr,yl,yr
+  	WIDGET_CONTROL, widget_ids.x1WID, SET_VALUE=xarr(0)
+  	WIDGET_CONTROL, widget_ids.y1WID, SET_VALUE=yarr(0)
+  	WIDGET_CONTROL, widget_ids.x2WID, SET_VALUE=xarr(image2d_state.width-1)
+  	WIDGET_CONTROL, widget_ids.y2WID, SET_VALUE=yarr(image2d_state.height-1)
+	endif else begin
+	r = dialog_message('Detector not defined',/info)
+	end
+      END
   'IMAGE2D_XCURSOR': BEGIN
-      Print, 'Event for Cursor @ X'
+;      Print, 'Event for Cursor @ X'
       END
   'IMAGE2D_YCURSOR': BEGIN
-      Print, 'Event for Cursor @ Y'
+;      Print, 'Event for Cursor @ Y'
       END
   'IMAGE2D_XL': BEGIN
 ;      Print, 'Event for XL'
@@ -2357,7 +2462,9 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
 ;	YDESCS[4]:  String array specify the y axis title
 ;	ZDESCS[N]:  String array specify the Z axis title
 ;	ID_DEF[N]:  2D data defined indicator vector 
-;	SEQNM:   if specified detector list will be replaced by the ZDESCS
+;	SEQNM:   if SEQNM=1, detector list will be replaced by the ZDESCS
+;		 if SEQNM is a astring array then detector list will be
+;                replaced by SEQNM
 ;	VERS:    if specified implies scan version 5.19 or later assumed
 ;
 ; COMMON BLOCKS:
@@ -2385,12 +2492,11 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
 ;			Support scan VERS 5.19 name start from D01...
 ;			
 ;-
-
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
   junk   = { CW_PDMENU_S, flags:0, name:'' }
 
-  def_title='IMAGE2D R1.0'
+  def_title='IMAGE2D R1.1'
   if keyword_set(title) then def_title=title
   IMAGE2D_BASE = WIDGET_BASE(GROUP_LEADER=Group, $
       ROW=1, $
@@ -2413,8 +2519,8 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       { CW_PDMENU_S,       1, 'File' }, $ ;        0
 ;        { CW_PDMENU_S,       0, 'Open...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
-        { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        3
-        { CW_PDMENU_S,       0, 'Save as R-TIFF' }, $ ;        4
+        { CW_PDMENU_S,       0, 'Save as JPEG' }, $ ;        3
+        { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        4
         { CW_PDMENU_S,       0, 'Save as XDR' }, $ ;        5
         { CW_PDMENU_S,       0, 'Printer...' }, $ ;        6
         { CW_PDMENU_S,       0, 'print' }, $ ;        7
@@ -2511,7 +2617,11 @@ PRO image2d, image_array,xarr,yarr,GROUP=Group,title=title,outpath=outpath,pv=pv
       UVALUE='IMAGE2D_LIST1', $
       YSIZE=3)
 
-;  xaxis = widget_droplist(BASE8,value=['P1','P2','P3','P4'], $
+  BUTTON18 = WIDGET_DROPLIST( BASE8, value=['iImage','iSurface','iContour'], $
+      UVALUE='IMAGE2D_ITOOL', $
+      TITLE='ITOOL')
+
+;  xaxis = widget_droplist(BASE8,value=['P1','P2','P3','P4','Step#'], $
 ;	TITLE='X axis:',UVALUE='IMAGE2D_XAXIS')
 
   BASE24 = WIDGET_BASE(BASE2, $
