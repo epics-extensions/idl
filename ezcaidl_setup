@@ -17,6 +17,16 @@ if ${?EPICS_HOST_ARCH} == 1 then
 endif
 setenv HOST_ARCH  $HOST_ARCH
 
+if ${?LD_LIBRARY_PATH} == 0 then
+        setenv LD_LIBRARY_PATH
+endif
+if ${?EPICS_BASE} == 0 then
+        setenv EPICS_BASE /usr/local/epics/baseR3.14.3
+endif
+if ${?EPICS_BASE} == 1 then
+        setenv LD_LIBRARY_PATH $EPICS_BASE/lib/$HOST_ARCH":"$LD_LIBRARY_PATH
+endif
+
 set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
 set PVT_LIB = $EPICS_EXTENSIONS/lib/$HOST_ARCH
 setenv LD_LIBRARY_PATH $PVT_LIB":"$LD_LIBRARY_PATH
