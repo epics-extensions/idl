@@ -339,7 +339,7 @@ DONE:
   return, res
 END
 
-; $Id: DC.pro,v 1.8 2000/02/28 17:59:00 cha Exp $
+; $Id: DC.pro,v 1.9 2000/03/03 20:37:04 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -910,7 +910,6 @@ win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
    plotXTitle =''
 
    num_pts = 1 > (scanData.act_npts-1)
-
 
    ;extract valid data from global arrays
 
@@ -4931,11 +4930,21 @@ IF ptr_valid((*gD).da2D) THEN BEGIN
 END
 END
 
+PRO fileSeqString,no,suf0
+        suf0 = '0000'
+        suf = strtrim(no,2)
+        ln = strlen(suf)
+        strput,suf0,suf,4-ln
+        if no gt 9999 then suf0=suf
+END
 
-PRO view2d_pan_images_on
+
+PRO view2d_pan_images_on,Event,tiff=tiff,gif=gif,rtiff=rtiff,def=def,image_array=image_array
 COMMON CATCH2D_FILE_BLOCK,catch2d_file
 COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
 COMMON CATCH1D_2D_COM,data_2d, gD
+
+if !d.name eq 'WIN' then device,decomposed=0
 
 seq = catch2d_file.scanno_current
 last = catch2d_file.scanno_2d_last
@@ -5003,6 +5012,34 @@ update:
 
 	plots,[0,8*width],[height,height],/device
 	for i=1,7 do plots,[i*width,i*width],[0,2*height],/device
+
+        if keyword_set(TIFF) then begin
+        tvlct,R,G,B,/get
+        WRITE_TIFF,'view2d.tiff',TVRD(),red=R,green=G,blue=B
+        fileSeqString,catch2d_file.scanno_current,suf0
+        outname=catch2d_file.name+'.pan'+suf0+'.tiff'
+        dir = catch2d_file.outpath+'TIFF'+!os.file_sep
+        rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
+        end
+
+        if keyword_set(RTIFF) then begin
+        tvlct,R,G,B,/get
+        WRITE_TIFF,'view2d.tiff',reverse(TVRD(),2),1,red=R,green=G,blue=B
+        fileSeqString,catch2d_file.scanno_current,suf0
+        outname=catch2d_file.name+'.pan'+suf0+'.rtiff'
+        dir = catch2d_file.outpath+'TIFF'+!os.file_sep
+        rename_dialog,dir,'view2d.tiff',outname,GROUP=Event.Top
+        end
+
+        if keyword_set(GIF) then begin
+        tvlct,R,G,B,/get
+        WRITE_GIF,'view2d.gif',TVRD(),R,G,B
+        WRITE_GIF,'view2d.gif',/close
+        fileSeqString,catch2d_file.scanno_current,suf0
+        outname=catch2d_file.name+'.pan'+suf0+'.gif'
+        dir = catch2d_file.outpath+'GIF'+!os.file_sep
+        rename_dialog,dir,'view2d.gif',outname,GROUP=Event.Top
+        end
 
 	wset,old_win
 ;	viewscanimage_current
@@ -5122,7 +5159,7 @@ populate:
 
 
         scanData.req_npts = num_pts[0]
-        scanData.act_npts = num_pts[0]
+        scanData.act_npts = cpt[0]
 	scanData.refno = 0 ;        scanData.refno = start_seqno
 	if dim eq 2 then maxno = cpt[1] else maxno=1
 	w_viewscan_id.maxno = maxno
@@ -5172,7 +5209,7 @@ if dim eq 1 and seq_no lt 0 then seq_no = 1
 next_seq_no = seq_no + 1
 
 scanData.pv = pv[0]
-act_npts = num_pts[0]
+act_npts = cpt[0]
 scanData.act_npts = act_npts 
 
 	scanData.pa = make_array(4000,4,/double)
@@ -5182,16 +5219,16 @@ for i=0,3 do begin
         if id_def[i,0] gt 0 then begin
 ;	scanData.pa(0:act_npts-1,i) = pa2D[*,seq_no-1,i]  else $  
 	if dim eq 2 then $
-	scanData.pa(0:act_npts-1,i) = pa2D[*,0,i]  else $  
-	scanData.pa(0:act_npts-1,i) = pa1D[*,i] 
+	scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,0,i]  else $  
+	scanData.pa(0:act_npts-1,i) = pa1D[0:act_npts-1,i] 
         end
 end
 
 for i=0,14 do begin
         if id_def[4+i,0] gt 0 then begin
 	if dim eq 2 then $
-	scanData.da(0:act_npts-1,i) = da2D[*,scanData.y_seqno,i] else $
-	scanData.da(0:act_npts-1,i) = da1D[*,i]
+	scanData.da(0:act_npts-1,i) = da2D[0:act_npts-1,scanData.y_seqno,i] else $
+	scanData.da(0:act_npts-1,i) = da1D[0:act_npts-1,i]
         end
 end
 
