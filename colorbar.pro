@@ -31,38 +31,52 @@ PRO getTrueColor,v,echo=echo
 	device,decomposed=0
 END
 
+PRO getLineColors,colorI,v=v,echo=echo
+; long array : colorI for 8 bit device
+; long array : v  for 24 bit device 
 
-PRO getLineColors,colorA
-; long array : colorA
-; pseudo color
-if !d.n_colors le 256 then begin
-; use 32 to 233 colors
-        var = intarr(!d.table_size-64)
+	ncolors= !d.table_size 
+        var = intarr(ncolors-64)
+	num = n_elements(var)
+	nj = num/32
         id = 0
-        for i=1,32 do begin
+        for i=0,31 do begin
         for j=1,6 do begin
+	if id lt num then begin
         ij =  j * 32
-        var(id) = ij + i
+        var(id) = ncolors - ij - i
         id = id + 1
-        end
-        end
-	var = reverse(var)
-
-	no = n_elements(colorA)
-	colorA = var(0:no-1)
- 	return	
-end
-; use 16 true color for line plot
-	getTrueColor,var ;,/echo
-	nc = n_elements(var)
-	no = n_elements(colorA)
-	for i=0,no-1 do begin
-	ii = i mod nc
-	colorA(i) = var(ii)
 	end
-	return
+        end
+        end
 
+	nc = n_elements(colorI)
+	v = lonarr(nc)
+	colorI = var
+	if nc lt num then colorI=var(0:nc-1)
+
+TVLCT,o_red,o_green,o_blue,/get
+LOADCT,39
+
+	tvlct,r,g,b,/get
+	for i=0,nc-1 do begin
+	ii = colorI(i MOD num)
+	v(i) = e_color([r(ii),g(ii),b(ii)])
+;	print,i,ii,r(ii),g(ii),b(ii),v(i)
+	end
+
+TVLCT,o_red,o_green,o_blue
+
+	if !d.n_colors le !d.table_size then return
+
+	if keyword_set(echo) then begin
+	device,decomposed=1
+        erase
+        for i=0,15 do oplot,indgen(10)*(i+1),color=v(i)
+	end
+	device,decomposed=0
 END
+
 
 PRO setfont,fname,bold=bold,italic=italic,width=width,space=space
 	if n_elements(width) eq 0 then width = 9
@@ -367,7 +381,7 @@ COMMON COLORBAR, colorbar_data
 END
 
 
-PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap,format=format,PSfact=PSfact,reverse=reverse,ncolors=ncolors
+PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap,format=format,PSfact=PSfact,reverse=reverse,ncolors=ncolors,LOG=LOG,OFF=OFF
 ;    width - colorbar width
 ;    height - colorbar height
 ;+
@@ -403,6 +417,8 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 ;       PSfact: specify the PS color bar scaling factor, default is 30
 ;       Reverse: use black color for color bar text color
 ;       Ncolors: specify the number of colors used from the table
+;       OFF:    specify offset value for colorbar
+;       LOG:    specify linear or log scale used
 ;
 ; OUTPUTS:
 ;       None.
@@ -430,6 +446,8 @@ PRO colorbar,yrange,width,height,horizontal=horizontal,x=x,y=y,wid=wid,ncap=ncap
 
 if keyword_set(ncolors) eq 0 then ncolors=!d.table_size
 
+	offset=0.
+	if keyword_set(OFF) then offset=OFF
 	if n_elements(width) eq 0 then width=20
 	if n_elements(height) eq 0 then height=320
 	if keyword_set(wid) then wset,wid
@@ -499,8 +517,16 @@ if keyword_set(ncolors) eq 0 then ncolors=!d.table_size
 	jj = j mod detcap ; 2
 	if jj eq 0 then begin
 	str = string(format='('+fmt+')',j*dval+yrange(0))
+	if keyword_set(LOG) then begin
+	if LOG then $
+	str = string(format='('+fmt+')',10^(j*dval+yrange(0)))+offset
+	end
 		 xyouts,x+1.25*bew,y+j*beh, strtrim(str,2),/device,color=tcolor
 		end
 	end
 	endfor
+;	if keyword_set(LOG) then begin
+;	if LOG then $
+;	xyouts,x+.25*bew,y+(ns+2)*beh,'Log_Color',/device,color=color
+;	end
 END	
