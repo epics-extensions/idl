@@ -3,7 +3,7 @@
 ; extract 2D data from 1D file 
 ; scan_read_extract,startno=31,endno=109,infile='/home/sricat/CHA/2idd/cancer21.scans',/outfile
 ;
-PRO scan_read_extract,startno=startno,endno=endno,infile=infile,outfile=outfile,view=view,y_pv=y_pv,new=new
+PRO scan_read_extract,startno=startno,endno=endno,infile=infile,outfile=outfile,view=view,y_pv=y_pv,new=new,XDR=XDR
 ;+
 ; NAME:
 ;       SCAN_READ_EXTRACT
@@ -24,7 +24,7 @@ PRO scan_read_extract,startno=startno,endno=endno,infile=infile,outfile=outfile,
 ; CALLING SEQUENCE:
 ;
 ;       SCAN_READ_EXTRACT, Startno=startno, Endno=endno, Infile='infile',
-;           Outfile=outfile, View=view, New=new, Y_PV='scan2.pvname'
+;           Outfile=outfile, View=view, New=new, Y_PV='scan2.pvname',/XDR
 ;
 ; INPUTS:
 ;       None.
@@ -43,6 +43,8 @@ PRO scan_read_extract,startno=startno,endno=endno,infile=infile,outfile=outfile,
 ;                   appended to the default image file or a new image file.
 ;
 ;       NEW:        Set this keyword a new image file will be created.
+;
+;       XDR:        Specifies the input file is in XDR binary format 
 ;
 ;       Y_PV:       Specifies the PV name for the 2D scan outer loop
 ;
@@ -105,6 +107,7 @@ if keyword_set(y_pv) then scanData.y_pv = y_pv
 	catch1d_readFileIndex,infile
 	if w_viewscan_id.maxno gt 1 then begin
 
+	if keyword_set(XDR) then u_openr, unit, infile, /XDR else $
 	u_openr, unit, infile
 	w_viewscan_id.unit = unit
 	point_lun,w_viewscan_id.unit, w_viewscan_id.fptr(startno-1)
@@ -131,9 +134,14 @@ if keyword_set(y_pv) then scanData.y_pv = y_pv
 
 		if keyword_set(outfile) then begin
 			if keyword_set(new) then begin
+			if keyword_set(XDR) then $
+			catch1d_extdata_mode_write_image,outfile , /XDR else $
 			catch1d_extdata_mode_write_image,outfile 
-			endif else $
+			endif else begin 
+			if keyword_set(XDR) then $
+			catch1d_extdata_mode_write_image,infile, /XDR else $
 			catch1d_extdata_mode_write_image,infile
+			end
 		end
 
 	endif else begin
@@ -148,7 +156,7 @@ end
 END
 
 
-PRO catch1d_extdata_mode_write_image,infile
+PRO catch1d_extdata_mode_write_image,infile,xdr=xdr
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
@@ -164,6 +172,8 @@ if error_status eq -171 then begin
 	return
         end
 
+	if keyword_set(XDR) then $
+	openw,unit,filename,/GET_LUN,/APPEND, /XDR else $
 	openw,unit,filename,/GET_LUN,/APPEND
 
 	npts = scanData.req_npts-1
@@ -284,6 +294,11 @@ COMMON TOIMAGE_BLOCK,widget_ids
 
   ; Event for TOIMAGE_PDMENU3
   'TOIMAGE_PDMENU3': TOIMAGE_PDMENU3_Event, Event
+
+    'TOIMAGE_XDR': BEGIN
+        widget_ids.XDR = Event.Index
+        END
+
   'TOIMAGE_INFILE': BEGIN
 	WIDGET_CONTROL,Event.id,GET_VALUE=infile
 	widget_ids.in = infile(0)
@@ -329,11 +344,11 @@ COMMON TOIMAGE_BLOCK,widget_ids
       
 	if widget_ids.new eq 0 then $
 	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
-		infile=widget_ids.in
+		infile=widget_ids.in, XDR=widget_ids.XDR
        
 	if widget_ids.new eq 1 then $
 	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
-		infile=widget_ids.in, /outfile
+		infile=widget_ids.in, /outfile, XDR=widget_ids.XDR
 
 	if widget_ids.new eq 2 then begin 
 	if strlen(strtrim(widget_ids.out , 2)) eq 0 then begin
@@ -342,7 +357,8 @@ COMMON TOIMAGE_BLOCK,widget_ids
 		end 
 	scan_read_extract,startno=widget_ids.start, endno=widget_ids.last, $
 		infile=widget_ids.in, outfile=widget_ids.out, /new, $
-		y_pv = widget_ids.y_pv
+		y_pv = widget_ids.y_pv, XDR=widget_ids.XDR
+
 	end
       END
   'TOIMAGE_CANCEL': BEGIN
@@ -432,6 +448,11 @@ COMMON TOIMAGE_BLOCK,widget_ids
       UVALUE='LABEL5', $
       VALUE='1D Scans To 2D Image')
 
+  BASE3 = WIDGET_BASE(BASE2, $
+      ROW=1, $
+      MAP=1, $
+      UVALUE='BASE3')
+
   MenuDesc167 = [ $
       { CW_PDMENU_S,       3, 'File' }, $ ;        0
         { CW_PDMENU_S,       0, 'Open ...' }, $ ;        1
@@ -440,8 +461,12 @@ COMMON TOIMAGE_BLOCK,widget_ids
   ]
 
 
-  TOIMAGE_PDMENU3 = CW_PDMENU( BASE2, MenuDesc167, /RETURN_FULL_NAME, $
+  TOIMAGE_PDMENU3 = CW_PDMENU( BASE3, MenuDesc167, /RETURN_FULL_NAME, $
       UVALUE='TOIMAGE_PDMENU3')
+ 
+  btn_xdr = ['BIN','XDR']
+  toimage_xdr = WIDGET_DROPLIST(BASE3, VALUE=btn_xdr, $
+        UVALUE='TOIMAGE_XDR',TITLE='')
 
   BASE7 = WIDGET_BASE(BASE2, $
       COLUMN=1, $
@@ -515,6 +540,7 @@ new_image= WIDGET_DROPLIST(BASE8, VALUE=BTNS913, $
   ACCEPT = WIDGET_BUTTON(BASE9,VALUE='Accept',UVALUE='TOIMAGE_ACCEPT')
   CANCEL = WIDGET_BUTTON(BASE9,VALUE='Cancel',UVALUE='TOIMAGE_CANCEL')
 
+  WIDGET_CONTROL,toimage_xdr,set_droplist_select = 1
   widget_ids = { $
 	in: '', $
 	out: '', $
@@ -522,6 +548,7 @@ new_image= WIDGET_DROPLIST(BASE8, VALUE=BTNS913, $
 	start: 0, $
 	last: 0, $
 	new: 0, $
+	XDR: 1, $
 	infile: INFILENAME, $
 	outfile: OUTFILENAME, $
 	y_pvname: Y_PVNAME, $
