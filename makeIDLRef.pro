@@ -184,6 +184,16 @@ mk_html_help,'ez_fit.pro','html/ez_fitRef.html', $
 	descript=descript
 END
 
+PRO objCleanRef
+descript=[ '<H1>obj_clean.pro</H1> ', $
+'At present this program is installed in the <B>/usr/local/epics/extensions/bin/$HOST_ARCH</B> directory.', $
+'This program provides the utility routine OBJ_CLEAN to easily clean up various', $
+'objects from the IDL heap.']
+
+mk_html_help,'obj_clean.pro','html/objCleanRef.html', $
+	descript=descript
+END
+
 PRO scan1d_ObjectRef
 ;
 descript=[ '<H1>scan1d__define.pro</H1> ', $
@@ -343,6 +353,9 @@ PRO makeIDLRef
 
 ; scan2d_ObjectRef
 	scan2d_ObjectRef
+
+; objCleanRef
+	objCleanRef
 
 ; NX_ObjectRef
 	NX_ObjectRef
