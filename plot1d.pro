@@ -68,7 +68,7 @@ END
 
 PRO plot1d_dialogs_Event, Event
 
-  WIDGET_CONTROL,Event.top,get_uvalue=state
+  WIDGET_CONTROL,Event.top,get_uvalue=state,/no_copy
 
   WIDGET_CONTROL,Event.Id,GET_UVALUE=Ev
 
@@ -387,19 +387,19 @@ PRO plot1d_dialogs_Event, Event
 	WIDGET_CONTROL,state.dialogsWid,/DESTROY
 	state.dialogsWid = 0L
 	state.legendWid = 0L
-  	WIDGET_CONTROL,state.base,set_uvalue=state
+  	WIDGET_CONTROL,state.base,set_uvalue=state,/no_copy
 	return	
       END
   ENDCASE
 
   plot1d_replot,state
-  WIDGET_CONTROL,Event.top,set_uvalue=state,bad=bad
+  WIDGET_CONTROL,Event.top,set_uvalue=state,/no_copy,bad=bad
 
 END
 
 
 
-PRO plot1d_dialogs, GROUP=Group ,state
+PRO plot1d_dialogs,state,GROUP=Group 
 
 if XRegistered('plot1d_dialogs') then return
 state.list_sel = indgen(n_elements(state.selection))
@@ -427,9 +427,7 @@ state.list_sel = indgen(n_elements(state.selection))
       ROW=1, $
       MAP=1, $
       UVALUE='BASE2')
-  FieldVal1757 = [ $
-    '350' ]
-  FIELD4 = CW_FIELD( BASE2_1,VALUE=FieldVal1757, $
+  FIELD4 = CW_FIELD( BASE2_1,VALUE=state.xsize, $
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
@@ -438,9 +436,7 @@ state.list_sel = indgen(n_elements(state.selection))
       XSIZE=4, $
       YSIZE=1)
 
-  FieldVal1822 = [ $
-    '350' ]
-  FIELD5 = CW_FIELD( BASE2_1,VALUE=FieldVal1822, $
+  FIELD5 = CW_FIELD( BASE2_1,VALUE=state.ysize, $
       ROW=1, $
       INTEGER=1, $
       RETURN_EVENTS=1, $
@@ -452,15 +448,15 @@ state.list_sel = indgen(n_elements(state.selection))
   value1=['1','2','4','8','16']
   xstyle = WIDGET_DROPLIST(BASE2_1,title='Xstyle:',value=value1, $
 		UVALUE='plot1d_xstyle')
-  widget_control,xstyle,set_droplist_select=0
+  widget_control,xstyle,set_droplist_select=state.xstyle
 
   ystyle = WIDGET_DROPLIST(BASE2_1,title='Ystyle:',value=value1, $
 		UVALUE='plot1d_ystyle')
-  widget_control,ystyle,set_droplist_select=0
+  widget_control,ystyle,set_droplist_select=state.ystyle
 
   gridline = WIDGET_DROPLIST(BASE2_1,title='Grid:',value=['Off','On'], $
 		UVALUE='plot1d_grid')
-  widget_control,gridline,set_droplist_select=0
+  widget_control,gridline,set_droplist_select=state.grid
 
 ;  bgrever = WIDGET_DROPLIST(BASE2_1,title='Bg:',value=['Blk','Wht'], $
 ;		UVALUE='plot1d_bgreverse')
@@ -528,16 +524,16 @@ state.list_sel = indgen(n_elements(state.selection))
 
   linestyle = WIDGET_DROPLIST(BASE2_2,title='Style:',value=['Off','On'], $
 		UVALUE='plot1d_linestyle')
-  widget_control,linestyle,set_droplist_select=0
+  widget_control,linestyle,set_droplist_select=state.linestyle
   state.styleWid = linestyle
 
   coloroff = WIDGET_DROPLIST(BASE2_2,title='Color:',value=['On','Off'], $
 		UVALUE='plot1d_coloroff')
-  widget_control,coloroff,set_droplist_select=0
+  widget_control,coloroff,set_droplist_select=state.autocolor
 
   charsize = WIDGET_DROPLIST(BASE2_2,title='CharSize:',value=['1','2'], $
 		UVALUE='plot1d_charsize')
-  widget_control,charsize,set_droplist_select=0
+  widget_control,charsize,set_droplist_select=state.charsize
 
   slider3 = widget_slider(BASE2_2,title='Thickness',value=state.thick, $
 		max=10,min=1, xsize=60, $
@@ -550,7 +546,7 @@ state.list_sel = indgen(n_elements(state.selection))
 
   userscale = WIDGET_DROPLIST(BASE2_91,value=['AutoScale','UserScale'], $
 		UVALUE='plot1d_userscale')
-  widget_control,userscale,set_droplist_select=0
+  widget_control,userscale,set_droplist_select=state.userscale
 
   BASE2_411 = WIDGET_BASE(BASE2_91, $
       /ROW, $
@@ -680,7 +676,7 @@ end
 
   symbol = WIDGET_DROPLIST(BASE2_22,title='Symb:',value=['Off','On'], $
 		UVALUE='plot1d_symbol')
-  widget_control,symbol,set_droplist_select=0
+  widget_control,symbol,set_droplist_select=state.symbol
 
   yexpand = WIDGET_DROPLIST(BASE2_22,title='Y+:',value=['Off','On'], $
 		UVALUE='plot1d_yexpand')
@@ -688,11 +684,11 @@ end
 
   ylogon = WIDGET_DROPLIST(BASE2_22,title='Ylog:',value=['Off','On'], $
 		UVALUE='plot1d_Ylogon')
-  widget_control,ylogon,set_droplist_select=0
+  widget_control,ylogon,set_droplist_select=state.ylog
 
   xlogon = WIDGET_DROPLIST(BASE2_22,title='Xlog:',value=['Off','On'], $
 		UVALUE='plot1d_Xlogon')
-  widget_control,xlogon,set_droplist_select=0
+  widget_control,xlogon,set_droplist_select=state.xlog
 
   BASE6 = WIDGET_BASE(BASE2, $
       ROW=1, $
@@ -729,7 +725,7 @@ end
   legend = CW_FIELD( BASE2_3,VALUE=state.legend, $
       ROW=1, STRING=1, RETURN_EVENTS=1, TITLE='LegendStr:', $
       UVALUE='plot1d_legend', $
-      XSIZE=15, $
+      XSIZE=30, $
       YSIZE=4)
 
   state.legendWid = BASE2_3
@@ -740,7 +736,7 @@ end
 
   WIDGET_CONTROL, plot1d_xysize, /REALIZE
 
-   WIDGET_CONTROL,plot1d_xysize,set_uvalue=state
+   WIDGET_CONTROL,plot1d_xysize,set_uvalue=state,/no_copy
 
   XMANAGER, 'plot1d_dialogs', plot1d_xysize
 END
@@ -1018,10 +1014,9 @@ IF (ev.id EQ ev.top) then begin
 
 	; if device is X
 	if !d.name ne 'PS' then  WSET,state.winDraw
-
 	plot1d_replot, state
 
-	WIDGET_CONTROL,ev.Top,GET_UVALUE=state
+	WIDGET_CONTROL,ev.Top,SET_UVALUE=state
 	return
 ENDIF
 
@@ -1317,6 +1312,16 @@ PRO plot1d, x, y, id_tlb, windraw, factor=factor, $
 ;LOADCT,39
 
 ; check any data provided
+
+if n_params()  eq 0 then begin
+reread:
+        wd_readascii,'plot1d.txt',readascii_info
+	x = *readascii_info.x
+        if n_elements(*readascii_info.im) gt 2 then y = *readascii_info.im else begin
+        r = dialog_message(['Error: Data array not loaded in yet !',' Try to read  ascii file again ?'],/question)
+        if r eq 'Yes' then goto,reread else return
+   end 
+end
 
 n1 = n_elements(x)
 if n1 lt 2 then begin
