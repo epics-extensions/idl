@@ -10,6 +10,7 @@
 
 @image2d.pro
 @panimage.pro
+@sb2rpt.pro
 @view4d.pro
 
 PRO rix2DC,Scan,gData
@@ -22,6 +23,7 @@ PRO rix2DC,Scan,gData
   *gData.id_def  = Scan.id_def
   *gData.pv      = Scan.pv
   *gData.labels  = Scan.labels
+  if Scan.rank gt 1 then *gData.ts = *Scan.ts2 else *gData.ts = Scan.ts1
 
 	rank = Scan.rank
 	IF rank EQ 1 THEN BEGIN
@@ -368,31 +370,45 @@ PRO sscan_getDescs,SSD,xdescs,ydescs,zdescs
 	end
 END
 
-PRO scanSee_plot1d,SSD,xaxis
+PRO scanSee_plot1d,SSD,xaxis,x=x,da=da
+
+	 rank = SSD.rank
+
 ; plot against the xaxis picked
-	if n_elements(*SSD.da(SSD.rank-1)) eq 0 then return
-	pa1d = *SSD.pa(SSD.rank-1)
-	if xaxis lt SSD.nb_pos(SSD.rank-1) then x = pa1d(*,xaxis) else $
+	if n_elements(*SSD.da(rank-1)) eq 0 then return
+	pa1d = *SSD.pa(rank-1)
+	if xaxis lt SSD.nb_pos(rank-1) then x = pa1d(*,xaxis) else $
 	xaxis = 4  ; step #
-	title='1D Array from '+strtrim(SSD.rank,2)+'D Scan # '+strtrim(SSD.scanno,2)
+	title='1D Array from '+strtrim(rank,2)+'D Scan # '+strtrim(SSD.scanno,2)
 
 	HD_P = SSD.HD_P
-	xd = HD_P(*,SSD.rank-1)
+	xd = HD_P(*,rank-1)
 	xdescs = xd.PXDS
 	for i=0,3 do begin
 	if strtrim(xd(i).RXEU,2) ne ''  then xdescs(i) = xdescs(i) + ' ('+xd(i).RXEU+')'
 	end
 
 ; detector desc
-	id_def = SSD.id_def(4:88,SSD.rank-1)
+	id_def = SSD.id_def(4:88,rank-1)
 	HD_D = SSD.HD_D
-	zd = HD_D(0:SSD.detMax(SSD.rank-1)-1,SSD.rank-1)
+	zd = HD_D(0:SSD.detMax(rank-1)-1,rank-1)
 	pvs = zd.DXPV
 	zdescs = pvs(where (id_def > 0))
 
-	da1d = *SSD.da(SSD.rank-1)
-	if xaxis eq 4 then plot1d,da1d,/data,title=title else $
-	plot1d,x,da1d,/data,title=title,xtitle=xdescs(xaxis),legend=zdescs
+	da1d = *SSD.da(rank-1)
+	sz = size(da1d)
+	no = n_elements(zdescs)
+	da = make_array(sz(1),no)
+	ii=0
+	for i=0,sz(2)-1 do begin
+	if id_def(i) gt 0 then begin
+	da(*,ii) = da1d(*,i)
+	ii = ii+1
+	end
+	end
+
+	if xaxis eq 4 then plot1d,da,/data,title=title else $
+	plot1d,x,da,/data,title=title,xtitle=xdescs(xaxis),legend=zdescs
 END
 
 PRO scanSee_pickXaxis,Event
@@ -771,6 +787,7 @@ if n_elements(SSD) gt 0 then begin
 	ptr_free,SSD.sub_scan_ptr(i)
 	end
 	ptr_free,SSD.EH
+	if ptr_valid(SSD.ts2) then ptr_free,SSD.ts2
   end
 end
 SSD = 0	
@@ -848,10 +865,10 @@ HD_T = make_array(4,mdim,value=trg_info)
 	detMax  : dflt, $
 	pv	: ['','','','',''], $
 	ts1	: '', $
-	ts2	: '', $
 	im_filled : dflt, $
 	noenv  : 0, $
 	envPtr : 0L, $
+	ts2	: ptr_new(/allocate_heap), $
 	EH	: ptr_new(/allocate_heap), $
 	da	: ptrarr(mdim,/allocate_heap), $
 	pa	: ptrarr(mdim,/allocate_heap), $
@@ -913,6 +930,11 @@ SSD.lun = lun
   SSD.pv(rank-1) = name
   SSD.ts1 = time
 
+if rank gt 1 then begin
+ts2 = make_array(cpt,value='                               ',/string)
+*SSD.ts2 = ts2
+end
+
   nb_pos=0
   nb_det=0
   nb_trg=0
@@ -939,6 +961,7 @@ SSD.lun = lun
 	if SSD.pick3d eq 0 and nb_det gt 0 then $
 	  *SSD.da(1) = make_array(dim(1),dim(2),dim(3),nb_det) else $
 	  *SSD.da(1) = make_array(dim(1),dim(2),dim(3),1) 
+help,*SSD.da(1),*SSD.da(1)
     end
     if ir eq 4 then begin
 	if SSD.pick4d eq 0 and nb_det gt 0 then $
@@ -977,6 +1000,7 @@ SSD.lun = lun
 	   *SSD.da(0) = make_array(dim(0),dim(1),nb_det)
      end
   end
+
 
 
 ; read header
@@ -1359,7 +1383,7 @@ if keyword_set(echo) then print,sub_scan_ptr
   time=''
   readu,lun,name,time
   SSD.pv(rank-1) = name
-  SSD.ts2 = time
+  (*SSD.ts2)[seqno] = time
 
   nb_pos=0
   nb_det=0
@@ -1578,7 +1602,8 @@ PRO scanSee_axisInfo,SSD,Event,axis=axis
 	printf,1,'SSD.HD_D(*,j)'
 	help,SSD.HD_D(*,j),output=out
 	printf,1,out
-	for i=0,(SSD.NB_DET)[j]-1 do begin
+
+	for i=0,(SSD.DETMAX)[j]-1 do begin
 		printf,1,i,'  ',SSD.HD_D(i,j)
 	end
 	printf,1,''
@@ -1755,6 +1780,10 @@ end
         xdisplayfile,'1.txt',title=SSD.file+' :SSD INFO: ',group=Event.top
 	end
     END
+  'Report.Report...': BEGIN
+  	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
+	SB2RPT,SSD,group=Event.top
+    END
   'Help.SSD,/struct...': BEGIN
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
   	if n_elements(SSD) then begin
@@ -1893,6 +1922,8 @@ if XRegistered('SSCAN_MAIN13') then return
         { CW_PDMENU_S,       0, 'Axes Info...' }, $ ;       10
         { CW_PDMENU_S,       0, 'Env Vars...' }, $ ;       11
         { CW_PDMENU_S,       2, 'SSD,/struct...' }, $ ;       12
+      { CW_PDMENU_S,       1, 'Report' }, $ ;        7
+        { CW_PDMENU_S,       2, 'Report...' }, $ ;       12
       { CW_PDMENU_S,       3, 'Help' }, $ ;       13
         { CW_PDMENU_S,       0, 'SSD,/struct...' }, $ ;       14
         { CW_PDMENU_S,       2, 'Help' } $  ;     15
