@@ -1,0 +1,143 @@
+
+COMMON CATCH2D_IMAGE, widget_ids, view_option, image, image_ref
+COMMON CATCH2D_FILE_BLOCK,catch2d_file
+COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
+
+  widget_ids = {                  $ 
+      base        : MAIN13_2,     $
+      xsurface    : 0L,  $
+      top_base    : BASE68,       $
+      sel_base    : BASE185,       $
+      norm_base	  : 0L,       $
+      sel_image   : IMAGE186,       $
+      plot_wid    : DRAW62,       $
+      plot2d_area   : DRAW62_Id,    $
+      y_max       : FIELD246,     $
+      y_min       : FIELD157,     $
+      x_max       : FIELD159,     $
+      x_min       : FIELD161,     $
+      z_max       : VIEW2D_ZMAX,     $
+      z_min       : VIEW2D_ZMIN,     $
+      info        : TEXT133,	  $
+      textdata    : 0L,	  $
+      zmax      :  CURSOR62_ZMAX, $
+      zmin      :  CURSOR62_ZMIN, $
+      x_cursor	:  CURSOR62_X, $
+      y_cursor	:  CURSOR62_Y, $
+      z_cursor	:  CURSOR62_Z, $
+	xzl	:  CURSOR62_XZL, $
+	yzl	:  CURSOR62_YZL, $
+	x1	: !x, $
+	y1	: !y, $
+	x2	: !x, $
+	y2	: !y $
+	}
+
+  cd,current=h
+
+  catch2d_file = {                $
+	version : '', $
+	home    : h, $
+	path    : h+'/', $
+        name    : 'catch1d.trashcan.image',           $
+        opened  : 0,            $
+	fptr	: make_array(10000,/long), $
+	pan     : 0, $ ; pan all detectors or not
+        win     : -1, $; pan window # $
+;       mode    : 0,            $   ; 0 - scan, 1 - view
+        seqno   : 0, $		; image seq #
+        maxno   : 0, $ 		; total # of images found
+	x_pv	: '', $
+	y_pv	: '', $
+	x_desc	: '', $		; 1D positioner desc
+	y_desc	: '', $		; 2D posititoner desc
+	z_desc	: '', $		; detector desc
+	file_1d	: '', $
+	scanno_2d : 0, $  	; current readin 2d scan #
+	scanno_current : 0, $  	; current viewed 2d scan #
+	scanno_2d_last : 0, $  	; last 2d scan # from opened file
+	image_no  : make_array(1000,/int), $ ; detector 1 image no for scanno_2d #
+	scanno  : 0, $  	; current image at the end 1d scan #
+	width   : 100, $  	; current image width 
+	height  : 100, $  	; current image height
+	detector : 0, $  	; current image detector index (15 detectors)
+	x_act_npts :  100, $
+	y_act_npts :  100, $
+	y_req_npts :  100, $
+	x_mag : 1., $ 	; x image mag facctor
+	y_mag : 1., $ 	; y image mag facctor
+;	xprof :  1, $	; window 1
+;	yprof :  3, $	; window 3
+	xprof : -1, $   ; xz profile window 
+	yprof : -1, $   ; yz profile window
+	xzdraw : 0, $   ; xz draw area
+	yzdraw : 0, $   ; yz draw area
+	xzline_x :  [0.,0.],$
+	xzline_z :  [0.,0.],$
+	xzline_xo : [0.,0.],$
+	xzline_zo : [0.,0.],$
+	yzline_y :  [0.,0.],$
+	yzline_z :  [0.,0.],$
+	yzline_yo : [0.,0.],$
+	yzline_zo : [0.,0.],$
+	s_wid   : -1, $       ; window id for saved pixmap
+	xarr	: make_array(1001), $
+	yarr	: make_array(1001), $
+	image	: make_array(1001,1001,/float) $
+;	xarr	: make_array(512), $
+;	yarr	: make_array(512), $
+;	image	: make_array(512,512,/float) $
+        }
+  
+if !d.name eq 'X' then device,bypass_translation=0
+  device,retain=2
+
+  view_option = { $
+	surface : 0, $    ; 0-TV, 1-SURFACE,2-CONTOUR, 3-SHOW3
+        ncolors : !d.table_size-1, $   max color index 
+	pick_ref : 1, $   ; normalized against detector # 1
+	fullcolor : 0, $   0-auto 1-user 2-normalize
+	user	: 1, $  ; if 1 use user set range
+	versus  : 1, $  ; 0 - step # or 1 - values 
+	width	: 100, $  	; default x set range 
+	height  : 100, $	; default y set range
+	margin_l : 80, $         ; TV left margin
+	margin_r : 80, $         ; TV right margin
+	margin_t : 50, $         ; TV top margin
+	margin_b : 50, $         ; TV bottom margin
+	ps_l : 0.2, $		; PS left 
+	ps_b : 0.125, $		; PS bottom 
+	ps_r : 0.95, $		; PS right 
+	ps_t : 0.875, $		; PS top 
+	x_min	: 0, $		; user set xmin
+	x_max	: 1000, $	; user set xmax
+	y_min	: 0, $		; user set ymin
+	y_max	: 1000, $	; user set ymax
+	d_wid   : -1, $         ; image window id
+	s_wid   : -1, $         ; pixmap window id
+	x	: 0, $		; device cursor x
+	y	: 0, $		; device cursor y
+	z	: 0., $
+	i_min	: 0, $		; i index for z_min
+	j_min	: 0, $		; j index for z_min
+	i_max	: 0, $		; i index for z_max
+	j_max	: 0, $		; j index for z_max
+	k_min	: 0., $		; k index for z_min
+	k_max	: 0., $		; k index for z_max
+	u_k_min	: 0., $		; z_min for user scale
+	u_k_max	: 255., $	; z_max for user scale
+	r_k_min	: 0., $		; z_min for norm ref
+	r_k_max	: 255., $	; z_max for norm ref
+	z_min	: 0., $		; z_min for TV image 
+	z_max	: 0. $	; z_max for TV image 
+	}
+
+   WIDGET_CONTROL, widget_ids.y_max, SET_VALUE = view_option.height 
+   WIDGET_CONTROL, widget_ids.y_min, SET_VALUE = 0
+   WIDGET_CONTROL, widget_ids.x_max, SET_VALUE = view_option.width
+   WIDGET_CONTROL, widget_ids.x_min, SET_VALUE = 0
+
+;   LOADCT,39      ;inherit from the parent
+        if n_elements(R_ORIG) eq 0 then $
+        catch1d_get_pvtct
+
