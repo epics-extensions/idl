@@ -2317,20 +2317,28 @@ close,1
 	  WIDGET_CONTROL,Event.Top,SET_UVALUE=image2d_state,/NO_COPY,BAD_ID=bad
 	  return
 	end
+	case Event.Index of
+	0: begin
 	iImage,image,rgb_table=rgb,GROUP=Event.top, $
 	title=image2d_state.name+': ('+image2d_state.DPVS(image2d_state.detector-1)+')', $ 
-		view_grid=[2,2], $
-		identifier=ID1, $
+;		view_grid=[2,2], $
+;		identifier=ID1, $
 		name='Detector '+image2d_state.DPVS(image2d_state.detector-1)
-	image2d_state.ID1 = ID1
-
+;	image2d_state.ID1 = ID1
+	end
+	1: begin
 	iSurface,image,rgb_table=rgb,GROUP=Event.top,x,y, $
-		identifier=image2d_state.ID1,view_number=2, $
+;		identifier=image2d_state.ID1,view_number=2, $
 		name='Detector '+image2d_state.DPVS(image2d_state.detector-1)
-
+	end
+	2: begin
 	iContour,image,rgb_table=rgb,GROUP=Event.top,x,y, $
-		identifier=image2d_state.ID1,view_number=3, $
+;		identifier=image2d_state.ID1,view_number=3, $
+;		c_value=0, n_levels=6, c_label_show=[1,1,1,1,1], $
 		name='Detector '+image2d_state.DPVS(image2d_state.detector-1)
+	end
+	else:
+	endcase
       END
   'IMAGE2D_RENEW': BEGIN
   	WIDGET_CONTROL, widget_ids.x_min, SET_VALUE=0
