@@ -18,7 +18,7 @@ SCRIPTS = ezcaidl_setup setup_ezcaIDL ezcaidl_startup.pro \
 	dc2hdf dc2hdf.pro \
 	hdfb hdfb.pro \
 	scanSee DC.init DC.pro vw2d vw2d.init vw2d.pro \
-	readScan.pro dc2ins_2d dc2ins_1d scratchpad.pro
+	readScan.pro dc2ins_2d dc2ins_1d
 
 include $(TOP)/config/RULES.Host
 
