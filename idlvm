@@ -2,23 +2,26 @@
 
 # use IDL 6.0 virtual machine and solaris-sparc
 source /usr/local/rsi/idl_6.0/bin/idl_setup
-setenv HOST_ARCH solaris-sparc
 
-set LOC=/usr/local/epics/extensions
+set ARCH=$EPICS_HOST_ARCH
+if $ARCH == "" then
+    ARCH=$HOST_ARCH
+endif
+set LOC=$EPICS_EXTENSIONS 
 if ${?EPICS_EXTENSIONS_PVT} == 1 then
 	set LOC=$EPICS_EXTENSIONS_PVT
 endif
 
 if ($1 == "scanSee" || $1 == "catcher" || $1 == "sscan" || $1 == "mca") then
-   source $LOC/bin/$HOST_ARCH/ezcaidl_setup
-   echo run $LOC/bin/$HOST_ARCH/$1.sav
-   idl -32 -vm=$LOC/bin/$HOST_ARCH/$1.sav
+   source $LOC/bin/$ARCH/ezcaidl_setup
+   echo run $LOC/bin/$ARCH/$1.sav
+   idl -32 -vm=$LOC/bin/$ARCH/$1.sav
    exit
 endif
 
 if $1 == "" then
    idl -32 -vm
 else
-   echo run $LOC/bin/$HOST_ARCH/$1.sav
-   idl -vm=$LOC/bin/$HOST_ARCH/$1.sav
+   echo run $LOC/bin/$ARCH/$1.sav
+   idl -vm=$LOC/bin/$ARCH/$1.sav
 endif

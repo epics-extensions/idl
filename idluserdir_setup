@@ -7,28 +7,19 @@
 # This file is distributed subject to a Software License Agreement found
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
-set HOST_ARCH = `/usr/local/epics/startup/HostArch`
-if ${?EPICS_HOST_ARCH} == 1 then 
-        set HOST_ARCH = $EPICS_HOST_ARCH
+if ${?EPICS_EXTENSIONS} == 0 then
+set EPICS_EXTENSIONS = `/usr/local/epics/extensions`
 endif
-setenv HOST_ARCH  $HOST_ARCH
-echo "HOST_ARCH="$HOST_ARCH
-
-set PVT_LOC = $EPICS_EXTENSIONS/bin/$HOST_ARCH
+set PVT_LOC = $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH
 
 if ${?EPICS_EXTENSIONS_PVT} == 1 then 
-        set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$HOST_ARCH
+        set PVT_LOC = $EPICS_EXTENSIONS_PVT/bin/$EPICS_HOST_ARCH
 endif
-
 setenv IDL_DEVICE X
 
 # source /usr/local/rsi/idl_5.3/bin/idl_setup
 
-if $HOST_ARCH == "solaris-sparc" then 
-        setenv IDL_STARTUP $PVT_LOC/../../idllib/viewer_startup.pro
-        else
-        setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
-endif
+setenv IDL_STARTUP $PVT_LOC/../../idllib/viewer_startup.pro
 #
 # set default IDL_USERDIR
 #
