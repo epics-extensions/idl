@@ -122,6 +122,9 @@ PRO PS_open,psfile,TV=TV
 ;       07-28-97   bkc  Add the support for color PostScript
 ;                       Add the support for reverse video
 ;                       Add handling capability for different operating system
+;       05-15-98   bkc  Change the reverse video to reverse legend color for
+;                       2D TV plot, to get reverse video use the xloadct's
+;                       option, reverse feature  
 ;-
 
 COMMON PRINTER_BLOCK,printer_info
@@ -134,23 +137,23 @@ COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	if keyword_set(TV) then begin 
 
-	; change to reverse video  for TV image
+	; use xloadct reverse video, reverse legend only  
 
-	if printer_info.reverse then begin
-	r_curr = reverse(r_orig)
-	g_curr = reverse(g_orig)
-	b_curr = reverse(b_orig)
-	endif else begin
-	r_curr = r_orig
-	g_curr = g_orig
-	b_curr = b_orig
-	end
-	TVLCT,r_curr,g_curr,b_curr
+;	if printer_info.reverse then begin
+;	r_curr = reverse(r_orig)
+;	g_curr = reverse(g_orig)
+;	b_curr = reverse(b_orig)
+;	endif else begin
+;	r_curr = r_orig
+;	g_curr = g_orig
+;	b_curr = b_orig
+;	end
+;	TVLCT,r_curr,g_curr,b_curr
 
 	    if printer_info.color gt 0 then $
 		device,filename=psfile,/color,bits=8, $
 			/Courier,/Bold, $
-			 yoffset=7, xsize=15, ysize=15  else $
+			 yoffset=7, xsize=15, ysize=15  else  $
 		device,filename=psfile,/Courier,/Bold
 	endif else begin
 	    if printer_info.color gt 0 then $
@@ -312,8 +315,13 @@ PRO PS_print,psfile
 ;       Written by:     Ben-chin K. Cha, 03-23-95.
 ;
 ;       07-28-97   bkc  Add handling capability for different operating system
+;       05-14-98   bkc  Add the checking for unreadable color on the PS plot
+;                       On unix if the color is too light use the gv to preview 
+;			pops up setup printer and info dialog
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
+COMMON PRINTER_BLOCK,printer_info
+COMMON colors, r_orig, g_orig, b_orig, r_curr, g_curr, b_curr
 
 	if (n_elements(psfile) ne 0) then begin 
 		if strtrim(psfile,2) eq '' then begin
@@ -322,10 +330,28 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		end
 	end else psfile = 'idl.ps'
 
-	if OS_SYSTEM.os_family eq 'unix' then $
-        str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile $
-	else str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
-        spawn,str
+	if OS_SYSTEM.os_family eq 'unix' then begin
+        	str =  OS_SYSTEM.lpr + ' ' + OS_SYSTEM.printer +  psfile 
+		color = r_curr(0) + g_curr(0)*256L + b_curr(0)*256L ^2
+		if color ge 16777200 then begin 
+			temp = ['Warning:','',$
+			 'There may be problem of unreadable title or legend on PS plot.',$
+			'The ghostview is brought up for you to preview the PS plot.', $
+			'If the PS plot looks fine you may use the ghostview to send the',$
+			'print job and then close the ghostview and Printer Setup Dialog.',$
+			'','If you can not see the title and legend, please close', $
+			'the ghostview program first, try different color table or set the ',$
+			'Reverse_Legend_Color to "Y" in Printer Setup Dialog first then', $
+			'try Print again'] 
+			res=dialog_message(temp,/info,title='PS legend problem')
+			PS_printer
+			spawn,'gv '+psfile + ' &'
+		endif else print,'spawn',str 
+  		spawn,str
+	endif else begin
+		str = OS_SYSTEM.lpr + ' ' + psfile + ' ' + OS_SYSTEM.printer
+	        spawn,str
+	end
 	print,str
 END
 
@@ -340,7 +366,6 @@ COMMON PRINTER_BLOCK,printer_info
 
   'PS_REVERSE': BEGIN
 	printer_info.reverse = Event.Index
-help,printer_info.reverse
       END
 
   'BGROUP3': BEGIN
@@ -387,7 +412,7 @@ END
 
 
 
-PRO PS_printer,psfile=psfile,  GROUP=Group
+PRO PS_printer, GROUP=Group
 ;+
 ; NAME:
 ;	PS_PRINTER
@@ -435,9 +460,14 @@ PRO PS_printer,psfile=psfile,  GROUP=Group
 ;       Written by:     Ben-chin K. Cha, 6-01-97.
 ;       10-15-97 bkc  - Add droplist Y/N for reverse color option
 ;                       Now it defaults to non reverse color option.
+;       05-14-98 bkc  - Remove the B/W option, use the xloadct to select B/W
+;                       Change reverse video to reverse legeng color if legend
+;                       is in white color 
 ;-
 
 COMMON PRINTER_BLOCK,printer_info
+
+if XRegistered('PS_printer') then return
 
   IF N_ELEMENTS(Group) EQ 0 THEN GROUP=0
 
@@ -462,19 +492,19 @@ COMMON PRINTER_BLOCK,printer_info
       UVALUE='LABEL3', $
       VALUE='Setup PS Printer')
 
-  Btns167 = [ $
-    'B/W', $
-    'Color' ]
-  BGROUP3 = CW_BGROUP( BASE2, Btns167, $
-      ROW=1, $
-      EXCLUSIVE=1, $
-      LABEL_LEFT='Output PS', $
-      UVALUE='BGROUP3')
-  WIDGET_CONTROL,BGROUP3,SET_VALUE= printer_info.color
+;  Btns167 = [ $
+;    'B/W', $
+;    'Color' ]
+;  BGROUP3 = CW_BGROUP( BASE2, Btns167, $
+;      ROW=1, $
+;      EXCLUSIVE=1, $
+;      LABEL_LEFT='Output PS', $
+;      UVALUE='BGROUP3')
+;  WIDGET_CONTROL,BGROUP3,SET_VALUE= printer_info.color
 
   Btn168 = ['N','Y']
   ps_reverse = WIDGET_DROPLIST(BASE2, VALUE=Btn168, $
-        UVALUE='PS_REVERSE',TITLE='Reverse Color')
+        UVALUE='PS_REVERSE',TITLE='Reverse Legend Color')
   WIDGET_CONTROL,ps_reverse,SET_DROPLIST_SELECT=printer_info.reverse
 
   FieldVal269 = [ $
