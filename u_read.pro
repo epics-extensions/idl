@@ -515,7 +515,7 @@ if n_params() lt 2 then begin
 	return
 	end
 s = lonarr(5)
-IF NOT EOF(unit) THEN  u_read_set,unit,s,x,ERRCODE  ELSE print,'EOF on unit ',unit
+IF NOT EOF(unit) THEN  u_read_set,unit,s,x,ERRCODE ;ELSE print,'EOF on unit ',unit
 return
 
 help1:
