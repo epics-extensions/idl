@@ -26,6 +26,8 @@ view1d_plotspec_id = { $
 	colorI: make_array(19,/LONG,value=!d.n_colors-2) $ 
         }
 
+   device,bypass_translation=0
+
    plotoption_setcolor    ; init color index array
 
 
