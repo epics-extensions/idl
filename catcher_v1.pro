@@ -1,4 +1,4 @@
-; $Id: catcher_v1.pro,v 1.48 2001/08/22 15:20:28 cha Exp $
+; $Id: catcher_v1.pro,v 1.49 2001/11/09 23:40:43 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -721,14 +721,12 @@ COMMON XY_COORD_BLOCK, xy_id, xy_wid
 ;	WIDGET_CONTROL,xy_wid.y,GET_VALUE=yvalue
       END
   'BUTTON9': BEGIN
-      Print, 'Event for GoTo'
 	WIDGET_CONTROL,xy_wid.x,GET_VALUE=xvalue
 	val = float(xvalue(0))
 	xycoord_setmotor,val
 	WIDGET_CONTROL, xy_wid.base,/DESTROY,BAD_ID=bad
       END
   'BUTTON10': BEGIN
-      Print, 'Event for Close'
 	WIDGET_CONTROL,Event.top,/DESTROY
 	xy_wid.base = 0L
 	xycoord,/CLEAN
@@ -807,7 +805,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
-; $Id: catcher_v1.pro,v 1.48 2001/08/22 15:20:28 cha Exp $
+; $Id: catcher_v1.pro,v 1.49 2001/11/09 23:40:43 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -4003,6 +4001,8 @@ COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON field_block, field_name, field_name_array, field_value, w_scanfield_ids
+COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
+
 
 	realtime_id.ind = 0
 	realtime_id.no = 0
@@ -4088,6 +4088,13 @@ if realtime_id.ind eq 0 then begin
 
 	realtime_id.ind = 1
 	end
+
+; set the new goto_pv for new realtime
+
+        for i=0,3 do begin
+        if strtrim(x_names(i),2) ne '' then $
+        w_plotspec_id.goto_pv(i) = strmid(x_names(i),0,strpos(x_names(i),'.'))
+        end
 
 x_dv = 0
 x_dn = 0
@@ -4638,6 +4645,7 @@ if casearch(scanData.pv) eq 0 then begin
 
 end
 end
+
 
 END
 
@@ -5610,9 +5618,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	i = 1
 	POINT_LUN,w_viewscan_id.unit,0
 	WHILE i lt seqno do begin 
-;		scan_read,unit,i,0 
 		scan_read_record,unit
-;print,"i,seqno",i,seqno
 		i = i + 1
 	END 
 END
@@ -5739,17 +5745,6 @@ printf,unit,"; 2D SCAN #: ",scanData.scanno_2d,",      Y INDEX #:",scanData.y_se
 	end
 printf,unit,"; 1D SCAN #: ",w_plotspec_id.seqno + 1 
 printf,unit,"; SCAN Record Name: ",scanData.pv
-
-;scan_field_init,scanData.pv
-
-;s1 = size(field_label_array)
-;s2 = size(field_value)
-;no = s1(1) - 1
-;str = make_array(s1(1),/string,value=string(replicate(32b,80)))
-;for i=0,no do begin
-;str(i) = '; ' + field_label_array(i) + '        ' + field_value(i)
-;printf,unit,str(i)
-;end
 
 if env_field.exist gt 0 then begin
 no = env_field.no 
@@ -5917,7 +5912,6 @@ CASE eventval OF
 		scan_read,w_viewscan_id.unit, i1, i2
 		WIDGET_CONTROL,w_viewscan_ids.plotspec,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.field,SENSITIVE=1
-;		WIDGET_CONTROL,w_viewscan_ids.ascii,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
 		end
                 END
@@ -5939,7 +5933,7 @@ CASE eventval OF
         	PS_print,'catch1d.ps'
        		END
 	"VIEWSPEC_NEW" : BEGIN
-		w_plotspec, GROUP=event.top
+		w_plotspec, GROUP=w_viewscan_ids.base
 		END
 	"VIEWSPEC_FIELD" : BEGIN
 		save_scan_dump,filename
@@ -5974,7 +5968,6 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		WIDGET_CONTROL,w_viewscan_ids.printplot,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.plotspec,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.field,SENSITIVE=1
-;		WIDGET_CONTROL,w_viewscan_ids.ascii,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
                 END
 	"VIEWSPEC_OK" : BEGIN
@@ -5987,14 +5980,12 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 	return
 	end
 
-;		scan_read_position,w_viewscan_id.unit,i1
 		point_lun,w_viewscan_id.unit,w_viewscan_id.fptr(i1-1)
 		i2 = i1 + 1
 		scan_read,w_viewscan_id.unit, i1, i2
 		WIDGET_CONTROL,w_viewscan_ids.printplot,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.plotspec,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.field,SENSITIVE=1
-;		WIDGET_CONTROL,w_viewscan_ids.ascii,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
                 END
 	"VIEWSPEC_NEXT" : BEGIN
@@ -6013,7 +6004,6 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		WIDGET_CONTROL,w_viewscan_ids.printplot,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.plotspec,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.field,SENSITIVE=1
-;		WIDGET_CONTROL,w_viewscan_ids.ascii,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
 
                 END
@@ -6032,7 +6022,6 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		WIDGET_CONTROL,w_viewscan_ids.printplot,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.plotspec,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.field,SENSITIVE=1
-;		WIDGET_CONTROL,w_viewscan_ids.ascii,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
                 END
 	"VIEWSPEC_FIRST" : BEGIN
@@ -6048,7 +6037,6 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		WIDGET_CONTROL,w_viewscan_ids.printplot,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.plotspec,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.field,SENSITIVE=1
-;		WIDGET_CONTROL,w_viewscan_ids.ascii,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
                 END
 	"VIEWSPEC_SLIDER" : BEGIN
@@ -6062,7 +6050,6 @@ if OS_SYSTEM.os_family eq 'unix' then spawn,[OS_SYSTEM.mv, file1, filename],/nos
 		WIDGET_CONTROL,w_viewscan_ids.printplot,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.plotspec,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.field,SENSITIVE=1
-;		WIDGET_CONTROL,w_viewscan_ids.ascii,SENSITIVE=1
 		WIDGET_CONTROL,w_viewscan_ids.print,SENSITIVE=0
                 END
 	"VIEWSPEC_CANCEL" : BEGIN
@@ -6085,7 +6072,6 @@ WIDGET_CONTROL,/HOURGLASS
 if w_viewscan_id.unit gt 0 then begin
 	if (w_viewscan_id.seqno+1) lt w_viewscan_id.maxno then begin
 		i1 = w_viewscan_id.maxno
-;		scan_read_position,w_viewscan_id.unit,i1
 		point_lun, w_viewscan_id.unit, w_viewscan_id.fptr(i1-1)
 		i2 = i1 + 1
 		scan_read,w_viewscan_id.unit, i1, i2
@@ -6165,10 +6151,6 @@ w_viewscan_plotspec = WIDGET_BUTTON(row0, $
                         VALUE = 'Modify Plot', $
                         UVALUE = 'VIEWSPEC_NEW')
 WIDGET_CONTROL,w_viewscan_plotspec,SENSITIVE=0
-;w_viewscan_ascii = WIDGET_BUTTON(row0, $
-;                        VALUE = 'ASCII Save', $
-;                        UVALUE = 'VIEWSPEC_ASCII')
-;WIDGET_CONTROL,w_viewscan_ascii,SENSITIVE=0
 w_viewscan_field = WIDGET_BUTTON(row0, $
                         VALUE = 'ASCII View', $
                         UVALUE = 'VIEWSPEC_FIELD')
@@ -6204,9 +6186,6 @@ if w_viewscan_id.maxno gt 1 then begin
 
 lastrow = WIDGET_BASE(w_viewscan_base, /ROW)
 
-;w_viewscan_ok = WIDGET_BUTTON(lastrow, $
-;                        VALUE = ' Apply ', $
-;                        UVALUE = 'VIEWSPEC_OK')
 w_viewscan_first = WIDGET_BUTTON(lastrow, $
                         VALUE = ' First ', $
                         UVALUE = 'VIEWSPEC_FIRST')
@@ -6229,7 +6208,6 @@ w_viewscan_ids = { $
 	printplot: w_viewscan_printplot, $
 	plotspec: w_viewscan_plotspec, $
 	field: w_viewscan_field, $
-;	ascii:	w_viewscan_ascii, $
 	print:	w_viewscan_print, $
 	slider:  0L, $
 	seqno:  w_viewscan_seqno, $
@@ -7359,7 +7337,6 @@ scanData.y_array(scanData.y_seqno) = scanData.y_value
 ; get env fields
 
 n = env_field.no
-;help,n
 ; check for the case only if scanno >= startno for the value changed 
 
 if scanData.scanno ge scanData.startno then begin
@@ -7375,7 +7352,6 @@ if n gt 0 then begin ;======
 	if ij gt 0 then begin
 	s0 = string(replicate(32b,110))
 	ze = make_array(ij,/string,value=string(replicate(32b,110)))
-;	zee = make_array(110,ij,/byte)
 
 	for i=0,ij-1  do begin
 	st = s0
@@ -7384,7 +7360,6 @@ if n gt 0 then begin ;======
 	strput,st,env_field.descs(diff(i)),70
 	len = strlen(st)
 	ze(i) = st
-;	print,i,ze(i),'$'
 	if len lt 110 then ze(i)=  ze(i) + string(replicate(32b,110-len))
 	end
 	u_write,unit,ze
@@ -7408,7 +7383,6 @@ if scanData.scanno lt scanData.startno then begin
 	strput,st,env_field.descs(i),70
 	len = strlen(st)
 	ze(i) = st
-;	print,i,ze(i),'$'
 	if len lt 110 then ze(i)=  ze(i) + string(replicate(32b,110-len))
 	end
 	u_write,unit,ze
@@ -7558,7 +7532,6 @@ PRO catch1d_checkImageFile,filename,errcode
 	endif else errcode=0
         endif else errcode=1
 
-;	print,'errcode=',errcode
 	return
 END
 
@@ -7575,10 +7548,6 @@ COMMON LABEL_BLOCK,x_names,y_names,x_descs,y_descs,x_engus,y_engus
 
 filename = scanData.path + strtrim(w_plotspec_array(3),2)+'.image'
 
-
-;brandnew:
-;	catch1d_checkImageFile,filename,errcode
-;	if errcode eq -99 then goto,brandnew 
 
 CATCH,error_status
 if error_status eq -171 then begin
@@ -9427,6 +9396,7 @@ set_sensitive_off   ; when realtime is going on don't let user change
 		endif else begin
 ;		WIDGET_CONTROL,widget_ids.base, /clear_events
 		empty
+
 		end
 end
 
@@ -10256,7 +10226,7 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;                        Replace GIF by XDR saving options in view2d, plot2d
 ;       06-30-00 bkc   - R2.2.2c9
 ;                        Fix xtitle with positioner number
-;       08-01-00 bkc     Modified the PV goto dialog according to the readin 
+;	08-01-00 bkc     Modified the PV goto dialog according to the readin 
 ;			 positioner values
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
