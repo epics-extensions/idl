@@ -19,7 +19,9 @@ endif
 
 set xdr = "DC"
 
-echo ".run DC.pro.R2.0" >! go_viewer
+echo ".run read_scan.pro.R2" >! go_viewer
+echo ".run readScan.pro.R2" >>! go_viewer
+echo ".run DC.pro.R2.0" >>! go_viewer
 echo ".run vw2d.pro.R2.0" >>! go_viewer
 echo "$xdr" >>! go_viewer
 idl go_viewer
