@@ -161,7 +161,7 @@ sz = size(info.image_final)
 
 xdim = sz(1)
 xa = indgen(xdim)
-if keyword_set(xvector) then xa(0:n_elements(xvector)-1) = xvector
+if keyword_set(xvector) then xa = xvector(0:sz(1)-1)
 
 format = info.format 
 
@@ -185,9 +185,8 @@ end
 if sz(0) eq 2 then begin
 
 	ydim = sz(2)
-
 	ya = indgen(ydim)
-	if keyword_set(yvector) then ya(0:n_elements(yvector)-1) = yvector
+	if keyword_set(yvector) then ya = yvector(0:sz(2)-1)
 
 	format_1 = '('+format+',I5,'+strtrim(ydim,2)+'('+format+'))'
 	openw,unit, filename ,/get_lun
@@ -522,6 +521,7 @@ PRO calibration_factor,image_array,id_def,dnames=dnames,dvalues=dvalues, no_fiel
 ;       Written by:     Ben-chin Cha, Jan 19, 1999.
 ;       01-11-2001      Add the keyword DNAME to override the default detname 
 ;       01-25-2001      Set default selection to F01*D01
+;       07-11-2002      Fix ASCII report when real x,y values desired
 ;-
 
 if XRegistered('CALIBRA') then return 
