@@ -14,6 +14,9 @@ setenv IDL_DEVICE X
 setenv IDL_STARTUP $PVT_LOC/viewer_startup.pro
 
 echo ".run ez_fit" >! go_viewer
+echo ".run read_scan" >>! go_viewer
+echo ".run readScan" >>! go_viewer
+echo ".run scanSee__define" >>! go_viewer
 echo ".run scanSee" >>! go_viewer
 echo "scanSee" >>! go_viewer
 idl go_viewer
