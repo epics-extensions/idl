@@ -15,9 +15,9 @@ source $PVT_LOC/ezcaidl_setup
 	set exe = "-rt=sscan.sav"
 	endif
 
+source /usr/local/rsi/idl_6.0/bin/idl_setup
 echo $exe
 if ( "$1" == "" ) then
-	source /usr/local/rsi/idl_6.0/bin/idl_setup
 	idl -32 $exe
 exit
 endif
@@ -35,6 +35,5 @@ echo ".run DC.pro" >>! go_viewer
 echo ".run user_scan.pro" >>! go_viewer
 echo "$xdr" >>! go_viewer
 cat go_viewer
-source /usr/local/rsi/idl/bin/idl_setup
 idl -32 go_viewer
 rm go_viewer
