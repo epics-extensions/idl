@@ -63,15 +63,67 @@ FUNCTION slope,X,Y
 		y = x
 		X = indgen(nx)
 	end
-	slopey = y*0
+	m = y*0
 	for i=1,nx-1 do begin
 		dx = x(i) - x(i-1)
 		if dx ne 0. then begin
-		slopey(i)= (y(i)-y(i-1))/dx
-;		print,i,x(i),y(i),slopey(i)
+		m(i)= (y(i)-y(i-1))/dx
+;		print,i,x(i),y(i),m(i)
 		end
 	end
-	return,slopey
+	return,m
+END
+
+PRO  getStatisticDeviation_1d,id1,y,mean,sdev,mdev,st
+        mean=0.
+        sdev=0.
+        mdev=0.
+        no = n_elements(y)
+        if no eq 0 then return
+        mean = total(y)/no
+        if no eq 1 then return
+        index = where(y gt mean, count)      ; check for constant function
+        mean = [mean,0.,0.,0.]
+        if count gt 0 then mean = MOMENT(y,mdev=mdev,sdev=sdev)
+
+st = id1
+st= [st+' ']
+        st = [st, '   Mean         = '+string(mean(0))]
+        st = [st, '   Standard Dev = '+string(sdev)]
+        st = [st, '   Mean Abs Dev = '+string(mdev)]
+        st = [st, '   Variance     = '+string(mean(1))]
+        st = [st, '   Skewness     = '+string(mean(2))]
+        st = [st, '   Kurtosis     = '+string(mean(3))]
+END
+
+PRO  get_statistic_1d,namelabel,p1,d1,c_mass,xpeak,ypeak,y_hpeak,FWHM,st
+; p1 - x vector
+; d1 - y vector
+; call statistic_1d
+
+        statistic_1d,p1,d1,c_mass,x_peak,y_peak,y_hpeak,FWHM
+
+st = namelabel
+st= [st+' ']
+        st = [st, '   Peak  X='+strtrim(x_peak,1)+'  Y='+strtrim(y_peak,1)]
+        st = [st, '   H-Peak  Y='+strtrim(y_hpeak)]
+        st = [st, '   Centroid  '+ strtrim(c_mass,1)]
+        st = [st, '   FWHM      '+strtrim(FWHM,1)]
+
+if n_elements(x_peak) gt 0 then begin
+        largest = max(y_peak)
+        i_largest = 0
+        for i=0,n_elements(x_peak)-1 do begin
+                if y_peak(i) ge largest then begin
+                i_largest = i
+                goto, write_peak
+                end
+                end
+        write_peak:
+        xpeak = x_peak(i_largest)
+        ypeak = y_peak(i_largest)
+        end
+
 END
 
 ;
@@ -269,7 +321,7 @@ if keyword_set(FIT) eq 0 then begin
 		if y(i) eq peak then begin
 		x_peak = x(i)
 		y_peak = peak
-		if list then 	printf,unit,'Xmax,Ymax: ',x_peak, y_peak
+		if list then 	printf,unit,'Peak @x,y:',x_peak, y_peak
 		goto,append_close
 		end
 	end
