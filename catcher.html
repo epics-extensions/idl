@@ -14,7 +14,7 @@ this routine, refer to the IDL Online Help Navigator
 or type: <P>
 <PRE>     ? mk_html_help</PRE><P>
 at the IDL command line prompt.<P>
-<STRONG>Last modified: </STRONG>Mon Aug 26 11:06:18 1996.<P>
+<STRONG>Last modified: </STRONG>Wed Aug 20 11:05:56 1997.<P>
  
 <HR>
  
@@ -23,16 +23,24 @@ at the IDL command line prompt.<P>
 <UL>
 <LI><A HREF="#BOX_CURSOR">BOX_CURSOR</A>
 <LI><A HREF="#CATCHER_V1">CATCHER_V1</A>
-<LI><A HREF="#CW_TERM[1]">CW_TERM[1]</A>
-<LI><A HREF="#CW_TERM[2]">CW_TERM[2]</A>
-<LI><A HREF="#PLOT1D">PLOT1D</A>
-<LI><A HREF="#U_READ[1]">U_READ[1]</A>
-<LI><A HREF="#U_READ[2]">U_READ[2]</A>
-<LI><A HREF="#U_WRITE[1]">U_WRITE[1]</A>
-<LI><A HREF="#U_WRITE[2]">U_WRITE[2]</A>
+<LI><A HREF="#CW_TERM">CW_TERM</A>
+<LI><A HREF="#OS_INIT">OS_INIT</A>
+<LI><A HREF="#PS_CLOSE">PS_CLOSE</A>
+<LI><A HREF="#PS_ENSCRIPT">PS_ENSCRIPT</A>
+<LI><A HREF="#PS_OPEN">PS_OPEN</A>
+<LI><A HREF="#PS_PRINT">PS_PRINT</A>
+<LI><A HREF="#PS_PRINTER">PS_PRINTER</A>
+<LI><A HREF="#U_BI2XDR">U_BI2XDR</A>
+<LI><A HREF="#U_CLOSE">U_CLOSE</A>
+<LI><A HREF="#U_OPENR">U_OPENR</A>
+<LI><A HREF="#U_OPENW">U_OPENW</A>
+<LI><A HREF="#U_READ">U_READ</A>
+<LI><A HREF="#U_REWIND">U_REWIND</A>
+<LI><A HREF="#U_WRITE">U_WRITE</A>
+<LI><A HREF="#VIEW1D">VIEW1D</A>
+<LI><A HREF="#VIEW1D_OVERLAY">VIEW1D_OVERLAY</A>
 <LI><A HREF="#VIEW2D">VIEW2D</A>
 <LI><A HREF="#XDISPLAYFILE">XDISPLAYFILE</A>
-<LI><A HREF="#XSURFACE">XSURFACE</A>
 </UL><P>
  
 <HR>
@@ -117,7 +125,7 @@ at the IDL command line prompt.<P>
 <A NAME="CATCHER_V1">
 <H2>CATCHER_V1</H2></A>
 <A HREF="#BOX_CURSOR">[Previous Routine]</A>
-<A HREF="#CW_TERM[1]">[Next Routine]</A>
+<A HREF="#CW_TERM">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
@@ -211,7 +219,7 @@ at the IDL command line prompt.<P>
        CATCHER_V1, CONFIG='test.config', ENVFILE='test.env', DATA='test.dat'
 
  MODIFICATION HISTORY:
-       Written by:	Ben-chin Cha, 02-27-96.
+       Written by:     Ben-chin K. Cha, 02-27-96.
 
        04-16-96  bkc  - Reduce the data catcher window size by moving scan 
                         pvname entries to a pop up setup window 
@@ -223,14 +231,32 @@ at the IDL command line prompt.<P>
 
        04-29-96 bkc   - Modified pv status, main window manager, release
                         note 1.4
+       09-30-96 bkc   - Implemented more new features, dialog windows, 
+                        exceptional catches, check for non saved scan
+                        data, improve the efficiency, release note 1.5.1 
+                        etc...
+       11-07-96 bkc   - Monitor positioner readback name, debug option,
+                        various realtime plot option
+       12-13-96 bkc   - Modified index file updating, aborting 2D scan,
+                        image file location, report location
+       07-23-97 bkc   - Added image strip to show all 15 detectors 2D image 
+                        (two sizes are available); 
+                        Added the support for different operating system, eg
+                        UNIX or W95 (see SYSTEM_BLOCK, os.init);
+                        Modified to run under IDL4.0.1 as well as IDL5.0 
+       08-08-97 bkc   - Release R2.1 changes
+                        Fix the problem of 'No Save', wrong X, Y array due 
+                        to user aborting 2D scans from the MEDM screen
+                        Database desc info for detectors are added to 
+                        the 2D image data
 </PRE><P>
 <STRONG>(See catcher_v1.pro)</STRONG><P>
 <HR>
  
-<A NAME="CW_TERM[1]">
-<H2>CW_TERM[1]</H2></A>
+<A NAME="CW_TERM">
+<H2>CW_TERM</H2></A>
 <A HREF="#CATCHER_V1">[Previous Routine]</A>
-<A HREF="#CW_TERM[2]">[Next Routine]</A>
+<A HREF="#OS_INIT">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
@@ -300,294 +326,491 @@ at the IDL command line prompt.<P>
 <STRONG>(See catcher_v1.pro)</STRONG><P>
 <HR>
  
-<A NAME="CW_TERM[2]">
-<H2>CW_TERM[2]</H2></A>
-<A HREF="#CW_TERM[1]">[Previous Routine]</A>
-<A HREF="#PLOT1D">[Next Routine]</A>
+<A NAME="OS_INIT">
+<H2>OS_INIT</H2></A>
+<A HREF="#CW_TERM">[Previous Routine]</A>
+<A HREF="#PS_CLOSE">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
-	cw_term
+	OS_INIT
 
  PURPOSE:
-      writtable text window widget
+       Defines the structure of main operating system variables. All the 
+       operating system dependent varibles used in data catcher are 
+       assembled in this routine. 
 
  CATEGORY:
-	Compound widgets.
+       Global System Variables !os.
 
  CALLING SEQUENCE:
-	widget_id = CW_TERM(parent)
+       OS_INIT
 
- INPUTS:
-       PARENT - The ID of the parent widget.
-
- KEYWORD PARAMETERS:
-	BGROUP_NAMES:	An array of strings to be associated with
-			each button and returned in the event structure as VALUE.
-	BGEVENT_FUNCT:	The name of an user-supplied event function 
-			for the buttons. This function is called with the return
-			value structure whenever a button is pressed, and 
-			follows the conventions for user-written event
-			functions.
-	FONT:		The name of the font to be used for the text output 
-			If this keyword is not specified, the default
-			font is used.
-	FRAME:		Specifies the width of the frame to be drawn around
-			the base.
-       FILENAME:       Copy contents of file into widget
-       RESET:          Clear existing widget contents and write new value/file.
-                       The parent widget is the existing widget id. 
-	MAP:		If set, the base will be mapped when the widget
-			is realized (the default).
-	SCROLL:		If set, the base will include scroll bars to allow
-			viewing a large text area through a smaller viewport.
-	SET_VALUE:	The initial value of the text widget. This is equivalent
-			to the later statement:
-
-			WIDGET_CONTROL, widget, set_value=value
-
-       TITLE:          New Window title
-	UVALUE:         The user value for the compound widget
-
-	XSIZE:		The width of the text widget
-	YSIZE:		The height of the text widget
-
- OUTPUTS:
-       The ID of the created widget is returned.
+ PARAMETER FIELDS:
+       ARCH:           IDL detected operating system architecture
+       OS:             IDL detected operating system 
+       OS_FAMILY:      IDL detected operating system family
+       RELEASE:        IDL release number
+       FONT:           Bold font used in highlight label in dialog
+       DEVICE:         Default output device
+       FILE_SEP:       Operating sytem file separator, '/' for unix '\' for W95
+       CHMOD:          Command change file permission mode, 'chmod'
+       MV:             Command rename file, 'mv' for unix, 'rename' for W95
+       CP:             Command copy file, 'cp' for unix, 'copy' for W95
+       RM:             Command remove file, 'rm' for unix, 'del' for W95
+       LPR:            Command print PS file, 'lpr' for unix, 'print' for W95
+       PRT:            Command print text file, 'enscript' for unix, 'print' for W95
+       PRINTER:        Default printer name, '' 
+       WC:             Command return line count, 'wc' for unix
 
  COMMON BLOCKS:
-	None.
+       COMMON SYSTEM_BLOCK
 
  SIDE EFFECTS:
+       This routine defines the OS_SYSTEM structure and the global 
+       system variable !os. All the system dependent varialbes used in
+       data catcher and data viewer are kept in this routine.
+
+ RESTRICTIONS:
+       Current version works for Unix and W95 operating system. 
 
  PROCEDURE:
-	WIDGET_CONTROL, id, SET_VALUE=value can be used to change the
-		current value displayed by the widget.
+       Porting to other operating system, the corresponding
+       fields in 'os.init' may need to be modified accordingly.
 
-	WIDGET_CONTROL, id, GET_VALUE=var can be used to obtain the current
-		value displayed by the widget.
+ EXAMPLE:
+
+               OS_INIT
 
  MODIFICATION HISTORY:
-  01  8-9-95  jps  	modified from idl's cw_tmpl.pro
+       Written by:     Ben-chin K. Cha, 6-01-97.
+       xx-xx-xx iii  - comment
 </PRE><P>
-<STRONG>(See view2d.pro)</STRONG><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
 <HR>
  
-<A NAME="PLOT1D">
-<H2>PLOT1D</H2></A>
-<A HREF="#CW_TERM[2]">[Previous Routine]</A>
-<A HREF="#U_READ[1]">[Next Routine]</A>
+<A NAME="PS_CLOSE">
+<H2>PS_CLOSE</H2></A>
+<A HREF="#OS_INIT">[Previous Routine]</A>
+<A HREF="#PS_ENSCRIPT">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
-	PLOT1D
+       PS_CLOSE
 
  PURPOSE:
-       This routine provides a general purpose flexible cartesion plot
-       package.  It provides simple to use automatic feature of fline style, 
-       thickness, symbols, and color options in plot.
-
-       The window generated by this routine will be resizable by the 
-       window manager. 
-
-       Depress the 'Print' button will generate a postscript copy of the
-       graph.
-
-       Normally it accepts two parameters X and Y. If the first parameter
-       is not used then the data array is plotted on the ordinate versus 
-       the point number on the abscissa.  Multiple curves (or variables) 
-       can be stacked into the second parameter as a two dimensional array, 
-       the first dimension gives the number of data points in each curve,
-       the second dimension gives the number of curves to be plotted.
-  
-
- CATEGORY:
-	Widgets.
+       This routine closes the PostScript output device and resets the
+       the original system graphic device as the output plot device.
 
  CALLING SEQUENCE:
-
-	PLOT1D, [X,] Y [, ID_TLB, ID_DRAW]
+       PS_CLOSE
 
  INPUTS:
-       X:      The vector array for X abscissa.
-
-       Y:      The Y data array for curve plot. The Y array can contain
-               more than one curve, the first dimension gives the number
-               of data to be plotted for the curve, the second dimension
-               gives the number of curves to be plotted.
-	
- KEYWORD PARAMETERS:
-       TITLE:  Set this keyword to specify the plot title string.
-
-       XTITLE: Set this keyword to specify the xtitle string.
-
-       YTITLE: Set this keyword to specify the ytitle string.
-
-       COLOR:  Set this keyword to specify the color number used
-               in the plot routine.
-
-       SYMBOL: Set this keyword to specify data plotted as symbol, set to -1
-               data plot as symbol and connected with line.
-
-       XLOG:   Set this keyword to specify a logrithmic X axis.
-
-       YLOG:   Set this keyword to specify a logrithmic Y axis.
-
-       XRANGE: Set this keyword to specify the desired data range for 
-               the X axis.
-
-       YRANGE: Set this keyword to specify the desired data range for 
-               the Y axis.
-
-       XMARGIN: Set this keyword to specify the left and right margin, 
-                default xmargin=[10,3]
-
-       YMARGIN: Set this keyword to specify the bottom and top margin 
-                default ymargin=[5,3]
-
-       THICK:  Set this keyword to specify the line thickness for the
-               axes and the line plot. 
-
-       LINESTYLE:  Set this keyword to turn on different line style used. 
-
-       LEGEND:  Set the legend strings corresponding to curves drawn.
-
-       XYLEGEND: Set the x,y location of the legend strings, % from the
-                 lower left corner from the graph window, default 
-                 xylegend=[0.75, 0.35].
-
-       COMMENT:  Set this keyword to write any footnotes on the graph.
-
-       STAMP:  Set this keyword to put the time stamp and user ID on the page. 
-
-       WTITLE: Set this keyword to specify the window title string,
-               default to 'Plot1d'.
-
-       WIDTH:  The initial window width at the creation time, which 
-               default to 250 pixel.
-  
-       HEIGHT: The initial window height at the creation time, which 
-               default to 250 pixel.
-
-       GROUP:  The widget ID of the group leader of the widget. If this
-               keyword is specified, the death of the group leader results 
-               in the death of PLOT1D.
-
-       BUTTON: Set this keyword if no print and close buttons are desired
-               for the PLOT1D widget.
-
-       CLEANUP: Set this keyword if the created window can no be closed by the
-                window manager is desired.
-
- OPTIONAL_OUTPUTS:
-       ID_TLB: The widget ID of the top level base returned by the PLOT1D. 
-
-       ID_DRAW: The widget ID of the drawing area used by the PLOT1D. 
-
- COMMON BLOCKS:
        None.
 
- SIDE EFFECTS:
-       If more than one curves are stored in the Y array, it automatically
-       uses different color for each curve. If the color keyword is set
-       by the user, then the specified color will be used for the whole plot. 
-
- RESTRICTIONS:
-       It is assumed that the X position array is the same for multiple
-       curve plot. 
-
- EXAMPLES:
-       Create a resizable line plot without any title or label 
-       specification.
-
-           x = !pi * indgen(100)/25
-           PLOT1D, x, sin(x)
-
-       Create a resizable line plot with title specifications. 
-
-           PLOT1D, x, sin(x), title='title', xtitle='xtitle', ytitle='ytitle'
-
-       Plot two curves with different linestyle and legend at default location.
-
-           x=indgen(100)
-           y=make_array(100,2)
-           y(0,0)=sin(x * !pi / 50)
-           y(0,1)=cos(x * !pi / 50)
-           PLOT1D,x,y,legend=['line1','line2'],/linestyle
-
-       Same as the above example plus symbol and a specified legend location.
-
-           x=indgen(100)
-           y=make_array(100,2)
-           y(0,0)=sin(x * !pi / 50)
-           y(0,1)=cos(x * !pi / 50)
-           PLOT1D,x,y,/linestyle,symbol=-1, $
-              legend=['line1','line2'], xylegend=[0.5,0.9]
-
-       Plot x,y array plus two lines of comment and a time stamp on the graph.
-     
-           PLOT1D,x,y,comment=['Comment line1','Comment line2'],/stamp
-
- MODIFICATION HISTORY:
-       Written by:     Ben-chin Cha, Mar. 7, 1996.
-
-       04-26-96    Add the window cleanup keyword 
-</PRE><P>
-<STRONG>(See plot1d.pro)</STRONG><P>
-<HR>
- 
-<A NAME="U_READ[1]">
-<H2>U_READ[1]</H2></A>
-<A HREF="#PLOT1D">[Previous Routine]</A>
-<A HREF="#U_READ[2]">[Next Routine]</A>
-<A HREF="#ROUTINELIST">[List of Routines]</A>
-<PRE>
- NAME:
-       U_READ
-
- PURPOSE:
-       This routine reads an unformatted data entity from a file unit which is
-       opened for unformatted read. It supports all IDL data type except the
-       complex number and up to 2D array.  
-
- CALLING SEQUENCE:
-
-       U_READ, Unit, Var, /Help
-
- INPUTS:
-       Unit:   The logic unit number returned by file open for unformatted
-               read.
-	
- KEYWORD PARAMETERS:
-       HELP:   If this keyword is set, a simple on line help is given.
-
  OUTPUTS:
-       Var:    This variable holds the right type of data obtained from 
-               the opened file, it can be either 1D vector, or 2D array.
+       None.
+
+ KEYWORD PARAMETERS:
+       None.
+
+ COMMON BLOCKS:
+       COMMON SYSTEM_BLOCK
+       COMMON COLORS 
 
  RESTRICTIONS:
-       All the data must be created by the U_WRITE routine in order to be 
-       read by this routine.
+       The program 'PS_open.pro' must be loaded into IDL prior calling
+       this routine. 
 
  EXAMPLE:
 
-       Read the first data entity from the 'test.dat' which was previously
-       created by the U_WRITE routine.
-
-         u_openr,unit,'test.dat'
-         u_read, unit, X
-         u_close,unit
+        PS_OPEN, 'myfile.ps'
+        tvscl,scan
+        PS_CLOSE
 
  MODIFICATION HISTORY:
-       Written by:	Ben-chin Cha, 03-23-95.
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       07-28-97   bkc  Add the support for reverse PostScript color scheme. 
+                       Add handling capability for different operating system
 </PRE><P>
 <STRONG>(See catcher_v1.pro)</STRONG><P>
 <HR>
  
-<A NAME="U_READ[2]">
-<H2>U_READ[2]</H2></A>
-<A HREF="#U_READ[1]">[Previous Routine]</A>
-<A HREF="#U_WRITE[1]">[Next Routine]</A>
+<A NAME="PS_ENSCRIPT">
+<H2>PS_ENSCRIPT</H2></A>
+<A HREF="#PS_CLOSE">[Previous Routine]</A>
+<A HREF="#PS_OPEN">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       PS_ENSCRIPT
+
+ PURPOSE:
+       This routine uses the system printing command to print
+       an ASCII text file. On unix operating system the command
+       'enscript -r' is used. 
+
+ CALLING SEQUENCE:
+       PS_ENSCRIPT, 'filename'
+
+ INPUTS:
+       filename : Specifies the ASCII filename to be printed.
+
+ OUTPUTS:
+       A copy of the specified file is sent to the user selected  
+       printer.
+
+ KEYWORD PARAMETERS:
+
+ COMMON BLOCKS:
+       COMMON SYSTEM_BLOCK
+
+ RESTRICTIONS:
+       The program 'PS_open.pro' must be loaded into IDL prior calling
+       this routine. 
+
+ EXAMPLE:
+
+        PS_ENSCRIPT, 'myfile'
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       07-28-97   bkc  Add handling capability for different operating system
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="PS_OPEN">
+<H2>PS_OPEN</H2></A>
+<A HREF="#PS_ENSCRIPT">[Previous Routine]</A>
+<A HREF="#PS_PRINT">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       PS_OPEN
+
+ PURPOSE:
+       This routine sets the current graphics device to PostScript.
+       and saves plot in a user specified PostScript file.
+
+ CALLING SEQUENCE:
+       PS_OPEN, 'myfile.ps' [,/TV]
+
+ INPUTS:
+       myfile.ps:  Specifies the PostScript filename to be saved.
+
+ OUTPUTS:
+       The PostScript graphic output is saved which can be sent to
+       any PostScript printer or viewer. 
+
+ KEYWORD PARAMETERS:
+       TV:       Specifies whether reverse color video to be used in PS. 
+
+ COMMON BLOCKS:
+       COMMON PRINTER_BLOCK
+       COMMON COLORS 
+
+ RESTRICTIONS:
+       The program 'PS_open.pro' must be loaded into IDL first before 
+       calling this routine.
+
+ EXAMPLE:
+
+        PS_OPEN, 'myfile.ps'
+        tvscl,scan
+        PS_CLOSE
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       07-28-97   bkc  Add the support for color PostScript
+                       Add the support for reverse video
+                       Add handling capability for different operating system
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="PS_PRINT">
+<H2>PS_PRINT</H2></A>
+<A HREF="#PS_OPEN">[Previous Routine]</A>
+<A HREF="#PS_PRINTER">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       PS_PRINT
+
+ PURPOSE:
+       This routine uses the system printing command to print
+       a PostScript or ASCII text file. On the unix operating 
+       system the command 'lpr' is used. 
+
+ CALLING SEQUENCE:
+       PS_PRINT, 'myfile.ps'
+
+ INPUTS:
+       myfile:    Specifies either the PostScript or ASCII text filename 
+                  to be printed.
+
+ OUTPUTS:
+       A copy of the specified file is sent to the user selected  
+       printer.
+
+ KEYWORD PARAMETERS:
+
+ COMMON BLOCKS:
+       COMMON SYSTEM_BLOCK
+
+ RESTRICTIONS:
+       The program 'PS_open.pro' must be loaded into IDL prior calling
+       this routine. 
+
+ EXAMPLE:
+
+        PS_PRINT, 'myfile.ps'
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       07-28-97   bkc  Add handling capability for different operating system
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="PS_PRINTER">
+<H2>PS_PRINTER</H2></A>
+<A HREF="#PS_PRINT">[Previous Routine]</A>
+<A HREF="#U_BI2XDR">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+	PS_PRINTER
+
+ PURPOSE:
+       This widget dialog allows the user to set up PostScript printer
+       and printer name to be used by the IDL session. Default setting
+       is color PS using default printer.
+
+ CATEGORY:
+       Widgets.
+
+ CALLING SEQUENCE:
+       PS_PRINTER [,GROUP=Group]
+
+ INPUTS:
+       None.
+	
+ KEYWORD PARAMETERS:
+       GROUP:  The widget ID of the group leader of the widget. If this 
+               keyword is specified, the death of the group leader results in
+               the death of PS_PRINTER.
+
+ OUTPUTS:
+
+ COMMON BLOCKS:
+       COMMON PRINTER_BLOCK
+
+ SIDE EFFECTS:
+       Initially the system printer is set to the user's default 
+       printer. If a null printer name is specified, whatever the 
+       system printer was previously set will be used. 
+
+ RESTRICTIONS:
+       The program 'PS_open.pro' must be loaded into IDL prior calling
+       this routine. 
+       
+ PROCEDURE:
+      
+ EXAMPLE:
+
+               PS_PRINTER
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 6-01-97.
+       xx-xx-xx bkc  - comment
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="U_BI2XDR">
+<H2>U_BI2XDR</H2></A>
+<A HREF="#PS_PRINTER">[Previous Routine]</A>
+<A HREF="#U_CLOSE">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       U_BI2XDR
+
+ PURPOSE:
+       This IDL routine converts native binary data into platform-independent
+       XDR binary data. 
+
+       The input file should contain only pure native binary data.
+       The output filename uses the input filename suffixed with '.xdr'.
+
+ CALLING SEQUENCE:
+
+       U_BI2XDR, 'filename' [,/Help]
+
+ INPUTS:
+       filename:   The data file should contain pure binary data objects.
+
+ OUTPUTS:
+       filename.xdr:   Output file. 
+                   It contains the converted XDR binary data objects.
+
+ KEYWORD PARAMETERS:
+       HELP:   If this keyword is set, a simple on line help is given.
+
+ RESTRICTIONS:
+       The input data file should contain pure binary data objects.
+
+ EXAMPLE:
+
+        U_BI2XDR,'catch1d.trashcan'
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 05-30-97.
+
+       xx-xx-xx      iii  comment     
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="U_CLOSE">
+<H2>U_CLOSE</H2></A>
+<A HREF="#U_BI2XDR">[Previous Routine]</A>
+<A HREF="#U_OPENR">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       U_CLOSE
+
+ PURPOSE:
+       This routine closes a file LUN opened for unformmated I/O.
+
+ CALLING SEQUENCE:
+
+       U_CLOSE, Unit
+
+ INPUTS:
+       Unit:     The LUN number to be closed.
+
+ OUTPUTS:
+       None.
+
+ EXAMPLE:
+
+        U_CLOSE, unit
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       xx-xx-xx      iii  comment     
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="U_OPENR">
+<H2>U_OPENR</H2></A>
+<A HREF="#U_CLOSE">[Previous Routine]</A>
+<A HREF="#U_OPENW">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       U_OPENR
+
+ PURPOSE:
+       This routine assigns a LUN to the opened file for unformatted
+       read only.
+
+ CALLING SEQUENCE:
+
+       U_OPENR, Unit, 'filename' [,/XDR] [,/Help]
+
+ INPUTS:
+       filename: Specifies the filename to be read by the U_READ 
+                 command.
+
+ OUTPUTS:
+       Unit:     The LUN number to be associated with the opened file.
+
+ KEYWORD PARAMETERS:
+       XDR:      This keyword specifies that the file is opened for 
+                 reading data in platform-independent XDR binary form. 
+       HELP:     If this keyword is set, a simple on line help is given.
+
+ RESTRICTIONS:
+       The data file should contain only consistant type of binary 
+       objects: either native binary data or platform-independent 
+       XDR data. No mixture type is allowed.
+
+ EXAMPLE:
+
+        U_OPENR, unit, 'catch1d.trashcan'
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       xx-xx-xx      iii  comment     
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="U_OPENW">
+<H2>U_OPENW</H2></A>
+<A HREF="#U_OPENR">[Previous Routine]</A>
+<A HREF="#U_READ">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       U_OPENW
+
+ PURPOSE:
+       This routine assigns a LUN to the opened file for unformatted
+       write only.
+
+ CALLING SEQUENCE:
+
+       U_OPENW, Unit, 'filename' [,/Append] [,/XDR] [,/Help]
+
+ INPUTS:
+       filename: Specifies the filename to be created or opened for
+                 data recording through using the U_WRITE command.
+
+ OUTPUTS:
+       Unit:     The LUN number to be associated with the opened file.
+
+ KEYWORD PARAMETERS:
+       APPEND:   This keyword specifies that the file is opened for 
+                 data appending. If not specified, write on the unit
+                 will replace the old file content by the new data.
+       XDR:      This keyword specifies that the file is opened for 
+                 writing data in platform-independent XDR binary form. 
+       HELP:     If this keyword is set, a simple on line help is given.
+
+ RESTRICTIONS:
+       The data file should contain only consistant type of binary 
+       objects: either native binary data or platform-independent 
+       XDR data. No mixture type is allowed.
+
+ EXAMPLE:
+
+        U_OPENW, unit, 'catch1d.trashcan'
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       xx-xx-xx      iii  comment     
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="U_READ">
+<H2>U_READ</H2></A>
+<A HREF="#U_OPENW">[Previous Routine]</A>
+<A HREF="#U_REWIND">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
@@ -600,7 +823,7 @@ at the IDL command line prompt.<P>
 
  CALLING SEQUENCE:
 
-       U_READ, Unit, Var, /Help
+       U_READ, Unit, Var [,/Help]
 
  INPUTS:
        Unit:   The logic unit number returned by file open for unformatted
@@ -627,15 +850,52 @@ at the IDL command line prompt.<P>
          u_close,unit
 
  MODIFICATION HISTORY:
-       Written by:	Ben-chin Cha, 03-23-95.
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       05-30-97	bkc	Support opened file as XDR type data.
 </PRE><P>
-<STRONG>(See view2d.pro)</STRONG><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
 <HR>
  
-<A NAME="U_WRITE[1]">
-<H2>U_WRITE[1]</H2></A>
-<A HREF="#U_READ[2]">[Previous Routine]</A>
-<A HREF="#U_WRITE[2]">[Next Routine]</A>
+<A NAME="U_REWIND">
+<H2>U_REWIND</H2></A>
+<A HREF="#U_READ">[Previous Routine]</A>
+<A HREF="#U_WRITE">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       U_REWIND
+
+ PURPOSE:
+       This routine locates the LUN file pointer at the beginning of the 
+       file.
+
+ CALLING SEQUENCE:
+
+       U_REWIND, Unit
+
+ INPUTS:
+       Unit:     The LUN number to be rewind.
+
+ OUTPUTS:
+       None.
+
+ EXAMPLE:
+
+        U_REWIND, unit
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       07-25-97      bkc  Rename routine rewind to u_rewind     
+</PRE><P>
+<STRONG>(See catcher_v1.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="U_WRITE">
+<H2>U_WRITE</H2></A>
+<A HREF="#U_REWIND">[Previous Routine]</A>
+<A HREF="#VIEW1D">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
@@ -648,7 +908,7 @@ at the IDL command line prompt.<P>
 
  CALLING SEQUENCE:
 
-       U_WRITE, Unit, Var, /Help
+       U_WRITE, Unit, Var [,/Help]
 
  INPUTS:
        Unit:   The logic unit number returned by file open for unformatted
@@ -680,69 +940,172 @@ at the IDL command line prompt.<P>
          u_write, unit, X
          u_close,unit
 
+       Create XDR platform independent data to the 'test.dat'  
+
+         u_openw,unit,/XDR,'test.dat'
+         u_write, unit, X
+         u_close,unit
+
  MODIFICATION HISTORY:
-       Written by:	Ben-chin Cha, 03-23-95.
+       Written by:     Ben-chin K. Cha, 03-23-95.
+
+       05-30-97	bkc	Support opened file as XDR type data.
 </PRE><P>
 <STRONG>(See catcher_v1.pro)</STRONG><P>
 <HR>
  
-<A NAME="U_WRITE[2]">
-<H2>U_WRITE[2]</H2></A>
-<A HREF="#U_WRITE[1]">[Previous Routine]</A>
+<A NAME="VIEW1D">
+<H2>VIEW1D</H2></A>
+<A HREF="#U_WRITE">[Previous Routine]</A>
+<A HREF="#VIEW1D_OVERLAY">[Next Routine]</A>
+<A HREF="#ROUTINELIST">[List of Routines]</A>
+<PRE>
+ NAME:
+       VIEW1D	
+
+ PURPOSE:
+
+       This program is specially written for the data catcher. It
+       provides the IDL user a convenient post data acquisition
+       1D data display program. It shares the common 1D data file
+       with data catcher without interrupting the process of data
+       scanning of data catcher.
+
+ CATEGORY:
+	Widgets. 
+
+ CALLING SEQUENCE:
+	VIEW1D [,Data='test.dat'] [,Config='test.config'] [,/XDR] [GROUP=Group] 
+
+ INPUTS:
+	None
+
+ KEYWORD PARAMETERS:
+     CONFIG:   Specifies whether the configuration file to be used in the 
+               startup of the VIEW1D.
+     DATA:     Specifies the 1D file name to be used for displaying 
+               captured 1D scan data. If not specified, the default 
+               data file name 'catch1d.trashcan' is assumed.
+     XDR:      Indicates whether the data file entered on the command line is
+               in XDR format.
+     GROUP:    The widget ID of the group leader of the widget.  If this 
+               keyword is specified, the death of the group leader results in
+               the death of VIEW1D.
+
+ OUTPUTS:
+       It provides various post acquistion 1D scan displaying features. 
+       Various levels of report files can be generated by this program.  
+       All the file generated will be prefixed by the DATA file name.
+
+ COMMON BLOCKS:
+       VIEW1D_COM
+       W_PLOTSPEC_BLOCK
+       W_VIEWSCAN_BLOCK
+
+ SIDE EFFECTS:
+       New scan data may be appended at the end of data file if the
+       data catcher is runing at the same time and new data 
+       is detected by the data catcher. Reload the data file will
+       let you access the newly captured scan data from the file.
+
+ RESTRICTIONS:
+
+ PROCEDURE:
+       The 'os.init' must be loaded into IDL before invoking the 
+       VIEW1D application.
+
+ EXAMPLE:
+       Use default setting for view1d 
+
+       	VIEW1D
+
+       Override the default setting by specifying config and data file
+       on the command line
+
+       	VIEW1D, CONFIG='test.config', DATA='test.dat'
+
+ MODIFICATION HISTORY:
+       Written by:     Ben-chin K. Cha, 05-27-97.
+
+       08-01-97  bkc   Add the 2D scan # in the header 
+</PRE><P>
+<STRONG>(See ~/test/idl/catcher/R1.5/view1d_drv.pro)</STRONG><P>
+<HR>
+ 
+<A NAME="VIEW1D_OVERLAY">
+<H2>VIEW1D_OVERLAY</H2></A>
+<A HREF="#VIEW1D">[Previous Routine]</A>
 <A HREF="#VIEW2D">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME:
-       U_WRITE
+       VIEW1D_OVERLAY	
 
  PURPOSE:
-       This routine writes an IDL data array to a file unit which is
-       opened for unformatted write. It supports all IDL data type except the
-       complex number and up to 2D array.  
+
+       This program is specially written for the data catcher. It
+       allows the data catcher user overlay few 1D scans on the same 
+       plot for a selected detector.
+
+ CATEGORY:
+	Widgets. 
 
  CALLING SEQUENCE:
-
-       U_WRITE, Unit, Var, /Help
+	VIEW1D_OVERLAY [,'filename'] [,/XDR] [,GROUP=Group] 
 
  INPUTS:
-       Unit:   The logic unit number returned by file open for unformatted
-               write.
+	None
 
-       Var:    This variable holds the data  array to be written to
-               the opened file, it can be scaler, vector, or 2D array.
-	
  KEYWORD PARAMETERS:
-       HELP:   If this keyword is set, a simple on line help is given.
+     filename: Specifies the 1D file name to be used for displaying 
+               captured 1D scan data. If not specified, the default 
+               data file name 'catch1d.trashcan' is assumed.
+     XDR:      Required it the input data file is in XDR platform-
+               independent binary form.
+     GROUP:    The widget ID of the group leader of the widget.  If this 
+               keyword is specified, the death of the group leader results in
+               the death of VIEW1D.
 
+ OUTPUTS:
+       It uses the general purpose 1D plot plackage to overlay plot the 
+       selected scans. The window is resizable by the X window manager.
+
+ COMMON BLOCKS:
+       COMMON  MULTI_BLOCK, multi_ids
+
+ SIDE EFFECTS:
+       It can be invoked by the script catcher_V1D as a stand along 
+       program.
 
  RESTRICTIONS:
-       The data array can not be complex number. In order to make the
-       data to be read by the U_READ routine, all the data saved must 
-       be using this routine. 
+       Only native binary data is allowed.
+
+ PROCEDURE:
+       The path to this program must be included in the IDL search
+       path.
 
  EXAMPLE:
+       Use default setting for view1d_overlay 
 
-       Create the 'test.dat'  and write the variable X to the file
+       	VIEW1D_OVERLAY
 
-         u_openw,unit,'test.dat'
-         u_write, unit, X
-         u_close,unit
+       Override the default setting by specifying the data file
+       on the command line
 
-       Create or append X to the 'test.dat'  
-
-         u_openw,unit,'test.dat',/append
-         u_write, unit, X
-         u_close,unit
+       	VIEW1D_OVERLAY, 'test.dat.xdr', /XDR
 
  MODIFICATION HISTORY:
-       Written by:	Ben-chin Cha, 03-23-95.
+       Written by:     Ben-chin K. Cha, 05-27-97.
+
+       07-25-97  bkc   Rename the catcher_view1d to view1d_overlay.
+                       Add the support for XDR data format.
 </PRE><P>
-<STRONG>(See view2d.pro)</STRONG><P>
+<STRONG>(See view1d_overlay.pro)</STRONG><P>
 <HR>
  
 <A NAME="VIEW2D">
 <H2>VIEW2D</H2></A>
-<A HREF="#U_WRITE[2]">[Previous Routine]</A>
+<A HREF="#VIEW1D_OVERLAY">[Previous Routine]</A>
 <A HREF="#XDISPLAYFILE">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
@@ -776,6 +1139,8 @@ at the IDL command line prompt.<P>
               file should contain the image data must be in the data catcher
               created format. 
           
+     XDR:     If specified, indicates that the input is in XDR format.
+
  OUTPUTS:
        It provides option of postscript plot of drawing area.
 
@@ -783,7 +1148,7 @@ at the IDL command line prompt.<P>
        None.
 
  RESTRICTIONS:
-	Drawing area is 400 x 400 pixels.
+	Drawing area is 460 x 400 pixels.
 
  PROCEDURE:
        This program is available as an epics/extensions tool. It can be
@@ -793,16 +1158,32 @@ at the IDL command line prompt.<P>
        VIEW2D
 
  MODIFICATION HISTORY:
-       Written by:	Ben-chin Cha, 02-27-96.
-       04-29-96      Add image button, 2d scan #, on-line help      	
+       Written by:     Ben-chin K. Cha, 02-27-96.
+       04-29-96 bkc  Add image button, 2d scan #, on-line help      	
+       09-30-96 bkc  Add cross hair to reflect the cursor position      	
+       11-21-96 bkc  Text window image out include x,y array vales     	
+		      Option of save and load private color map
+                     Take care out of sync 2D scan #
+                     Modify XZ, YZ profile distributions
+       12-13-96 bkc  Add zoom-in, zoom-off, printer support,
+                     color PS plot, rewrite TV, equal aspect TV
+                     ratio, reverse PS video, cursor features, etc
+       04-11-97 bkc  Call the MAX function to give the max location
+       08-08-97 bkc  Release R2.1
+                     Cursor position readout fixed by catcher R2.1
+                     Fix the Y title cut off problem for PostScript 
+                     More useful plots and printouts info for TV screen
+                     and PostScript output
+                        min, max values and locations
+                        detector database  description
+                        positioner database description
 </PRE><P>
-<STRONG>(See view2d.pro)</STRONG><P>
+<STRONG>(See ~/test/idl/catcher/R1.5/catch2d.pro)</STRONG><P>
 <HR>
  
 <A NAME="XDISPLAYFILE">
 <H2>XDISPLAYFILE</H2></A>
 <A HREF="#VIEW2D">[Previous Routine]</A>
-<A HREF="#XSURFACE">[Next Routine]</A>
 <A HREF="#ROUTINELIST">[List of Routines]</A>
 <PRE>
  NAME: 
@@ -861,56 +1242,9 @@ at the IDL command line prompt.<P>
                If file was empty, program would crash. Fixed.
        4 Oct. 1994     MLR Fixed bug if /TEXT was present and /TITLE was not.
       14 Jul. 1995     BKC Increased the max line to variable size.
+      16 Jun. 1997     BKC Max dispalyable line is 10000 for non-unix OS system.
 </PRE><P>
 <STRONG>(See catcher_v1.pro)</STRONG><P>
-<HR>
- 
-<A NAME="XSURFACE">
-<H2>XSURFACE</H2></A>
-<A HREF="#XDISPLAYFILE">[Previous Routine]</A>
-<A HREF="#ROUTINELIST">[List of Routines]</A>
-<PRE>
- NAME:
-	XSURFACE
-
- PURPOSE:
-	This routine provides a graphical interface to the SURFACE and
-	SHADE_SURFACE commands.  Different controls are provided to change 
-	the viewing angle and other plot parameters.  The command used to 
-	generate the resulting surface plot is shown in a text window.
-
- CATEGORY:
-	Widgets.
-
- CALLING SEQUENCE:
-	XSURFACE, Data
-
- INPUT PARAMETERS:
-	Data:	The two-dimensional array to display as a wire-mesh or
-		shaded surface.
-
- KEYWORD PARAMETERS:
-	GROUP:	The widget ID of the widget that calls XSURFACE.  When this
-		keyword is specified, the death of the caller results in the
-		death of XSURFACE.
-
- SIDE EFFECTS:
-	The XMANAGER is initiated if it is not already running.
-
- RESTRICTIONS:
-	XSURFACE does not accept any of the keywords that the IDL command 
-	SURFACE does.
-
- PROCEDURE:
-	Create and register the widget with the XMANAGER and then exit.
-
- MODIFICATION HISTORY:
-	Created from a template written by: Steve Richards, January, 1991.
-       02-12-96   BKC  Modify the Xsurface, returned the base widget ID,
-			which provides a handle for the calling program
-			and such that can be managed by the calling program
-</PRE><P>
-<STRONG>(See view2d.pro)</STRONG><P>
 <HR>
  
 </body>
