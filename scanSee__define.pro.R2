@@ -1499,10 +1499,12 @@ PRO scanSee::Delete
 ;       Written by:     Ben-chin Cha, Jan 19, 2000.
 ;       xx-xx-xxxx      comment
 ;-
+
 catch,error_status
 if error_status then goto,delstep
-	if self.win ne -1 then wdelete,self.win
+	if self.win gt 0 then wdelete,self.win
 delstep:
+	self.win = -1
 	scanimage_free,self.gD
 	obj_destroy,self
 END
