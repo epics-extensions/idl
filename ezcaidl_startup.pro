@@ -7,7 +7,8 @@
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
 device,pseudo=8
-;device,decompose=0
+device,bypass_translation=0         ;  required for 24 bit device
+
 ;  assign color
 
 if !d.n_colors gt 256 then device,decomposed=0
