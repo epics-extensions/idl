@@ -1,4 +1,4 @@
-; $Id: catcher_v1.pro,v 1.46 2000/12/06 18:11:35 cha Exp $
+; $Id: catcher_v1.pro,v 1.47 2001/07/02 20:49:17 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -801,7 +801,7 @@ DEVICE,GET_SCREEN_SIZE=ssize
 
   XMANAGER, 'XYCOORD_BASE', XYCOORD_BASE
 END
-; $Id: catcher_v1.pro,v 1.46 2000/12/06 18:11:35 cha Exp $
+; $Id: catcher_v1.pro,v 1.47 2001/07/02 20:49:17 cha Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -814,7 +814,8 @@ WIDGET_CONTROL, event.id, GET_UVALUE=Ev
 CASE Ev OF 
 'EXIT': WIDGET_CONTROL, event.top, /DESTROY
 'FILE_PRINT': begin
-	if state.file ne '' then begin
+	r = findfile(state.file,count=ct)
+	if r(0) ne '' then begin
 		PS_enscript,state.file
 	endif else begin
 	WIDGET_CONTROL,state.text_area,GET_VALUE=str
@@ -1008,6 +1009,17 @@ COMMON RENAME_BLOCK,rename_ids
 		return
 	end
 	newname = pathdir(0)+strtrim(file2(0),2)
+
+found = findfile(pathdir(0)+'*',count=ct)
+if ct eq 0 then begin
+	r = strpos(pathdir(0),!os.file_sep,2,/reverse_search,/reverse_offset)
+        sdir = strmid(pathdir(0),r+1,strlen(pathdir(0))-r-2)
+	r = dialog_message(['Directory: '+pathdir(0),' does not exist yet!!!', $
+		'You have to first create the sub-directory :','',sdir], $
+		/Info,title='Error in Rename')
+	newname = dialog_pickfile(path=pathdir(0),get_path=p,file=file2(0),$
+		title='Please create the '+sdir+' sub-directory')
+end
 	found = findfile(newname)
 	if found(0) ne '' then begin
 		st =[ 'Filename: ','', newname,'','already exists!', $
@@ -1015,7 +1027,8 @@ COMMON RENAME_BLOCK,rename_ids
 		res = dialog_message(st,/question)
 		if res eq 'No' then return	
 	end
-	spawn,!os.mv + ' '+ oldname + ' '+newname +' &'
+	spawn,[!os.mv, oldname, newname],/noshell
+
 	WIDGET_CONTROL,Event.Top,/DESTROY
       END
   'RENAME_DIALOGCANCEL': BEGIN
@@ -1953,12 +1966,14 @@ for i=0,no-1 do begin
                 if id ne -1 then begin
                         names(i) = strmid(pvnames(i),0,id) + '.DESC'
                 endif else names(i) = pvnames(i) + '.DESC'
-		ln = caget(names(i),pd)
-                descs(i) = pd
+;		ln = caget(names(i),pd)
+;                descs(i) = pd
                 end
-	if keyword_set(print) then print,names(i), i,' ',descs(i)
+;	if keyword_set(print) then print,names(i), i,' ',descs(i)
         end
-
+	ln = cagetArray(names,pd)
+	descs = pd
+print,descs
 END
 
 
@@ -3998,11 +4013,11 @@ if caSearch(scanData.pv) ne 0 then begin
 	return
 	end
 
-	ln = caget(scanData.pv+'.NPTS',pd)
-	ln = caget(scanData.pv+'.MPTS',mpts)
-;	ln = cagetArray([scanData.pv+'.NPTS', scanData.pv+'.MPTS'],pd,/short)
-;	mpts = pd(1) 
-	scanData.req_npts = pd
+;	ln = caget(scanData.pv+'.NPTS',pd)
+;	ln = caget(scanData.pv+'.MPTS',mpts)
+	ln = cagetArray([scanData.pv+'.NPTS', scanData.pv+'.MPTS'],pd,/short)
+	mpts = pd(1) 
+	scanData.req_npts = pd(0)
 	realtime_retval = make_array(scanData.req_npts,scanData.nonames,/double)
 	realtime_id.mpts = mpts
 
@@ -4034,8 +4049,8 @@ WSET, widget_ids.plot_area
 ;    ind = 0 plot the x axis and get monitor queue
 
 if scanData.y_scan then begin
-	in = caget(scanData.y_pv+'.P1DV',pd)
-	scanData.y_value=pd
+	in = cagetArray(scanData.y_pv+'.P1DV',pd)
+	scanData.y_value=pd(0)
 end
 
 if realtime_id.ind eq 0 then begin 
@@ -4457,10 +4472,10 @@ if realtime_id.def(w_plotspec_id.xcord) eq 2 then begin
         x_rn = realtime_pvnames
 
         xmax = realtime_id.xmax
-        ln = caget(x_rn(w_plotspec_id.xcord),pd)
+        ln = cagetArray(x_rn(w_plotspec_id.xcord),pd)
         if ln eq 0 and pd gt xmax then begin
                 xmin=0
-                xmax=pd
+                xmax=pd(0)
                 dx = 0.1 * pd
                 realtime_id.xmax = xmax + dx
                 realtime_id.xmin = xmin - dx
@@ -9513,8 +9528,8 @@ end ;     end of if scanData.option = 1
 	w_plotspec_id.xcord = 0
 	if Event.Index eq 0 then w_plotspec_id.x_axis_u = 1 else $
 	w_plotspec_id.xcord = Event.Index - 1
+	setPlotLabels
 	if realtime_id.ind eq 1 then begin
-		setPlotLabels
 		realtime_id.no = 0
 		realtime_xrange,1,xmin,xmax
 		realtime_id.axis = 1
@@ -10228,6 +10243,8 @@ PRO catcher_v1, config=config, envfile=envfile, data=data, nosave=nosave, viewon
 ;       12-06-00 bkc   - R2.2.2c8+
 ;                        Fix realtime panimage window problem
 ;                        Replace GIF by XDR saving options in view2d, plot2d
+;       06-30-00 bkc   - R2.2.2c9
+;                        Fix xtitle with positioner number
 ;-
 COMMON SYSTEM_BLOCK,OS_SYSTEM
  COMMON CATCH1D_COM, widget_ids, scanData
@@ -10257,7 +10274,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       COLUMN=1, $
       MAP=1, /TLB_SIZE_EVENTS, $
       TLB_FRAME_ATTR = 8, $
-      TITLE='Scan Data Catcher (R2.2.2c8+)', $
+      TITLE='Scan Data Catcher (R2.2.2c9)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
@@ -10507,7 +10524,7 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
 @catcher_v1.init
-scanData.release = '(R2.2.2c8+)'
+scanData.release = '(R2.2.2c9)'
 
 ; get start home work directory
 
