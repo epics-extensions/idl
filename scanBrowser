@@ -7,18 +7,12 @@
 # This file is distributed subject to a Software License Agreement found
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
-source $EPICS_EXTENSIONS/bin/solaris-sparc/idluserdir_setup
+source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 
 echo ".run ez_fit" >! go_viewer
 echo ".run scanSee__define" >>! go_viewer
 echo ".run scansee_browser" >>! go_viewer
 echo "scansee_browser" >>! go_viewer
-#if `isainfo -b` == 64 then
-#        source /usr/local/rsi/idl_5.5/bin/idl_setup
-#        idl -32 go_viewer
-#else
-#        source /usr/local/rsi/idl_5.3/bin/idl_setup
-        idl go_viewer
-#endif
+idl go_viewer
 rm go_viewer
 
