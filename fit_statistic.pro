@@ -78,12 +78,13 @@ END
 ; find  fwh_max, c_mass, peak for a given x,y array
 ;
 PRO statistic_1d,x,y,c_mass,x_peak,y_peak,y_hpeak, fwhm,x_hwdl,x_hwdr, $
-	FIT=FIT,XINDEX=XINDEX,LIST=LIST,PLOT=PLOT,TITLE=TITLE
+	REPORT=REPORT, FIT=FIT, $
+	XINDEX=XINDEX,LIST=LIST,PLOT=PLOT,TITLE=TITLE,GROUP=group
+
 ;
 ; FIT  -  based on data points or use fit data
 ;
 xindex = keyword_set(XINDEX)
-list = keyword_set(LIST)
 
 nx = n_elements(x)
 a=make_array(nx,/float)
@@ -95,24 +96,32 @@ slopey = slope(x,y)
 ymin = min(y)
 ymax = max(y)
 ny = y - ymin
+;if total(abs(ny)) eq 0. then $
+;	r = dialog_message(['Invalid, constant vector data found!!'],/Error)
 
 peak = ymax
 hpeak = 0.5 * max(ny)
 y_hpeak= hpeak + ymin
 
-; area = int_tabulated(x,ny)
-; harea = 0.5 * area
-
-if list then print,'I             X           Y          deltaA          A         Slope     Y-Ymin'
+list = 0
+if keyword_set(report) then list=1
+if list then begin
+	openw,unit,report,/get_lun
+	if keyword_set(title) then printf,unit,title
+	printf,unit,'========'
+end
+if list then printf,unit,'I             X           Y        Y-Ymin          A         DY/DX'
 d0=0
-for i=1,nx-1 do begin
+for i=0,nx-1 do begin
+	if i gt 0 then begin
 	dx = x(i) - x(i-1)
 	if dx ne 0. then begin
 	da(i) = 0.5 *(ny(i)+ny(i-1)) * dx
 	d0 = d0 + da(i)
 	a(i) = d0
-	if list then print,strtrim(i,1),x(i),y(i),da(i),a(i),slopey(i),ny(i)
 	end
+	end
+	if list then printf,unit,strtrim(i,2),x(i),y(i),ny(i),a(i),slopey(i)
 end
 
 area = d0
@@ -121,14 +130,14 @@ harea = 0.5 * area
 ; Find c_mass
 
 newtons_method,x,a,harea,c_mass
-if list then print,'===='
-if list then print,'h_area,C_mass',harea,c_mass
-if list then print,'peak,hpeak,y_hpeak',peak,hpeak,y_hpeak
+if list then printf,unit,'========'
+if list then printf,unit,'h_area,C_mass:',harea,c_mass
+if list then printf,unit,'Ymax,(Ymax-Ymin)/2,Y_hpeak:',ymax,hpeak,y_hpeak
 
 
 ; Find half peaks
 
-if list then print,'===='
+if list then printf,unit,'========'
 nohwdl=0
 nohwdr=0
 x_hwdl=0
@@ -160,10 +169,19 @@ for i=1,nx-1 do begin
 		end
 	end
 end
-if list then $
- print,'nohwdl',nohwdl, x_hwdl
-if list then  $
-print,'nohwdr',nohwdr, x_hwdr
+if list then begin
+	nl = n_elements(nohwdl)
+	if nl gt 1 then begin
+ 	printf,unit,'hwdl X Index:',nohwdl(1:nl-1)
+	printf,unit,'x_hwdl:',x_hwdl(1:nl-1)
+	end
+	nr = n_elements(nohwdr)
+	if nr gt 1 then begin
+	printf,unit,'hwdr X Index:',nohwdr(1:nr-1)
+	printf,unit,'x_hwdr:',x_hwdr(1:nr-1)
+	end
+	printf,unit,'========'
+end
 	lo=0
 	FWHM = 0.
 	xfwhm = 0.
@@ -176,13 +194,15 @@ if n_elements(nohwdr) gt 1 then begin
 ;	xfwhm = make_array(nohw,/float)
 	for i=0,nohw-1 do begin
 		x1 = x_hwd(i)
-	for j=0,nohwe-1 do begin
-		if x_hwde(j) gt x1 then begin
-		dxfwhm = x_hwde(j) - x_hwd(i)
+	for j=i,nohwe-1 do begin
+;		if x_hwde(j) gt x1 then begin
+;		dxfwhm = x_hwde(j) - x_hwd(i)
+		if x_hwde(j) ne x1 then begin
+		dxfwhm = abs(x_hwde(j) - x_hwd(i))
 		lo=lo+1
 		if lo eq 1 then xfwhm = dxfwhm else $
 		xfwhm = [xfwhm,dxfwhm]
-		if list then print,'FWHM',lo,xfwhm(i-1)
+		if list then printf,unit,'FWHM:',lo,xfwhm(lo-1)
 		goto,outer
 		end
 	end
@@ -192,18 +212,27 @@ if n_elements(nohwdr) gt 1 then begin
 	FWHM = max(xfwhm,imax)
 end
 
-;if n_elements(nohwdr) gt 1 then begin
-;	if n_elements(x_hwd) gt 0 then $
-;	x_hwd = [x_hwd, x_hwdr(1:n_elements(nohwdr)-1)] else $
-;	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
-;	end
+	nef = n_elements(xfwhm)
+	nel = n_elements(x_hwde)
+
+if n_elements(nohwdr) gt 1 then begin
+	if n_elements(x_hwd) gt 0 then $
+	x_hwd = [x_hwd, x_hwdr(1:n_elements(nohwdr)-1)] else $
+	x_hwd = [x_hwdr(1:n_elements(nohwdr)-1)]
+	end
+
 if n_elements(x_hwd) gt 0 then begin
-	x_HPeak = x_hwd(imax) 
-	x_hwdl = x_hwd
+	if n_elements(imax) then x_HPeak = x_hwd(imax) else x_HPeak = x_hwd
+;	x_hwdl = x_hwd
 	if n_elements(x_hwde) then x_hwdr = x_hwde
-	if list then print,'0.5*(ymax-ymin)',hpeak
-	if list then print,'x_hpeak:',x_hpeak
-	if list then print,'y_hpeak:',y_hpeak
+	if list then printf,unit,'0.5*(ymax-ymin):',hpeak
+	if list then printf,unit,'x_hpeak:',x_hpeak
+	if list then printf,unit,'y_hpeak:',y_hpeak
+
+	if list then begin
+	free_lun,unit
+	close,unit
+	end
 
 	; plot if view specified
 
@@ -213,8 +242,9 @@ if n_elements(x_hwd) gt 0 then begin
 	ya(0,1) = y(*)*0 + y_hpeak
 	comment=[ 'FWHM='+strtrim(FWHM,2) +',  Cntro='+strtrim(c_mass,2), $
 		'yhpeak='+strtrim(y_hpeak,2) + '  xhpeak='+strtrim(x_hpeak,2)]
-	nef = n_elements(xfwhm)
-	nel = n_elements(x_hwde)
+
+	if n_elements(x_hwdl) gt 1 then begin
+	x_hwd = x_hwdl(1:n_elements(x_hwdl)-1)
 	for i=0,n_elements(x_hwd)-1 do begin
 		st =' xl='+strtrim(x_hwd(i),2) 
 		if nel gt 0 and i lt nel then $
@@ -223,19 +253,37 @@ if n_elements(x_hwd) gt 0 then begin
 		  st = st +'   fwhm='+strtrim(xfwhm(i),2)
 		comment=[comment,st] 
 	end
+	end
 
 	if n_elements(comment) gt 10 then comment=[comment(0:8),'. . .']
 	if keyword_set(title) then $
-	plot1d,x,ya,comment=comment,title=title else $
-	plot1d,x,ya,comment=comment
+	plot1d,x,ya,comment=comment,title=title,group=group,report=report else $
+	plot1d,x,ya,comment=comment,group=group,report=report
 	end
 end
 
 ; Find peaks
 
-if keyword_set(FIT) then begin
+	if list then begin
+	openw,unit,/append,report,/get_lun
+	printf,unit,'========'
+	end
+
+if keyword_set(FIT) eq 0 then begin
+
+	x_peak = x(0)
+	y_peak = peak
+	for i=0,nx -1 do begin
+		if y(i) eq peak then begin
+		x_peak = x(i)
+		y_peak = peak
+		if list then 	printf,unit,'Xmax,Ymax: ',x_peak, y_peak
+		goto,append_close
+		end
+	end
+
+endif else begin
 nopeaks=0
-if list then print,'===='
 for i=1,nx-1 do begin
        if slopey(i-1) gt 0 and slopey(i-1)*slopey(i) lt 0. then begin
 ;		print,i,slopey(i-1),slopey(i)
@@ -252,7 +300,7 @@ for i=1,no do begin
 	i1= i2-1
 	newtons_method,[x(i1),x(i2)],[slopey(i1),slopey(i2)],0.,x_sol,notfound
 	if notfound eq 0 then begin
-if list then 	print,'Peak #',i,x_sol,y(i1)
+	if list then 	printf,unit,'Peak #',i,x_sol,y(i1)
 		x_peak(i-1)= x_sol
 		y_peak(i-1) = y(i1)
 		end
@@ -260,19 +308,17 @@ end
 endif else begin
 	y_peak = ymax
 	if y(0) gt y(nx-1) then x_peak = x(0) else x_peak = x(nx-1)
-if list then 	print,'Ymax at pt ',y_peak,x_peak
+	if list then 	printf,unit,'Xmax,Ymax: ',x_peak, y_peak
 end
-endif else begin
 
-	for i=0,nx -1 do begin
-		if y(i) eq peak then begin
-		x_peak = x(i)
-		y_peak = peak
-		return
-		end
+end
+
+append_close:
+
+	if list then begin
+	free_lun,unit
+	close,unit
 	end
-end
-
 
 END
 
