@@ -214,11 +214,10 @@ COMMON PLOT2d_BLOCK,plot2d_state
       END
   'plot2d_setupComment': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
-	plot2d_state.footnote = n_elements(ch)
-	plot2d_state.comment = ch (0:n_elements(ch)-1)
-;	plot2d_state.comment(0) = plot2d_state.comment(0)+ $
-;	  ' (Max='+strtrim(plot2d_state.max,2) + ', Min='+strtrim(plot2d_state.min,2)+')'
-
+	nline = n_elements(ch)
+	if nline gt 5 then nline = 5
+	plot2d_state.footnote = nline
+	plot2d_state.comment = ch (0:nline-1)
       END
   'plot2d_setupCurLevels': BEGIN
 	WIDGET_CONTROL,Event.ID,GET_VALUE=ch
@@ -627,7 +626,7 @@ if plot2d_state.footnote ne 0 then begin
         real_xl = plot2d_state.xloc * !d.x_size
         real_dy = !d.y_ch_size     ; character pixel height
 	real_yl = plot2d_state.yloc * !d.y_size
-        for i=0,plot2d_state.footnote -1 do begin
+        for i=0,plot2d_state.footnote-1 do begin
         xyouts,real_xl,(real_yl-i*real_dy), plot2d_state.comment(i), /DEVICE
 	end
 end
@@ -820,6 +819,7 @@ COMMON PLOT2D_BLOCK,plot2d_state
 ; MODIFICATION HISTORY:
 ;       Written by:     Ben-chin Cha, Dec 16, 1998.
 ;       12-22-1998      Add zoom in/out button to control X, Y margins
+;       01-15-1999      Allow 5 comment lines on plot
 ;
 ;-
 
@@ -834,9 +834,8 @@ xl = ''
 yl =''
 zl =''
 ti = ''			; plot title
-wti='PLOT2D'		; window title
+wti='PLOT2D (R1.0)'		; window title
 cl = !d.n_colors
-footnote = make_array(10,/string)
 timestamp=''
 xloc = 0.01
 yloc = 0.98
@@ -887,7 +886,7 @@ if keyword_set(yarr) then yarray = yarr
 	ytitle:yl, $
 	ztitle:zl, $
 	footnote: 1, $
-	comment:footnote, $
+	comment: make_array(5,/string), $ 
 	xloc:xloc, $
 	yloc:yloc, $
 	zoom:1.0, $
@@ -907,6 +906,8 @@ if keyword_set(yarr) then yarray = yarr
 	xsize: xsize, $
 	ysize: ysize $
 	}
+
+	if n_elements(footnote) gt 0 then plot2d_state.comment = footnote
 
 	maxvl = max(data,min=minvl)
 	plot2d_state.max = maxvl
