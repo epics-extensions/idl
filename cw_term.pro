@@ -256,13 +256,20 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 		     printf,unit, FORMAT='(A)',value
 	     	     FREE_LUN, unit			;free the file unit.
 		     if OS_SYSTEM.os_family eq 'unix' then begin
-		     if width le 80 then $
-		     spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, fileName], /noshell else $
-		     spawn,[OS_SYSTEM.prt, OS_SYSTEM.printer, '-r', fileName], /noshell
-		     spawn,[OS_SYSTEM.rm, '-f', fileName], /noshell
+		     if OS_SYSTEM.printer ne '' then begin
+			str=OS_SYSTEM.prt+' '+OS_SYSTEM.printer+' '+fileName
+		     	if width gt 80 then $
+			str=OS_SYSTEM.prt+' '+OS_SYSTEM.printer+' -r '+fileName	
 		     endif else begin
-		     spawn,[OS_SYSTEM.prt, fileName]
-		     spawn,[OS_SYSTEM.rm, fileName]
+			str = OS_SYSTEM.prt + ' ' + fileName
+		     	if width gt 80 then $
+			str = OS_SYSTEM.prt + ' -r ' + fileName 
+		     end
+		     	spawn,str
+		     	spawn,[OS_SYSTEM.rm, '-f', fileName], /noshell
+		     endif else begin
+		     	spawn,[OS_SYSTEM.prt, fileName]
+		     	spawn,[OS_SYSTEM.rm, fileName]
 		     end
 		  ENDELSE
 		  END
