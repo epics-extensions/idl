@@ -10,12 +10,43 @@
 @view3d_2d.pro
 
 PRO scanSee_pick3d,file,image_array,pickDet=pickDet,Dump=dump,Group=group
-; pickDet - specifies the desired detector # for big 3D scan file
-; dump    - dump read info
-; file    - input 3D scan file name
-; image_array - return image_array
-
-	pick = 1
+;+
+; NAME:
+;       scanSee_pick3d
+;
+; PURPOSE:
+;       This method allows the user to extract 3D data array for a picked 
+;       detector number, and the widget program view3d_2d slicer will be 
+;       used to view the returned 3D array. 
+;       
+;       It allows the user to view any axial slice (X / Y / Z) from the 
+;       3D array. A user can view the 2D cross section data as image, 
+;       or ascii, or sum all the slices.
+;
+; CALLING SEQUENCE:
+;       scanSee_pick3d, File, Image_array, PickDet=pickDet [, Dump=dump]
+;               [,Group=group]
+;
+; ARGUMENTS:
+;   FILE        - Required input file name to specifies the 3D scan file 
+;   Image_array - Output image data array for the selected detector number
+;
+; KEYWORD:
+;   PickDet - specifies the desired detector # for big 3D scan file
+;   Dump    - if specified, dump the read info
+;   Group   - specifies the parent widget ID, the death of the parent
+;             widget will result the death of this child widget
+; EXAMPLE:
+;
+;   In this example extract the 3D data array of the detector 2 from 
+;   a 3D scan file 'cha_0010.mda'
+;
+;      file = '/home/beams/CHA/data/rix/cha_0049.scan'
+;      v3 = obj_new('scanSee',file=file)
+;      scanSee_pick3d,file,image_array,/dump,pickDet=2
+;
+;-
+	pick = 16
 	if keyword_set(pickDet) then pick = pickDet
 	t1 = systime(1)
 	r = read_scan(file,Scan,pickDet=pick,dump=dump)
@@ -1016,16 +1047,20 @@ PRO scanSee::Last,seqno,filename
 ;       03-15-01    bkc Accommondate for W95 use wild search for *.scan
 ;-
 	found = findfile(self.path+'*'+self.suffix,count=ct)
+	if ct le 1 then begin
+		seqno = self.scanno
+		return
+	end
 	len = strlen(self.prefix)
 	sp = rstrpos(self.prefix,!os.file_sep)
 	if sp gt -1 then sp=sp+1
 	prefix = strmid(self.prefix,sp,len-sp)
 
 	len1 = strlen(prefix)
-	rp = strpos(found(0),prefix)
-	rp1 = rstrpos(found(0),self.suffix)
+	rp = strpos(found(1),prefix)
+	rp1 = rstrpos(found(1),self.suffix)
 	num = 0
-	for i=0,n_elements(found)-1 do begin
+	for i=1,n_elements(found)-1 do begin
 	if rp ge 0 and rp1 gt len1 then begin
 		ar = strmid(found(i),rp+len1,rp1-rp-len1)
 		if fix(ar) gt num then begin
@@ -1034,7 +1069,6 @@ PRO scanSee::Last,seqno,filename
 			end
 		end
 	end
-
 	filename = found(ip)
 print,filename
 
