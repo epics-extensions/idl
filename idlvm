@@ -19,6 +19,7 @@ endif
 if ($1 == "mca") then
    source $LOC/bin/$ARCH/ezcaidl_setup
    setenv XRF_PEAK_LIBRARY $LOC/idllib/xrf_peak_library.txt
+   setenv MCA_HELP_COMMAND 'netscape -remote "openURL(cars.uchicago.edu/software/mca.html)"'
    echo run $LOC/bin/$ARCH/$1.sav
    idl -32 -vm=$LOC/bin/$ARCH/$1.sav
    exit
