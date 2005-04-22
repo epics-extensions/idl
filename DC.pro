@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.42 2005/04/04 22:29:09 cha Exp $
+; $Id: DC.pro,v 1.43 2005/04/22 16:48:20 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2641,6 +2641,66 @@ END
 ;
 
 
+
+PRO calc_newfilepath,pd,err=err
+COMMON CATCH1D_COM, widget_ids, scanData
+COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
+ 
+	prefix = str_sep(scanData.pv,':')
+	scanData.prefix = prefix(0)
+
+	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_fileName', $
+		':saveData_fileSystem',':saveData_subDir']
+	callno = scanData.fileno 
+	ln = cagetArray(nm,pd,/string)
+	err = ln
+	if ln ne 0 then return
+	no = fix(pd(0))
+	scanData.fileno = no 
+	if scanData.filemax lt no then scanData.filemax = no
+	st = strtrim(no,2)
+
+	; check for path change
+	file_sep = !os.file_sep
+	IF !d.name eq 'WIN' THEN BEGIN
+		p1 = str_sep(pd(3),'/')
+		if n_elements(p1) eq 1 then p1 = str_sep(pd(3),'\')
+		sd = ''
+		for i=0,n_elements(p1)-1 do begin
+		sd = sd + p1(i)+file_sep
+		end
+		ps = strpos(scanData.path,sd)
+		if ps lt 0 then begin
+		tn = str_sep(scanData.path,file_sep)
+		scanData.path = tn(0)+file_sep+sd
+		end
+	END
+	IF !d.name eq 'X' THEN BEGIN
+   		ps=0
+		l2 = strlen(pd(2))
+		if strmid(pd(2),l2-1,1) eq file_sep then pd(2)=STrmid(pd(2),0,l2-1)
+		l3 = strlen(pd(3))
+		if strmid(pd(3),l3-1,1) eq file_sep then pd(3)=STrmid(pd(3),0,l3-1)
+		l3 = strlen(pd(3))
+		if strmid(pd(3),0,1) eq file_sep then pd(3)=strmid(pd(3),1,l3-1)
+		path = pd(2)+file_sep+pd(3)+file_sep
+		ps = strpos(path,scanData.path)
+		if ps lt 0 or strtrim(scanData.path,2) eq '' then begin 
+		fs = strpos(pd(2),file_sep+file_sep,0)
+		if fs ge 0 then begin
+		tn = str_sep(path,file_sep)
+		lp = strlen(tn(2))+3
+		if lp gt 0 then begin
+			npath=strmid(path,lp-1,strlen(path)-lp+1)
+			scanData.path = npath
+			end
+		endif else scanData.path = path
+		end
+	END
+;print,'new path=',scanData.path
+
+END
+
 PRO catcher_setup_Event, Event
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
@@ -2724,22 +2784,10 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
 	end
       WIDGET_CONTROL,catcher_setup_ids.base,/DESTROY,BAD=bad
 
-       prefix = strsplit(scanData.pv,':',/extract)
-	if prefix[0] ne '' then begin
-        ln = cagetArray(prefix[0]+':saveData_fullPathName',pd)
-	if ln eq 0 then begin
-	if total(pd) gt 0 then begin
-		if !d.name eq 'X' then begin
-		path = strtrim(pd,2)
-		sp = strpos(path,!os.file_sep,2)
-		scanData.path = string(pd(sp:99))
-		end
-		; need code for win file system
-	end
-	end
-	end
+	calc_newfilepath,err=err
 	write_config
-
+	add_caPendEvent,timer=0.1
+	print,'add_caPendEvent,timer=0.1'
       END
   ENDCASE
 END
@@ -9030,40 +9078,9 @@ PRO calc_newfilename,st,get=get,err=err
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
  
-	prefix = str_sep(scanData.pv,':')
-
-	scanData.prefix = prefix(0)
 count=1
 while (count lt 5)  do begin
-	if n_elements(st) eq 0 or keyword_set(get) then begin
-	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_fileName', $
-		':saveData_fileSystem',':saveData_subDir']
-	callno = scanData.fileno 
-	ln = cagetArray(nm,pd,/string)
-	err = ln
-	if ln ne 0 then return
-	no = fix(pd(0))
-	scanData.fileno = no 
-	if scanData.filemax lt no then scanData.filemax = no
-	st = strtrim(no,2)
-
-		; check for path change
-		
-		file_sep = !os.file_sep
-		if !d.name eq 'WIN' then file_sep = '/'
-
-   		ps=0
-		path = pd(2)+file_sep+pd(3)+file_sep
-		ps = strpos(path,scanData.path)
-		if ps lt 0 then begin
-		tn = str_sep(path,file_sep)
-		lp = strlen(tn(2))+3
-		if lp gt 0 then begin
-			npath=strmid(path,lp-1,strlen(path)-lp+1)
-			scanData.path = npath
-			end
-		end
-
+	calc_newfilepath,pd,err=err
 	filename = pd(1) 
 	if filename ne '' then begin
 
@@ -9100,12 +9117,10 @@ print,'calc_new: ',scanData.trashcan
 	err=-1
 	if count eq 5 then return
 	end
-	end
 count=count+1
 end
 
 END
-
 
 
 
