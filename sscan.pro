@@ -158,7 +158,7 @@ reread:
   sscan_read,Scan,file=filename,/header,error=error,pick3d=pickDet
    if n_elements(Scan) eq 0 then goto,BAD
    if error eq -1 then begin
-   scanSee_free,Scan
+;   scanSee_free,Scan
    goto,BAD  ;reread
    end
 
