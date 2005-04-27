@@ -105,6 +105,9 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
 	npd	: npd, $
 	DI	: DI, $  	;make_array(85,/string), $
 	PI	: PI, $    ;'P'+lis0(0:3), $
+	xdescs	: make_array(4,/string), $
+	ydescs	: make_array(85,/string), $
+	zdescs	: make_array(85,/string), $
 	reverse	: 0, $    set to 1 if 1D scan in negative direction
 	fastscan: 1, $   1-read from mda file, 0 - from CA
 	bypass3d  : 1, $   1 bypass returning 3D data array 
@@ -134,10 +137,9 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       num_det     : 85, 	  $  max no of detectors allowed 
       wf_sel	  : make_array(89,/int), $
 	p_def	  : [0,0,0,0], $      ; positioner def id
-      	px         : FLTARR(4000), $
-      	dx         : make_array(4000,/double), $
-	pa : Make_array(4000,4,/double), $
-	da : FLTARR(4000,nd), $	
+      	px : ptr_new(/ALLOCATE_HEAP), $ FLTARR(4000), $
+	pa : ptr_new(/ALLOCATE_HEAP), $ Make_array(4000,4,/double), $
+	da : ptr_new(/ALLOCATE_HEAP), $ FLTARR(4000,nd), $	
       lastPlot    : 1,   $   ; <0 not plot data, 0 userscale, 1 autoscale 
       scanno	  : 0,            $   ; current plot no 
       startno	  : 0,            $   ; start no when catch1d is brought up
