@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.43 2005/04/22 16:48:20 cha Exp $
+; $Id: DC.pro,v 1.44 2005/04/27 19:41:56 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -551,6 +551,7 @@ win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
    plotYTitle=''
    plotXTitle =''
 
+   ;Now draw the axis and plot the selected waveforms
    num_pts = 1 > (scanData.act_npts-1)
 
    ;extract valid data from global arrays
@@ -565,7 +566,36 @@ win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
 if w_plotspec_id.log eq 0 and auto ne 0 then auto=1   
 if w_plotspec_id.log eq 2 and auto ne 0 then auto=2   ;  Y > 0
 
-;   setPlotLabels                
+y_descs = strtrim(y_descs,2)
+
+	; check for read or scan case
+	id_def = realtime_id.def(*)
+        if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 then begin
+                dim =*(*gD).dim
+		pv = *(*gD).pv
+		scanH = 0
+		if strpos(pv(0),'scanH') ge 0 then  scanH = 1
+		if dim ge 2 then begin
+		id_def = (*(*gD).id_def)(*,dim-2)
+		if dim eq 2 then begin
+		if scanH and scanData.scanH eq 0 then $
+                id_def = (*(*gD).id_def)(*,dim-1) 
+		end
+		endif else id_def = (*(*gD).id_def)(*,0)
+	if scanH then w_plotspec_array(0)=pv(1) else w_plotspec_array(0)=pv(0) 
+	ydescs = scanData.ydescs
+	zdescs = scanData.zdescs
+	y_descs(*) = ''
+	if dim eq 1 then  y_descs(0:n_elements(ydescs)-1) = ydescs(*) else $
+		y_descs(0:n_elements(zdescs)-1) = zdescs(*)
+        end
+	
+     if n_elements(w_plotspec_array) ne 0 then begin 
+	if strlen(strtrim(w_plotspec_array(0))) gt 1 then $
+	plotTitle = strtrim( w_plotspec_array(0))
+	if strlen(w_plotspec_array(2)) gt 1 then $
+	plotYTitle = strtrim(w_plotspec_array(2))
+	end
 
    scanData.lastPlot = auto
    y_zero = 0
@@ -584,12 +614,15 @@ if w_plotspec_id.log eq 2 and auto ne 0 then auto=2   ;  Y > 0
 
 npd = scanData.nd
 if scanData.svers then npd = 70
+sz = size(*scanData.da)
+nd = sz(2)
+if sz(0) eq 1 then nd=1
 
-for i=0,npd - 1 do begin
+for i=0,nd - 1 do begin
 
      IF (scanData.wf_sel(i) EQ 1) THEN  BEGIN
 
-	d1 = scanData.da(0:num_pts,i)
+	d1 = (*scanData.da)[0:num_pts,i]
 
          IF (MIN(d1) LT ymin) THEN ymin = MIN(d1)
          IF (MAX(d1) GT ymax) THEN ymax = MAX(d1)
@@ -608,7 +641,7 @@ end
 
 for i=npd,npd-1+4 do begin
      IF (scanData.wf_sel(i) EQ 1) THEN  BEGIN
-	d1 = scanData.pa(0:num_pts,i-npd)
+	d1 = (*scanData.pa)[0:num_pts,i-npd]
          IF (MIN(d1) LT ymin) THEN ymin = MIN(d1)
          IF (MAX(d1) GT ymax) THEN ymax = MAX(d1)
 	 if w_plotspec_id.log eq 1 and ymin le 0. then begin
@@ -663,14 +696,6 @@ ENDELSE
 
      if total(scanData.wf_sel) eq 0 then  plotXTitle = 'Nothing Selected' 
 
-     if n_elements(w_plotspec_array) ne 0 then begin 
-	if strlen(strtrim(w_plotspec_array(0))) gt 1 then $
-	plotTitle = strtrim( w_plotspec_array(0))
-	if strlen(w_plotspec_array(2)) gt 1 then $
-	plotYTitle = strtrim(w_plotspec_array(2))
-	end
-
-   ;Now draw the axis and plot the selected waveforms
 if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
 ;restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
@@ -695,7 +720,7 @@ if !d.name ne 'PS' then WSET, widget_ids.plot_area
 
    ;Plot the axis w/o any waveforms
 
-	POS=[0.15,0.2,0.78,0.85] 
+	POS=[0.15,0.2,0.75,0.85] 
 	xticklen = w_plotspec_id.xticklen
 	yticklen = w_plotspec_id.yticklen
 	gridstyle = w_plotspec_id.gridstyle
@@ -770,33 +795,16 @@ if ymax le 0. then begin
          MAX_VALUE = 0, junk
 end
 
-y_descs = strtrim(y_descs,2)
-
 st='Scan #: ' + strtrim(scanData.scanno)
 
-	; check for read or scan case
-	id_def = realtime_id.def(*)
-        if scanData.y_scan eq 0 then begin
-                dim =*(*gD).dim
-		pv = *(*gD).pv
-		scanH = 0
-		if strpos(pv(0),'scanH') ge 0 then  scanH = 1
-		if dim ge 2 then begin
-		id_def = (*(*gD).id_def)(*,dim-2)
-		if dim eq 2 then begin
-		if scanH and scanData.scanH eq 0 then $
-                id_def = (*(*gD).id_def)(*,dim-1) 
-		end
-		endif else id_def = (*(*gD).id_def)(*,0)
-        end
-	
 npd = scanData.nd
 if scanData.svers then npd = 70
 
 is = 0
-for i=0,npd-1 do begin
-   IF (scanData.wf_sel(i) EQ 1 and id_def(4+i) gt 0) THEN begin
-	d1 = scanData.da(0:num_pts,i)
+for i=0,nd-1 do begin
+   IF (scanData.wf_sel(i) EQ 1) THEN begin
+	if w_plotspec_id.scan then ii=1 else ii=0
+	d1 = (*scanData.da)[ii:num_pts,i]
 if w_plotspec_id.statistic eq 3 then begin
 	getStatisticDeviation_1d,i,d1,moments,sdev,mdev,st1
         st = [st, st1]
@@ -807,17 +815,16 @@ endif else if w_plotspec_id.statistic gt 0 then begin
 	statis_value = [xpeak,c_mass,FWHM,ypeak]
 end
 
-if n_elements(statis_value) gt 0 then $
+     if n_elements(statis_value) gt 0 then $
        view1d_legends,pos,is,i,p1,d1,num_pts,x_axis,statis_value else $
        view1d_legends,pos,is,i,p1,d1,num_pts,x_axis
-
 	is = is + 1
-        end
+   END
 end
 
 for i=npd,npd+3 do begin
    IF (scanData.wf_sel(i) EQ 1 and id_def(i-npd) gt 0) THEN begin
-        d1 = scanData.pa(0:num_pts,i-npd)
+        d1 = (*scanData.pa)[0:num_pts,i-npd]
 if w_plotspec_id.statistic eq 3 then begin
         getStatisticDeviation_1d,i,d1,moments,sdev,mdev,st1
         st = [st, st1]
@@ -884,15 +891,17 @@ END
 
 
 PRO catch1d_check_xaxis,num_pts,p1,xmin,xmax,scatter=scatter
+COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
 
 ; select the x-axis for plot
 
 	i = w_plotspec_id.xcord
+	if w_plotspec_id.scan then is=1 else is=0
 	if w_plotspec_id.xcord lt 4 then $
-	   p1 = scanData.pa(0:num_pts,i) else $
-	   p1 = scanData.da(0:num_pts,i-4)
+	   p1 = (*scanData.pa)[is:num_pts,i] else $
+	   p1 = (*scanData.da)[is:num_pts,i-4]
 ;	if keyword_set(scatter) then begin
 	   xmin = MIN(p1)
 	   xmax = MAX(p1)
@@ -1053,12 +1062,10 @@ if w_plotspec_id.type eq 0 then begin
 	oplot,[xdis,xdis2],[lydis,lydis],color=color,thick=thick,LINE=line,/noclip else $
 	oplot,[xdis,xdis2],[10^lydis,10^lydis],color=color,thick=thick,LINE=line,/noclip
 	xdis = 0.8*!d.x_size
-	xdis2 = 0.85*!d.x_size
+	xdis2 = 0.835*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
 	if id lt npd then begin
-	   if strlen(y_descs(id)) gt 1 then $
-		xyouts,xdis2,ydis,'  '+y_descs(id), /device else $
-		xyouts,xdis2,ydis,'  Detector '+detname(id), /device
+	  xyouts,xdis2,ydis,detname(id)+': '+y_descs(id), /device
 	end
 	if id ge npd then begin
 	   idd = id-npd
@@ -1078,12 +1085,10 @@ endif else begin
 		oplot,[xdis,xdis],[10^lydis,10^lydis],color=color,thick=thick,PSYM=sym,/noclip
 	; write legend
 	xdis = 0.8*!d.x_size
-	xdis2 = 0.85*!d.x_size
+	xdis2 = 0.835*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
 	if id lt npd then begin
-	   if strlen(y_descs(id)) gt 1 then  $
-		xyouts,xdis2,ydis,'  '+y_descs(id),/device  else $
-		xyouts,xdis2,ydis,'  Detector '+detname(id),/device
+	  xyouts,xdis2,ydis,detname(id)+': '+y_descs(id), /device
 	end
 	if id ge npd then begin
 	   idd = id-npd
@@ -3067,9 +3072,9 @@ if scanData.debug eq 1 then $
 print,'REALTIME_INIT: add caScan at # ',w_plotspec_id.seqno
 
 scanData.p_def = realtime_id.def(0:3)
-scanData.px = make_array(4000,/float)
-scanData.pa = make_array(4000,4,/double)
-scanData.da = make_array(4000,scanData.num_det,/float)
+*scanData.px = make_array(scanData.req_npts,/float)
+*scanData.pa = make_array(scanData.req_npts,4,/double)
+*scanData.da = make_array(scanData.req_npts,scanData.num_det,/float)
 end
 	ln = caScan(scanData.pv+'.CPT',list_pvnames,/zero,max=mpts)
 	scanData.act_npts = 0
@@ -3208,15 +3213,17 @@ if scanData.act_npts eq 0 then return
 realtime_retval = transpose(retval)
 
 	for i=0,scanData.num_pos-1 do begin
-	is = i*cpts
-	scanData.pa(n1:n2,i)	= realtime_retval(n1:n2,i)
+	if realtime_id.def(i) then begin
+	(*scanData.pa)[n1:n2,i]	= realtime_retval(n1:n2,i)
+	end
 	if w_plotspec_id.xcord eq i then  $
-		scanData.px(n1:n2) = realtime_retval(n1:n2,i)
+		(*scanData.px)[n1:n2] = realtime_retval(n1:n2,i)
 	end
 
 	for i=0,scanData.nd-1 do begin
-	is = i*cpts
-	scanData.da(n1:n2,i) = realtime_retval(n1:n2,i+scanData.num_pos)
+	if realtime_id.def(i+scanData.num_pos) then begin
+	(*scanData.da)[n1:n2,i] = realtime_retval(n1:n2,i+scanData.num_pos)
+	end
 	end
 
 ;realtime_retval = 0 
@@ -3230,12 +3237,12 @@ if scanData.showlist eq 1 then begin
 	strput,st,i,0  &  ij = 10
 	for j=0,scanData.num_pos - 1 do begin
 	if realtime_id.def(j) ne 0 then begin 
-		strput,st,scanData.pa(i,j),ij  & ij = ij + 13 &end
+		strput,st,(*scanData.pa)[i,j],ij  & ij = ij + 13 &end
 
 		end
 	for j=0,scanData.nd - 1 do begin
 	if realtime_id.def(4+j) ne 0 then begin 
-		strput,st,scanData.da(i,j),ij  & ij = ij + 13 &end
+		strput,st,(*scanData.da)[i,j],ij  & ij = ij + 13 &end
 		end
 	;print,st
 	WIDGET_CONTROL,widget_ids.terminal,SET_VALUE=strtrim(st),BAD_ID=bad_id
@@ -3259,10 +3266,10 @@ if total(ret) gt 0 then begin
 ; if time axis plot is requested
 
 if realtime_id.def(w_plotspec_id.xcord) gt 1 then begin
-	if scanData.px(n2) gt realtime_id.xmax then begin
-	dxx = 0.1*(scanData.px(n2)-scanData.px(0))
-	xmin = scanData.px(0) - dxx
-	xmax = scanData.px(n2) + dxx
+	if (*scanData.px)[n2] gt realtime_id.xmax then begin
+	dxx = 0.1*((*scanData.px)[n2]-(*scanData.px)[0])
+	xmin = (*scanData.px)[0] - dxx
+	xmax = (*scanData.px)[n2] + dxx
 	if xmax gt realtime_id.xmax then realtime_id.xmax = xmax
 	if xmin lt realtime_id.xmin then realtime_id.xmin = xmin
 	realtime_id.axis = 1
@@ -3274,7 +3281,7 @@ end
 xtitle = strtrim(w_plotspec_array(1),2)
 if w_plotspec_id.x_axis_u eq 1 then begin
 	xa = findgen(n2+1) 
-	scanData.px(0:n2) = xa
+	(*scanData.px)[0:n2] = xa
 	xmin = - 0.05 * scanData.req_npts 
 	xmax = scanData.req_npts *1.05 
 	xtitle = 'Step #'
@@ -3338,7 +3345,7 @@ if realtime_id.axis eq 1 then begin
 	n0=1
 ;	if scanData.y_scan then n0=0
 	if n1 gt 1  then begin
-	 x = scanData.px(n0:n1)
+	 x = (*scanData.px)[n0:n1]
 	
 	; plot Detector vs positioner 
 	for i=0,scanData.nd - 1 do begin
@@ -3346,7 +3353,7 @@ if realtime_id.axis eq 1 then begin
 	color = w_plotspec_id.colorI(i)
 	if !d.n_colors gt !d.table_size then  color = w_plotspec_id.colorV(i)
 
-	y = scanData.da(n0:n1,i)
+	y = (*scanData.da)[n0:n1,i]
 
 		oplot,x,y,LINE=ln_style(i), $
 			PSYM = symbol * (i+1) mod 8, $
@@ -3359,7 +3366,7 @@ if realtime_id.axis eq 1 then begin
 	color = w_plotspec_id.colorI(scanData.nd+i)
 	if !d.n_colors gt !d.table_size then  color = w_plotspec_id.colorV(scanData.nd+i)
 
-	y = scanData.pa(n0:n1,i)
+	y = (*scanData.pa)[n0:n1,i]
 	
 	oplot,x,y,LINE=ln_style(i+scanData.nd), $
 			PSYM = symbol * (i+1) mod 8, $
@@ -3374,11 +3381,11 @@ if n2 ge n1 then begin
 for i=0,scanData.nd-1 do begin
 	if realtime_id.def(4+i) ne 0 then begin
 		if n2 eq 0 then begin
-		xtemp = [scanData.px(0),scanData.px(0)]
-		ytemp = [scanData.da(0,i),scanData.da(0,i)]
+		xtemp = [(*scanData.px)[0],(*scanData.px)[0]]
+		ytemp = [(*scanData.da)[0,i],(*scanData.da)[0,i]]
 		endif else begin
-		xtemp = [scanData.px(n1:n2)]
-		ytemp = [scanData.da(n1:n2,i)]
+		xtemp = [(*scanData.px)[n1:n2]]
+		ytemp = [(*scanData.da)[n1:n2,i]]
 		end
 		if scanData.wf_sel(i) eq 1 then begin
 	color = w_plotspec_id.colorI(i)
@@ -3393,11 +3400,11 @@ end
 for i=0,scanData.num_pos-1 do begin
 	if realtime_id.def(i) ne 0 then begin
 		if n2 eq 0 then begin
-		xtemp = [scanData.px(0),scanData.px(0)]
-		ytemp = [scanData.pa(0,i),scanData.pa(0,i)]
+		xtemp = [(*scanData.px)[0],(*scanData.px)[0]]
+		ytemp = [(*scanData.pa)[0,i],(*scanData.pa)[0,i]]
 		endif else begin
-		xtemp = [scanData.px(n1:n2)]
-		ytemp = [scanData.pa(n1:n2,i)]
+		xtemp = [(*scanData.px)[n1:n2]]
+		ytemp = [(*scanData.pa)[n1:n2,i]]
 		end
 		if scanData.wf_sel(i+scanData.nd) eq 1 then begin
 	color = w_plotspec_id.colorI(i+scanData.nd)
@@ -3455,7 +3462,7 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 pos_ymin = 1.e20
 for i=0,scanData.nd-1 do begin
      IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(scanData.num_pos+i) NE 0) THEN  BEGIN
-     d4 = scanData.da(0:num_pts,i)
+     d4 = (*scanData.da)[0:num_pts,i]
          IF (MIN(d4) LT ymin) THEN begin 
 		ymin = MIN(d4)
                 realtime_id.axis = 1
@@ -3476,7 +3483,7 @@ end
 
 for i=0,scanData.num_pos -1 do begin
 	IF(scanData.wf_sel(scanData.nd+i) eq 1 and realtime_id.def(i) NE 0) THEN BEGIN
-	d4 = scanData.pa(0:num_pts,i)
+	d4 = (*scanData.pa)[0:num_pts,i]
 	if min(d4) lt ymin then begin
 		ymin = min(d4)
 		realtime_id.axis = 1
@@ -4267,13 +4274,13 @@ st = s0
 strput,st,i,0  &  ij = 10
 	for j = 0,3 do begin
 		if realtime_id.def(j) ne 0 then begin
-		strput,st,string(scanData.pa(i,j),format=temp_format),ij  
+		strput,st,string((*scanData.pa)[i,j],format=temp_format),ij  
 		ij = ij + temp_digit
 		end
 	end
 	for j = 0,84 do begin
 		if realtime_id.def(4+j) ne 0 then begin
-		strput,st,string(scanData.da(i,j),format=temp_format),ij  
+		strput,st,string((*scanData.da)[i,j],format=temp_format),ij  
 		ij = ij + temp_digit
 		end
 	end
@@ -4745,7 +4752,7 @@ PRO scanimage_cleanup
 	heap_gc
 END
 
-PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet 
+PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=lastDet ,xdescs=xdescs,ydescs=ydescs,zdescs=zdescs
 
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
@@ -4770,6 +4777,9 @@ gData = { $
 
 	scanno = read_scan(filename,Scan,pickDet=pickDet,header=header,lastDet=lastDet)
 	if scanno lt 0 then return
+
+; get y_descs
+	sscan_getDescs,Scan,xdescs,ydescs,zdescs
 
 	*gData.scanno = scanno
 
@@ -4822,20 +4832,13 @@ if id lt 0 then begin
 
 	if n_elements(gD) then begin
 
-; t3 = systime(1.)
 
   scanno = read_scan(scanData.trashcan,Scan,pickDet=pickDet) ;, lastDet=DetMax)
 	
-; t4 = systime(1.)
-; print,'time used=',t4-t3
 	if scanno lt 0 then return
 
 ; get y_descs
 sscan_getDescs,Scan,xdescs,ydescs,zdescs
-y_descs(*) = ''
-x_descs = xdescs
-if Scan.rank eq 1 then y_descs(0:n_elements(ydescs)-1) = ydescs(*) else $
-y_descs(0:n_elements(zdescs)-1) = zdescs(*)
 
 ; loose the error check
 ; if read error with partially data try to plot it anyway
@@ -4875,13 +4878,14 @@ print,scanData.trashcan
 	goto, populate
 	endif else begin
 
-	scanimage_alloc,scanData.trashcan, gD, scanno,pickDet=pickDet  ;, lastDet=DetMax
+	scanimage_alloc,scanData.trashcan, gD, scanno,pickDet=pickDet,xdescs=xdescs,ydescs=ydescs,zdescs=zdescs
 
+setDefaultLabels
 
 ;print,'ALLOC gD'
 	if scanno lt 0 then return
 	end
-end ; id >= 0
+end  ; id >= 0
 
 	scanno = *(*gD).scanno
 	dim = *(*gD).dim
@@ -4911,6 +4915,19 @@ end ; id >= 0
 
 populate:
 
+if id ge 0 then begin
+	xdescs = scanData.xdescs
+	ydescs = scanData.ydescs
+	if dim gt 1 then zdescs = scanData.zdescs
+end
+scanData.xdescs = xdescs
+scanData.ydescs = ydescs
+if dim gt 1 then scanData.zdescs = zdescs
+y_descs(*) = ''
+x_descs = xdescs
+if dim eq 1 then y_descs(0:n_elements(ydescs)-1) = ydescs(*) else $
+y_descs(0:n_elements(zdescs)-1) = zdescs(*)
+
 	ts = *(*gD).ts
 	if id ge 2 then begin
 	tp = ts(id-2)
@@ -4923,7 +4940,6 @@ populate:
 	end
 
 	; 1D plot X can only display up to 4000 
-	if num_pts(0) gt 4000 then num_pts(0) = 4000
 	scanH = 0
 	if strpos(pv(0),'scanH') ge 0 then  begin
 		scanH = 1
@@ -5082,8 +5098,8 @@ ndet=scanData.lastDet(0)
 if scanH and scanDATA.scanH eq 0 then ndet = scanData.lastDet(1)
 if dim eq 3 then ndet = scanData.lastDet(1)
 
-	scanData.pa = 0.; make_array(4000,4,/double)
-	scanData.da = 0.; FLTARR(4000,ndet)
+	*scanData.pa = make_array(scanData.req_npts,4,/double)
+	*scanData.da = make_array(scanData.req_npts,ndet) 
 
 ; populate X positional vectors
 
@@ -5098,16 +5114,16 @@ for i=0,3 do begin
 	if dim ge 2 then begin 
 	if n_elements(pa2D) gt 1 then begin
 	  act_npts = sz(1)
-	  scanData.pa(0:act_npts-1,i) = pa2D[0:act_npts-1,i] 
+	  (*scanData.pa)[0:act_npts-1,i] = pa2D[0:act_npts-1,i] 
 	end
 	if dim eq 2 and n_elements(pa1D) gt 1 then $
 	   if scanData.scanH eq 0 and scanH then begin
 	   act_npts = sz(2)
-	   scanData.pa(0:act_npts-1,i) = pa1D[0:act_npts-1,i] 
+	   (*scanData.pa)[0:act_npts-1,i] = pa1D[0:act_npts-1,i] 
 	   end
 	end
 	if dim eq 1 then $
-	scanData.pa(0:act_npts-1,i) = pa1D[0:act_npts-1,i] 
+	(*scanData.pa)[0:act_npts-1,i] = pa1D[0:act_npts-1,i] 
         end
 end
 
@@ -5117,14 +5133,14 @@ for i=0,ndet-1 do begin
         if realtime_id.def[4+i] gt 0 then begin
 	if dim eq 2 then begin
 		if scanData.scanH eq 0 and scanH then $
-		scanData.da(0:sz(2)-1,i) = da1D[0:sz(2)-1,i] else $
-		scanData.da(0:sz(1)-1,i) = da2D[0:sz(1)-1,scanData.y_seqno,i] 
+		(*scanData.da)[0:sz(2)-1,i] = da1D[0:sz(2)-1,i] else $
+		(*scanData.da)[0:sz(1)-1,i] = da2D[0:sz(1)-1,scanData.y_seqno,i] 
 	end
 	if dim eq 3  then begin   ; one-level down from outter loop
-		scanData.da(0:num_pts(1)-1,i) = da2D[0:num_pts(1)-1,scanData.y_seqno,i]
+		(*scanData.da)[0:num_pts(1)-1,i] = da2D[0:num_pts(1)-1,scanData.y_seqno,i]
 	end
 	if dim eq 1 then $
-		scanData.da(0:act_npts-1,i) = da1D[0:act_npts-1,i]
+		(*scanData.da)[0:act_npts-1,i] = da1D[0:act_npts-1,i]
 	end
 end
 end
@@ -5162,8 +5178,6 @@ w_viewscan_id.seqno = seq_no
 	; x positional axis picked
 	ix = w_plotspec_id.xcord
 	w_plotspec_array(1) = x_descs(ix)
-	if w_plotspec_array(1) eq '' then w_plotspec_array(1) = x_names(ix) 
-	if x_engus(ix) ne '' then w_plotspec_array(1) = w_plotspec_array(1)+'('+x_engus(ix)+')'
 
         if dim eq 3 then begin
         ix = npd+w_plotspec_id.xcord
@@ -5708,7 +5722,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	PI = scanData.pv + '.'+ scanData.PI+'RA'
 	ln = cagetArray(PI,pa,max=scanData.req_npts)	
 	
-	scanData.pa = pa
+	*scanData.pa = pa
 
 	t_DI = scanData.DI
 	if scanData.new then t_DI = t_DI(15:84)
@@ -5719,7 +5733,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 	DI = DI(0:nd-1)
 	ln = cagetArray(DI,da,max=scanData.req_npts,/float)	
 
-	scanData.da = da
+	*scanData.da = da
 	
 	if scanData.y_scan eq 0 then begin
 	  w_plotspec_array(0)=scanData.pv
@@ -8091,10 +8105,10 @@ COMMON w_statistic_block,w_statistic_ids
   'Statistic.FWHM on Y.All...': BEGIN
         w_plotspec_id.statistic = 5
         num_pts = scanData.act_npts-1
-        VX=scanData.pa(0:num_pts,0)
+        VX= (*scanData.pa)[0:num_pts,0]
         for i=0,nd-1 do begin
         IF (realtime_id.def(4+i) gt 0) THEN begin
-        VY=scanData.da(0:num_pts,i)
+        VY= (*scanData.da)[0:num_pts,i]
         title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+ strtrim(scanData.scanno,2)
         statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
                 title=title,group=Event.top
@@ -8104,10 +8118,10 @@ COMMON w_statistic_block,w_statistic_ids
   'Statistic.FWHM on Y.One...': BEGIN
         w_plotspec_id.statistic = 5
         num_pts = scanData.act_npts-1
-        VX=scanData.pa(0:num_pts,0)
+        VX= (*scanData.pa)[0:num_pts,0]
         for i=0,nd-1 do begin
         IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
-        VY=scanData.da(0:num_pts,i)
+        VY= (*scanData.da)[0:num_pts,i]
         title='FWHM of Detector '+strtrim(i+1,2) +'    SCAN # '+strtrim(scanData.scanno,2)
         statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
                 report='fwhm.rpt',title=title,group=Event.top
@@ -8119,10 +8133,10 @@ COMMON w_statistic_block,w_statistic_ids
   'Statistic.FWHM on DY/DX.All...': BEGIN
         w_plotspec_id.statistic = 6
         num_pts = scanData.act_npts-1
-        VX=scanData.pa(0:num_pts,0)
+        VX= (*scanData.pa)[0:num_pts,0]
         for i=0,nd-1 do begin
         IF (realtime_id.def(4+i) gt 0) THEN begin
-        VY=scanData.da(0:num_pts,i)
+        VY= (*scanData.da)[0:num_pts,i]
         VY = slope(VX,VY)
         title='FWHM of DY/DX of Detector '+strtrim(i+1,2) + '    SCAN # '+strtrim(scanData.scanno,2)
         statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
@@ -8133,10 +8147,10 @@ COMMON w_statistic_block,w_statistic_ids
   'Statistic.FWHM on DY/DX.One...': BEGIN
         w_plotspec_id.statistic = 6
         num_pts = scanData.act_npts-1
-        VX=scanData.pa(0:num_pts,0)
+        VX= (*scanData.pa)[0:num_pts,0]
         for i=0,nd-1 do begin
         IF (scanData.wf_sel(i) EQ 1 and realtime_id.def(4+i) gt 0) THEN begin
-        VY=scanData.da(0:num_pts,i)
+        VY= (*scanData.da)[0:num_pts,i]
         VY = slope(VX,VY)
         title='FWHM of DY/DX of Detector '+strtrim(i+1,2) + '    SCAN # '+strtrim(scanData.scanno,2)
         statistic_1d,VX,VY,c_mass,x_peak,y_peak,y_hpeak,fwhm,xl,xr,/plot, $
@@ -8173,10 +8187,10 @@ if scanData.act_npts lt 2 then begin
 	return
 end
 
-x = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord)
+x = (*scanData.pa)[0:scanData.act_npts-1,w_plotspec_id.xcord]
 nd = scanData.npd-4
 y = make_array(scanData.act_npts,nd)
-y(*,*) = scanData.da(0:scanData.act_npts-1,0:nd-1)
+y(*,*) = (*scanData.da)[0:scanData.act_npts-1,0:nd-1]
 WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
 for i=0,nd-1 do begin
 	if wf_sel(i) then begin
@@ -8658,10 +8672,10 @@ end ;     end of if scanData.option = 1
   'STATISTICMENU': STATISTICMENU_Event, Event
   'FITTINGMENU': FITTINGMENU_Event, Event
   'EZFIT_FITTING': BEGIN
-	x = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord)
+	x = (*scanData.pa)[0:scanData.act_npts-1,w_plotspec_id.xcord]
 	nd = scanData.npd - 4
 	y = make_array(scanData.act_npts,nd)
-	y(*,*) = scanData.da(0:scanData.act_npts-1,0:nd-1)
+	y(*,*) = (*scanData.da)[0:scanData.act_npts-1,0:nd-1]
 	ez_fit,x=x,y=y,GROUP=Event.Top
 	END
   'PICK_PANIMAGE': BEGIN
@@ -8766,8 +8780,8 @@ end ;     end of if scanData.option = 1
 	end
 	END
   'PICK_IPLOT1D': BEGIN
-	pa = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord)	
-	da = scanData.da(0:scanData.act_npts-1,0:scanData.num_det-1)
+	pa = (*scanData.pa)[0:scanData.act_npts-1,w_plotspec_id.xcord]	
+	da = (*scanData.da)[0:scanData.act_npts-1,0:scanData.num_det-1]
 	WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
 	iplot1d_drv,pa,da,detname=scanData.DI, $
 		sel=wf_sel(0:scanData.num_det-1), $
@@ -8792,7 +8806,7 @@ end ;     end of if scanData.option = 1
 	  w_plotspec_id.xcord = 0
 	  if Event.Index eq 0 then w_plotspec_id.x_axis_u = 1 else $
 	  w_plotspec_id.xcord = Event.Index - 1
-	  p1 = scanData.pa(0:scanData.req_npts-1,w_plotspec_id.xcord) 
+	  p1 = (*scanData.pa)[0:scanData.req_npts-1,w_plotspec_id.xcord] 
 	  w_plotspec_limits(0) = p1(0)
 	  w_plotspec_limits(1) = p1(scanData.req_npts-1)
 	endif else  zoom_checkAxis,Event
@@ -8852,13 +8866,14 @@ end ;     end of if scanData.option = 1
 	WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
 	if scanData.svers then scanData.wf_sel = wf_sel(15:88) else $
 	scanData.wf_sel = wf_sel
-	ln = cagetArray(scanData.y_pv+'.EXSC',pd)
-	if ln le 0 or w_plotspec_id.scan eq 0 then begin
-		UPDATE_PLOT, scanData.lastPlot 
-	end
-  	if scanData.y_scan then begin
+	if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 then begin
+		scan_read,1,-1,0,maxno    ; no read desired
+	endif else	UPDATE_PLOT, scanData.lastPlot 
+
+  	if scanData.y_scan or w_plotspec_id.scan then begin
 		realtime_id.ymin=0.
 		realtime_id.ymax=0.
+		realtime_id.ind = 1
 		realtime_id.axis=1
 	end
       END
@@ -9375,6 +9390,7 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;			Separate id_def for readin/ realtime case 
 ;			Add save as IGOR data in image2d
 ;			Add spectrum energy level to view3d_2dsum
+;       04-25-2005 bkc  Remove restriction of 4000 dim
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
