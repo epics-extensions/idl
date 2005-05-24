@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.44 2005/04/27 19:41:56 cha Exp $
+; $Id: DC.pro,v 1.45 2005/05/24 19:50:23 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -8188,7 +8188,9 @@ if scanData.act_npts lt 2 then begin
 end
 
 x = (*scanData.pa)[0:scanData.act_npts-1,w_plotspec_id.xcord]
-nd = scanData.npd-4
+;nd = scanData.npd-4
+sz = size(*scanData.da)
+nd = sz(2)
 y = make_array(scanData.act_npts,nd)
 y(*,*) = (*scanData.da)[0:scanData.act_npts-1,0:nd-1]
 WIDGET_CONTROL, widget_ids.wf_select, GET_VALUE = wf_sel
