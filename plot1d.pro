@@ -747,7 +747,9 @@ PRO plot1d_replot,state
 ; if 24 bits use color table need set deomposed=0
 if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
-restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+if !d.name eq 'X' then $
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl' else $
+restore,file='catch1d.tbl'
 TVLCT,red,green,blue
 endif else device,decomposed=1
 
