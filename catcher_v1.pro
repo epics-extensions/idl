@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.60 2005/03/31 17:23:52 cha Exp $
+; $Id: catcher_v1.pro,v 1.61 2005/05/26 20:40:19 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -484,7 +484,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.60 2005/03/31 17:23:52 cha Exp $
+; $Id: catcher_v1.pro,v 1.61 2005/05/26 20:40:19 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3756,7 +3756,9 @@ ENDELSE
    ;Now draw the axis and plot the selected waveforms
 if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
-restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+if !d.name eq 'X' then $
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl' else $
+restore,file='catch1d.tbl'
 TVLCT,red,green,blue
 endif else device,decomposed=1
 
@@ -4699,7 +4701,9 @@ realtime_yrange,scanData.lastPlot,ymin,ymax,plotXTitle,pos_ymin
 
 if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
-restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl'
+if !d.name eq 'X' then $
+restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl' else $
+restore,file='catch1d.tbl'
 TVLCT,red,green,blue
 endif else device,decomposed=1
 
@@ -5896,11 +5900,9 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	WIDGET_CONTROL,ids(11),SET_VALUE=' '+strmid(r_names(11),1,len)
         scanData.showlist = 1
                 widget_ids.terminal = CW_TERM(Event.top, $
-                                        TITLE=scanData.pv, $
-;                                        BGROUP_NAMES=names, $
-;                                        BGEVENT_FUNCT='CWTERM_event', $
-                                        /FRAME, $
-                                        XSIZE=100, YSIZE=20, /SCROLL)
+                       TITLE=scanData.pv, $
+                       /FRAME, $
+                       XSIZE=100, YSIZE=20, /SCROLL)
         return
 	end
       14: begin
@@ -9882,7 +9884,7 @@ check2Dend:
 ;
 ; update the cw_term with the final scan result
 ;
-	if scanData.showlist eq 1 then begin
+	if scanData.showlist and valchange and scanDataReady then begin
 	save_scan_dump_curr,filename
 	id = cw_term(widget_ids.terminal,filename=filename,/reset)
 	end
