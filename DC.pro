@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.45 2005/05/24 19:50:23 cha Exp $
+; $Id: DC.pro,v 1.46 2005/05/26 20:34:55 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -664,7 +664,6 @@ end
 ;
 ;  increase the xmin,xmax by +5%
 ;
-
 	if auto gt 0 then view1d_adjust_ranges,xmin,xmax
 
    ENDIF ELSE BEGIN
@@ -2647,19 +2646,22 @@ END
 
 
 
-PRO calc_newfilepath,pd,err=err
+PRO calc_newfilepath,pd,no,err=err
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plotspec_limits, w_plotspec_saved
  
 	prefix = str_sep(scanData.pv,':')
 	scanData.prefix = prefix(0)
 
-	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_fileName', $
-		':saveData_fileSystem',':saveData_subDir']
+	nm = prefix[0]+ [':saveData_scanNumber', ':saveData_message', $
+		':saveData_fileSystem',':saveData_subDir'] 
 	callno = scanData.fileno 
 	ln = cagetArray(nm,pd,/string)
 	err = ln
 	if ln ne 0 then return
+	str = strsplit(pd(1),' ',/extract)
+	pd(1) = str(n_elements(str)-1)
+
 	no = fix(pd(0))
 	scanData.fileno = no 
 	if scanData.filemax lt no then scanData.filemax = no
@@ -2691,16 +2693,17 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 		path = pd(2)+file_sep+pd(3)+file_sep
 		ps = strpos(path,scanData.path)
 		if ps lt 0 or strtrim(scanData.path,2) eq '' then begin 
-		fs = strpos(pd(2),file_sep+file_sep,0)
-		if fs ge 0 then begin
-		tn = str_sep(path,file_sep)
-		lp = strlen(tn(2))+3
-		if lp gt 0 then begin
-			npath=strmid(path,lp-1,strlen(path)-lp+1)
-			scanData.path = npath
-			end
-		endif else scanData.path = path
-		end
+                fs = strpos(pd(2),file_sep+file_sep,0)
+                if fs ge 0 then begin
+                tn = str_sep(path,file_sep)
+                lp = strlen(tn(2))+3
+                if lp gt 0 then begin
+                        npath=strmid(path,lp-1,strlen(path)-lp+1)
+			fd = findfile(npath,count=ct)
+			if ct gt 0 then scanData.path=npath
+                        end
+                end
+		end 
 	END
 ;print,'new path=',scanData.path
 
@@ -7854,8 +7857,7 @@ COMMON CATCH1D_2D_COM, data_2d, gD
 	if !d.name eq 'WIN' then begin
 		r = dialog_message('Please use the "@go_SB" to view the scan data.',/info)
 	endif else begin
-	if scanData.option eq 0 then sscan,file=scanData.trashcan else $
-	spawn,'idlvm SB2 &'
+	if w_plotspec_id.scan eq 0 then sscan,file=scanData.trashcan 
 	end
 	end
 	END
@@ -8415,12 +8417,15 @@ w_plotspec_array(4) = x(0) + '. User Name: ' + y
 
 ; get position and data array from the scan record
 
+ 	w_plotspec_id.scan = 0
+	wait,scanData.wtime  ; allow time for mda save finished
+
 	if scanData.y_scan eq 0 then begin
 	  if scanData.bypass3d then scan_read,1,-1,-1,maxno,pickDet=-1 else $
 		scan_read,1,-1,-1,maxno
+	  scanData.realtime=0
 	endif else begin
 	 ; fly scan
-	  wait,scanData.wtime  ; allow time for mda save finished
 	  if scanData.fastscan  then begin
 	    if scanData.bypass3d then scan_read,1,-1,-1,maxno,pickDet=-1 else $
 		scan_read,1,-1,-1,maxno
@@ -8441,7 +8446,6 @@ w_plotspec_array(4) = x(0) + '. User Name: ' + y
 	id = cw_term(widget_ids.terminal,filename=filename,/reset)
 	end
 
- 	w_plotspec_id.scan = 0
 ;	after_sys_scan
 
 	if scanData.y_scan then begin
@@ -8546,13 +8550,14 @@ end
 ;
 ; if realtime_init has not been called, must call it here
 ;
-	if  scanDataReady eq 0 and valchange(0) eq 1 then begin
+	if scanDataReady eq 0 and valchange(0) then begin
 	if w_plotspec_id.realtime eq 1 and realtime_id.ind eq -1 $
 		 then realtime_init
 	realtime_xrange,1
 	realtime_id.axis = 1
 	end
-end
+
+	end
 
 stt = 'SCANNING: ' +strtrim(scanData.act_npts,2)+ ' of '+  strtrim(scanData.req_npts,2)+ ' Pts' 
 if scanData.y_scan gt 0 then stt = stt+' @ y('+strtrim(scanData.y_seqno+1,2)+')'
@@ -8575,20 +8580,21 @@ if w_plotspec_id.realtime eq 1 then begin
 	if scanData.y_scan eq 0 then begin
 	calc_newfilename,/get,err=ferr
 	end
-		realtime_init
+	if scanDataReady eq 0 then realtime_init
 	end
 
 	if realtime_id.ind ne 2 then begin
 		realtime_read,scanData.req_npts
 ;		WIDGET_CONTROL,widget_ids.base, /clear_events
 		WIDGET_CONTROL,widget_ids.base, timer=w_plotspec_id.dtime
-		endif else begin
+	endif else begin
 ;		WIDGET_CONTROL,widget_ids.base, /clear_events
 		empty
-		end
+	end
 
 end
-	if scanDataReady or scanData.act_npts ge scanData.req_npts then begin
+;	if scanDataReady or scanData.act_npts ge scanData.req_npts then begin
+	if scanDataReady  then begin
 	if  scanData.act_npts gt 1 then begin
 	catch1dReadScanRecordAppendFile
 if scanData.debug then $
@@ -8634,12 +8640,11 @@ check2Dend:
 ;print,'terminate by y_req_npts'
 		end
 
-	if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 and $
-		scanData.realtime eq 1 then begin
-		scanData.realtime = 0
+	if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0  then begin
+	if valchange(0) then $
 		after_sys_scan
 		end
-
+	scanData.realtime=0
 end
       ENDELSE
 ENDIF else begin
@@ -9097,7 +9102,11 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
  
 count=1
 while (count lt 5)  do begin
-	calc_newfilepath,pd,err=err
+	calc_newfilepath,pd,no,err=err
+	if err ne 0 then begin
+	ld = cagetArray(scanData.prefix+':saveData_scanNumber',nd)
+	no = nd(0)-1
+	end
 	filename = pd(1) 
 	if filename ne '' then begin
 
@@ -9121,7 +9130,6 @@ end
 	scanData.trashcan = scanData.path + filename
 	w_plotspec_array(3) = filename
 	WIDGET_CONTROL,widget_ids.trashcan, SET_VALUE = scanData.trashcan
-print,'calc_new: ',scanData.trashcan
 	wait,0.005 ; fly scan
 ;	if scanData.y_scan then $
 ;	if scanData.bypass3d then scan_read,1,-1,-1,maxno,dim,pickDet=-1 else $
