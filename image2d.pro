@@ -2765,7 +2765,7 @@ PS_init
       ROW=1, $
       STRING=1, $
       RETURN_EVENTS=1, $
-      TITLE=' ', $
+      TITLE='', $
       UVALUE='IMAGE2D_FORMAT', $
       XSIZE=6)
 
@@ -2775,7 +2775,7 @@ PS_init
 
   LABEL19 = WIDGET_LABEL( BASE8, $
       UVALUE='LABEL19', $
-      VALUE='  Det#')
+      VALUE='Det#')
 
   ListVal1099 = [ $
     'D1  ', $
@@ -2798,11 +2798,11 @@ PS_init
   if keyword_set(zdescs) then ListVal1099=zdescs
   LIST20 = WIDGET_LIST( BASE8,VALUE=ListVal1099, $
       UVALUE='IMAGE2D_LIST2', $
-      XSIZE=20,YSIZE=3)
+      XSIZE=27,YSIZE=3)
 
   LABEL15 = WIDGET_LABEL( BASE8, $
       UVALUE='LABEL15', $
-      VALUE='  Det#')
+      VALUE='Det#')
 
   ListVal949 = [ $
     'D01  ', 'D02', 'D03', 'D04', 'D05', 'D06', 'D07', 'D08', 'D09', 'D10' ]
@@ -2814,7 +2814,7 @@ PS_init
   end
   LIST17 = WIDGET_LIST( BASE8,VALUE=ListVal949, $
       UVALUE='IMAGE2D_LIST1', $
-      XSIZE=20,YSIZE=3)
+      XSIZE=27,YSIZE=3)
 
   BUTTON18 = WIDGET_DROPLIST( BASE8, value=['iImage','iSurface','iContour'], $
       UVALUE='IMAGE2D_ITOOL', $
