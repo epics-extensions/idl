@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.61 2005/05/26 20:40:19 cha Exp $
+; $Id: catcher_v1.pro,v 1.62 2005/07/22 19:25:15 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -484,7 +484,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.61 2005/05/26 20:40:19 cha Exp $
+; $Id: catcher_v1.pro,v 1.62 2005/07/22 19:25:15 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3756,9 +3756,11 @@ ENDELSE
    ;Now draw the axis and plot the selected waveforms
 if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
-if !d.name eq 'X' then $
-restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl' else $
-restore,file='catch1d.tbl'
+if !d.name eq 'WIN' then restore,file='catch1d.tbl' else $
+begin 
+file=getenv('EPICS_EXTENSIONS')+!os.file_sep+'idllib'+!os.file_sep+'catch1d.tbl'
+restore,file=file 
+end
 TVLCT,red,green,blue
 endif else device,decomposed=1
 
@@ -4701,9 +4703,11 @@ realtime_yrange,scanData.lastPlot,ymin,ymax,plotXTitle,pos_ymin
 
 if !d.n_colors le !d.table_size then begin
 TVLCT,o_red,o_green,o_blue,/get
-if !d.name eq 'X' then $
-restore,file='/usr/local/epics/extensions/idllib/catch1d.tbl' else $
-restore,file='catch1d.tbl'
+if !d.name eq 'WIN' then restore,file='catch1d.tbl' else $
+begin
+file=getenv('EPICS_EXTENSIONS')+!os.file_sep+'idllib'+!os.file_sep+'catch1d.tbl'
+restore,file=file
+end
 TVLCT,red,green,blue
 endif else device,decomposed=1
 
@@ -9239,8 +9243,9 @@ COMMON w_caset_block, w_caset_base, w_caset_ids, w_caset_narray, w_caset_varray
     END
 
   'File.Printer ...': BEGIN
-	if !d.name eq 'X' then PS_printer,GROUP=Event.Top else $
-        res = dialog_printersetup()
+	PS_printer,GROUP=Event.Top 
+;	if !d.name eq 'X' then PS_printer,GROUP=Event.Top else $
+;        res = dialog_printersetup()
     END
 
   'File.Quit': BEGIN
