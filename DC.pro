@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.46 2005/05/26 20:34:55 cha Exp $
+; $Id: DC.pro,v 1.47 2005/07/22 19:06:15 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -262,8 +262,8 @@ COMMON GOTO_BLOCK,goto_n,goto_pv,goto_val
 
 	num_pts =  1 > (scanData.act_npts - 1)
 	
-		x1 = MAX(scanData.pa(0:num_pts,w_plotspec_id.xcord))
-		x0 = MIN(scanData.pa(0:num_pts,w_plotspec_id.xcord))
+		x1 = MAX((*scanData.pa)[0:num_pts,w_plotspec_id.xcord])
+		x0 = MIN((*scanData.pa)[0:num_pts,w_plotspec_id.xcord])
 	if x1 eq x0 then begin
 		w_warningtext,'Error: Invalid request !'
 		return
@@ -291,8 +291,8 @@ COMMON GOTO_BLOCK,goto_n,goto_pv,goto_val
 		if def(i) then begin
 		s1 = goto_pv(i)
 		if strtrim(s1,2) ne '' then begin
-		xmax = MAX(scanData.pa(0:num_pts,i))
-		xmin = MIN(scanData.pa(0:num_pts,i))
+		xmax = MAX((*scanData.pa)(0:num_pts,i))
+		xmin = MIN((*scanData.pa)(0:num_pts,i))
 		goto_val(0,i) = xmin + f1 * (xmax - xmin)	
 		k=k+1
 		end
@@ -582,7 +582,8 @@ y_descs = strtrim(y_descs,2)
                 id_def = (*(*gD).id_def)(*,dim-1) 
 		end
 		endif else id_def = (*(*gD).id_def)(*,0)
-	if scanH then w_plotspec_array(0)=pv(1) else w_plotspec_array(0)=pv(0) 
+	if scanH then w_plotspec_array(0)=pv(1) 
+	if dim eq 2 and scanH and scanData.scanH then w_plotspec_array(0)=pv(0) 
 	ydescs = scanData.ydescs
 	zdescs = scanData.zdescs
 	y_descs(*) = ''
@@ -601,6 +602,12 @@ y_descs = strtrim(y_descs,2)
    y_zero = 0
    if auto eq 2 then y_zero = 1.e-7    ; exclude zero for auto scale
 
+npd = scanData.nd
+if scanData.svers then npd = 70
+sz = size(*scanData.da)
+nd = sz(2)
+if sz(0) eq 1 then nd=1
+
    IF (auto gt 0) THEN BEGIN     ;  auto scale
 !y.style = 1
 !x.style = 1
@@ -611,12 +618,6 @@ y_descs = strtrim(y_descs,2)
      ymin = 1.e20
      ymax = -1.e20
      err_dy = 0
-
-npd = scanData.nd
-if scanData.svers then npd = 70
-sz = size(*scanData.da)
-nd = sz(2)
-if sz(0) eq 1 then nd=1
 
 for i=0,nd - 1 do begin
 
@@ -1268,7 +1269,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 	if Event.Index eq 0 and w_plotspec_id.x_axis_u eq 0 then begin
 		xmin = w_plotspec_limits(0)
 		xmax = w_plotspec_limits(1)
-		p1 = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord) 
+		p1 = (*scanData.pa)(0:scanData.act_npts-1,w_plotspec_id.xcord) 
 		dl = (xmax-xmin)/1.1
 		f = (p1(scanData.act_npts-1)-p1(0))/dl
 		if f lt 0 then id = where(p1 le xmin and p1 ge xmax) else $
@@ -1294,7 +1295,7 @@ COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array , w_plotspec_id, w_plo
 		w_plotspec_id.xcord = Event.Index - 1
 		xmin = w_plotspec_limits(0)
 		xmax = w_plotspec_limits(1)
-		p1 = scanData.pa(0:scanData.act_npts-1,w_plotspec_id.xcord) 
+		p1 = (*scanData.pa)(0:scanData.act_npts-1,w_plotspec_id.xcord) 
 		il = fix(xmin)
 		ir = fix(xmax)
 		if xmin lt 0 then il = 0 
@@ -3079,6 +3080,7 @@ scanData.p_def = realtime_id.def(0:3)
 *scanData.pa = make_array(scanData.req_npts,4,/double)
 *scanData.da = make_array(scanData.req_npts,scanData.num_det,/float)
 end
+
 	ln = caScan(scanData.pv+'.CPT',list_pvnames,/zero,max=mpts)
 	scanData.act_npts = 0
 
@@ -4992,6 +4994,12 @@ IF seq_no LE 0 THEN BEGIN
            scanData.act_npts = cpt[1]
 	   scanData.pv = pv[1]
 		maxno=1
+	   endif else begin
+	   realtime_id.def = id_def[0:scanData.npd-1,0]
+	   label = labels[*,0]
+           scanData.req_npts = num_pts[0]
+           scanData.act_npts = cpt[0]
+	   scanData.pv = pv[0]
 	   end
 	end
 
@@ -5010,6 +5018,7 @@ IF seq_no LE 0 THEN BEGIN
 	read_desc_engu,label 
 
 	scanData.refno = 0 ;        scanData.refno = start_seqno
+	scanData.p_def = realtime_id.def(0:3)
 
 	w_viewscan_id.maxno = maxno
 	w_viewscan_id.file = scanData.trashcan 
@@ -5103,7 +5112,6 @@ if dim eq 3 then ndet = scanData.lastDet(1)
 
 	*scanData.pa = make_array(scanData.req_npts,4,/double)
 	*scanData.da = make_array(scanData.req_npts,ndet) 
-
 ; populate X positional vectors
 
 act_npts = cpt[0]
@@ -5114,15 +5122,26 @@ scanData.act_npts = act_npts
 if act_npts gt 0 then begin
 for i=0,3 do begin
         if realtime_id.def[i] gt 0 then begin
-	if dim ge 2 then begin 
+	if dim gt 2 then begin 
 	if n_elements(pa2D) gt 1 then begin
 	  act_npts = sz(1)
 	  (*scanData.pa)[0:act_npts-1,i] = pa2D[0:act_npts-1,i] 
 	end
-	if dim eq 2 and n_elements(pa1D) gt 1 then $
-	   if scanData.scanH eq 0 and scanH then begin
-	   act_npts = sz(2)
-	   (*scanData.pa)[0:act_npts-1,i] = pa1D[0:act_npts-1,i] 
+	end
+	if dim eq 2 then begin 
+	   if scanH eq 0 then begin
+	     act_npts = sz(1)
+	     (*scanData.pa)[0:act_npts-1,i] = pa2D[0:act_npts-1,i] 
+	   endif else begin
+	     if scanData.scanH eq 0 then begin
+	     if n_elements(pa1d) gt 1 then begin
+	     act_npts = sz(2)
+	     (*scanData.pa)[0:act_npts-1,i] = pa1D[0:act_npts-1,i] 
+	     end
+	     endif else begin
+	     act_npts = sz(1)
+	     (*scanData.pa)[0:act_npts-1,i] = pa2D[0:act_npts-1,i] 
+	     end
 	   end
 	end
 	if dim eq 1 then $
@@ -5194,6 +5213,7 @@ w_viewscan_id.seqno = seq_no
 
 	UPDATE_PLOT,scanData.lastPlot
 	id = next_seq_no
+	if dim eq 2 and scanH and scanData.scanH eq 0 then id = -1
 
 ; reset pvnames and scan record realtime parameters for scan mode (future scan) 
 
@@ -8418,9 +8438,9 @@ w_plotspec_array(4) = x(0) + '. User Name: ' + y
 ; get position and data array from the scan record
 
  	w_plotspec_id.scan = 0
-	wait,scanData.wtime  ; allow time for mda save finished
 
 	if scanData.y_scan eq 0 then begin
+	  wait,scanData.wtime  ; allow time for mda save finished
 	  if scanData.bypass3d then scan_read,1,-1,-1,maxno,pickDet=-1 else $
 		scan_read,1,-1,-1,maxno
 	  scanData.realtime=0
@@ -8430,6 +8450,7 @@ w_plotspec_array(4) = x(0) + '. User Name: ' + y
 	    if scanData.bypass3d then scan_read,1,-1,-1,maxno,pickDet=-1 else $
 		scan_read,1,-1,-1,maxno
 	  endif else begin
+	    wait,scanData.wtime  ; allow time for mda save finished
 	    getPiDiArray
 	    if scanData.y_seqno lt 1 then begin
 	    if scanData.bypass3d then scan_read,1,-1,-1,maxno,pickDet=-1 else $
@@ -9400,7 +9421,7 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;			Separate id_def for readin/ realtime case 
 ;			Add save as IGOR data in image2d
 ;			Add spectrum energy level to view3d_2dsum
-;       04-25-2005 bkc  Remove restriction of 4000 dim
+;       04-25-2005 bkc  R3.4.4 Remove restriction of 4000 dim
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -9424,7 +9445,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 	/KBRD_FOCUS_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R3.4.3)', $
+      TITLE='scanSee ( R3.4.4)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
