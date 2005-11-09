@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.47 2005/07/22 19:06:15 cha Exp $
+; $Id: DC.pro,v 1.48 2005/11/09 22:50:33 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -2899,6 +2899,7 @@ END
 ;
 ; catch1d_realtime.pro
 ;
+
 PRO  setScanPvnames,file=file,help=help
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
@@ -3663,6 +3664,59 @@ end
 realtime_id.xmin = xmin
 realtime_id.xmax = xmax
 
+END
+
+
+;
+;  readLabelsPvnames,'1.out',labels,pvnames
+;
+PRO readLabelsPvnames,filename,labels,pvnames,help=help
+if keyword_set(help) then begin
+	st = [$
+	"Usage: readLabelsPvnames,filename,labels,pvnames",$
+	'',$
+	'This function read the pvnames and labels from a text file',$
+	'',$
+	'   Input:   filename         specifies input filename ',$
+	'   Output: ',$
+	'             pvnames         first string of input line returned as pvname',$
+	'             labels          second string of input line returned as label']
+	w_warningtext,st
+	return
+	end
+
+spawn,['wc','-l',filename],y, /noshell
+if y(0) eq '' then begin
+	print,'Error: bad filename for readLabelsPvnames' 
+	return 
+	end
+no = y(0) 
+pvnames = make_array(no,/string,value=string(replicate(32b,30)))
+labels = make_array(no,/string,value=string(replicate(32b,40)))
+openr,1,filename
+x=''
+pv=''
+lb=''
+i=0
+while (not eof(1) and i lt no) do begin
+readf,1,x
+x = strtrim(x,2)
+len = strlen(x) 
+pos = strpos(x,' ')
+if pos gt -1 then begin
+	pv = strmid(x,0,pos)
+	lb = strtrim(strmid(x,pos,len-pos),1)
+endif else begin
+	pv = x
+	lb=''
+	end
+pvnames(i) = pv
+labels(i) = lb
+i=i+1
+end
+close,1
+pvnames = pvnames(0:i-1)
+labels = labels(0:i-1)
 END
 
 PRO close_plotspec
@@ -9422,6 +9476,10 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;			Add save as IGOR data in image2d
 ;			Add spectrum energy level to view3d_2dsum
 ;       04-25-2005 bkc  R3.4.4 Remove restriction of 4000 dim
+;       08-12-2005 bkc  R3.4.4.1 
+;			Increase font size in graphic area
+;                       Fix log image in image2d.pro
+;			Add From 2D /1D Array report in sscan.pro
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -9445,7 +9503,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 	/KBRD_FOCUS_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R3.4.4)', $
+      TITLE='scanSee ( R3.4.4.1)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
