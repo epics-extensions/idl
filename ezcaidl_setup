@@ -12,9 +12,9 @@
 #
 
 # required for support R3.13.X
-if ${?LD_LIBRARY_PATH} == 0 then
+#if ${?LD_LIBRARY_PATH} == 0 then
          setenv LD_LIBRARY_PATH
-endif
+#endif
 
 set PVT_LOC = $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH
 set PVT_LIB = $EPICS_EXTENSIONS/lib/$EPICS_HOST_ARCH
