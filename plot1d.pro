@@ -1444,7 +1444,7 @@ state = { $
 	curves: curves, $
 	selection: selection, $
         selectID: 0L, $
-	thick: 2, $
+	thick: 1, $
 	linestyle: 0, $
 	charsize: 1, $
 	userscale: 0, $
