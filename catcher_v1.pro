@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.62 2005/07/22 19:25:15 cha Exp $
+; $Id: catcher_v1.pro,v 1.63 2005/11/09 23:10:57 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -484,7 +484,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.62 2005/07/22 19:25:15 cha Exp $
+; $Id: catcher_v1.pro,v 1.63 2005/11/09 23:10:57 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -8148,8 +8148,8 @@ COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
   COMMON CATCH1D_2D_COM, data_2d
 
 ; update the image plot
-
 ;loadct, 39
+
 npts = scanData.act_npts-1
 if n_params() eq 0 then y_seqno = scanData.y_seqno
 if y_seqno lt 0 then return
@@ -9972,11 +9972,13 @@ end ;     end of if scanData.option = 1
 	scanData.image = Event.Index + 1
 	catch,status_error
 	if status_error ne 0 then begin
+	   if n_elements(data_2d) eq 0 then return
 	   if scanData.image gt 2 then catch1d_win_2D_update2,/redo else $
                 catch1d_win_2D_update1,/redo
  	   return
 	end
 	wdelete,!D.window - 1		; 2D image window
+	if n_elements(data_2d) eq 0 then return
 	if scanData.image gt 2 then catch1d_win_2D_update2,/redo else $
                 catch1d_win_2D_update1,/redo
 	END
