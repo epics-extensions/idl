@@ -10,6 +10,12 @@
 ;device,decomposed=0
 device,retain=2
 
+; set default plot character size
+; !p.charsize=1.2
+window,/pixmap,xsize=1,ysize=1
+device,set_character_size=[8,12]
+wdelete
+
 product = getenv('EPICS_EXTENSIONS')
 
 arch = getenv('EPICS_HOST_ARCH')
