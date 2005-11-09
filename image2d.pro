@@ -838,65 +838,17 @@ end
 	image2d_state.width = sz(1)
 	image2d_state.height = sz(2)
 
-       t_format = 'G18.8'
-        if keyword_set(format) then t_format = format
-        fwidth = 'I'+strmid(t_format,1,strpos(t_format,'.')-1)
-
         dir = image2d_state.outpath+'ASCII'+!os.file_sep
         found = findfile(dir,count=ct)
         if ct lt 1 then spawn,!os.mkdir + ' ' +dir
 
 	detector = image2d_state.detector
-        suf0 = '00'
-        suf = strtrim(detector,2)
-        ln = strlen(suf)
-        strput,suf0,suf,2-ln
-        file = image2d_state.name +'.im'+suf0
-        report = file
+	suf0 = strsplit(image2d_state.DPVS(detector-1),':',/extract)
+        file = image2d_state.name +'_im'+ suf0[0] 
+        report = dir+file
+	image2d_writeImage,image2d_state,image,px,py,detector-1,report
+	xdisplayfile,report
 
-        if keyword_set(outfile) then report = strtrim(outfile,2)
-
-        ; check for write permission error
- ;       catch,status_error
- ;       if status_error ne 0 then begin
- ;       lp = strpos(file,!os.file_sep,/reverse_search)
- ;       if lp gt 0 then class = strmid(file,lp+1,strlen(file)-lp-1)
- ;       report = dir+class
- ;       end
-
-        openw,fw,dir+report,/get_lun
-
-        s = size(image)
-        dim = s(1:2)
-        printf,fw,'; From:',image2d_state.name ,',   Detector = ',image2d_state.DPVS(detector-1) ;strtrim(detector,2)
-
-        printf,fw,';   data('+strtrim(dim(0),2)+','+strtrim(dim(1),2)+')'
-        printf,fw,'; -------------------------------'
-
-        f0 = '(";              (yvalues)",'+ '5000('+t_format+',:))'
-        if n_elements(py) gt 0 then printf,fw,format=f0,py
-        if n_elements(py) gt 0 then begin
-                f1 = '('+t_format+',I,'+strtrim(dim(1),2)+'('+t_format+'))'
-                f0 = '(";                   \ Y",'+strtrim(dim(1),2)+fwidth+',/,";                  X \",/,";      (xvalues)")'
-                endif else begin
-                f0 = '(";    \ Y",'+strtrim(dim(1),2)+fwidth+',/,";   X \",/)'
-                f1 = '(I,'+strtrim(dim(1),2)+'('+t_format+'))'
-                end
-        printf,fw,format=f0,indgen(dim(1))
-        newdata = transpose(image)
-        d1 = dim(1)
-        d2 = dim(0)
-        temp = make_array(dim(1))
-        for j=0,d2-1 do begin
-
-       temp = newdata(0:d1-1,j)
-        if n_elements(px) gt 0 then printf,fw,format=f1,px(j),j,temp else $
-                printf,fw,format=f1,j,temp
-        end
-        free_lun,fw
-
-        if keyword_set(nowin) then return
-        xdisplayfile,dir+report,group=group
 END
 
 PRO show_cross,x,y,d_id,s_id
@@ -1353,30 +1305,6 @@ if image2d_state.view_option.z_min ne image2d_state.view_option.z_max then $
 		title = ' vs X,Y Values'
 		end
 
-log = 0
-off = 0.
-if v_max gt v_min then begin
-if image2d_state.LOG then begin
-	if v_min lt 0 then begin
-	; log scale is not good for v_man < 0
-	newimage2 = newimage-v_min
-	off = v_min
-	v_max = v_max-v_min
-	v_min= 0.;.01*v_max
-	end
-	log = 1
-	newimage2 = alog10(newimage2)
-	if v_min ge 0 then begin
-	v_max = alog10(v_max)
-	if v_min eq 0 then begin
-		if v_max gt 1. then v_min = .01*v_max else $
-		v_min = -2
-	endif else v_min = alog10(v_min)
-	end
-end
-end
-
-		; for PS  get aspect ratio, outward tick marks 
 
 	; draw headers
 
@@ -1431,7 +1359,11 @@ end
 		newimage2 = congrid(image,width,height)
 		if v_max eq v_min then $
 		    TV,newimage2*fact, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b else $
-		    TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b
+		begin 
+		if image2d_state.LOG then $
+			newimage2 = alog10(newimage2-.999*v_min)
+		TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/NAN 
+	        end
 
 		    p1 = [float(image2d_state.view_option.margin_l)/ !d.x_size, $
 			float(image2d_state.view_option.margin_b)/!d.y_size, $
@@ -1505,8 +1437,6 @@ end
 			dv = v_max - v_min
 			if dv eq 0 then fact = ncolors  else fact = ncolors / dv
 			newimage2 = newimage2*fact
-		endif else begin
-		newimage2 = bytscl(newimage2,top=ncolors,min=v_min,max=v_max)
 		end
 
 		xrange = [x_min,x_max]
@@ -1518,29 +1448,6 @@ end
 		title = 'vs X,Y Values'
 		end
 
-
-log = 0
-off = 0.
-if v_max gt v_min then begin
-if image2d_state.LOG then begin
-	if v_min lt 0 then begin
-	; log scale is not good for v_man < 0
-	newimage2 = newimage-v_min
-	off = v_min
-	v_max = v_max-v_min
-	v_min= 0.;.01*v_max
-	end
-	log = 1
-	newimage2 = alog10(newimage2)
-	if v_min ge 0 then begin
-	v_max = alog10(v_max)
-	if v_min eq 0 then begin
-		if v_max gt 1. then v_min = .01*v_max else $
-		v_min = -2
-	endif else v_min = alog10(v_min)
-	end
-end
-end
 		; for PS  get aspect ratio, outward tick marks 
 
 	; draw headers
@@ -1595,8 +1502,13 @@ end
 
 		endif else begin
 		if v_max eq v_min then $
-		    TV,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan else $
-		    TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/nan
+		    TV,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/NAN else $
+		begin 
+		if image2d_state.LOG then $
+			newimage2 = alog10(newimage2-.999*v_min)
+		TVSCL,newimage2, image2d_state.view_option.margin_l, image2d_state.view_option.margin_b,/NAN 
+	        end
+
 		    p1 = [float(image2d_state.view_option.margin_l)/ !d.x_size, $
 			float(image2d_state.view_option.margin_b)/!d.y_size, $
 			(float(image2d_state.view_option.margin_l)+width)/!d.x_size, $
@@ -1863,6 +1775,70 @@ PRO image2d_resetInit,image2d_state
 
 END
 
+PRO image2d_all,image2d_state,group=group
+
+        image_array = *image2d_state.image_array
+        xarr = *image2d_state.xarr
+        yarr = *image2d_state.yarr
+	px = xarr(0:image2d_state.width-1)
+        py = yarr(0:image2d_state.height-1)
+
+        def = image2d_state.id_def
+        nodet = n_elements(def)
+
+        dir = image2d_state.outpath+'ASCII'+!os.file_sep
+        found = findfile(dir,count=ct)
+        if ct lt 1 then spawn,!os.mkdir + ' ' +dir
+
+	for detector=0,nodet-1 do begin
+	image = image_array(*,*,detector)
+	if def(detector) gt 0 then begin
+	suf0 = strsplit(image2d_state.DPVS(detector),':',/extract)
+        file = image2d_state.name +'_im'+ suf0[0] 
+        report = dir + file
+	print,'Created ...',file,detector
+	image2d_writeImage,image2d_state,image,px,py,detector,report
+	end
+	end
+	xdisplayfile,report
+END
+
+PRO image2d_writeImage,image2d_state,image,px,py,detector,report
+
+	t_format = image2d_state.view_option.format
+        fwidth = 'I'+strmid(t_format,1,strpos(t_format,'.')-1)
+
+        openw,fw,report,/get_lun
+        s = size(image)
+        dim = s(1:2)
+        printf,fw,'; From:',image2d_state.name ,',   Detector = ',image2d_state.DPVS(detector) 
+
+        printf,fw,';   data('+strtrim(dim(0),2)+','+strtrim(dim(1),2)+')'
+        printf,fw,'; -------------------------------'
+
+        f0 = '(";              (yvalues)",'+ '5000('+t_format+',:))'
+        if n_elements(py) gt 0 then printf,fw,format=f0,py
+        if n_elements(py) gt 0 then begin
+                f1 = '('+t_format+',I,'+strtrim(dim(1),2)+'('+t_format+'))'
+                f0 = '(";                   \ Y",'+strtrim(dim(1),2)+fwidth+',/,";                  X \",/,";      (xvalues)")'
+                endif else begin
+                f0 = '(";    \ Y",'+strtrim(dim(1),2)+fwidth+',/,";   X \",/)'
+                f1 = '(I,'+strtrim(dim(1),2)+'('+t_format+'))'
+                end
+        printf,fw,format=f0,indgen(dim(1))
+        newdata = transpose(image)
+        d1 = dim(1)
+        d2 = dim(0)
+        temp = make_array(dim(1))
+        for j=0,d2-1 do begin
+
+       temp = newdata(0:d1-1,j)
+        if n_elements(px) gt 0 then printf,fw,format=f1,px(j),j,temp else $
+                printf,fw,format=f1,j,temp
+        end
+        free_lun,fw
+END
+
 PRO image2d_igor,image2d_state,group=group
 
         image_array = *image2d_state.image_array
@@ -1949,14 +1925,13 @@ COMMON COLORBAR, colorbar_data
 
   CASE Event.Value OF 
 
-  'File.Open...': BEGIN
-;    PRINT, 'Event for File.Open...'
-;	r = dialog_pickfile(get_path=p,group=Event.top,/must_exist, $
-;		filter='*.mda', $
-;		path=image2d_state.path,/read)
-;	if r eq '' then return
-;	image2d_state.path = p
-;	image2d_readParms,image2d_state,filename=r
+  'File.Open Ascii...': BEGIN
+    PRINT, 'Event for File.Open...'
+	r = dialog_pickfile(get_path=p,group=Event.top,/must_exist, $
+		filter='*im*', $
+		path=image2d_state.outpath+'ASCII',/read)
+	if r eq '' then return
+	xdisplayfile,r
     END
   'File.Save Image for AIM': BEGIN
 	imarr = image
@@ -2003,6 +1978,9 @@ COMMON COLORBAR, colorbar_data
     END
   'File.Save as IGOR TXT': BEGIN
 	image2d_igor,image2d_state,GROUP=Event.top
+    END
+  'File.Save All Images': BEGIN
+	image2d_all,image2d_state,GROUP=Event.top
     END
   'File.Printer...': BEGIN
 	PS_printer,Group=Event.top
@@ -2704,12 +2682,13 @@ PS_init
 
   MenuDesc267 = [ $
       { CW_PDMENU_S,       1, 'File' }, $ ;        0
-;        { CW_PDMENU_S,       0, 'Open...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Save Image for AIM' }, $ ;        2
         { CW_PDMENU_S,       0, 'Save as PNG' }, $ ;        3
         { CW_PDMENU_S,       0, 'Save as TIFF' }, $ ;        4
         { CW_PDMENU_S,       0, 'Save as XDR' }, $ ;        5
         { CW_PDMENU_S,       0, 'Save as IGOR TXT' }, $ ;        5
+        { CW_PDMENU_S,       0, 'Save All Images' }, $ ;        5
+        { CW_PDMENU_S,       0, 'Open Ascii...' }, $ ;        1
         { CW_PDMENU_S,       0, 'Printer...' }, $ ;        6
         { CW_PDMENU_S,       0, 'print' }, $ ;        7
         { CW_PDMENU_S,       0, 'PS_close' }, $ ;        8
