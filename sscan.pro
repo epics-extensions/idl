@@ -500,22 +500,29 @@ PRO scanSee_pick3d_det,Event
 	sscan_read3DPick,SSD,da2D,idet=idet
 	nd = where(SSD.id_def(4:88,0) gt 0)
 	title=SSD.class+' : 3D Seq # :D_'+strtrim(nd(idet)+1,2)
-;	if n_elements(ssd.cal_array) eq 0 then  $
-	sscan_readENV,ssd
-	cal = *ssd.cal_array
 	xv = *ssd.pa[ssd.rank-3]
 	yv = *ssd.pa[ssd.rank-2]
 	zv = *ssd.pa[ssd.rank-1]
+;	if n_elements(ssd.cal_array) eq 0 then  $
+	catch,error_status
+	if error_status ne 0 then begin
+		print,!error_state
+		print,'***Incomplete 3D file***'
+		goto,bypass
+	end
+	sscan_readENV,ssd
+	cal = *ssd.cal_array
 	for i=0,ssd.npts(0)-1 do begin
 	xv(i) = cal(idet).cal_offset+cal(idet).cal_slope*i+cal(idet).cal_quad*i*i
 	end
-	view3d_2d,*SSD.da[0],0,xv,yv,zv,title=title,group=Event.top
+bypass:
+	view3d_2d,*SSD.da[0],0,xv,yv,zv,kmax=SSD.cpt(ssd.rank-1),title=title,group=Event.top,class=SSD.class
 	end
 	if ssd.rank eq 4 then begin
 ;	pda3D = *ssd.da(1)
 	nd = where(SSD.id_def(4:88,1) gt 0)
 	title=SSD.class+' : 3D Seq # :D_'+strtrim(nd(idet)+1,2)
-	view3d_2d,(*ssd.da(1))(*,*,*,idet),title=title,group=Event.top
+	view3d_2d,(*ssd.da(1))(*,*,*,idet),kmax=SSD.cpt(ssd.rank-1),title=title,group=Event.top,class=SSD.class
 	end
 END
 
@@ -719,7 +726,7 @@ PRO SCANSEE_READ_PICK3D_Event, Event
 	detID = da3d_state.detID
   	widget_control,Event.Top,set_uvalue=da3d_state
 ;	da = da3d(*,*,*,i)
-	view3d_2d,da3d(*,*,*,i),group=Event.top,title='3D Array Seq # '+': D_'+strtrim(i+1,2)
+	view3d_2d,da3d(*,*,*,i),kmax=SSD.cpt(ssd.rank-1),group=Event.top,title='3D Array Seq # '+': D_'+strtrim(i+1,2),class=SSD.class
       END
   'SCANSEE_READ_DONE': BEGIN
 	widget_control,event.top,/destroy
@@ -1806,8 +1813,22 @@ end
         xdisplayfile,'1.txt',title=SSD.file+' :SSD INFO: ',group=Event.top
 	end
     END
-  'Report.Report...': BEGIN
+  'Report.View Report...': BEGIN
   	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
+	cd,current=p
+	p = p + !os.file_sep + 'ASCII'
+        f = pickfile(title='Pick Report File',/read,path=p,filter='*')
+        if f ne '' then begin
+                xdisplayfile,f
+        end
+    END
+  'Report.From 1D Array...': BEGIN
+  	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
+	if SSD.nb_det(SSD.rank-1) gt 0 then SB2RPT_1D,SSD
+    END
+  'Report.From 2D Array...': BEGIN
+  	widget_control,Event.top,set_uvalue=scanSee_data,/no_copy
+	if SSD.rank gt 1 and SSD.nb_det(SSD.rank-2) gt 0 then $
 	SB2RPT,SSD,group=Event.top
     END
   'Help.SSD,/struct...': BEGIN
@@ -1961,7 +1982,9 @@ if XRegistered('SSCAN_MAIN13') then return
         { CW_PDMENU_S,       0, 'Env Vars...' }, $ ;       11
         { CW_PDMENU_S,       2, 'SSD,/struct...' }, $ ;       12
       { CW_PDMENU_S,       1, 'Report' }, $ ;        7
-        { CW_PDMENU_S,       2, 'Report...' }, $ ;       12
+        { CW_PDMENU_S,       0, 'From 2D Array...' }, $ ;       12
+        { CW_PDMENU_S,       0, 'From 1D Array...' }, $ ;       12
+        { CW_PDMENU_S,       2, 'View Report...' }, $ ;       12
       { CW_PDMENU_S,       3, 'Help' }, $ ;       13
         { CW_PDMENU_S,       0, 'SSD,/struct...' }, $ ;       14
         { CW_PDMENU_S,       2, 'Help' } $  ;     15
