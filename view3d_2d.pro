@@ -117,7 +117,7 @@ PRO view3d_2Dpick1D,da3D,rank,k,xa=xa,ya=ya,group=group
 
 END
 
-PRO view3d_2Dascii,data,rank,kindex,report,px=px,py=py,title=title,format=format,group=group,outfile=outfile
+PRO view3d_2Dascii,data,rank,kindex,report,state,px=px,py=py,title=title,format=format,group=group,outfile=outfile
 
 	if n_elements(rank) eq 0 then rank = 2
 	if rank gt 2 then rank = 2
@@ -128,23 +128,27 @@ PRO view3d_2Dascii,data,rank,kindex,report,px=px,py=py,title=title,format=format
 	if keyword_set(format) then t_format = format
 	fwidth = 'I'+strmid(t_format,1,strpos(t_format,'.')-1)
 
-	suf0 = 'Z_Slice'
-	if rank eq 0 then suf0 = 'X_Slice'
-	if rank eq 1 then suf0 = 'Y_Slice'
-	file = suf0+'.slc'+strtrim(kindex,2)
-	report = file
+	suf0 = 'Z_'
+	if rank eq 0 then suf0 = 'X_'
+	if rank eq 1 then suf0 = 'Y_'
+	file = suf0+strtrim(kindex,2)+'.txt'
+	dn = strsplit(state.title,':',/extract)
+	dd = dn(n_elements(dn)-1)
+	report = dd+'_'+file
 
 	if keyword_set(outfile) then report = strtrim(outfile,2)
+	outpath = state.outpath + 'ASCII' + !os.file_sep
+	report = outpath + state.class+'.'+report
 
 	openw,fw,report,/get_lun
 
 	s = size(data)
 	dim = s(1:2)
-	st ='; Pick Rank # = '+strtrim(rank,2)
+	st ='; Pick Rank # = '+strtrim(rank+1,2)
 	if rank eq 0 then st = st+ ' (ie X axis) '
 	if rank eq 1 then st = st+ ' (ie Y axis) '
 	if rank eq 2 then st = st+ ' (ie Z axis) '
-	st = st +',   Slicer # ='+strtrim(kindex,2)
+	st = st +',   Slice seq # ='+strtrim(kindex,2)
 	printf,fw,st
 	printf,fw,';   data('+strtrim(dim(0),2)+','+strtrim(dim(1),2)+')'
 	printf,fw,'; -------------------------------'
@@ -197,9 +201,9 @@ PRO view3d_2Dredisplay,state,Event
 	yv = *(state.y)
 	zv = *(state.z)
 
-		suf0 = 'Z_Slice'
-		if rank eq 0 then suf0 = 'X_Slice'
-		if rank eq 1 then suf0 = 'Y_Slice'
+		suf0 = 'Z_'
+		if rank eq 0 then suf0 = 'X_'
+		if rank eq 1 then suf0 = 'Y_'
 		title = title +' (' + suf0+'.slc'+strtrim(kindex,2) +')'
 
 	   sz = size(data)
@@ -235,9 +239,7 @@ PRO view3d_2Dredisplay,state,Event
 		plot2d,im,title=title,group=state.base
 	   end
 	1: begin
-	view3d_2Dascii,im,rank,kindex,report,px=x,py=y,title=title,group=Event.top
-	outpath = state.outpath + 'ASCII'
-	rename_dialog,outpath,report,state.class+'_'+report,Group=group
+	view3d_2Dascii,im,rank,kindex,report,state,px=x,py=y,title=title,group=Event.top
 
 	   end
 	2: begin
@@ -298,12 +300,50 @@ PRO VIEWDRV3D_Event, Event
 	view3d_2Dredisplay,state,Event
 	state.display = odisplay
 	END
+  'VIEW3D_REPORT': BEGIN
+	p = state.outpath + !os.file_sep + 'ASCII'
+	f = pickfile(title='Pick Report File',/read,path=p,filter='*txt*')
+	if f ne '' then begin
+		xdisplayfile,f
+	end
+	END
   'VIEW3D_PANIMAGE': BEGIN
 	H = *state.data
 	sz = size(H)
 	if sz(0) eq 3 then begin
 	panimage,H
 	end
+	END
+  'VIEW3D_IMAGE_REPORT': BEGIN
+	widget_control,Event.top,/hourglass
+	H = *state.data
+	sz = size(H)
+	no = state.dim(2)
+	dn = strsplit(state.title,':',/extract)
+	dd = dn(n_elements(dn)-1)
+	root = state.outpath + 'ASCII' + !os.file_sep + state.class+'.'+dd+'_Z_'
+	x = *state.x
+	for i=0,no-1 do begin
+	report = root+strtrim(i,2)+'.txt'
+	print,"** Generating 3D Slice Report **",report,i,no 
+	openw,1,report
+	printf,1,"; ** 3D Slices Report **"
+		printf,1,';Axial rank= 3 (ie Z axis) ,  Slice seq #=',i
+		im =reform(H(*,*,i),sz(1),sz(2))
+		s = size(im)	
+		f1 = '(";     (yvalues)          "'+strtrim(s(2),2)+'(G18.8))'
+		printf,1,format=f1,*state.y
+		f1 = '(";                \Y Index"'+strtrim(s(2),2)+'(I18))'
+		printf,1,format=f1,indgen(s(2))
+		printf,1,';                X\ Index' 
+		printf,1,';     (xvalues)'
+		f0 = '(G18.8,I,'+strtrim(s(2),2)+'(G18.8))'
+		for j=0,s(1)-1 do begin
+		printf,1,format=f0,x(j),j,im(j,*)
+		end
+	close,1
+	end
+	xdisplayfile,report
 	END
   'VIEW3D_IMAGE_ANIMATE': BEGIN
 	H = *state.data
@@ -349,6 +389,9 @@ PRO VIEWDRV3D_Event, Event
 	'ASCII2D - display 2D image slice as ASCII data', $
 	'ROI2D   - call SCAN2D_ROI program with 2D image slice ', $
 	'PICK1D  - call CALIBRA_PICK1D with 2D image slice ', $ 
+	'','        ** Report Option **', $
+	'View Rpt...   - select and display ASCII report file', $
+	'3D Reports... - generate separate ASCII report for all Z slices', $
 	'','        ** Pick Axial Rank **', $
 	'Rank 0  - pick inner most scan as viewing axis (default)', $
 	'Rank 1  - pick second inner most scan as viewing axis', $
@@ -377,6 +420,7 @@ PRO VIEWDRV3D_Event, Event
       END
   ENDCASE
 
+  widget_control,Event.top,/clear_events
   WIDGET_CONTROL, state.base, SET_UVALUE=state
 
 END
@@ -384,7 +428,7 @@ END
 
 
 
-PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outpath=outpath,class=class,descs=descs
+PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outpath=outpath,class=class,descs=descs,kmax=kmax
 ;+
 ; NAME:
 ;       VIEW3D_2D 
@@ -414,6 +458,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 ;  OUTPATH:   Specifies the output directory path
 ;  CLASS:     Specifies the source file class name 
 ;  DESCS:     Specifies the X,Y,Z axis descriptions
+;  KMAX:      Specifies the actual cpt defined in 3D scan 
 ;
 ; RESTRICTIONS:
 ;    The environment variables must be set by source in 
@@ -435,6 +480,7 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 ;       04-24-2001  bkc Add Outpath, Class keywords on the command line
 ;       02-22-2002  bkc Add a slider and a preview image of 2D slice
 ;       07-11-2002  bkc Add option of plot X,Y in index or axial values
+;       08-30-2005  bkc Add 3D slices report 
 ;-
 
 
@@ -485,6 +531,11 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 
 ;  BUTTON13 = WIDGET_BUTTON( BASE3, UVALUE='VIEW3D_PANIMAGE', $
 ;      VALUE=' PanImage... ')
+  BUTTON14 = WIDGET_BUTTON( BASE3, UVALUE='VIEW3D_REPORT', $
+      VALUE=' View Rpt... ')
+
+  BUTTON15 = WIDGET_BUTTON( BASE3, UVALUE='VIEW3D_IMAGE_REPORT', $
+      VALUE='3D Reports...')
 
 
   BASE8 = WIDGET_BASE(BASE2, $
@@ -582,9 +633,13 @@ PRO view3d_2D, data, rank, xv,yv,zv,GROUP=Group,title=title,slicer3=slicer3,outp
 	z: ptr_new(/allocate_heap), $
 	data: ptr_new(/allocate_heap) $
 	}
+  if keyword_set(kmax) then view3drv_state.dim(2) = kmax 
   if keyword_set(slicer3) then view3drv_state.slicer3 = 1
   if keyword_set(outpath) then view3drv_state.outpath = outpath
-  if keyword_set(class) then view3drv_state.class = class
+  if keyword_set(class) then begin
+	 cl = strsplit(class,'.',/extract)
+	 view3drv_state.class = cl[0]
+  end
   widget_control,BGROUP12,set_value=view3drv_state.value
 		
   *view3drv_state.data = data
