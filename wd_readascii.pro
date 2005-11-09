@@ -375,6 +375,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 	WIDGET_CONTROL,readascii_info.string,GET_VALUE=str
 	readascii_info.comment = str(0)
 	WIDGET_CONTROL,readascii_info.file,GET_VALUE=filename
+	widget_control,/hourglass
 	readascii_0,filename(0),rarray,x,y,xcol=xcol,yrow=yrow, $
 		skip=skip,lines=lines,l_column=l_col,columns=columns
 	if n_elements(x) eq 0 or n_elements(rarray) eq 0 then return
