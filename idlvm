@@ -2,10 +2,10 @@
 
 source $EPICS_EXTENSIONS/bin/$EPICS_HOST_ARCH/idluserdir_setup
 
-source /usr/local/rsi/idl_6.0/bin/idl_setup
-if ( $1 == "readascii") then
-source /usr/local/rsi/idl_6.1/bin/idl_setup
-endif
+#source /usr/local/rsi/idl_6.0/bin/idl_setup
+#if ( $1 == "readascii") then
+source /usr/local/rsi/idl_6.2/bin/idl_setup
+#endif
 
 set ARCH=$EPICS_HOST_ARCH
 if $ARCH == "" then
