@@ -119,7 +119,7 @@ echo ".run scan2d_overlay" >>! go_catcher
 echo ".run catch1d_user" >>! go_catcher
 echo $xyz >>! go_catcher
 
-#	source /usr/local/rsi/idl_6.0/bin/idl_setup
+	source /usr/local/rsi/idl_6.2/bin/idl_setup
 	idl -32 $exe go_catcher
 	rm go_catcher
 exit
