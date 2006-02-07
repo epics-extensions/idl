@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-;  DC.init (R3.4)
+;  DC.init (R3.4.4.2)
 
 np = 4
 nd = n_elements(detname)  ;85 
@@ -98,7 +98,7 @@ debug : 0,    $   ;  0 normal runing mode, 1 debug mode
 option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'IOC_DC', $
-      release     : '(DC R3.4)', $
+      release     : '(DC R3.4.4.2)', $
 	prefix	: '', $
 	scanH	: 0, $
 	nd	: nd, $
@@ -136,6 +136,7 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       num_pos	  : 4, 		  $  max no of pos allowed   
       num_det     : 85, 	  $  max no of detectors allowed 
       wf_sel	  : make_array(89,/int), $
+	id_def	  : make_array(89,/int), $
 	p_def	  : [0,0,0,0], $      ; positioner def id
       	px : ptr_new(/ALLOCATE_HEAP), $ FLTARR(4000), $
 	pa : ptr_new(/ALLOCATE_HEAP), $ Make_array(4000,4,/double), $
