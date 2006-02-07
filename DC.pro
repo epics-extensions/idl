@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.48 2005/11/09 22:50:33 cha Exp $
+; $Id: DC.pro,v 1.49 2006/02/07 16:14:00 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -566,7 +566,7 @@ win_state = WIDGET_INFO(widget_ids.plot_wid, /GEOMETRY)
 if w_plotspec_id.log eq 0 and auto ne 0 then auto=1   
 if w_plotspec_id.log eq 2 and auto ne 0 then auto=2   ;  Y > 0
 
-y_descs = strtrim(y_descs,2)
+;y_descs = strtrim(y_descs,2)
 
 	; check for read or scan case
 	id_def = realtime_id.def(*)
@@ -584,11 +584,6 @@ y_descs = strtrim(y_descs,2)
 		endif else id_def = (*(*gD).id_def)(*,0)
 	if scanH then w_plotspec_array(0)=pv(1) 
 	if dim eq 2 and scanH and scanData.scanH then w_plotspec_array(0)=pv(0) 
-	ydescs = scanData.ydescs
-	zdescs = scanData.zdescs
-	y_descs(*) = ''
-	if dim eq 1 then  y_descs(0:n_elements(ydescs)-1) = ydescs(*) else $
-		y_descs(0:n_elements(zdescs)-1) = zdescs(*)
         end
 	
      if n_elements(w_plotspec_array) ne 0 then begin 
@@ -1065,12 +1060,14 @@ if w_plotspec_id.type eq 0 then begin
 	xdis2 = 0.835*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
 	if id lt npd then begin
-	  xyouts,xdis2,ydis,detname(id)+': '+y_descs(id), /device
+	  xyouts,xdis2,ydis,detname(id)+': '+scanData.ydescs(id), /device
+;	  xyouts,xdis2,ydis,detname(id)+': '+y_descs(id), /device
 	end
 	if id ge npd then begin
 	   idd = id-npd
-	   if strlen(x_descs(idd)) gt 1 then $
-		xyouts,xdis2,ydis,'  '+x_descs(idd), /device else $
+	   xdescs = scanData.xdescs
+	   if strlen(descs(idd)) gt 1 then $
+		xyouts,xdis2,ydis,'  '+xdescs(idd), /device else $
 		xyouts,xdis2,ydis,'  Encoder P'+strtrim(idd+1,2), /device
 	end
 endif else begin
@@ -1088,12 +1085,14 @@ endif else begin
 	xdis2 = 0.835*!d.x_size
 	ydis = pos(3) * !d.y_size - 5 *id1*!d.y_ch_size
 	if id lt npd then begin
-	  xyouts,xdis2,ydis,detname(id)+': '+y_descs(id), /device
+	  xyouts,xdis2,ydis,detname(id)+': '+scanData.ydescs(id), /device
+;	  xyouts,xdis2,ydis,detname(id)+': '+y_descs(id), /device
 	end
 	if id ge npd then begin
 	   idd = id-npd
-	   if strlen(x_descs(idd)) gt 1 then $
-		xyouts,xdis2,ydis,'  '+x_descs(idd), /device else $
+	   xdescs = scanData.xdescs
+	   if strlen(xdescs(idd)) gt 1 then $
+		xyouts,xdis2,ydis,'  '+xdescs(idd), /device else $
 		xyouts,xdis2,ydis,'  Encoder '+detname(id,1), /device
 	end
 end
@@ -2566,8 +2565,8 @@ if strlen(scanData.filemax) gt 1 then $
         printf,unit,st
 	st = "scanData.config='"+ scanData.config+"'"
         printf,unit,st
-	st = "scanData.fastscan='"+ strtrim(scanData.fastscan,2)+"'"
-        printf,unit,st
+;	st = "scanData.fastscan='"+ strtrim(scanData.fastscan,2)+"'"
+;        printf,unit,st
 	st = "scanData.svers='"+ strtrim(scanData.svers,2)+"'"
         printf,unit,st
 ;	st = "w_plotspec_id.dtime='"+ strtrim(w_plotspec_id.dtime,2)+"'"
@@ -3782,37 +3781,18 @@ COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
 ; if w_plotspec_id.mode eq 1 then return
 if XRegistered('w_plotspec') ne 0 then return
 	
+
         title = w_plotspec_array(0)
         ix = w_plotspec_id.xcord
 	t_xlabel = 'P'+strtrim(ix+1,2)
 
-; get title
-	st = scanData.pv
-	title = string(replicate(32b,60))
-        title = st +' ('+ scanData.pv +')'
-;	if scanData.y_scan then begin
-;		y_seqno = scanData.y_seqno
-;		if y_seqno gt 0 and y_seqno eq scanData.y_req_npts then $
-;			y_seqno = y_seqno-1
-;		title = st + ' @ y('+strtrim(y_seqno,2) + ')'
-;	end
-
 ; get xlabel
-	xlabel = string(replicate(32b,60))
      if ix lt 4 then begin
-	len = strlen(x_descs(ix))
-        if len gt 1 then strput,xlabel,x_descs(ix) else $
-        	strput,xlabel,x_names(ix)
-	if len lt 1 then len = 2
-	l2 = strlen(x_engus(ix))
-        if l2 gt 1 then begin
-		len = len + 2
-		strput,xlabel,'(',len
-		len = len + 2
-		strput,xlabel,strtrim(x_engus(ix)),len
-		len = len + l2 + 1
-		strput,xlabel,')',len
-		end
+	xdescs = scanData.xdescs
+	xlabel = xdescs(ix)
+;	if x_descs(ix) ne '' then xlabel = x_descs(ix) else $
+;	xlabel = x_names(ix)
+;	if x_engus(ix) ne '' then xlabel = xlabel +' ('+x_engus(ix) +')'
      end
      if ix ge 4 then begin   ; if detector for x axis
 	ixx = ix - 4
@@ -4161,7 +4141,7 @@ COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
 ;		WIDGET_CONTROL,widget_ids.trashcan,SET_VALUE=scanData.trashcan
 		if  scanData.scanno ge 0 then begin
 ;		WIDGET_CONTROL,w_viewscan_ids.base,/DESTROY
-		w_viewscan,1
+		w_viewscan,1,/init
 		end
 	endif else begin
 		WIDGET_CONTROL,w_viewscan_ids.fileno,SET_VALUE=scanData.fileno
@@ -4221,7 +4201,6 @@ PRO save_scan_dump,filename
 COMMON CATCH1D_COM, widget_ids, scanData 
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array, w_plotspec_id, w_plotspec_limits , w_plotspec_saved
 COMMON w_viewscan_block, w_viewscan_ids, w_viewscan_id
-COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 
 filename = strcompress(w_plotspec_array(3),/remove_all)+'.tmp'
 
@@ -4239,6 +4218,9 @@ if scanData.dim eq 3 then str="; 3D SCAN #: "
 if scanData.y_scan gt 0 then begin
 printf,unit,str,scanData.scanno_2d,",      Y INDEX #:",scanData.y_seqno + 1
 	end
+if scanData.dim eq 2 and scanData.scanH eq 0 then begin
+	printf,unit,str,scanData.scanno_2d
+end
 printf,unit,"; 1D SCAN #: ",w_plotspec_id.seqno 
 printf,unit,"; SCAN Record Name: ",scanData.pv
 
@@ -4275,7 +4257,6 @@ END
 PRO save_data_subset_dump,unit 
 COMMON CATCH1D_COM, widget_ids, scanData 
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array, w_plotspec_id, w_plotspec_limits, w_plotspec_saved
-COMMON realtime_block, realtime_id, realtime_retval, realtime_pvnames
 COMMON LABEL_BLOCK,x_names,y_names,x_descs,y_descs,x_engus,y_engus
 
 ; get desc & eng units
@@ -4291,15 +4272,29 @@ end
 temp_format = '('+scanData.code+scanData.format+')'
 temp_digit = fix(scanData.format)
 
-twd = temp_digit*(total(realtime_id.def) + 1)
+twd = temp_digit*(total(scanData.id_def) + 1)
 s0 = string(replicate(32b,twd))
 
 	no = n_elements(names)
+
+st=s0
+strput,st,';  (PI/DI)',0  &  ij = 17 
+        for i=0,no-1 do begin
+        if scanData.id_def(i) ne 0 then begin
+		if i lt 4 then strput,st,scanData.PI(i),ij else begin
+		   if scanData.svers then strput,st,scanData.DI[15+i-4],ij $
+		   else strput,st,scanData.DI[i-4],ij
+		end
+                ij = ij + temp_digit
+                end
+        end
+	printf,unit,st
+
 	st = s0
-	strput,st,';    I   ',0
+	strput,st,';   PV   ',0
 	ij=17
         for i=0,no-1 do begin
-        if realtime_id.def(i) ne 0 then begin
+        if scanData.id_def(i) ne 0 then begin
 		strput,st,names(i),ij
 		ij=ij+temp_digit
                 end
@@ -4309,17 +4304,18 @@ s0 = string(replicate(32b,twd))
 st=s0
 strput,st,';  (Desc)',0  &  ij = 17 
         for i=0,no-1 do begin
-        if realtime_id.def(i) ne 0 then begin
+        if scanData.id_def(i) ne 0 then begin
                 strput,st,descs(i),ij
                 ij = ij + temp_digit
                 end
         end
-printf,unit,st
+	printf,unit,st
+
 
 st = s0
 strput,st,'; (Units)',0  &  ij = 17 
         for i=0,no-1 do begin
-        if realtime_id.def(i) ne 0 then begin
+        if scanData.id_def(i) ne 0 then begin
                 strput,st,engus(i),ij
                 ij = ij + temp_digit
                 end
@@ -4332,13 +4328,13 @@ for i=0,num_npts-1 do begin
 st = s0
 strput,st,i,0  &  ij = 10
 	for j = 0,3 do begin
-		if realtime_id.def(j) ne 0 then begin
+		if scanData.id_def(j) ne 0 then begin
 		strput,st,string((*scanData.pa)[i,j],format=temp_format),ij  
 		ij = ij + temp_digit
 		end
 	end
 	for j = 0,84 do begin
-		if realtime_id.def(4+j) ne 0 then begin
+		if scanData.id_def(4+j) ne 0 then begin
 		strput,st,string((*scanData.da)[i,j],format=temp_format),ij  
 		ij = ij + temp_digit
 		end
@@ -4569,7 +4565,7 @@ scanData.option = 1  ; acquisition on
 
 END
 
-PRO w_viewscan, unit, GROUP = GROUP, help=help
+PRO w_viewscan, unit, INIT=INIT, GROUP = GROUP, help=help
 
 COMMON CATCH1D_COM, widget_ids, scanData
 COMMON w_plotspec_block, w_plotspec_ids, w_plotspec_array, w_plotspec_id, w_plotspec_limits, w_plotspec_saved
@@ -4598,8 +4594,13 @@ WIDGET_CONTROL, /HOURGLASS
 
 w_viewscan_id.unit = unit
 
+if keyword_set(init) then begin
 	if scanData.bypass3d then scan_read,1,-1,-1,maxno,dim,scanH ,pickDet=-1 else $
-	scan_read,unit,-1,-1,maxno,dim,scanH 
+	scan_read,unit,-1,-1,maxno,dim,scanH  
+endif else begin
+	if scanData.bypass3d then scan_read,1,-1,0,maxno,dim,scanH ,pickDet=-1  else $
+	scan_read,unit,-1,0,maxno,dim,scanH  
+end
 
 next_step:
 if n_elements(maxno) eq 0 then begin
@@ -4816,11 +4817,11 @@ PRO scanimage_alloc,filename,gD,scanno,pickDet=pickDet,header=header,lastDet=las
 gData = { $
 	scanno	: ptr_new(/allocate_heap), $  ;0L, $
 	dim	: ptr_new(/allocate_heap), $  ;0, $
-	num_pts	: ptr_new(/allocate_heap), $  ;[0,0], $
-	cpt	: ptr_new(/allocate_heap), $  ;[0,0], $
-	id_def	: ptr_new(/allocate_heap), $  ;intarr(19,2), $
-	pv	: ptr_new(/allocate_heap), $  ;['',''], $
-	labels	: ptr_new(/allocate_heap), $  ;strarr(57,2), $
+	num_pts	: ptr_new(/allocate_heap), $  ;[0,0,0,0,0], $
+	cpt	: ptr_new(/allocate_heap), $  ;[0,0,0,0,0], $
+	id_def	: ptr_new(/allocate_heap), $  ;intarr(89,5), $
+	pv	: ptr_new(/allocate_heap), $  ;['','','','',''], $
+	labels	: ptr_new(/allocate_heap), $  ;strarr(267,5), $
 	ts	: ptr_new(/allocate_heap), $  ; time stamp array
 	pa1D	: ptr_new(/allocate_heap), $
 	da1D	: ptr_new(/allocate_heap), $
@@ -4848,6 +4849,7 @@ gData = { $
 ;	scanimage_print,gD
 
 END
+
 ;    DC_read.pro
 ;
 ;    if seq_no < =0 then the last scan is plotted
@@ -4933,8 +4935,8 @@ print,scanData.trashcan
 	if n_elements(*(*gD).da3D) gt 0 then $
 	da3D = *(*gD).da3D
 
-;print,'READ AGAIN'
 	goto, populate
+;print,'READ AGAIN'
 	endif else begin
 
 	scanimage_alloc,scanData.trashcan, gD, scanno,pickDet=pickDet,xdescs=xdescs,ydescs=ydescs,zdescs=zdescs
@@ -4974,19 +4976,6 @@ end  ; id >= 0
 
 populate:
 
-if id ge 0 then begin
-	xdescs = scanData.xdescs
-	ydescs = scanData.ydescs
-	if dim gt 1 then zdescs = scanData.zdescs
-end
-scanData.xdescs = xdescs
-scanData.ydescs = ydescs
-if dim gt 1 then scanData.zdescs = zdescs
-y_descs(*) = ''
-x_descs = xdescs
-if dim eq 1 then y_descs(0:n_elements(ydescs)-1) = ydescs(*) else $
-y_descs(0:n_elements(zdescs)-1) = zdescs(*)
-
 	ts = *(*gD).ts
 	if id ge 2 then begin
 	tp = ts(id-2)
@@ -5022,7 +5011,7 @@ end
 
 ; check the header for the file if the the seq_no is set to le 0
 IF seq_no LE 0 THEN BEGIN
-
+	scanData.dim = dim
 	realtime_id.def = id_def[0:scanData.npd-1,0]
 
 	label = labels[*,0]
@@ -5056,7 +5045,6 @@ IF seq_no LE 0 THEN BEGIN
 	   scanData.pv = pv[0]
 	   end
 	end
-
 	if dim eq 3 then begin
 	   realtime_id.def = id_def[0:scanData.npd-1,1]
 	   label = labels[*,1]
@@ -5114,7 +5102,6 @@ END  ; end seqno le 0
 	end
 	END
 
-	scanData.dim = dim
         if dim ge 2 then begin
 	t_cpt = cpt[dim-1]
 		maxno = cpt[dim-1]
@@ -5262,8 +5249,28 @@ w_viewscan_id.seqno = seq_no
 	w_plotspec_array(1) = xdescs
 	end
 
+ if id ge 0 then begin
+       xdescs = scanData.xdescs
+       ydescs = scanData.ydescs
+       if dim gt 1 then zdescs = scanData.zdescs
+ endif else begin
 
 ;	if dim eq 1 and total(da1D) eq 0. then return
+
+	if scanH eq 0 then begin
+		if dim lt 3 then resetDescs,0,labels,id_def,xdescs,ydescs $
+		else resetDescs,1,labels,id_def,xdescs,ydescs
+	endif else begin
+	    if dim eq 2 and scanData.scanH then resetDescs,0,labels,id_def,xdescs,ydescs $
+	    else  resetDescs,1,labels,id_def,xdescs,ydescs
+	end
+
+	scanData.xdescs = xdescs
+	scanData.ydescs = ydescs
+	scanData.zdescs = ydescs
+end
+	scanData.id_def = realtime_id.def
+	setPlotLabels
 
 	UPDATE_PLOT,scanData.lastPlot
 	id = next_seq_no
@@ -5303,6 +5310,51 @@ end
 END
 
 
+PRO resetDescs,id,labels,id_def,xdescs,ydescs
+COMMON LABEL_BLOCK, x_names,y_names,x_descs,y_descs,x_engus,y_engus
+; set descs for the picked id axis
+; id = 0 for normal 1D/2D
+; id = 1 for 2D/3D with scanH
+;
+	for i=0,3 do begin
+	    if id_def[i,id] eq 1 then begin
+		if labels[i,id] ne '' then begin
+			x_names[i] = labels[i,id]
+			x_descs[i] = labels[89+i,id]
+			x_engus[i] = labels[89+89+i,id]
+		end
+;	    print,i,x_names[i],',', x_descs[i],',', x_engus[i]
+	    end
+	end	
+	for i=4,88 do begin
+	    if id_def[i,id] eq 1 then begin
+		if labels[i,id] ne '' then begin
+			y_names[i-4] = labels[i,id]
+			y_descs[i-4] = labels[89+i,id]
+			y_engus[i-4] = labels[89+89+i,id]
+		end
+;	    print,i,y_names[i-4],',', y_descs[i-4],',', y_engus[i-4]
+	    end
+	end	
+
+	for i=0,3 do begin
+	    if id_def[i,id] eq 1 then begin
+		if labels[i+89,id] ne '' then xdescs[i] = labels[89+i,id] $
+		else xdescs[i] = labels[i,id]
+		if labels[89+89+i,id] ne '' then $
+			xdescs[i] = xdescs[i]+' ('+labels[89+89+i,id] +')'
+	    end
+;	    print,i,xdescs[i]
+	end	
+	ydescs = y_descs
+	for i=4,88 do begin
+	    if id_def[i,id] eq 1 then begin
+		if labels[i+89,id] ne '' then ydescs[i-4] = labels[89+i,id] $
+		else ydescs[i-4] = labels[i,id]
+;	    print,i,ydescs[i-4]
+	    end
+	end
+END
 
 ; 
 ; save data only for curr scan record 
@@ -5992,10 +6044,6 @@ if scanData.dim eq 4 then str='4D SCAN #'
 
 	title=str+strtrim(scanData.scanno_2d,2) + ' : '+ $
 		scanData.sublist(scanData.sel_id,scanData.new)
-
-
-;print,'scanData.y_scan=',scanData.y_scan
-;print,',realtime_id.ind=',realtime_id.ind ,',fastscan=',scanData.fastscan
 
 if scanData.fastscan then image_subarray = *(*gD).da2D else begin
 if realtime_id.ind gt 0 and size(data_2d,/type) eq 8 then image_subarray = data_2d.image else $ 
@@ -8869,7 +8917,7 @@ end ;     end of if scanData.option = 1
 		sel=wf_sel(0:scanData.num_det-1), $
 		title=scanData.trashcan,group=Event.top
 	END
-  'PICK_SCANH': BEGIN
+  'PICK_SCANH': BEGIN 
 	if scanData.dim eq 2 then begin
 	scanData.scanH = Event.Index
 	scan_read,1,-1,0,maxno    ; no read desired
@@ -8888,11 +8936,11 @@ end ;     end of if scanData.option = 1
 	  w_plotspec_id.xcord = 0
 	  if Event.Index eq 0 then w_plotspec_id.x_axis_u = 1 else $
 	  w_plotspec_id.xcord = Event.Index - 1
-	  p1 = (*scanData.pa)[0:scanData.req_npts-1,w_plotspec_id.xcord] 
+	  sz = size(*scanData.pa)
+	  p1 = (*scanData.pa)[0:sz[1]-1,w_plotspec_id.xcord] 
 	  w_plotspec_limits(0) = p1(0)
-	  w_plotspec_limits(1) = p1(scanData.req_npts-1)
+	  w_plotspec_limits(1) = p1(sz[1]-1)
 	endif else  zoom_checkAxis,Event
-
 	setPlotLabels
 	if realtime_id.ind eq 1 then begin
 		realtime_id.no = 0
@@ -8949,8 +8997,10 @@ end ;     end of if scanData.option = 1
 	if scanData.svers then scanData.wf_sel = wf_sel(15:88) else $
 	scanData.wf_sel = wf_sel
 	if scanData.y_scan eq 0 and w_plotspec_id.scan eq 0 then begin
-		scan_read,1,-1,0,maxno    ; no read desired
-	endif else	UPDATE_PLOT, scanData.lastPlot 
+;		scan_read,1,-1,0,maxno    ; no read desired
+;	endif else	
+		UPDATE_PLOT, scanData.lastPlot 
+	end
 
   	if scanData.y_scan or w_plotspec_id.scan then begin
 		realtime_id.ymin=0.
@@ -9480,6 +9530,10 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;			Increase font size in graphic area
 ;                       Fix log image in image2d.pro
 ;			Add From 2D /1D Array report in sscan.pro
+;       02-03-2006 bkc  R3.4.4.2 
+;			Improve various 1D report generateion features
+;			Fixed X label and discriminate the inconsistant case 
+;			in realtime and MDA file
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -9503,7 +9557,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 	/KBRD_FOCUS_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R3.4.4.1)', $
+      TITLE='scanSee ( R3.4.4.2)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
