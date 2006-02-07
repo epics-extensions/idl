@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.63 2005/11/09 23:10:57 cha Exp $
+; $Id: catcher_v1.pro,v 1.64 2006/02/07 16:19:46 cha Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -484,7 +484,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.63 2005/11/09 23:10:57 cha Exp $
+; $Id: catcher_v1.pro,v 1.64 2006/02/07 16:19:46 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -8364,6 +8364,7 @@ end
 END
 
 PRO PDMENU_VDATA_Event, Event
+COMMON SYSTEM_BLOCK,OS_SYSTEM
   COMMON CATCH1D_COM, widget_ids, scanData
 
   CASE Event.Value OF 
@@ -8376,6 +8377,7 @@ PRO PDMENU_VDATA_Event, Event
 	view2d,/CA, GROUP= event.top, file=scanData.trashcan+'.image'
  	END
   'ViewData.1D Overlay ...': BEGIN
+	spawn,[OS_SYSTEM.cp,scanData.trashcan,scanData.trashcan+'.bk'],/noshell
 	if scanData.XDR then $
         view1d_overlay, scanData.trashcan,/XDR, GROUP=event.top else $
         view1d_overlay, scanData.trashcan, GROUP=event.top 
