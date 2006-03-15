@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.49 2006/02/07 16:14:00 cha Exp $
+; $Id: DC.pro,v 1.50 2006/03/15 19:37:32 cha Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -4881,6 +4881,7 @@ COMMON CATCH1D_2D_COM,data_2d, gD
  new_pv = [scanData.pv, scanData.y_pv]
  old_yscan = scanData.y_scan
  old_id_def = realtime_id.def
+ xdescs = ['','','',''] 
 
 next_seq_no = seq_no + 1
  npd = scanData.num_det + 4
@@ -4999,7 +5000,7 @@ populate:
 	end
 
 ; make sure 3D scan have correct image_array returned  before continuation
-if dim gt 1 then begin
+if dim gt 1 and n_elements(da2D) gt 1 then begin
   sz = size(da2D)
   if sz(3) gt 70 then begin
 	scanData.svers = 0
@@ -5026,6 +5027,16 @@ IF seq_no LE 0 THEN BEGIN
 	maxno = cpt[1]
 	scanData.y_req_npts = num_pts[1]
 
+	if dim eq 3 then begin
+	   realtime_id.def = id_def[0:scanData.npd-1,1]
+	   label = labels[*,1]
+		maxno = cpt[2]
+		scanData.req_npts = num_pts[1]
+		scanData.y_req_npts = num_pts[2]
+	        scanData.y_pv = pv[2]
+	        scanData.pv = pv[1]
+	end
+
 	; check for existence of scanH
 
 	if scanH then begin
@@ -5045,17 +5056,8 @@ IF seq_no LE 0 THEN BEGIN
 	   scanData.pv = pv[0]
 	   end
 	end
-	if dim eq 3 then begin
-	   realtime_id.def = id_def[0:scanData.npd-1,1]
-	   label = labels[*,1]
-		maxno = cpt[2]
-		scanData.req_npts = num_pts[1]
-		scanData.y_req_npts = num_pts[2]
-	        scanData.y_pv = pv[2]
-	        scanData.pv = pv[1]
 	end
 
-	end
 	end
 	read_desc_engu,label 
 
@@ -5165,22 +5167,26 @@ for i=0,3 do begin
         if realtime_id.def[i] gt 0 then begin
 	if dim gt 2 then begin 
 	if n_elements(pa2D) gt 1 then begin
-	  act_npts = sz(1)
+	  tsz = size(pa2D)
+	  act_npts = tsz(1)
 	  (*scanData.pa)[0:act_npts-1,i] = pa2D[0:act_npts-1,i] 
 	end
 	end
 	if dim eq 2 then begin 
 	   if scanH eq 0 then begin
-	     act_npts = sz(1)
+	     tsz=size(pa2D)
+	     act_npts = tsz(1)
 	     (*scanData.pa)[0:act_npts-1,i] = pa2D[0:act_npts-1,i] 
 	   endif else begin
 	     if scanData.scanH eq 0 then begin
 	     if n_elements(pa1d) gt 1 then begin
-	     act_npts = sz(2)
+	     tsz=size(pa1D)
+	     act_npts = tsz(1)
 	     (*scanData.pa)[0:act_npts-1,i] = pa1D[0:act_npts-1,i] 
 	     end
 	     endif else begin
-	     act_npts = sz(1)
+	     tsz=size(pa2D)
+	     act_npts = tsz(1)
 	     (*scanData.pa)[0:act_npts-1,i] = pa2D[0:act_npts-1,i] 
 	     end
 	   end
@@ -5243,10 +5249,9 @@ w_viewscan_id.seqno = seq_no
 	w_plotspec_array(1) = x_descs(ix)
 
         if dim eq 3 then begin
-        ix = npd+w_plotspec_id.xcord
-        xdescs = labels(ix,dim-2)
-        if labels(ix+npd,dim-2) ne '' then xdescs = xdescs +' ('+labels(ix+npd,dim-2)+')'
-	w_plotspec_array(1) = xdescs
+        xdescs(ix) = labels(ix,dim-2)
+        if labels(ix+npd,dim-2) ne '' then xdescs(ix) = xdescs(ix) +' ('+labels(ix+npd,dim-2)+')'
+	w_plotspec_array(1) = xdescs(ix)
 	end
 
  if id ge 0 then begin
@@ -5278,7 +5283,7 @@ end
 
 ; reset pvnames and scan record realtime parameters for scan mode (future scan) 
 
-if id lt 0 then begin
+if id lt 0 or dim eq 1 then begin
 	if strlen(new_pv[0]) gt 2 then scanData.pv = new_pv[0]
 	if strlen(new_pv[1]) gt 2 then scanData.y_pv = new_pv[1]
 
@@ -9013,6 +9018,7 @@ end ;     end of if scanData.option = 1
   ELSE:     ;don't stop of no matches
   ENDCASE
 
+  if !d.name ne 'WIN' then $
 	widget_control,Event.Id,/clear_events
 END
 
