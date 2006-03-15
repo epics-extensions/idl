@@ -181,8 +181,12 @@ nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
    }
 
 found = findfile('catch1d.tbl')
-if found(0) eq '' then $
-scanData.tblfile='/usr/local/epics/extensions/idllib/catch1d.tbl' 
+if found(0) eq '' then begin
+	if !d.name ne 'WIN' then $
+scanData.tblfile=getenv('EPICS_EXTENSIONS')+!os.file_sep+ 'idllib'+ !os.file_sep +'catch1d.tbl'  else $
+scanData.tblfile=getenv('SCANSEE_STARTUP')+!os.file_sep+'catch1d.tbl'
+print,scanData.tblfile
+end
 
    scanData.sublist(*,0) = l123(*)
    scanData.sublist(*,1) = l123_1(*)
