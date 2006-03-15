@@ -37,7 +37,8 @@ PRO rix2DC,Scan,gData
     *gData.pa1D  = *Scan.pa[1]
     *gData.da1D  = *Scan.da[1] 
     *gData.pa2D  = *Scan.pa[0] 
-    *gData.da2D  = *Scan.da[0] 
+    if n_elements(*Scan.da[0]) gt 1 then $
+    *gData.da2D  = *Scan.da[0] else *gData.da2D = 0 
 	  *gData.pa3D  = 0
 	  *gData.da3D  = 0
   ENDIF
@@ -314,6 +315,7 @@ PRO sscan_getDescs,SSD,xdescs,ydescs,zdescs
 	if strtrim(xd(i).RXEU,2) ne ''  then xdescs(i) = xdescs(i) + ' ('+xd(i).RXEU+')'
 	end
 	HD_D = SSD.HD_D
+	if ssd.detMax(0) eq 0 then return
 	yd = HD_D(0:SSD.detMax(0)-1,0)
 	ydescs = yd.DXDS
 	return
@@ -334,6 +336,7 @@ PRO sscan_getDescs,SSD,xdescs,ydescs,zdescs
 	end
 ; detector desc
 	HD_D = SSD.HD_D
+	if ssd.detmax(ssd.rank-2) eq 0 then return
 	zd = HD_D(0:SSD.detMax(SSD.rank-2)-1,SSD.rank-2)
 	zdescs = zd.DXDS
 	pvs = zd.DXPV
@@ -362,6 +365,10 @@ PRO scanSee_plot1d,SSD,xaxis,x=x,da=da
 
 ; detector desc
 	id_def = SSD.id_def(4:88,rank-1)
+	if total(id_def) eq 0.0 then begin
+		 print,'*** Bad MDA scan file detected'
+		 return
+	end
 	HD_D = SSD.HD_D
 	zd = HD_D(0:SSD.detMax(rank-1)-1,rank-1)
 	pvs = zd.DXPV
@@ -537,7 +544,9 @@ PRO scanSee_checkrank,scanSee_data
 	end
 	if SSD.rank eq 3 then begin
 	    WIDGET_CONTROL,scanSee_data.p4d_wid,SENSITIVE=0 
+	    if ssd.nb_det(0) gt 0  then $
 	    WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 
+	    if SSD.nb_det(0) gt 0 then $
 	    widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
 	    return
 	end
@@ -1274,6 +1283,7 @@ PRO sscan_read2D,SSD,da2D
 	if n_elements(ptr3D) eq 0 then return
 
 	cpt = SSD.cpt
+	if n_elements(*ssd.da(0)) eq 0 then return
 	da2D = *SSD.da(0)
 	for k=0,cpt(1)-1 do begin
 	  pos = ptr3D(k)
@@ -1563,9 +1573,11 @@ dataonly:
 
 
 	if SSD.rank eq 2 then begin
+		if ssd.detmax(0) gt 0 then begin
 		id_def = SSD.id_def(4:4+SSD.detMax(0)-1,0)
 		panimage,*SSD.da(0),id_def,numd=10, $
 			title='SSCAN: 2D scan #'+strtrim(SSD.scanno,2)
+		end
 	end
 
 if n_elements(zslice) eq 0 then zslice=1
@@ -1667,9 +1679,11 @@ PRO PDMENU2_Event, Event
 print,SSD.path
   	WIDGET_CONTROL, scanSee_data.file_wid, set_value=SSD.file 
   	WIDGET_CONTROL, scanSee_data.btns_wid, SENSITIVE=1
+	if SSD.nb_det(0) gt 0 then begin
   	widget_control,scanSee_data.p3d_wid,set_value='Pick3D Seq # '+strtrim(indgen(SSD.nb_det(0))+1,2)
 	if SSD.rank eq 3 then WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=1 $
 	else WIDGET_CONTROL,scanSee_data.p3d_wid,SENSITIVE=0
+	end
 
 	scanSee_checkrank,scanSee_data
 	
