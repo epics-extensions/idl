@@ -9,6 +9,7 @@
 
 FORWARD_FUNCTION READ_SCAN,READ_SCAN_FIRST,READ_SCAN_REST
 
+@scan_colorbar.pro
 
 PRO rix2DC,Scan,gData
 ON_ERROR,0 ;,1
@@ -633,7 +634,7 @@ COMMON COLORS, R_ORIG, G_ORIG, B_ORIG, R_CURR, G_CURR, B_CURR
 	LOADCT,39
 END
 
-; $Id: vw2d.pro,v 1.19 2003/05/05 21:05:20 cha Exp $
+; $Id: vw2d.pro,v 1.20 2013/03/19 23:30:56 rivers Exp $
 
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
@@ -1286,7 +1287,7 @@ END ;================ end of XSurface background task =====================
 
 
 
-; $Id: vw2d.pro,v 1.19 2003/05/05 21:05:20 cha Exp $
+; $Id: vw2d.pro,v 1.20 2013/03/19 23:30:56 rivers Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message

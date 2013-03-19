@@ -1,4 +1,6 @@
-; $Id: view2d.pro,v 1.45 2005/03/31 21:58:05 cha Exp $
+; $Id: view2d.pro,v 1.46 2013/03/19 23:31:41 rivers Exp $
+
+@scan_colorbar
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
