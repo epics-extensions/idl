@@ -7,7 +7,7 @@
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
 #
-# $Id: Makefile,v 1.5 2007/08/14 20:28:22 jba Exp $
+# $Id: Makefile,v 1.6 2013/03/19 23:37:33 rivers Exp $
 #
 TOP = ../..
 include $(TOP)/configure/CONFIG
@@ -18,7 +18,7 @@ DOCS = catcher.README catcher.html  catcher_help.txt view2d_help.txt \
 
 IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 	os.init PS_open.pro u_read.pro cw_term.pro plot1d.pro plot2d.pro \
-	colorbar.pro rename_dialog.pro scan2d_roi.pro xdisplayfile.pro \
+	scan_colorbar.pro rename_dialog.pro scan2d_roi.pro xdisplayfile.pro \
 	fit_statistic.pro calibration_factor.pro calibra_pick1d.pro \
 	calibdrv.pro iplot1d.pro overlay_1d.pro \
 	h5b.pro plot2d_image.pro saveImage.pro \

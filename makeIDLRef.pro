@@ -124,11 +124,11 @@ mk_html_help,'plot2d.pro','html/plot2dRef.html', $
 END
 
 PRO colorbarRef
-descript=[ '<H1>colorbar.pro</H1> ', $
+descript=[ '<H1>scan_colorbar.pro</H1> ', $
 'At APS this program is installed in the <B>/usr/local/epics/extensions/idllib</B> directory for EPICS R3.14.', $
 'This is a utility routine for generating the colorbar on a plot device.' $
 ]
-mk_html_help,'colorbar.pro','html/colorbarRef.html', $
+mk_html_help,'scan_colorbar.pro','html/colorbarRef.html', $
 	descript=descript
 
 END
