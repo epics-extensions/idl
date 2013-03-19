@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: view1d.pro,v 1.25 2004/07/13 19:06:40 cha Exp $
+; $Id: view1d.pro,v 1.26 2013/03/19 23:33:57 rivers Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -213,7 +213,7 @@ Xmanager, "XDisplayFile", $				;register it with the
 
 END  ;--------------------- procedure XDisplayFile ----------------------------
 
-; $Id: view1d.pro,v 1.25 2004/07/13 19:06:40 cha Exp $
+; $Id: view1d.pro,v 1.26 2013/03/19 23:33:57 rivers Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3405,7 +3405,7 @@ END
 ; view1d_drv.pro
 ;
  
-@colorbar.pro
+@scan_colorbar.pro
 @u_read.pro
 @PS_open.pro
 @cw_term.pro

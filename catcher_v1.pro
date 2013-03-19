@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-; $Id: catcher_v1.pro,v 1.64 2006/02/07 16:19:46 cha Exp $
+; $Id: catcher_v1.pro,v 1.65 2013/03/19 23:33:57 rivers Exp $
 ; Copyright (c) 1991-1993, Research Systems, Inc.  All rights reserved.
 ;	Unauthorized reproduction prohibited.
 
@@ -484,7 +484,7 @@ PRO readfixindex,indexfile,fsize,maxno,array
 	close,unit1
 
 END
-; $Id: catcher_v1.pro,v 1.64 2006/02/07 16:19:46 cha Exp $
+; $Id: catcher_v1.pro,v 1.65 2013/03/19 23:33:57 rivers Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -8292,7 +8292,7 @@ END
 @u_read.pro
 @PS_open.pro
 @cw_term.pro
-@colorbar.pro
+@scan_colorbar.pro
 
 PRO catch1d_refreshScreen,pv
   COMMON CATCH1D_COM, widget_ids, scanData

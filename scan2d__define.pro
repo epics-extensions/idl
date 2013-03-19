@@ -11,7 +11,7 @@
 ;
 
 @u_read.pro
-@colorbar.pro
+@scan_colorbar.pro
 @scan2d_overlay.pro
 @scan2d_convert.pro
 @scan2d_roi.pro

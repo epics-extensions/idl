@@ -16,7 +16,7 @@
 ;
 @PS_open.pro
 @saveImage.pro
-@colorbar.pro
+@scan_colorbar.pro
 @idlitparameterset__define.pro
 @idlitdatacontainer__define.pro
 @idlitvisroi__define.pro

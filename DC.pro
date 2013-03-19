@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.50 2006/03/15 19:37:32 cha Exp $
+; $Id: DC.pro,v 1.51 2013/03/19 23:33:57 rivers Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -7779,7 +7779,7 @@ END
 ;  DC.pro
 ;
 
-@colorbar.pro
+@scan_colorbar.pro
 @sscan.pro
 
 PRO DC_3DscanMessage,filename

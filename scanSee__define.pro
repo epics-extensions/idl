@@ -13,7 +13,7 @@
 @fit_statistic.pro
 @readScan.pro
 @read_scan.pro.R2
-@colorbar.pro
+@scan_colorbar.pro
 @scan2d_roi.pro
 @view3d_2d.pro
 @scan2d_overlay.pro

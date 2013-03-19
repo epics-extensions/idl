@@ -7,7 +7,7 @@
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
 
-@colorbar.pro
+@scan_colorbar.pro
 @saveImage.pro
 @PS_open.pro
 

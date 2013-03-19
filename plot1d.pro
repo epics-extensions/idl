@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-@colorbar.pro
+@scan_colorbar.pro
 @saveImage.pro
 @fit_statistic.pro
 @PS_open.pro
