@@ -20,21 +20,21 @@ PRO view3d_2dsum_result,state
 	image = make_array(state.imax,state.jmax)
 	for k=state.k1_pick,state.k2_pick do begin
 		temp = data(k,*,*)
-		image(*,*) = image(*,*)+temp
+		image[*,*] = image[*,*]+temp
 	   end
 	end
 	1: begin
 	image = make_array(state.imax,state.jmax)
 	for k=state.k1_pick,state.k2_pick do begin
 		temp = data(*,k,*)
-		image(*,*) = image(*,*)+temp
+		image[*,*] = image[*,*]+temp
 	   end
 	end
 	2: begin
 	image = make_array(state.imax,state.jmax)
 	for k=state.k1_pick,state.k2_pick do begin
 		temp = data(*,*,k)
-		image(*,*) = image(*,*)+temp
+		image[*,*] = image[*,*]+temp
 	   end
 	end
 	ENDCASE
@@ -63,12 +63,12 @@ PRO view3d_2dsum_result,state
 	v1 = min(image)
 	v2 = max(image)
 	fact = 100/v2
-	y = image(*,state.j_pick)*fact
+	y = image[*,state.j_pick]*fact
 	n = n_elements(y)
 	x = 100. / (n-1) * indgen(n)
 	plots,x,y,/device
 
-	x = image(state.i_pick,*)*fact
+	x = image[state.i_pick,*]*fact
 	n = n_elements(x)
 	y = 100. / (n-1) * indgen(n)
 	plots,x,y,/device 

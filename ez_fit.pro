@@ -1223,7 +1223,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 	ezfitData.J_index = ezfitData.height-1
 	end
 	if j ge ezfitData.height then ezfitData.J_index = ezfitData.height-1 
-        ezfitData.y = image(*,ezfitData.J_index)
+        ezfitData.y = image[*,ezfitData.J_index]
         title='Y vs X (1D Data)'
 
 	WSET,ezfitData.image_area
@@ -1252,7 +1252,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 ;  'ZX_GETVECTOR'
         if ezfitData.dim eq 2 then begin
 ;                ezfit_get2DData,ezfitData.file,image
-                ezfitData.zy = image(ezfitData.I_index,*)
+                ezfitData.zy = image[ezfitData.I_index,*]
         title='Z vs Y @ X='+strtrim(ezfitData.x(ezfitData.I_index),2)
 
 	WSET,ezfitData.image_area
@@ -1282,7 +1282,7 @@ COMMON W_READASCII_BLOCK,readascii_info
 ; 'ZY_GETVECTOR'
         if ezfitData.dim eq 2 then begin
 ;               ezfit_get2DData,ezfitData.file,image
-                ezfitData.zx = image(*,ezfitData.J_index)
+                ezfitData.zx = image[*,ezfitData.J_index]
         title='Z vs X @ Y='+strtrim(ezfitData.y(ezfitData.J_index),2)
 
 	WSET,ezfitData.image_area
@@ -1364,7 +1364,7 @@ COMMON EZ_FIT_BLOCK,ezfitData,image
 	ezfitData.J_index = ezfitData.height-1
 	end
 	if j ge ezfitData.height then ezfitData.J_index = ezfitData.height-1 
-        ezfitData.y = image(*,ezfitData.J_index)
+        ezfitData.y = image[*,ezfitData.J_index]
         title='Y vs X (1D Data)'
 
 	WSET,ezfitData.image_area
@@ -4658,8 +4658,8 @@ end
 		o_win = !D.window
 		WSET,ezfitData.image_area
 		if ezfitData.dim eq 1 then begin
-			ezfitData.y = image(0:ezfitData.width-1, $ 
-				ezfitData.J_index)
+			ezfitData.y = image[0:ezfitData.width-1, $ 
+				ezfitData.J_index]
 		end
 		plot,ezfitData.x(0:ezfitData.width-1), ezfitData.y, $
 		  thick=2,color=ezfitData.table_size-1, $
@@ -4671,7 +4671,7 @@ end
   'GetData.VectorZy': BEGIN
 	if ezfitData.dim eq 2 then begin
 		ezfit_get2DData,ezfitData.file,image
-		ezfitData.zx = image(*,ezfitData.J_index)
+		ezfitData.zx = image[*,ezfitData.J_index]
 	title='Z vs X @ Y='+strtrim(ezfitData.y(ezfitData.J_index),2)
 	ezfitData.pick=1
         if XRegistered('POLYFITW_SETUP') then $
@@ -4694,7 +4694,7 @@ end
   'GetData.VectorZx': BEGIN
 	if ezfitData.dim eq 2 then begin
 		ezfit_get2DData,ezfitData.file,image
-		ezfitData.zy = image(ezfitData.I_index,*)
+		ezfitData.zy = image[ezfitData.I_index,*]
 	title='Z vs Y @ X='+strtrim(ezfitData.x(ezfitData.I_index),2)
         if XRegistered('POLYFITW_SETUP') then $
         WIDGET_CONTROL,ezfitData.polyfit_label, $
@@ -4964,7 +4964,7 @@ PRO ez_fit,xarray=xarray,yarray=yarray,im=im, GROUP=Group,jpick=jpick,ipick=ipic
 ;               to specify the dependent variable to be fitted..
 ;               
 ;       IM:     Specifies the 2D image array corresponding to XARRAY and 
-;               YARRAY. IMAGE(N,M), where dimenstion N is the same as the 
+;               YARRAY. IMAGE[N,M], where dimenstion N is the same as the 
 ;               number of elements in XARRAY, M is the same as the number 
 ;               of elements in YARRAY.
 ;
@@ -5114,8 +5114,8 @@ if keyword_set(im) then begin
 	if keyword_set(xarray) eq 0 then xarray = indgen(sz(1))
 	if keyword_set(yarray) eq 0 then yarray = indgen(sz(2))
 	ezfit_init2D,xarray,yarray,image2
-		ezfitData.zx = image(*,ezfitData.J_index)
-		ezfitData.zy = image(ezfitData.I_index,*)
+		ezfitData.zx = image[*,ezfitData.J_index]
+		ezfitData.zy = image[ezfitData.I_index,*]
 	if ezfitData.pick eq 0 then ezfitData.pick=1 ; pick column 0
 endif else begin
 	if keyword_set(yarray) then begin
