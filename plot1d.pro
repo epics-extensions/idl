@@ -1351,7 +1351,7 @@ end
 if sz(0) eq 2 then begin
 	leg = make_array(sz(2),/string) 
 	curves = 'Curve '+strtrim(indgen(sz(2)),2)
-if keyword_set(legend) then curves = legend(0:sz(2)-1)
+if keyword_set(legend) then curves = legend[0:sz(2)-1]
 	selection = make_array(sz(2),/int,value=1)
 	list_sel = indgen(sz(2))
 	rfactor = make_array(sz(2),value=1.)
