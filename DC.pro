@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.51 2013/03/19 23:33:57 rivers Exp $
+; $Id: DC.pro,v 1.52 2013/05/31 22:01:57 rivers Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -6314,7 +6314,7 @@ end
 	if y_min lt 0 then y_min = 0
 	if y_max ge y_size then y_max = y_size - 1
 
-	y_vec = image(x, y_min:y_max)
+	y_vec = image[x, y_min:y_max]
 	xv = catch2d_file.xarr(x)
 	title = 'At X(' + strtrim(x,2) + ') = ' + strtrim(xv,2)
 
@@ -6386,7 +6386,7 @@ end
 	if x_min lt 0 then y_min = 0
 	if x_max ge x_size then x_max = x_size - 1
 
-	x_vec = image( x_min:x_max,y)
+	x_vec = image[ x_min:x_max,y]
 	yv = catch2d_file.yarr(y)
 	title = 'At Y(' + strtrim(y,2) + ') = ' + strtrim(yv,2)
 
@@ -6474,7 +6474,7 @@ if x ge catch2d_file.width or y ge catch2d_file.height then begin
 
 ;  find vectior values
 
-zv = image(x+x_min,y+y_min)
+zv = image[x+x_min,y+y_min]
 if view_option.versus then begin
 	xv = catch2d_file.xarr(x+x_min)
 	yv = catch2d_file.yarr(y+y_min)
@@ -6491,8 +6491,8 @@ end
 
 if y ge 0 and y lt y_size then begin
 
-	x_vec = image(x_min:x_max,y + y_min) 
-	y_vec = image(x + x_min, y_min:y_max)
+	x_vec = image[x_min:x_max,y + y_min]
+	y_vec = image[x + x_min, y_min:y_max]
 
 ; call plot1d resizaable window
 
@@ -6566,9 +6566,9 @@ if view_option.user eq 1 then begin
 	end
 
 if x lt catch2d_file.width and y lt catch2d_file.height then begin
-;print,'x,y,zval',x,y, image(x,y)
+;print,'x,y,zval',x,y, image[x,y]
 
-	zv = image(x,y)
+	zv = image[x,y]
 	if view_option.versus then begin
 		xv = catch2d_file.xarr(x)
 		yv = catch2d_file.yarr(y)
@@ -6758,7 +6758,7 @@ if x ge catch2d_file.width or y ge catch2d_file.height then begin
 
 ;  find vectior values
 
-zv = image(x+x_min,y+y_min)
+zv = image[x+x_min,y+y_min]
 xv = catch2d_file.xarr(x+x_min)
 yv = catch2d_file.yarr(y+y_min)
 if view_option.versus then begin
@@ -6773,8 +6773,8 @@ end
 
 if y ge 0 and y lt y_size then begin
 
-	x_vec = image(x_min:x_max,y + y_min) 
-	y_vec = image(x + x_min, y_min:y_max)
+	x_vec = image[x_min:x_max,y + y_min]
+	y_vec = image[x + x_min, y_min:y_max]
 
 ; call plot1d resizaable window
 
@@ -6853,9 +6853,9 @@ if view_option.user eq 1 then begin
 	end
 
 if x lt catch2d_file.width and x ge 0 and y ge 0 and  y lt catch2d_file.height then begin
-;print,'x,y,zval',x,y, image(x,y)
+;print,'x,y,zval',x,y, image[x,y]
 
-	zv = image(x,y)
+	zv = image[x,y]
 	if view_option.versus then begin
 		xv = catch2d_file.xarr(x)
 		yv = catch2d_file.yarr(y)
@@ -9806,7 +9806,13 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   COMMON DRAW61_Comm, DRAW61_Id
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
+  ; Need to initialize ezcaIDL
+  caInit
+
 @DC.init
+
+  ; Need to create !os system variables
+@os.init
 
 ; check for vers
   if keyword_set(VERS) then begin
