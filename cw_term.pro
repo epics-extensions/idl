@@ -433,12 +433,12 @@ COMMON SYSTEM_BLOCK,OS_SYSTEM
 	c = ''
 	WHILE not eof(unit) do BEGIN
 		READF,unit,c
-		text(i) = c
+		text[i] = c
 		i = i + 1
 		if i ge y(0) then goto,stopread
 	ENDWHILE
     stopread:
-	value = text(0:(i-1)>0)  ;Added empty file check -KDB
+	value = text[0:(i-1)>0]  ;Added empty file check -KDB
 	FREE_LUN, unit			;free the file unit.
     ENDELSE
   ENDIF ELSE BEGIN
