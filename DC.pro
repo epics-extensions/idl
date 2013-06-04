@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.53 2013/06/04 17:53:35 rivers Exp $
+; $Id: DC.pro,v 1.54 2013/06/04 19:33:01 rivers Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -9540,6 +9540,9 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;			Improve various 1D report generateion features
 ;			Fixed X label and discriminate the inconsistant case 
 ;			in realtime and MDA file
+;       06-04-2013 jph  R3.4.4.3 
+;                       Changes made to make this work with IDL 8.2.2
+;                       These changes were made by Mark Rivers
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -9563,7 +9566,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 	/KBRD_FOCUS_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R3.4.4.2)', $
+      TITLE='scanSee ( R3.4.4.3)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
