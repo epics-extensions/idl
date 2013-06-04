@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.52 2013/05/31 22:01:57 rivers Exp $
+; $Id: DC.pro,v 1.53 2013/06/04 17:53:35 rivers Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -9806,13 +9806,13 @@ WIDGET_CONTROL, DRAW61, DRAW_XSIZE=win_state.scr_xsize
   COMMON DRAW61_Comm, DRAW61_Id
   WIDGET_CONTROL, DRAW61, GET_VALUE=DRAW61_Id
 
+  ; Need to create !os system variables
+  @os.init
+
   ; Need to initialize ezcaIDL
   caInit
 
 @DC.init
-
-  ; Need to create !os system variables
-@os.init
 
 ; check for vers
   if keyword_set(VERS) then begin
