@@ -6,7 +6,7 @@
 ; This file is distributed subject to a Software License Agreement found
 ; in the file LICENSE that is included with this distribution. 
 ;*************************************************************************
-;  DC.init (R3.4.4.3)
+;  DC.init (R3.4.4.4)
 
 np = 4
 nd = n_elements(detname)  ;85 
@@ -98,7 +98,7 @@ debug : 0,    $   ;  0 normal runing mode, 1 debug mode
 option : 0, $    ; 0 ->view mode only, 1 ->scan/view both allowed
 nosave: 0, $   ; 0 autosave on, 1 no automatic save used by command line
       version     : 'IOC_DC', $
-      release     : '(DC R3.4.4.3)', $
+      release     : '(DC R3.4.4.4)', $
 	prefix	: '', $
 	scanH	: 0, $
 	nd	: nd, $

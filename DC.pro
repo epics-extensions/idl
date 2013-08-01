@@ -1,4 +1,4 @@
-; $Id: DC.pro,v 1.54 2013/06/04 19:33:01 rivers Exp $
+; $Id: DC.pro,v 1.55 2013/08/01 14:25:35 hammonds Exp $
 
 pro my_box_cursor, x0, y0, nx, ny, INIT = init, FIXED_SIZE = fixed_size, $
 	MESSAGE = message
@@ -3200,7 +3200,7 @@ ln = caScan(scanData.pv+'.CPT',list_pvnames,nonames,pts,pd,/get,max=realtime_id.
 cpts = pts
 if cpts le 1 then return
 retval = pd
-
+if cpts gt scanData.req_npts then cpts = scanData.req_npts
 if cpts le scanData.act_npts  then return
 
 if !d.n_colors le !d.table_size then begin
@@ -9543,6 +9543,11 @@ PRO DC, config=config, data=data, nosave=nosave, viewonly=viewonly, GROUP=Group,
 ;       06-04-2013 jph  R3.4.4.3 
 ;                       Changes made to make this work with IDL 8.2.2
 ;                       These changes were made by Mark Rivers
+;       08-01-2013 jph  R3.4.4.4 
+;                        Fix issue when scanRecord seems to overshoot the number
+;                       of points and scanSee tries to access array that is 
+;                       larger than has been allocated based on the expected 
+;                       number of points.
 ;-
 ;
 COMMON SYSTEM_BLOCK,OS_SYSTEM
@@ -9566,7 +9571,7 @@ COMMON catcher_setup_block,catcher_setup_ids,catcher_setup_scan
       MAP=1, /TLB_SIZE_EVENTS, /tracking_events, $
 	/KBRD_FOCUS_EVENTS, $
 ;      TLB_FRAME_ATTR = 8, $
-      TITLE='scanSee ( R3.4.4.3)', $
+      TITLE='scanSee ( R3.4.4.4)', $
       UVALUE='MAIN13_1')
 
   BASE68 = WIDGET_BASE(MAIN13_1, $
