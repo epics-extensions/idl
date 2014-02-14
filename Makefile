@@ -7,7 +7,7 @@
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
 #
-# $Id: Makefile,v 1.7 2014/02/14 15:26:26 jba Exp $
+# $Id: Makefile,v 1.8 2014/02/14 15:50:28 jba Exp $
 #
 TOP = ../..
 include $(TOP)/configure/CONFIG
@@ -32,7 +32,7 @@ IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 	dcviewer.pro viewer_startup.pro \
 	view1d.pro view1d.init view1d_overlay.pro \
 	view2d.pro view2d.init cursor62_caput.pro makeIDLRef.pro \
-	dc2hdf.pro image.pro image2d.pro \
+	dc2hdf.pro img.pro image2d.pro \
 	hdfb.pro NX__define.pro nexus_scan.pro \
 	DC.init DC.pro vw2d.bm view3d_slicer.pro \
 	sscan.pro sscan__define.pro user_scan.pro wc.pro \
