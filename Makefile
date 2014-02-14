@@ -7,7 +7,7 @@
 # in the file LICENSE that is included with this distribution. 
 #*************************************************************************
 #
-# $Id: Makefile,v 1.6 2013/03/19 23:37:33 rivers Exp $
+# $Id: Makefile,v 1.7 2014/02/14 15:26:26 jba Exp $
 #
 TOP = ../..
 include $(TOP)/configure/CONFIG
@@ -46,14 +46,13 @@ IDLS = ezcaidl_startup.pro my_box_cursor.pro \
 
 SCRIPTS_DEFAULT = ezcaidl_setup idluserdir_setup \
 	calibra scanBrowser \
-	idlvm scanSee.sav catcher.sav viewer.sav SB.sav img.sav pick3d.sav \
-	sscan.sav SB2.sav mca.sav readascii.sav \
+	idlvm \
 	dc2tiff \
 	ezfit \
 	catcher toimage \
 	viewer mda2vol \
 	dc2hdf img \
-	hdfb.sav hdfb NX h5b.sav h5b \
+	hdfb NX h5b \
 	scanSee sscan \
 	SB \
 	pick3d 
